@@ -291,3 +291,8 @@ table.books tr.bottom td { font-weight: 800; font-size: 18px; background: #fff3b
   .modal h2 { font-size: 23px; }
 }
 .file-bar { position: sticky; bottom: -18px; background: var(--paper); padding: 8px 0; border-top: 2px dashed var(--line); z-index: 2; }
+
+.lineBtn.wrong { border-color: var(--red); border-width: 3px; background: #ffc9c9; }
+.penny-strip { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; background: #fff4e6; border: 3px solid var(--red); border-radius: 14px; padding: 6px 10px; margin-bottom: 8px; font-weight: 700; }
+.penny-strip.soft { border-color: var(--line); background: #fff; }
+.penny-strip .face { font-size: 30px; }

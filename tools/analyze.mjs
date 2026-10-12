@@ -67,12 +67,13 @@ console.log(`Gift cards sold ${days.reduce((a, d) => a + d.cardsSold, 0)}, redee
 console.log('Ads:', acts.filter((a) => a.type === 'ads').map((a) => a.tier[0].toUpperCase()).join(''));
 
 line('Bookkeeping');
-console.log(`Filed ${sum.filing.tries} papers, ${pct(sum.filing.right, sum.filing.tries)} right the first time.`);
-for (const [doc, b] of Object.entries(sum.filing.byDoc).sort((a, b) => a[1].right / a[1].tries - b[1].right / b[1].tries))
-  console.log(`  ${pct(b.right, b.tries).padStart(4)}  ${DOC_TYPES[doc]?.title || doc} (${b.right}/${b.tries})`);
-const wrong = acts.filter((a) => a.type === 'file' && !a.ok).slice(-8);
+const F = sum.filing;
+console.log(`Filed ${F.papers} papers: ${F.firstTry} first try (${pct(F.firstTry, F.papers)}), ${F.secondTry} second try, ${F.laterTry} after more tries, ${F.byPenny} filed by Penny.`);
+for (const [doc, b] of Object.entries(F.byDoc).sort((a, b) => a[1].firstTry / a[1].papers - b[1].firstTry / b[1].papers))
+  console.log(`  ${pct(b.firstTry, b.papers).padStart(4)} first try  ${DOC_TYPES[doc]?.title || doc} (${b.papers} papers: ${b.firstTry}/${b.secondTry}/${b.laterTry}/${b.byPenny} penny)`);
+const wrong = acts.filter((a) => a.type === 'file' && !a.ok).slice(-10);
 if (wrong.length) console.log('Recent mistakes:');
-for (const w of wrong) console.log(`  day ${w.day} ${w.doc}: picked ${Object.entries(w.picks).filter(([, v]) => v).map(([k, v]) => `${k}:${v}`).join(' ')} — answer ${w.answer.join(' ')}`);
+for (const w of wrong) console.log(`  day ${w.day} ${w.doc} (try ${w.attempt || 1}): picked ${Object.entries(w.picks).filter(([, v]) => v).map(([k, v]) => `${k}:${v}`).join(' ')} — answer ${w.answer.join(' ')}`);
 
 line('Same weather & customers, simulated players');
 for (const bot of ['decent', 'smart']) {

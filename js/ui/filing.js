@@ -18,7 +18,7 @@ export function paperHTML(g, doc, { stamp = false } = {}) {
     <div class="tiny muted">${esc(g.state.business)} · ${weekLabel}</div>
     <div style="margin:8px 0">${items}</div>
     <div class="tot"><span>TOTAL</span><span>${money(headline)}</span></div>
-    ${stamp ? '<div class="stamp">FILED ✓</div>' : ''}
+    ${stamp ? `<div class="stamp">${doc.byPenny ? 'PENNY ✓' : 'FILED ✓'}</div>` : ''}
   </div>`;
 }
 
@@ -28,6 +28,14 @@ export function openShoebox(app, onDone) {
   let picks = {};
   let current = null;
   let justFiled = null;
+  let wrongMarks = new Set(); // lines picked wrong on the last try
+  let missing = 0; // answer lines not picked on the last try
+  let showStrip = false; // Penny's "try again / file it for me" strip after a second miss
+  const resetMarks = () => {
+    wrongMarks = new Set();
+    missing = 0;
+    showStrip = false;
+  };
   const m = openModal({
     title: '🗃️ Shoebox',
     closable: true,
@@ -46,6 +54,9 @@ export function openShoebox(app, onDone) {
       body.innerHTML = `
         <div class="shoebox-row">${todo.map((d) => `<button class="slip ${d === current ? 'cur' : ''}" data-act="pick" data-id="${d.id}" title="${esc(DOC_TYPES[d.type].title)}">${DOC_TYPES[d.type].icon}</button>`).join('')}</div>
         <p class="tiny muted" style="margin:0 0 6px">Tap each line this paper changes: once ⬆️ up, twice ⬇️ down.</p>
+        ${showStrip ? `<div class="penny-strip"><span class="face">👩‍💼</span><span>Still not quite. Fix the red lines${missing ? ' — and something is missing' : ''}.</span>
+          <span class="row"><button class="btn small" data-act="retry">Try again</button><button class="btn small pink" data-act="pennyFile">👩‍💼 Penny, file it for me</button></span></div>`
+          : wrongMarks.size || missing ? `<div class="penny-strip soft"><span class="face">👩‍💼</span><span>${wrongMarks.size ? 'Fix the red lines.' : ''} ${missing ? "Something's missing too." : ''}</span></div>` : ''}
         <div class="filing">
           <div>${paperHTML(g, current)}</div>
           <div>
@@ -53,7 +64,7 @@ export function openShoebox(app, onDone) {
             ${SECTIONS.map((sec) => `<div class="sec ${sec.id}"><h4>${sec.name}</h4>
               ${ACCOUNTS.filter((a) => a.section === sec.id && lines.has(a.id)).map((a) => {
                 const d = picks[a.id];
-                return `<button class="lineBtn ${d || ''}" data-act="line" data-id="${a.id}"><span>${esc(a.name)}</span><span class="arrow">${d === 'up' ? '⬆️' : d === 'down' ? '⬇️' : '·'}</span></button>`;
+                return `<button class="lineBtn ${d || ''} ${wrongMarks.has(a.id) ? 'wrong' : ''}" data-act="line" data-id="${a.id}"><span>${esc(a.name)}</span><span class="arrow">${d === 'up' ? '⬆️' : d === 'down' ? '⬇️' : '·'}</span></button>`;
               }).join('')}
             </div>`).join('')}
             </div>
@@ -69,16 +80,35 @@ export function openShoebox(app, onDone) {
     pick: (t) => {
       current = g.docsToFile().find((d) => d.id === t.dataset.id) || current;
       picks = {};
+      resetMarks();
       m.refresh();
     },
     line: (t) => {
       const id = t.dataset.id;
+      wrongMarks.delete(id);
       picks[id] = picks[id] === 'up' ? 'down' : picks[id] === 'down' ? undefined : 'up';
       m.refresh();
     },
     clear: () => {
       picks = {};
+      wrongMarks = new Set();
       m.refresh();
+    },
+    retry: () => {
+      showStrip = false;
+      m.refresh();
+    },
+    pennyFile: () => {
+      const doc = current;
+      g.pennyFiles(doc.id);
+      app.changed();
+      app.music.sfx('stamp');
+      justFiled = doc;
+      picks = {};
+      resetMarks();
+      current = null;
+      m.refresh();
+      if (g.docsToFile().length) showStampToast('FILED BY PENNY ✓');
     },
     file: () => {
       const doc = current;
@@ -89,19 +119,22 @@ export function openShoebox(app, onDone) {
         app.music.sfx('stamp');
         justFiled = doc;
         picks = {};
+        resetMarks();
         current = null;
         m.refresh();
-        // flash the stamp on the next document view
-        const paper = m.body.querySelector('.paper');
-        if (paper && !paper.querySelector('.stamp') && g.docsToFile().length) showStampToast(m.body);
-      } else {
-        app.music.sfx('oops');
-        showPenny(app, doc, picks, filedBefore, () => {
-          picks = {};
-          current = null;
-          m.refresh();
-        });
+        if (g.docsToFile().length) showStampToast('FILED ✓');
+        return;
       }
+      app.music.sfx('oops');
+      const markUp = () => {
+        wrongMarks = new Set(res.wrong);
+        missing = res.missing;
+        showStrip = res.attempt >= 2;
+        m.refresh();
+      };
+      // First miss: Penny explains with the side-by-side books. After that, just mark it up.
+      if (res.attempt === 1) showPenny(app, doc, picks, filedBefore, markUp);
+      else markUp();
     },
     done: () => {
       m.close();
@@ -111,11 +144,11 @@ export function openShoebox(app, onDone) {
   return m;
 }
 
-function showStampToast(root) {
+function showStampToast(text) {
   const s = document.createElement('div');
   s.className = 'blip';
   s.style.cssText = 'left:50%;top:40%;font-size:28px;color:#2f9e44;border-color:#2f9e44;position:fixed;z-index:30';
-  s.textContent = 'FILED ✓';
+  s.textContent = text;
   document.body.appendChild(s);
   setTimeout(() => s.remove(), 1200);
 }
@@ -145,7 +178,7 @@ function showPenny(app, doc, picks, filedBefore, after) {
             ${!balanced(cmp.mine) ? '<div class="warn">⚠️ These don\'t balance!</div>' : ''}</div>
           <div class="col right"><h4>✅ Correct books</h4>${colRows('right')}${totals(cmp.right)}</div>
         </div>
-        <div class="row" style="justify-content:center;margin-top:12px"><button class="btn big go" data-act="ok">Got it! File it right</button></div>`;
+        <div class="row" style="justify-content:center;margin-top:12px"><button class="btn big go" data-act="ok">Got it!</button></div>`;
       body.querySelector('[data-act=ok]').onclick = () => {
         pm.close();
         after();

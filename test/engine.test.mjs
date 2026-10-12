@@ -189,7 +189,7 @@ test('play log: days, actions, filings, and the export file', async () => {
   const ex = JSON.parse(JSON.stringify(buildExport(st)));
   assert.equal(ex.app, 'frozen-assets');
   assert.equal(ex.daysCsv.split('\n').length, 85);
-  assert.equal(ex.summary.filing.right, ex.summary.filing.tries, 'bot files everything right');
+  assert.equal(ex.summary.filing.firstTry, ex.summary.filing.papers, 'bot files everything right');
   // an old save without a log still loads and exports
   const old = JSON.parse(JSON.stringify(st));
   delete old.log;
@@ -222,4 +222,32 @@ test('playground drops happen much more than downtown drops', () => {
     return drops / sold;
   };
   assert.ok(rate('school') > 3 * rate('downtown'));
+});
+
+test('second chances: wrong tries stay in the shoebox; Penny can file it', async () => {
+  const { summarize } = await import('../js/export.js');
+  const g = Game.create({ player: 'N', business: 'T', color: 'pink', seed: 21 });
+  const [loan, truck] = g.docsToFile();
+  const before = { ...g.state.filed };
+  const r1 = g.fileDoc(loan.id, { cash: 'up', salesCash: 'up' });
+  assert.equal(r1.ok, false);
+  assert.deepEqual(r1.wrong, ['salesCash']);
+  assert.equal(r1.missing, 1);
+  assert.deepEqual(g.state.filed, before, 'wrong try does not touch the books');
+  assert.equal(g.docsToFile().length, 2);
+  const r2 = g.fileDoc(loan.id, { cash: 'up', loan: 'up' });
+  assert.equal(r2.ok, true);
+  assert.equal(r2.attempt, 2);
+  assert.equal(loan.firstTry, false);
+  g.fileDoc(truck.id, { truck: 'down' });
+  g.fileDoc(truck.id, { truck: 'down', cash: 'up' });
+  assert.equal(g.pennyFiles(truck.id), true);
+  assert.equal(truck.byPenny, true);
+  assert.equal(g.docsToFile().length, 0);
+  assert.equal(g.state.filed.truck, 990000);
+  const f = summarize(g.state).filing;
+  assert.equal(f.papers, 2);
+  assert.equal(f.secondTry, 1);
+  assert.equal(f.byPenny, 1);
+  assert.equal(f.firstTry, 0);
 });

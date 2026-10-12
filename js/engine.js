@@ -379,20 +379,42 @@ export class Game {
     return s.docs.filter((d) => !d.filed && d.week < cur && docLines(d).length > 0);
   }
 
+  // One filing try. Only a correct answer goes into the books; a wrong one leaves the paper in the shoebox.
   fileDoc(docId, picks) {
     const s = this.state;
     const doc = s.docs.find((d) => d.id === docId);
     if (!doc || doc.filed) return { ok: false };
     const res = checkFiling(doc, picks);
-    const filedBefore = { ...s.filed };
+    doc.attempts = (doc.attempts || 0) + 1;
+    const attempt = doc.attempts;
+    const answer = new Map(res.correct.map((c) => [c.acct, c.dir]));
+    const picked = Object.entries(picks).filter(([, d]) => d);
+    const wrong = picked.filter(([acct, d]) => answer.get(acct) !== d).map(([acct]) => acct);
+    const missing = res.correct.filter((c) => !picks[c.acct]).length;
+    this.logAction('file', { docId, doc: doc.type, week: doc.week, attempt, ok: res.ok, picks: { ...picks }, answer: res.correct.map((c) => `${c.acct}:${c.dir}`) });
+    if (attempt === 1) doc.firstTry = res.ok;
+    if (res.ok) this.commitDoc(doc);
+    this.sync();
+    return { ...res, attempt, wrong, missing };
+  }
+
+  // Penny files it for you after you've tried.
+  pennyFiles(docId) {
+    const doc = this.state.docs.find((d) => d.id === docId);
+    if (!doc || doc.filed) return false;
+    doc.byPenny = true;
+    this.logAction('file', { docId, doc: doc.type, week: doc.week, attempt: (doc.attempts || 0) + 1, ok: true, byPenny: true });
+    this.commitDoc(doc);
+    this.sync();
+    return true;
+  }
+
+  commitDoc(doc) {
+    const s = this.state;
     doc.filed = true;
-    doc.firstTry = res.ok;
-    this.logAction('file', { doc: doc.type, week: doc.week, ok: res.ok, picks: { ...picks }, answer: res.correct.map((c) => `${c.acct}:${c.dir}`) });
     const entries = docEntryList(doc);
     applyEntries(s.filed, entries);
     (s.filedByWeek[doc.week] ||= []).push(...entries);
-    this.sync();
-    return { ...res, filedBefore };
   }
 
   // Remove unfiled empty docs (e.g. everything netted to zero).

@@ -34,13 +34,27 @@ export function daysCsv(days) {
 
 export function summarize(state) {
   state.log ||= { actions: [], days: [] };
-  const files = state.log.actions.filter((a) => a.type === 'file');
-  const byDoc = {};
-  for (const f of files) {
-    const b = (byDoc[f.doc] ||= { tries: 0, right: 0 });
-    b.tries++;
-    if (f.ok) b.right++;
+  // Group filing tries by paper: how many got it first try, second try, later, or had Penny do it.
+  const papers = new Map();
+  for (const f of state.log.actions.filter((a) => a.type === 'file')) {
+    const key = f.docId || `${f.doc}-${f.week}-${f.t}`; // older logs had no docId
+    const p = papers.get(key) || { doc: f.doc, tries: 0, done: null };
+    if (!f.byPenny) p.tries++;
+    if (f.ok) p.done = f.byPenny ? 'byPenny' : p.tries === 1 ? 'firstTry' : p.tries === 2 ? 'secondTry' : 'laterTry';
+    papers.set(key, p);
   }
+  const blank = () => ({ papers: 0, firstTry: 0, secondTry: 0, laterTry: 0, byPenny: 0 });
+  const filing = blank();
+  const byDoc = {};
+  for (const p of papers.values()) {
+    if (!p.done) continue;
+    const b = (byDoc[p.doc] ||= blank());
+    for (const x of [filing, b]) {
+      x.papers++;
+      x[p.done]++;
+    }
+  }
+  filing.byDoc = byDoc;
   const t = state.truth;
   return {
     player: state.player,
@@ -52,7 +66,7 @@ export function summarize(state) {
     share: share(t),
     profit: sectionTotal(t, 'income') - sectionTotal(t, 'expense'),
     results: state.results,
-    filing: { tries: files.length, right: files.filter((f) => f.ok).length, byDoc },
+    filing,
     decisions: state.log.actions.filter((a) => a.type === 'decision').length,
     daysPlayed: state.log.days.length,
   };
