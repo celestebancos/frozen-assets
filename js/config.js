@@ -7,7 +7,15 @@ export const CONFIG = {
   dayStartMin: 10 * 60, // 10:00am
   dayEndMin: 20 * 60, // 8:00pm
 
+  // Default loan and truck (used by the simulated players and old saves).
   loan: { principal: 1_000_000, truckCost: 990_000, dailyInterest: 300 },
+  // Loans the bank offers. Bigger loans cost more interest per day, and more per extra dollar.
+  loans: [
+    { id: 'small', principal: 1_000_000, dailyInterest: 300 },
+    { id: 'medium', principal: 1_100_000, dailyInterest: 450 },
+    { id: 'large', principal: 1_200_000, dailyInterest: 650 },
+  ],
+  minStartCash: 10_000, // the truck must leave at least this much for supplies
   lateFee: { unpaidDays: 3, amount: 1000 },
 
   gas: { pricePerGal: 350, tankGal: 20, idleGalPerHour: 0.1, startGal: 20, autoFillBelow: 0.3 },
@@ -80,25 +88,25 @@ export const CONFIG = {
 
 // Supplies. "unit" is what one pack count means. Mix is tracked in half-servings internally.
 export const SUPPLIES = [
-  { id: 'vanilla', name: 'Vanilla soft serve mix', short: 'Vanilla mix', unit: 'servings', emoji: '🍦', shelfLife: 5, halfUnits: true,
+  { id: 'vanilla', name: 'Vanilla soft serve mix', short: 'Vanilla mix', unit: 'servings', emoji: '🍦', use: 'Each scoop uses 1 serving. A swirl uses half vanilla, half chocolate. Mix spoils after 5 days!', shelfLife: 5, halfUnits: true,
     packs: [{ size: 50, price: 2000 }, { size: 200, price: 7000 }, { size: 1000, price: 30000 }] },
-  { id: 'chocolate', name: 'Chocolate soft serve mix', short: 'Chocolate mix', unit: 'servings', emoji: '🍫', shelfLife: 5, halfUnits: true,
+  { id: 'chocolate', name: 'Chocolate soft serve mix', short: 'Chocolate mix', unit: 'servings', emoji: '🍫', use: 'Each scoop uses 1 serving. A swirl uses half vanilla, half chocolate. Mix spoils after 5 days!', shelfLife: 5, halfUnits: true,
     packs: [{ size: 50, price: 2000 }, { size: 200, price: 7000 }, { size: 1000, price: 30000 }] },
-  { id: 'cake', name: 'Cake cones', short: 'Cake cones', unit: 'cones', emoji: '🧇',
+  { id: 'cake', name: 'Cake cones', short: 'Cake cones', unit: 'cones', emoji: '🧇', use: 'One cone for every cake cone order.',
     packs: [{ size: 100, price: 800 }, { size: 500, price: 3000 }, { size: 5000, price: 25000 }] },
-  { id: 'sugar', name: 'Sugar cones', short: 'Sugar cones', unit: 'cones', emoji: '🍨',
+  { id: 'sugar', name: 'Sugar cones', short: 'Sugar cones', unit: 'cones', emoji: '🍨', use: 'One cone for every sugar cone order.',
     packs: [{ size: 100, price: 1500 }, { size: 500, price: 6000 }, { size: 5000, price: 50000 }] },
-  { id: 'waffle', name: 'Waffle cones', short: 'Waffle cones', unit: 'cones', emoji: '🥞',
+  { id: 'waffle', name: 'Waffle cones', short: 'Waffle cones', unit: 'cones', emoji: '🥞', use: 'One cone for every waffle cone order.',
     packs: [{ size: 100, price: 4000 }, { size: 500, price: 17500 }, { size: 5000, price: 150000 }] },
-  { id: 'bowl', name: 'Bowls', short: 'Bowls', unit: 'bowls', emoji: '🥣',
+  { id: 'bowl', name: 'Bowls', short: 'Bowls', unit: 'bowls', emoji: '🥣', use: 'One bowl for every bowl order. Bowls also need a spoon!',
     packs: [{ size: 100, price: 600 }, { size: 500, price: 2500 }, { size: 5000, price: 20000 }] },
-  { id: 'chocSprinkles', name: 'Chocolate sprinkles', short: 'Choc sprinkles', unit: 'servings', emoji: '🟫',
+  { id: 'chocSprinkles', name: 'Chocolate sprinkles', short: 'Choc sprinkles', unit: 'servings', emoji: '🟫', use: 'One serving on each ice cream that gets chocolate sprinkles.',
     packs: [{ size: 100, price: 600 }, { size: 500, price: 2500 }, { size: 5000, price: 20000 }] },
-  { id: 'rainbowSprinkles', name: 'Rainbow sprinkles', short: 'Rainbow sprinkles', unit: 'servings', emoji: '🌈',
+  { id: 'rainbowSprinkles', name: 'Rainbow sprinkles', short: 'Rainbow sprinkles', unit: 'servings', emoji: '🌈', use: 'One serving on each ice cream that gets rainbow sprinkles.',
     packs: [{ size: 100, price: 600 }, { size: 500, price: 2500 }, { size: 5000, price: 20000 }] },
-  { id: 'spoons', name: 'Spoons', short: 'Spoons', unit: 'spoons', emoji: '🥄',
+  { id: 'spoons', name: 'Spoons', short: 'Spoons', unit: 'spoons', emoji: '🥄', use: "Every bowl needs a spoon. No spoons = you can't sell bowls! (Dogs don't need one.)",
     packs: [{ size: 100, price: 200 }, { size: 1000, price: 1000 }] },
-  { id: 'napkins', name: 'Napkins', short: 'Napkins', unit: 'napkins', emoji: '🧻',
+  { id: 'napkins', name: 'Napkins', short: 'Napkins', unit: 'napkins', emoji: '🧻', use: 'Each grown-up takes 1 napkin and each kid takes 1 to 3. No napkins = sticky, grumpy customers.',
     packs: [{ size: 100, price: 200 }, { size: 1000, price: 1000 }] },
 ];
 export const SUPPLY = Object.fromEntries(SUPPLIES.map((s) => [s.id, s]));
@@ -170,18 +178,20 @@ export const DROP_BY_PERSON = { kid: 1, teen: 0.5, adult: 0.1, dog: 0 };
 
 export const SPOT = Object.fromEntries(SPOTS.map((s) => [s.id, s]));
 
+// Trucks for sale. Every truck works the same; fancier paint costs more.
 export const TRUCK_COLORS = [
-  { id: 'pink', name: 'Bubblegum', hex: '#ff8fc7' },
-  { id: 'mint', name: 'Mint', hex: '#7fe3c4' },
-  { id: 'sky', name: 'Sky', hex: '#7cc8ff' },
-  { id: 'lemon', name: 'Lemon', hex: '#ffe066' },
-  { id: 'grape', name: 'Grape', hex: '#b69cff' },
-  { id: 'cherry', name: 'Cherry', hex: '#ff6b6b' },
-  { id: 'white', name: 'Vanilla', hex: '#fff7ea' },
-  { id: 'orange', name: 'Creamsicle', hex: '#ffab5e' },
+  { id: 'white', name: 'Vanilla', hex: '#fff7ea', price: 960_000 },
+  { id: 'sky', name: 'Sky', hex: '#7cc8ff', price: 975_000 },
+  { id: 'mint', name: 'Mint', hex: '#7fe3c4', price: 975_000 },
+  { id: 'pink', name: 'Bubblegum', hex: '#ff8fc7', price: 990_000 },
+  { id: 'lemon', name: 'Lemon', hex: '#ffe066', price: 990_000 },
+  { id: 'grape', name: 'Grape', hex: '#b69cff', price: 1_020_000 },
+  { id: 'cherry', name: 'Cherry', hex: '#ff6b6b', price: 1_020_000 },
+  { id: 'orange', name: 'Creamsicle', hex: '#ffab5e', price: 1_050_000 },
 ];
 
 export const TUNES = [
+  { id: 'medley', name: '🔀 All of them' },
   { id: 'entertainer', name: 'The Entertainer' },
   { id: 'greensleeves', name: 'Greensleeves' },
   { id: 'weasel', name: 'Pop Goes the Weasel' },

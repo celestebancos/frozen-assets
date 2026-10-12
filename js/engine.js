@@ -10,7 +10,7 @@ const C = CONFIG;
 const SEASON_DAYS = C.seasonWeeks * C.daysPerWeek;
 const DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
-export function newGameState({ player, business, color, tune = 'entertainer', seed }) {
+export function newGameState({ player, business, color, tune = 'entertainer', seed, loan, truckCost }) {
   const s = {
     version: 1,
     seed: seed ?? Math.floor(Math.random() * 2 ** 31),
@@ -24,6 +24,8 @@ export function newGameState({ player, business, color, tune = 'entertainer', se
     minute: C.dayStartMin,
     phase: 'setup', // setup | open | closed | seasonEnd | won | lost
     loanActive: true,
+    loanTerms: loan ? { principal: loan.principal, dailyInterest: loan.dailyInterest } : { principal: C.loan.principal, dailyInterest: C.loan.dailyInterest },
+    truckCost: truckCost ?? C.loan.truckCost,
     cash: 0,
     truth: emptyTotals(),
     filed: emptyTotals(),
@@ -134,6 +136,11 @@ export class Game {
     this.state.cash = this.state.truth.cash;
     const docWeek = type === 'loanPapers' || type === 'truckBill' ? 0 : this.gw;
     addToDoc(this.state.docs, docWeek, type, entries, item);
+  }
+
+  // Older saves have no loan terms: they all got the default loan.
+  get loanTerms() {
+    return this.state.loanTerms || { principal: C.loan.principal, dailyInterest: C.loan.dailyInterest };
   }
 
   get cash() {
@@ -345,14 +352,16 @@ export class Game {
   // ---------- setup / days ----------
   startGame() {
     const s = this.state;
+    const { principal } = this.loanTerms;
     this.post('loanPapers', [
-      { acct: 'cash', amt: C.loan.principal },
-      { acct: 'loan', amt: C.loan.principal },
-    ], { label: 'Business loan — due at the end of the summer', amt: C.loan.principal });
+      { acct: 'cash', amt: principal },
+      { acct: 'loan', amt: principal },
+    ], { label: 'Business loan — due at the end of the summer', amt: principal });
+    const truck = s.truckCost ?? C.loan.truckCost;
     this.post('truckBill', [
-      { acct: 'truck', amt: C.loan.truckCost },
-      { acct: 'cash', amt: -C.loan.truckCost },
-    ], { label: 'One ice cream truck', amt: C.loan.truckCost });
+      { acct: 'truck', amt: truck },
+      { acct: 'cash', amt: -truck },
+    ], { label: 'One ice cream truck', amt: truck });
     s.phase = 'setup';
     this.rollWeather();
     this.sync();
@@ -447,8 +456,8 @@ export class Game {
     s.minute = C.dayStartMin;
     s.minutesHere = {};
     s.driving = null;
-    s.today = { customers: 0, parties: 0, sold: {}, toppings: {}, tooExpensive: 0, outOfStock: 0, revenue: 0, cardsSold: 0, cardsRedeemed: 0, startCash: this.cash, drops: 0, mood: 0 };
-    if (!s.week || s.week.gw !== this.gw) s.week = { gw: this.gw, sold: {}, toppings: {}, customers: 0, tooExpensive: 0, outOfStock: 0, startTotals: { ...s.truth } };
+    s.today = { customers: 0, parties: 0, sold: {}, toppings: {}, tooExpensive: 0, tooExpensiveWants: {}, outOfStock: 0, revenue: 0, cardsSold: 0, cardsRedeemed: 0, startCash: this.cash, drops: 0, mood: 0, bySpot: {} };
+    if (!s.week || s.week.gw !== this.gw) s.week = { gw: this.gw, sold: {}, toppings: {}, customers: 0, tooExpensive: 0, tooExpensiveWants: {}, outOfStock: 0, startTotals: { ...s.truth } };
     s.dayFactor = this.rng.range(...C.dayRandom);
     // supply sale roll
     if (s.sale && s.day > s.sale.until) s.sale = null;
@@ -701,6 +710,7 @@ export class Game {
       }
     } else {
       s.minutesHere[s.spot] = (s.minutesHere[s.spot] || 0) + 1;
+      this.spotStats().minByHour[this.hourIndex()]++;
       let n = this.rng.poisson(this.arrivalRate(s.spot, s.minute));
       // many gift card holders would have come (and paid) anyway
       while (n > 0 && s.displace >= 1) {
@@ -841,6 +851,9 @@ export class Game {
     const people = party.members.filter((m) => m.kind !== 'dog');
     s.today.customers += people.length;
     s.week.customers += people.length;
+    const st = this.spotStats();
+    st.customers += people.length;
+    st.custByHour[this.hourIndex()] += people.length;
     // promo giveaway: every person gets a free card while they last
     if (s.promoLeft > 0 && !party.cardIds) {
       for (const m of people) {
@@ -943,8 +956,17 @@ export class Game {
         ratio = price / (this.fairOf(item) * m.wtp);
       } else {
         m.result = 'tooExpensive';
+        m.askedPrice = price;
+        m.askedItem = item;
         s.today.tooExpensive++;
         s.week.tooExpensive++;
+        // remember what they wanted and what it cost, so the player can see which prices scare people off
+        const key = `${item.flavor}-${item.container}${item.topping ? '-' + item.topping : ''}`;
+        for (const t of [s.today, s.week]) {
+          const w = ((t.tooExpensiveWants ||= {})[key] ||= { n: 0, price });
+          w.n++;
+          w.price = price;
+        }
         this.nudge('tooExpensive');
         return;
       }
@@ -1177,7 +1199,10 @@ export class Game {
 
   finishParty(party) {
     const s = this.state;
-    if (party.bill > 0) this.takeCash(party.bill);
+    if (party.bill > 0) {
+      this.takeCash(party.bill);
+      if (!party.cardIds) this.spotStats().revenue += party.bill;
+    }
     // maybe buy a gift card
     if (!party.cardIds && s.giftSale.left > 0 && party.members.some((m) => m.result === 'bought')) {
       const disc = 1 - s.giftSale.price / C.giftCard.face;
@@ -1212,8 +1237,20 @@ export class Game {
         declined: !!m.declined,
         missing: m.resolved?.missing || null,
         paid: m.paid,
+        askedPrice: m.askedPrice,
+        askedItem: m.askedItem,
       })),
     };
+  }
+
+  // Today's numbers for the spot the truck is parked at (for comparing routes).
+  spotStats(spot = this.state.spot) {
+    const t = this.state.today;
+    const hours = (C.dayEndMin - C.dayStartMin) / 60;
+    return ((t.bySpot ||= {})[spot] ||= { customers: 0, revenue: 0, minByHour: Array(hours).fill(0), custByHour: Array(hours).fill(0) });
+  }
+  hourIndex() {
+    return Math.min((C.dayEndMin - C.dayStartMin) / 60 - 1, Math.floor((this.state.minute - C.dayStartMin) / 60));
   }
 
   issueCard(how) {
@@ -1269,7 +1306,7 @@ export class Game {
     s.scheduled = [];
     // interest
     if (s.loanActive) {
-      const due = C.loan.dailyInterest;
+      const due = this.loanTerms.dailyInterest;
       const pay = Math.min(due, Math.max(0, this.cash));
       if (pay > 0)
         this.post('interestPaid', [
@@ -1348,6 +1385,8 @@ export class Game {
       soldBy: { ...t.sold },
       toppings: { ...t.toppings },
       tooExpensive: t.tooExpensive,
+      tooExpensiveWants: t.tooExpensiveWants || {},
+      bySpot: Object.fromEntries(Object.entries(t.bySpot || {}).map(([k, v]) => [k, { minutes: s.minutesHere[k] || 0, ...v }])),
       outOfStock: t.outOfStock,
       service: t.service || null,
       drops: t.drops,
@@ -1474,7 +1513,7 @@ export class Game {
       this.post('loanRepay', [
         { acct: 'loan', amt: -s.truth.loan },
         { acct: 'cash', amt: -s.truth.loan },
-      ], { label: 'Business loan paid in full', amt: C.loan.principal });
+      ], { label: 'Business loan paid in full', amt: this.loanTerms.principal });
       s.loanActive = false;
       s.phase = 'won';
       s.results.push({ season: s.season, share: finalShare, won: true });

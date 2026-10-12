@@ -49,27 +49,54 @@ const HAIR = ['#2b1b0e', '#6b3e1e', '#e8c15a', '#b5532a', '#111', '#8a8a8a'];
 const SHIRT = ['#ff6f91', '#5bc0eb', '#9bc53d', '#fde74c', '#c3423f', '#7d5ba6', '#ff9f1c', '#2ec4b6', '#e76f51', '#4361ee', '#f72585', '#06d6a0'];
 const PANTS = ['#355070', '#3d405b', '#6d597a', '#264653', '#5c4033'];
 
+// Hair is drawn in two layers: "back" hair goes behind the head (long hair, ponytails, buns),
+// "front" hair is the cap and bangs drawn over the top of the head. Nothing hangs below the chin.
+const HAIR_BACK = {
+  long: (c) => `<path d="M8.5 17 q0 -13 11.5 -13 q11.5 0 11.5 13 v17 q-2.5 2 -5 0 v-12 h-13 v12 q-2.5 2 -5 0 z" fill="${c}"/>`,
+  ponytail: (c) => `<path d="M29 12 q9 2 7 14 q-1 6 -4 9 q1 -7 -3 -13 z" fill="${c}"/>`,
+  pigtails: (c) => `<ellipse cx="7" cy="22" rx="3.6" ry="7" fill="${c}" transform="rotate(18 7 22)"/><ellipse cx="33" cy="22" rx="3.6" ry="7" fill="${c}" transform="rotate(-18 33 22)"/>`,
+  bun: (c) => `<circle cx="20" cy="5" r="5.5" fill="${c}"/>`,
+  short: () => '',
+  spiky: () => '',
+};
+const HAIR_FRONT = {
+  short: (c) => `<path d="M8.6 16 q0 -12 11.4 -12 q11.4 0 11.4 12 q-3 -5 -11.4 -5 q-8.4 0 -11.4 5 z" fill="${c}"/>`,
+  spiky: (c) => `<path d="M8.6 16 q0 -12 11.4 -12 q11.4 0 11.4 12 q-3 -5 -11.4 -5 q-8.4 0 -11.4 5 z M11 7 l1.5 -3.5 l3 2.5 l4.5 -3.5 l4.5 3.5 l3 -2.5 l1.5 3.5 z" fill="${c}"/>`,
+  long: (c) => `<path d="M8.6 18 q0 -13.5 11.4 -13.5 q11.4 0 11.4 13.5 q-2 -6 -6 -7 q-4 3 -11 2 q-4 1 -5.8 5 z" fill="${c}"/>`,
+  ponytail: (c) => `<path d="M8.6 16 q0 -12 11.4 -12 q11.4 0 11.4 12 q-3 -6 -11.4 -6 q-8.4 0 -11.4 6 z" fill="${c}"/><circle cx="30" cy="12.5" r="1.8" fill="#ff6f91"/>`,
+  pigtails: (c) => `<path d="M8.6 16 q0 -12 11.4 -12 q11.4 0 11.4 12 q-3 -6 -11.4 -6 q-8.4 0 -11.4 6 z" fill="${c}"/><circle cx="8.5" cy="16" r="1.8" fill="#ff6f91"/><circle cx="31.5" cy="16" r="1.8" fill="#ff6f91"/>`,
+  bun: (c) => `<path d="M8.6 16 q0 -12 11.4 -12 q11.4 0 11.4 12 q-3 -6 -11.4 -6 q-8.4 0 -11.4 6 z" fill="${c}"/>`,
+};
+const GIRL_STYLES = ['long', 'ponytail', 'pigtails', 'bun', 'long', 'ponytail'];
+const BOY_STYLES = ['short', 'spiky', 'short', 'short', 'spiky', 'short'];
+
 export function personSVG(kind, look = 0) {
   if (kind === 'dog') return dogSVG(look);
   const skin = SKIN[look % SKIN.length];
-  const hair = HAIR[(look * 7) % HAIR.length];
+  let hair = HAIR[(look * 7) % HAIR.length];
+  if (kind !== 'adult' && hair === '#8a8a8a') hair = '#6b3e1e'; // no gray hair on kids
   const shirt = SHIRT[(look * 5) % SHIRT.length];
   const pants = PANTS[look % PANTS.length];
-  const longHair = look % 3 === 0;
-  const cap = kind === 'teen' && look % 2 === 0;
+  const girl = look % 2 === 1;
+  const style = (girl ? GIRL_STYLES : BOY_STYLES)[Math.floor(look / 2) % 6];
+  const skirt = girl && look % 4 === 1;
+  const cap = kind === 'teen' && !girl && look % 4 === 0;
+  const legs = skirt
+    ? `<path d="M9 50 h22 l4 14 h-30 z" fill="${shirt}"/><rect x="13" y="62" width="5" height="16" rx="2.5" fill="${skin}"/><rect x="22" y="62" width="5" height="16" rx="2.5" fill="${skin}"/>`
+    : `<rect x="12" y="52" width="7" height="26" rx="3" fill="${pants}"/><rect x="21" y="52" width="7" height="26" rx="3" fill="${pants}"/>`;
   return `<svg viewBox="0 0 40 84" class="person ${kind}" xmlns="http://www.w3.org/2000/svg">
-  <rect x="12" y="52" width="7" height="26" rx="3" fill="${pants}"/>
-  <rect x="21" y="52" width="7" height="26" rx="3" fill="${pants}"/>
+  ${legs}
   <ellipse cx="15" cy="80" rx="6" ry="3" fill="#333"/><ellipse cx="25" cy="80" rx="6" ry="3" fill="#333"/>
   <rect x="9" y="28" width="22" height="28" rx="8" fill="${shirt}"/>
   <rect x="3" y="31" width="7" height="20" rx="3.5" fill="${shirt}"/>
   <rect x="30" y="31" width="7" height="20" rx="3.5" fill="${shirt}"/>
   <circle cx="6.5" cy="52" r="3.5" fill="${skin}"/><circle cx="33.5" cy="52" r="3.5" fill="${skin}"/>
-  ${longHair ? `<rect x="8" y="10" width="24" height="24" rx="10" fill="${hair}"/>` : ''}
+  ${HAIR_BACK[style](hair)}
   <circle cx="20" cy="17" r="11" fill="${skin}"/>
-  <path d="M9 15 q11 -14 22 0 q-3 -5 -11 -5 q-8 0 -11 5z" fill="${hair}"/>
+  ${HAIR_FRONT[style](hair)}
   ${cap ? `<path d="M8 12 q12 -10 24 0 z" fill="#c3423f"/><rect x="26" y="10" width="10" height="3" rx="1.5" fill="#c3423f"/>` : ''}
   <circle cx="16" cy="18" r="1.6" fill="#222"/><circle cx="24" cy="18" r="1.6" fill="#222"/>
+  ${girl ? '<path d="M14.2 15.6 l-1 -1 M25.8 15.6 l1 -1" stroke="#222" stroke-width="0.9" stroke-linecap="round"/>' : ''}
   <path class="mouth" d="M16 23 q4 3 8 0" stroke="#7a3b2e" stroke-width="1.6" fill="none" stroke-linecap="round"/>
 </svg>`;
 }

@@ -76,6 +76,8 @@ export function openShoebox(app, onDone) {
         </div>`;
     },
   });
+  // Back to the top so the next paper is in view (on a phone the board is below the paper).
+  const toTop = () => m.el.scrollTo({ top: 0 });
   onActs(m.body, {
     pick: (t) => {
       current = g.docsToFile().find((d) => d.id === t.dataset.id) || current;
@@ -108,6 +110,7 @@ export function openShoebox(app, onDone) {
       resetMarks();
       current = null;
       m.refresh();
+      toTop();
       if (g.docsToFile().length) showStampToast('FILED BY PENNY ✓');
     },
     file: () => {
@@ -122,6 +125,7 @@ export function openShoebox(app, onDone) {
         resetMarks();
         current = null;
         m.refresh();
+        toTop();
         if (g.docsToFile().length) showStampToast('FILED ✓');
         return;
       }
