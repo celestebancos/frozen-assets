@@ -62,7 +62,7 @@ export async function fetchScores(cfg, fetchImpl = globalThis.fetch) {
   });
   if (!res.ok) throw new Error(`Airtable said ${res.status}`);
   const data = await res.json();
-  return (data.records || []).map(fromRecord);
+  return (data.records || []).filter((r) => r.fields?.Player).map(fromRecord);
 }
 
 // Try to send any scores that couldn't be posted before. Returns the ones still waiting.

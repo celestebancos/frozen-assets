@@ -45,7 +45,13 @@ test('failed posts stay queued', async () => {
   assert.equal(left[0].player, 'Luke');
 });
 
-test('config needs both a token and a base', () => {
-  assert.equal(isConfigured(leaderboardConfig({ airtableToken: 'x', airtableBase: '' })), false);
-  assert.equal(isConfigured(leaderboardConfig({ airtableToken: 'x', airtableBase: 'appY' })), true);
+test('config: token required, base defaults to the family base', () => {
+  assert.equal(isConfigured(leaderboardConfig({ airtableToken: '', airtableBase: '' })), false);
+  assert.equal(leaderboardConfig({ airtableToken: 'x', airtableBase: '' }).baseId, 'appf6frKyQZNEKBep');
+  assert.equal(leaderboardConfig({ airtableToken: 'x', airtableBase: 'appY' }).baseId, 'appY');
+});
+
+test('blank Airtable rows are skipped', async () => {
+  const fake = async () => ({ ok: true, json: async () => ({ records: [{ fields: {} }, { fields: toFields(rec) }] }) });
+  assert.equal((await fetchScores(cfg, fake)).length, 1);
 });

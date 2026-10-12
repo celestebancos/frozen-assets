@@ -18,7 +18,8 @@ export const CONFIG = {
   weekendBoost: 1.25,
   dayRandom: [0.9, 1.1],
   // Spot crowd thins the longer you stay there today.
-  saturation: { minutesToHalf: 240, floor: 0.45 },
+  // A spot's crowd thins the longer you stay. Neighborhoods thin less: people keep coming home all day.
+  saturation: { minutesToHalf: 240, floor: 0.45, homeFloor: 0.7 },
 
   weather: {
     baseTemp: [76, 79, 83, 87, 90, 92, 92, 90, 87, 83, 79, 76],
@@ -189,6 +190,6 @@ export const TUNES = [
 
 export const LEADERBOARD = {
   // Not secret: the token (pasted per device in Settings) is what grants access.
-  baseId: '',
+  baseId: 'appf6frKyQZNEKBep',
   tableName: 'Scores',
 };

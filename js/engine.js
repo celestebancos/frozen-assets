@@ -649,7 +649,8 @@ export class Game {
     const s = this.state;
     const hour = minute / 60;
     const here = s.minutesHere[spotId] || 0;
-    const sat = Math.max(C.saturation.floor, Math.pow(0.5, here / C.saturation.minutesToHalf));
+    const floor = SPOT[spotId].kind === 'home' ? C.saturation.homeFloor : C.saturation.floor;
+    const sat = Math.max(floor, Math.pow(0.5, here / C.saturation.minutesToHalf));
     const weather = this.heat() * (s.weather.rain ? C.weather.rainDemand : 1);
     const season = C.seasonCurve[this.week - 1];
     return (C.demandScale / 60) * this.spotProfile(spotId, hour) * season * weather * s.popularity * (1 + s.buzz) * sat * s.dayFactor;

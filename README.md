@@ -37,7 +37,7 @@ The leaderboard lives in an Airtable base, so every device in the house sees the
 
 3. **Connect each device once.** In the game, open ⚙️ Settings on the title screen. Paste the **Base ID** (starts with `app…`, shown in the base's URL) and the **token**, then press **Test**.
 
-The token is stored only in that browser's local storage. It is never in this repository. Scores finished before a device was connected are saved and uploaded automatically once it is. To skip the Base ID step on every device, put it in `LEADERBOARD.baseId` in `js/config.js`. The base ID isn't secret; the token is what grants access.
+The token is stored only in that browser's local storage. It is never in this repository. Scores finished before a device was connected are saved and uploaded automatically once it is. The base ID is already set in `LEADERBOARD.baseId` in `js/config.js`, so on each device only the token is needed. The base ID isn't secret; the token is what grants access.
 
 ## Looking at a kid's game
 
