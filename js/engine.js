@@ -177,6 +177,14 @@ export class Game {
       if (this.creditUsed() + total > C.credit.limit) return { ok: false, reason: 'limit' };
     } else if (this.cash < total) return { ok: false, reason: 'cash' };
     const raw = pack.size * count * (sup.halfUnits ? 2 : 1);
+    if (s.menuAutoOff?.includes(id)) {
+      s.menuAutoOff = s.menuAutoOff.filter((x) => x !== id);
+      s.menuOn[id] = true;
+      if ((id === 'vanilla' || id === 'chocolate') && s.menuAutoOff.includes('swirl') && this.rawStock(id === 'vanilla' ? 'chocolate' : 'vanilla') > 0) {
+        s.menuAutoOff = s.menuAutoOff.filter((x) => x !== 'swirl');
+        s.menuOn.swirl = true;
+      }
+    }
     s.lots.push({ supply: id, qty: raw, cost: total, bought: s.day, expires: sup.shelfLife ? s.day + sup.shelfLife : null });
     const label = `${count > 1 ? count + ' × ' : ''}${sup.short} (${pack.size.toLocaleString()})`;
     if (payLater) {
@@ -373,11 +381,23 @@ export class Game {
     if (s.phase === 'setup') s.phase = 'closed';
     if (s.phase !== 'closed') return;
     this.dropEmptyDocs();
+    if (!s.menuAutoOff) {
+      // First opening: the menu lists only what's in the truck. Buying something later adds it.
+      s.menuAutoOff = [];
+      const ids = ['vanilla', 'chocolate', 'swirl', ...CONTAINERS.map((c) => c.id), ...TOPPINGS.map((t) => t.id)];
+      for (const id of ids) {
+        const has = id === 'swirl' ? this.rawStock('vanilla') > 0 && this.rawStock('chocolate') > 0 : this.rawStock(id) > 0;
+        if (!has && s.menuOn[id] !== false) {
+          s.menuOn[id] = false;
+          s.menuAutoOff.push(id);
+        }
+      }
+    }
     s.phase = 'open';
     s.minute = C.dayStartMin;
     s.minutesHere = {};
     s.driving = null;
-    s.today = { customers: 0, parties: 0, sold: {}, toppings: {}, tooExpensive: 0, outOfStock: 0, revenue: 0, cardsSold: 0, cardsRedeemed: 0, startCash: this.cash, drops: 0 };
+    s.today = { customers: 0, parties: 0, sold: {}, toppings: {}, tooExpensive: 0, outOfStock: 0, revenue: 0, cardsSold: 0, cardsRedeemed: 0, startCash: this.cash, drops: 0, mood: 0 };
     if (!s.week || s.week.gw !== this.gw) s.week = { gw: this.gw, sold: {}, toppings: {}, customers: 0, tooExpensive: 0, outOfStock: 0, startTotals: { ...s.truth } };
     s.dayFactor = this.rng.range(...C.dayRandom);
     // supply sale roll
@@ -716,9 +736,16 @@ export class Game {
     return C.fairPrice[item.container] + (item.topping ? C.fairTopping : 0);
   }
 
+  // How customers feel adds up over the day; word of mouth moves popularity overnight.
   nudge(key, times = 1) {
     const s = this.state;
-    s.popularity = Math.max(C.popularity.min, Math.min(C.popularity.max, s.popularity + C.popularity[key] * times));
+    const v = C.popularity[key] * times;
+    if (s.today && s.phase === 'open') s.today.mood += v;
+    else this.bumpPopularity(v);
+  }
+  bumpPopularity(v) {
+    const s = this.state;
+    s.popularity = Math.max(C.popularity.min, Math.min(C.popularity.max, s.popularity + v));
   }
 
   // Figure out what the member gets given stock. Returns { item } or { upset, wanted }.
@@ -726,20 +753,26 @@ export class Game {
     const r = this.rng;
     let { flavor, container, topping } = want;
     let substituted = false;
+    // Not on the menu: most people just pick something else. On the menu but sold out: upset.
     if (!this.flavorAvail(flavor)) {
       const alts = FLAVORS.map((f) => f.id).filter((f) => this.flavorAvail(f));
-      if (alts.length && r.chance(0.55)) {
+      const offMenu = !this.isOn(flavor);
+      if (alts.length && r.chance(offMenu ? 0.85 : 0.55)) {
         flavor = r.pick(alts);
         substituted = true;
-      } else return { upset: true, wanted: want, missing: flavor };
+      } else if (offMenu) return { skip: true };
+      else return { upset: true, wanted: want, missing: flavor };
     }
     if (!this.containerAvail(container, forDog)) {
       const alts = CONTAINERS.map((c) => c.id).filter((c) => this.containerAvail(c, forDog));
-      if (alts.length && r.chance(0.5)) {
+      const offMenu = !this.isOn(container);
+      if (alts.length && r.chance(offMenu ? 0.85 : 0.5)) {
         container = r.pick(alts);
         substituted = true;
-      } else return { upset: true, wanted: want, missing: container };
+      } else if (offMenu) return { skip: true };
+      else return { upset: true, wanted: want, missing: container };
     }
+    if (topping && !this.isOn(topping)) topping = null;
     let noTopping = false;
     if (topping && !this.toppingAvail(topping)) {
       topping = null;
@@ -762,7 +795,7 @@ export class Game {
         this.issueCard('promo');
         // word spreads, but the 50th free card excites people less than the 5th
         s.promoWeek = (s.promoWeek || 0) + 1;
-        this.nudge('promoCard', Math.max(0, 1 - s.promoWeek / 40));
+        this.bumpPopularity(C.popularity.promoCard * Math.max(0, 1 - s.promoWeek / 40));
         m.gotCard = true;
       }
     }
@@ -817,6 +850,10 @@ export class Game {
       m.resolved = res;
     }
     const res = m.resolved;
+    if (res.skip) {
+      m.result = 'none';
+      return;
+    }
     if (res.upset) {
       if (!m.serviceChoice) {
         const choice = this.decide('outOfStock', { party, idx });
@@ -1104,6 +1141,7 @@ export class Game {
         withCard: !!m.withCard,
         gotCard: !!m.gotCard,
         declined: !!m.declined,
+        missing: m.resolved?.missing || null,
         paid: m.paid,
       })),
     };
@@ -1150,6 +1188,10 @@ export class Game {
   closeDay() {
     const s = this.state;
     if (s.phase !== 'open') return;
+    if (s.driving) {
+      s.spot = s.driving.to;
+      s.driving = null;
+    }
     // unscheduled holders come another day
     for (const c of s.cards) if (c.scheduled) {
       c.scheduled = false;
@@ -1181,8 +1223,11 @@ export class Game {
         }
       } else s.unpaidStreak = 0;
     }
-    // popularity drift & buzz
-    s.popularity += (C.popularity.start - s.popularity) * C.popularity.driftPerDay;
+    // popularity: today's average mood, then a drift back toward normal
+    const P = C.popularity;
+    const word = (s.today.mood * P.moodScale) / Math.max(P.moodMinCustomers, s.today.customers);
+    this.bumpPopularity(Math.max(-P.moodCap, Math.min(P.moodCap, word)));
+    s.popularity += (P.start - s.popularity) * P.driftPerDay;
     const target = C.ads.find((a) => a.id === s.adTier).buzz;
     if (s.buzz < target) s.buzz += (target - s.buzz) * C.buzzRisePerDay;
     else s.buzz -= (s.buzz - target) * C.buzzFadePerDay;
@@ -1240,6 +1285,7 @@ export class Game {
   }
   setMenuOn(id, on) {
     this.state.menuOn[id] = on;
+    if (this.state.menuAutoOff) this.state.menuAutoOff = this.state.menuAutoOff.filter((x) => x !== id);
   }
 
   rebrand({ color, business }) {

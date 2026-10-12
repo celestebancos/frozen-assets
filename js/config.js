@@ -13,10 +13,10 @@ export const CONFIG = {
   gas: { pricePerGal: 350, tankGal: 20, idleGalPerHour: 0.1, startGal: 20, autoFillBelow: 0.3 },
 
   // Arrival rate scale (bunches per hour at a "1.0" moment).
-  demandScale: 3.3,
+  demandScale: 3.9,
   seasonCurve: [0.55, 0.65, 0.8, 0.95, 1.05, 1.1, 1.1, 1.05, 0.95, 0.8, 0.65, 0.55],
   weekendBoost: 1.25,
-  dayRandom: [0.85, 1.15],
+  dayRandom: [0.9, 1.1],
   // Spot crowd thins the longer you stay there today.
   saturation: { minutesToHalf: 240, floor: 0.45 },
 
@@ -32,6 +32,10 @@ export const CONFIG = {
     min: 0.4,
     max: 1.8,
     driftPerDay: 0.06, // pulls toward start each night
+    // nightly change = (sum of the day's nudges) × moodScale ÷ max(moodMinCustomers, customers), capped
+    moodScale: 12,
+    moodMinCustomers: 40,
+    moodCap: 0.1,
     greatDeal: 0.0015,
     tooExpensive: -0.0015,
     outOfStockMad: -0.008,
