@@ -5,6 +5,14 @@ import { esc, money } from './dom.js';
 
 const NAMES = Object.fromEntries([...FLAVORS, ...CONTAINERS, ...TOPPINGS].map((x) => [x.id, x.name.toLowerCase()]));
 
+// "a chocolate waffle cone with rainbow sprinkles"
+export function itemName(it) {
+  if (!it) return 'ice cream';
+  const flavor = NAMES[it.flavor] || '';
+  const base = it.container === 'bowl' ? `${flavor} bowl` : `${flavor} ${NAMES[it.container] || 'cone'}`;
+  return `a ${base}${it.topping ? ` with ${NAMES[it.topping]}` : ''}`;
+}
+
 // Sky colors through the day (10am → 8pm).
 const SKY = [
   [600, '#9fdcff', '#ffe066'],
@@ -35,12 +43,13 @@ export class Scene {
   constructor(root, app) {
     this.root = root;
     this.app = app;
-    root.innerHTML = `<div class="scene"></div><div class="rain hidden"></div><div class="truck-wrap"></div><div class="crowd"></div><div class="road-msg hidden"></div>`;
+    root.innerHTML = `<div class="scene"></div><div class="rain hidden"></div><div class="truck-wrap"></div><div class="crowd"></div><div class="feed" aria-live="polite"></div><div class="road-msg hidden"></div>`;
     this.sceneEl = root.querySelector('.scene');
     this.truckEl = root.querySelector('.truck-wrap');
     this.crowd = root.querySelector('.crowd');
     this.roadMsg = root.querySelector('.road-msg');
     this.rainEl = root.querySelector('.rain');
+    this.feed = root.querySelector('.feed');
     this.spot = null;
     this.truckKey = '';
     this.active = 0;
@@ -98,48 +107,65 @@ export class Scene {
     setTimeout(() => b.remove(), 1300);
   }
 
-  bubbleFor(m, party) {
-    const bad = (t) => ({ t, c: 'bad' });
-    const good = (t) => ({ t, c: 'good' });
-    if (m.gotCard && m.result !== 'bought') return good('🎉 Free card!');
+  // What a customer says. t = the comment for the feed, e = a short reaction over their head.
+  bubbleFor(m) {
+    const bad = (t, e = '😕') => ({ t, c: 'bad', e });
+    const good = (t, e = '😋') => ({ t, c: 'good', e });
+    if (m.gotCard && m.result !== 'bought') return good('🎉 A free gift card!', '🎉');
     switch (m.result) {
-      case 'tooExpensive':
-        return bad('Too expensive!');
+      case 'tooExpensive': {
+        return bad(`${money(m.askedPrice || 0)} for ${itemName(m.askedItem || m.want)}? Too expensive!`, '💸');
+      }
       case 'mad':
-        return bad(m.declined ? 'No thanks.' : `No ${NAMES[m.missing] || 'ice cream'}?!`);
+        return m.declined ? bad('No thanks.', '🙅') : bad(`No ${NAMES[m.missing] || 'ice cream'}?!`, '😠');
       case 'giftCard':
-        return good('🎁 Thanks!');
+        return good('🎁 Thanks for the gift card!', '🎁');
       case 'leave':
-        return bad('😒');
+        return bad("We're leaving.", '😒');
       case 'none':
         return null;
       case 'bought': {
-        if (m.dropped) return m.replaced ? good('💥 Thank you!!') : bad('💥 😭');
-        if (m.mood === 'greatDeal') return good('Great deal!');
+        if (m.dropped) return m.replaced ? good('💥 Thank you for a new one!!', '🥹') : bad('💥 I dropped it! 😭', '😭');
+        if (m.mood === 'greatDeal') return good('What a great deal!', '🤩');
         if (m.mood === 'noTopping') return bad('No sprinkles? 😕');
-        if (m.mood === 'noNapkin') return bad('Sticky hands! 🧻?');
-        if (m.mood === 'cardExact') return good('🎫 Perfect!');
-        if (m.mood === 'cardForfeit') return bad('🎫 Lost some card $');
-        if (m.mood === 'discountOk') return good('OK, deal!');
-        if (m.gotCard) return good('🎉 Free card!');
-        if (m.withCard) return good('🎫');
-        return Math.random() < 0.3 ? good(['Yum!', 'Mmm!', '😋', 'Thanks!'][Math.floor(Math.random() * 4)]) : null;
+        if (m.mood === 'noNapkin') return bad('No napkins? Sticky hands! 🧻', '🧻');
+        if (m.mood === 'cardExact') return good('🎫 Gift card, perfect!', '🎫');
+        if (m.mood === 'cardForfeit') return bad('🎫 I lost some of my card money.', '😕');
+        if (m.mood === 'discountOk') return good('OK, deal!', '🤝');
+        if (m.gotCard) return good('🎉 A free gift card!', '🎉');
+        if (m.withCard) return good('🎫 Thanks!', '🎫');
+        return Math.random() < 0.3 ? good(['Yum!', 'Mmm!', 'So good!', 'Thanks!'][Math.floor(Math.random() * 4)]) : null;
       }
     }
     return null;
   }
 
+  // Comments float up to a list at the top of the street and stay a few seconds so they can be read.
+  say(m, b) {
+    const row = document.createElement('div');
+    row.className = 'say ' + b.c;
+    row.innerHTML = `<span class="face">${personSVG(m.kind, m.look)}</span><span>${esc(b.t)}</span>`;
+    this.feed.prepend(row);
+    while (this.feed.children.length > 4) this.feed.lastElementChild.remove();
+    setTimeout(() => {
+      row.classList.add('gone');
+      setTimeout(() => row.remove(), 400);
+    }, 5000);
+  }
+
   party(p, speed) {
+    const comments = p.members.map((m) => [m, this.bubbleFor(m)]).filter(([, b]) => b);
     const fast = speed >= 3 || this.active >= 6 || document.hidden;
     if (fast) {
-      // quick blips near the truck window
+      // quick blips near the truck window; only the complaints go to the feed
       const x = 30 + Math.random() * 25;
       const y = 40 + Math.random() * 25;
-      const first = p.members.map((m) => this.bubbleFor(m, p)).find((b) => b && b.c === 'bad');
       if (p.bill > 0) this.blip(`+${money(p.bill)}`, x, y, 'good');
-      if (first) this.blip(first.t, x + 8, y - 8, 'bad');
+      const bad = comments.find(([, b]) => b.c === 'bad');
+      if (bad && speed < 9) this.say(...bad);
       return;
     }
+    this.app.partyWalking(p);
     const dur = speed === 1 ? 1600 : 700;
     const wait = speed === 1 ? 1800 : 800;
     const el = document.createElement('div');
@@ -148,8 +174,8 @@ export class Scene {
     el.style.transitionDuration = dur + 'ms';
     el.innerHTML = p.members
       .map((m) => {
-        const b = this.bubbleFor(m, p);
-        return `<div class="who">${b ? `<div class="bubble ${b.c} hidden">${b.t}</div>` : ''}${personSVG(m.kind, m.look)}<div class="hand hidden">${m.result === 'bought' && m.item && !(m.dropped && !m.replaced) ? iceCreamSVG(m.item, 22) : ''}</div></div>`;
+        const b = comments.find(([x]) => x === m)?.[1];
+        return `<div class="who">${b ? `<div class="bubble ${b.c} hidden">${b.e}</div>` : ''}${personSVG(m.kind, m.look)}<div class="hand hidden">${m.result === 'bought' && m.item && !(m.dropped && !m.replaced) ? iceCreamSVG(m.item, 22) : ''}</div></div>`;
       })
       .join('');
     this.crowd.appendChild(el);
@@ -157,7 +183,10 @@ export class Scene {
     const slot = 28 + (this.active % 3) * 5;
     requestAnimationFrame(() => requestAnimationFrame(() => (el.style.left = slot + '%')));
     setTimeout(() => {
+      if (!el.isConnected) return;
       el.querySelectorAll('.bubble, .hand').forEach((b) => b.classList.remove('hidden'));
+      this.app.partyArrived(p.id);
+      for (const c of comments) this.say(...c);
       if (p.bill > 0) this.blip(`+${money(p.bill)}`, slot + 6, 45, 'good');
       if (p.boughtCard) this.blip('🎁 +card', slot + 12, 38, 'good');
     }, dur);
@@ -174,6 +203,7 @@ export class Scene {
   clearCrowd() {
     this.crowd.innerHTML = '';
     this.active = 0;
+    this.app.walking?.clear();
   }
 }
 

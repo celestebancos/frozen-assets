@@ -11,28 +11,37 @@ const seq = (s) => s.trim().split(/\s+/).map((t) => {
   return [n, Number(b)];
 });
 
+// Whole tunes (every phrase), not just the opening.
 const SONGS = {
   entertainer: {
-    bpm: 160,
-    notes: seq(`D4:0.5 D#4:0.5 E4:0.5 C5:1 E4:0.5 C5:1 E4:0.5 C5:2 R:0.5 C5:0.5 D5:0.5 D#5:0.5 E5:0.5 C5:0.5 D5:0.5 E5:1 B4:0.5 D5:1 C5:2 R:0.5
-      D4:0.5 D#4:0.5 E4:0.5 C5:1 E4:0.5 C5:1 E4:0.5 C5:2 R:0.5 A4:0.5 G4:0.5 F#4:0.5 A4:0.5 C5:0.5 E5:1 D5:0.5 C5:0.5 A4:0.5 D5:2.5 R:1`),
+    bpm: 210,
+    notes: seq(`D4:0.5 D#4:0.5
+      E4:0.5 C5:1 E4:0.5 C5:1 E4:0.5 C5:2.5 R:0.5 C5:0.5 D5:0.5 D#5:0.5 E5:0.5 C5:0.5 D5:0.5 E5:1 B4:0.5 D5:1 C5:2 R:0.5 D4:0.5 D#4:0.5
+      E4:0.5 C5:1 E4:0.5 C5:1 E4:0.5 C5:2.5 R:0.5 A4:0.5 G4:0.5 F#4:0.5 A4:0.5 C5:0.5 E5:1 D5:0.5 C5:0.5 A4:0.5 D5:2.5 R:0.5 D4:0.5 D#4:0.5
+      E4:0.5 C5:1 E4:0.5 C5:1 E4:0.5 C5:2.5 R:0.5 C5:0.5 D5:0.5 D#5:0.5 E5:0.5 C5:0.5 D5:0.5 E5:1 B4:0.5 D5:1 C5:2.5 R:0.5
+      C5:0.5 D5:0.5 E5:0.5 C5:0.5 D5:0.5 E5:1 C5:0.5 D5:0.5 C5:0.5 E5:0.5 C5:0.5 D5:0.5 E5:1 C5:0.5 D5:0.5 C5:0.5 E5:0.5 C5:0.5 D5:0.5 B4:1 D5:1 C5:3`),
   },
   greensleeves: {
-    bpm: 150,
+    bpm: 190,
     notes: seq(`A4:1 C5:2 D5:1 E5:1.5 F5:0.5 E5:1 D5:2 B4:1 G4:1.5 A4:0.5 B4:1 C5:2 A4:1 A4:1.5 G#4:0.5 A4:1 B4:2 G#4:1 E4:2
-      A4:1 C5:2 D5:1 E5:1.5 F5:0.5 E5:1 D5:2 B4:1 G4:1.5 A4:0.5 B4:1 C5:1.5 B4:0.5 A4:1 G#4:1.5 F#4:0.5 G#4:1 A4:3 R:1`),
+      A4:1 C5:2 D5:1 E5:1.5 F5:0.5 E5:1 D5:2 B4:1 G4:1.5 A4:0.5 B4:1 C5:1.5 B4:0.5 A4:1 G#4:1.5 F#4:0.5 G#4:1 A4:3
+      G5:3 G5:1.5 F#5:0.5 E5:1 D5:2 B4:1 G4:1.5 A4:0.5 B4:1 C5:2 A4:1 A4:1.5 G#4:0.5 A4:1 B4:2 G#4:1 E4:2
+      G5:3 G5:1.5 F#5:0.5 E5:1 D5:2 B4:1 G4:1.5 A4:0.5 B4:1 C5:1.5 B4:0.5 A4:1 G#4:1.5 F#4:0.5 G#4:1 A4:3`),
   },
   weasel: {
-    bpm: 190,
+    bpm: 230,
+    repeat: 2, // short tunes play twice before the medley moves on
     notes: seq(`C4:1 C4:0.5 D4:1 D4:0.5 E4:0.5 G4:0.5 E4:0.5 C4:1.5 C4:1 C4:0.5 D4:1 D4:0.5 E4:1.5 C4:1 G3:0.5
-      C4:1 C4:0.5 D4:1 D4:0.5 E4:0.5 G4:0.5 E4:0.5 C4:1.5 A4:1.5 D4:1 F4:0.5 E4:1.5 C4:1.5 R:1`),
+      C4:1 C4:0.5 D4:1 D4:0.5 E4:0.5 G4:0.5 E4:0.5 C4:1.5 A4:1.5 D4:1 F4:0.5 E4:1.5 C4:1.5`),
   },
   turkey: {
-    bpm: 200,
+    bpm: 240,
+    repeat: 2,
     notes: seq(`D5:0.5 C5:0.5 B4:0.5 A4:0.5 G4:0.5 G4:0.5 G4:0.5 A4:0.25 B4:0.25 G4:0.5 E4:0.5 D4:0.5 D4:0.5 D4:0.5 E4:0.25 F#4:0.25 G4:0.5 A4:0.5 B4:0.5 B4:0.5 B4:0.5 A4:0.5 B4:0.5 G4:1.5
-      D5:0.5 C5:0.5 B4:0.5 A4:0.5 G4:0.5 G4:0.5 G4:0.5 A4:0.25 B4:0.25 G4:0.5 E4:0.5 D4:0.5 D4:0.5 D4:0.5 E4:0.25 F#4:0.25 G4:0.5 A4:0.5 B4:0.5 A4:0.5 G4:0.5 F#4:0.5 G4:1.5 R:1`),
+      D5:0.5 C5:0.5 B4:0.5 A4:0.5 G4:0.5 G4:0.5 G4:0.5 A4:0.25 B4:0.25 G4:0.5 E4:0.5 D4:0.5 D4:0.5 D4:0.5 E4:0.25 F#4:0.25 G4:0.5 A4:0.5 B4:0.5 A4:0.5 G4:0.5 F#4:0.5 G4:1.5 R:0.5`),
   },
 };
+const MEDLEY = ['entertainer', 'turkey', 'weasel', 'greensleeves'];
 
 export class Music {
   constructor() {
@@ -45,6 +54,7 @@ export class Music {
   }
 
   ensure() {
+    this.watchVisibility();
     if (!this.ctx) {
       const AC = globalThis.AudioContext || globalThis.webkitAudioContext;
       if (!AC) return false;
@@ -67,7 +77,7 @@ export class Music {
   }
 
   setTune(t) {
-    if (!SONGS[t] || t === this.tune) return;
+    if ((!SONGS[t] && t !== 'medley') || t === this.tune) return;
     this.tune = t;
     if (this.playing) {
       this.stop();
@@ -80,6 +90,8 @@ export class Music {
     this.playing = true;
     this.next = this.ctx.currentTime + 0.1;
     this.i = 0;
+    this.rep = 0;
+    this.song = this.tune === 'medley' ? MEDLEY[0] : this.tune;
     this.schedule();
   }
 
@@ -88,42 +100,80 @@ export class Music {
     clearTimeout(this.timer);
   }
 
+  // Phones pause audio when you switch apps. Pause with the page and pick up again on return.
+  watchVisibility() {
+    if (this.watching || typeof document === 'undefined') return;
+    this.watching = true;
+    document.addEventListener('visibilitychange', () => {
+      if (!this.ctx) return;
+      if (document.hidden) this.ctx.suspend();
+      else this.wake();
+    });
+    // iOS only lets audio restart from a tap
+    const tap = () => this.wake();
+    document.addEventListener('pointerdown', tap);
+    document.addEventListener('touchend', tap);
+  }
+  wake() {
+    if (!this.ctx || document.hidden) return;
+    if (this.ctx.state !== 'running') this.ctx.resume();
+    if (this.playing) {
+      clearTimeout(this.timer);
+      this.schedule();
+    }
+  }
+
   schedule() {
     if (!this.playing) return;
-    const song = SONGS[this.tune];
-    const beat = 60 / song.bpm;
-    while (this.next < this.ctx.currentTime + 0.4) {
+    const now = this.ctx.currentTime;
+    // after a pause, don't try to play every missed note at once
+    if (this.next < now) this.next = now + 0.05;
+    while (this.next < now + 0.4) {
+      const song = SONGS[this.song] || SONGS.entertainer;
+      const beat = 60 / song.bpm;
       const [n, b] = song.notes[this.i];
       if (n !== 'R') this.blip(freq(n), this.next, b * beat);
       this.next += b * beat;
-      this.i = (this.i + 1) % song.notes.length;
-      if (this.i === 0) this.next += beat * 2;
+      this.i++;
+      if (this.i >= song.notes.length) {
+        this.i = 0;
+        this.next += beat * 3;
+        this.rep = (this.rep || 0) + 1;
+        if (this.tune === 'medley' && this.rep >= (song.repeat || 1)) {
+          this.rep = 0;
+          this.song = MEDLEY[(MEDLEY.indexOf(this.song) + 1) % MEDLEY.length];
+        }
+      }
     }
     this.timer = setTimeout(() => this.schedule(), 120);
   }
 
+  // A tinny music-box chime, like the speaker on top of an ice cream truck.
   blip(f, t, dur) {
     const ctx = this.ctx;
-    const o = ctx.createOscillator();
-    const o2 = ctx.createOscillator();
     const g = ctx.createGain();
-    o.type = 'triangle';
-    o2.type = 'square';
-    o.frequency.value = f;
-    o2.frequency.value = f * 2;
-    const g2 = ctx.createGain();
-    g2.gain.value = 0.08;
-    o.connect(g);
-    o2.connect(g2).connect(g);
     g.connect(this.master);
-    const len = Math.max(0.08, Math.min(dur * 0.9, 0.6));
+    const len = Math.max(0.18, Math.min(dur * 1.6, 0.7));
     g.gain.setValueAtTime(0.0001, t);
-    g.gain.exponentialRampToValueAtTime(0.6, t + 0.01);
+    g.gain.exponentialRampToValueAtTime(0.55, t + 0.005);
     g.gain.exponentialRampToValueAtTime(0.0001, t + len);
-    o.start(t);
-    o2.start(t);
-    o.stop(t + len + 0.02);
-    o2.stop(t + len + 0.02);
+    const parts = [
+      ['square', f, 0.1, len],
+      ['triangle', f * 1.003, 0.7, len],
+      ['sine', f * 2, 0.35, len * 0.6],
+      ['sine', f * 4.2, 0.18, 0.08], // the "ting" at the start of each note
+    ];
+    for (const [type, fr, vol, l] of parts) {
+      const o = ctx.createOscillator();
+      const og = ctx.createGain();
+      o.type = type;
+      o.frequency.value = fr;
+      og.gain.setValueAtTime(vol, t);
+      og.gain.exponentialRampToValueAtTime(0.0001, t + l);
+      o.connect(og).connect(g);
+      o.start(t);
+      o.stop(t + l + 0.02);
+    }
   }
 
   // little sound effects

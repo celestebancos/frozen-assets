@@ -43,6 +43,7 @@ export function shopPanel(app) {
             ${onSale ? `<div class="sale-tag">SALE ${Math.round(sale.off * 100)}% OFF</div>` : ''}
             <div class="hd"><span class="e">${supplyIcon(sup)}</span>${esc(sup.name)}</div>
             <div class="muted tiny">Have: <b>${have.toLocaleString()}</b> ${sup.unit}</div>
+            ${sup.use ? `<div class="use-note">ℹ️ ${esc(sup.use)}</div>` : ''}
             <div class="packs">
             ${sup.packs
               .map((p, i) => {
@@ -112,7 +113,18 @@ export function menuPanel(app) {
             <button class="chip ${g.isOn(t.id) ? '' : 'off'}" data-act="toggle" data-id="${t.id}">${g.isOn(t.id) ? '✅' : '🚫'}</button></span>
           ${stepper(s.prices[t.id], 'price', t.id, '+' + money(s.prices[t.id]))}
         </div>`).join('')}
-      </div>`;
+      </div>
+      <details class="card2" style="margin-top:10px" open>
+        <summary><b>🍦 What goes into each ice cream?</b></summary>
+        <ul style="margin:6px 0 0;padding-left:20px">
+          <li>🍦 <b>1 serving of mix</b> (a swirl uses half vanilla, half chocolate)</li>
+          <li>🧇 <b>1 cone or 1 bowl</b>, whichever they order</li>
+          <li>🥄 <b>1 spoon</b> with every bowl. No spoons means no bowls!</li>
+          <li>🧻 <b>Napkins</b>: grown-ups take 1, kids take 1 to 3. No napkins and people get sticky and grumpy.</li>
+          <li>🌈 <b>1 serving of sprinkles</b> if they want a topping</li>
+        </ul>
+        <p class="tiny muted" style="margin:6px 0 0">Spoons and napkins are free for customers, but they cost you money. That's part of what each ice cream costs to make.</p>
+      </details>`;
     },
   });
   onActs(m.body, {
@@ -320,6 +332,74 @@ export function policyPanel(app) {
   m.body.addEventListener('change', (e) => {
     if (e.target.dataset.chg === 'auto') g.setPolicy('autoGas', e.target.checked);
     app.changed();
+  });
+  return m;
+}
+
+// ---------------- Places: how busy each spot was ----------------
+const BLOCKS = [
+  { name: 'Morning', sub: '10–1', from: 0, to: 3 },
+  { name: 'Afternoon', sub: '1–4', from: 3, to: 6 },
+  { name: 'Evening', sub: '4–8', from: 6, to: 10 },
+];
+export function placesPanel(app) {
+  const g = app.game;
+  let tab = 'spots';
+  const m = modal(app, {
+    title: '📍 Places',
+    render(body) {
+      const s = g.state;
+      const days = (s.log?.days || []).filter((d) => d.season === s.season && d.bySpot);
+      if (s.phase === 'open' && s.today?.bySpot) {
+        days.push({ day: s.day, today: true, dow: g.dayName, week: g.week, temp: s.weather.temp, rain: s.weather.rain, route: s.route.map((r) => `${r.spot}@${r.at}`), customers: s.today.customers, revenue: s.today.revenue,
+          bySpot: Object.fromEntries(Object.entries(s.today.bySpot).map(([k, v]) => [k, { minutes: s.minutesHere[k] || 0, ...v }])) });
+      }
+      const tabs = `<div class="tabs"><button class="btn small ${tab === 'spots' ? 'on' : ''}" data-act="tab" data-t="spots">📍 By place</button><button class="btn small ${tab === 'days' ? 'on' : ''}" data-act="tab" data-t="days">📅 By day</button></div>`;
+      if (!days.length) {
+        body.innerHTML = tabs + '<p>No days yet this summer. After you open for business, this page shows how many people came to each place.</p>';
+        return;
+      }
+      const perHour = (c, min) => (min > 0 ? ((c * 60) / min).toFixed(1) : '—');
+      if (tab === 'spots') {
+        const agg = {};
+        for (const d of days)
+          for (const [id, v] of Object.entries(d.bySpot)) {
+            const a = (agg[id] ||= { days: 0, minutes: 0, customers: 0, revenue: 0, min: Array(10).fill(0), cust: Array(10).fill(0) });
+            a.days++;
+            a.minutes += v.minutes;
+            a.customers += v.customers;
+            a.revenue += v.revenue;
+            (v.minByHour || []).forEach((x, i) => (a.min[i] += x));
+            (v.custByHour || []).forEach((x, i) => (a.cust[i] += x));
+          }
+        const rows = Object.entries(agg).sort((a, b) => b[1].customers / Math.max(1, b[1].minutes) - a[1].customers / Math.max(1, a[1].minutes));
+        const block = (a, b) => {
+          const min = a.min.slice(b.from, b.to).reduce((x, y) => x + y, 0);
+          const c = a.cust.slice(b.from, b.to).reduce((x, y) => x + y, 0);
+          return min >= 15 ? perHour(c, min) : '<span class="muted">—</span>';
+        };
+        body.innerHTML = `${tabs}<p class="tiny muted" style="margin-top:0">This summer so far. <b>People per hour</b> is the fair way to compare places, because you spent different amounts of time at each one.</p>
+          <div class="scroll-x"><table class="books">
+          <tr><th>Place</th><th>Days</th><th>Hours</th><th>People</th><th>👥 per hour</th><th>💵 per hour</th>${BLOCKS.map((b) => `<th>${b.name}<br><span class="tiny muted">${b.sub}</span></th>`).join('')}</tr>
+          ${rows.map(([id, a]) => `<tr><td><b>${esc(SPOT[id].name)}</b></td><td>${a.days}</td><td>${(a.minutes / 60).toFixed(1)}</td><td>${a.customers}</td><td><b>${perHour(a.customers, a.minutes)}</b></td><td>${a.minutes ? money(Math.round((a.revenue * 60) / a.minutes)) : '—'}</td>${BLOCKS.map((b) => `<td>${block(a, b)}</td>`).join('')}</tr>`).join('')}
+          </table></div>
+          <p class="tiny muted">The morning, afternoon and evening columns are people per hour at that time of day. Weekends, hot days and ads bring more people everywhere, so try a place more than once!</p>`;
+        return;
+      }
+      const at = (min) => fmtTime(min).replace(':00', '');
+      body.innerHTML = `${tabs}<div class="scroll-x"><table class="books">
+        <tr><th>Day</th><th>Weather</th><th>Route</th><th>People</th><th>Sales</th></tr>
+        ${days.slice().reverse().map((d) => `<tr><td><b>${d.dow} wk ${d.week}</b>${d.today ? ' <span class="tiny muted">(today)</span>' : ''}</td><td>${d.rain ? '🌧️' : '☀️'} ${d.temp}°</td>
+          <td style="text-align:left;white-space:normal">${d.route.map((r) => { const [id, t] = r.split('@'); const v = d.bySpot[id]; return `${at(Number(t))} ${esc(SPOT[id].name)}${v ? ` <span class="tiny muted">(${v.customers})</span>` : ''}`; }).join(' → ')}</td>
+          <td>${d.customers}</td><td>${money(d.revenue)}</td></tr>`).join('')}
+        </table></div><p class="tiny muted">The number after each place is how many people came while you were parked there.</p>`;
+    },
+  });
+  onActs(m.body, {
+    tab: (t) => {
+      tab = t.dataset.t;
+      m.refresh();
+    },
   });
   return m;
 }

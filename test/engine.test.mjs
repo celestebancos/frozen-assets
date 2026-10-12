@@ -223,3 +223,47 @@ test('playground drops happen much more than downtown drops', () => {
   };
   assert.ok(rate('school') > 3 * rate('downtown'));
 });
+
+test('bigger loan and pricier truck: cash left over and daily interest follow the choice', async () => {
+  const { CONFIG, TRUCK_COLORS } = await import('../js/config.js');
+  const loan = CONFIG.loans.find((l) => l.id === 'large');
+  const truck = TRUCK_COLORS.find((c) => c.id === 'orange');
+  const g = Game.create({ player: 'Nathan', business: 'Big', color: 'orange', seed: 2, loan, truckCost: truck.price });
+  assert.equal(g.state.truth.loan, loan.principal);
+  assert.equal(g.state.truth.truck, truck.price);
+  assert.equal(g.cash, loan.principal - truck.price);
+  assert.ok(g.cash >= CONFIG.minStartCash);
+  fileAllCorrectly(g);
+  g.buy('vanilla', 0, 1);
+  g.openDay();
+  while (g.state.phase === 'open') {
+    if (g.state.pending) g.resolve({ kind: 'nothing' });
+    g.step();
+  }
+  assert.equal(g.state.truth.interest, loan.dailyInterest);
+  assert.equal(share(g.state.truth), profit(g.state.truth));
+});
+
+test('every truck leaves enough cash for supplies with at least the biggest loan', async () => {
+  const { CONFIG, TRUCK_COLORS } = await import('../js/config.js');
+  const big = Math.max(...CONFIG.loans.map((l) => l.principal));
+  for (const c of TRUCK_COLORS) assert.ok(c.price <= big - CONFIG.minStartCash, c.id);
+  // the default truck fits the smallest loan
+  assert.ok(CONFIG.loan.truckCost <= CONFIG.loans[0].principal - CONFIG.minStartCash);
+});
+
+test('place stats: customers and minutes per spot add up to the day', () => {
+  const { game: g } = playSeason('decent', 77);
+  const days = g.state.log.days.filter((d) => d.bySpot);
+  assert.ok(days.length > 50);
+  for (const d of days) {
+    const spots = Object.values(d.bySpot);
+    assert.equal(spots.reduce((a, v) => a + v.customers, 0), d.customers);
+    for (const v of spots) {
+      assert.equal(v.minByHour.reduce((a, b) => a + b, 0), v.minutes);
+      assert.equal(v.custByHour.reduce((a, b) => a + b, 0), v.customers);
+    }
+  }
+  const wants = g.state.log.days.reduce((a, d) => a + Object.values(d.tooExpensiveWants).reduce((x, w) => x + w.n, 0), 0);
+  assert.equal(wants, g.state.log.days.reduce((a, d) => a + d.tooExpensive, 0));
+});

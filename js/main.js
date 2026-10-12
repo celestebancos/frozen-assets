@@ -7,7 +7,7 @@ import { truckSVG, iceCreamSVG } from './art.js';
 import { leaderboardConfig, isConfigured, postScore, fetchScores, flushPending } from './leaderboard.js';
 import { esc, money, el, openModal, onActs, anyModalOpen, closeAllModals, toast, fmtTime } from './ui/dom.js';
 import { Scene } from './ui/scene.js';
-import { shopPanel, menuPanel, mapPanel, giftPanel, inventoryPanel, policyPanel, truckPanel, booksPanel } from './ui/panels.js';
+import { shopPanel, menuPanel, mapPanel, giftPanel, inventoryPanel, policyPanel, truckPanel, booksPanel, placesPanel } from './ui/panels.js';
 import { openShoebox } from './ui/filing.js';
 import { weeklyReport, seasonEnd } from './ui/reports.js';
 import { showDecision } from './ui/popups.js';
@@ -109,31 +109,91 @@ class App {
     closeAllModals();
     this.stopLoop();
     document.body.innerHTML = '';
-    let color = 'pink';
+    let step = 'bank';
+    let loan = null;
+    let color = null;
     let name = `${player}'s Ice Cream`;
-    const scr = el(`<div class="screen"><h1 class="logo" style="font-size:44px">Your truck</h1><div class="setup-card"></div></div>`);
+    const scr = el(`<div class="screen"><h1 class="logo" style="font-size:44px"></h1><div class="setup-card"></div></div>`);
     document.body.appendChild(scr);
+    const title = scr.querySelector('h1');
     const card = scr.querySelector('.setup-card');
+    const days = C.seasonWeeks * C.daysPerWeek;
+    const truckFor = (id) => TRUCK_COLORS.find((c) => c.id === id);
     const render = () => {
-      card.innerHTML = `<div style="max-width:420px;margin:0 auto">${truckSVG(this.truckHex(color), name)}</div>
-        <h3>🎨 Color</h3><div class="swatches">${TRUCK_COLORS.map((c) => `<button class="swatch ${c.id === color ? 'on' : ''}" style="background:${c.hex}" data-act="color" data-id="${c.id}" aria-label="${c.name}"></button>`).join('')}</div>
+      if (step === 'bank') {
+        title.textContent = '🏦 The bank';
+        card.innerHTML = `<div class="penny"><div class="face">🧑‍💼</div><div class="say">Hi ${esc(player)}! To start an ice cream business you need a truck, and trucks cost a lot. The bank can lend you the money. <b>At the end of the summer (${C.seasonWeeks} weeks) you must pay it all back.</b> Until then, you pay the bank a little <b>interest</b> every day. That's the price of borrowing.</div></div>
+          <div class="loan-choices">${C.loans
+            .map((l) => {
+              const total = l.dailyInterest * days;
+              return `<button class="loan ${loan === l.id ? 'on' : ''}" data-act="loan" data-id="${l.id}">
+                <div class="amt">${money(l.principal)}</div>
+                <div>Interest: <b>${money(l.dailyInterest)} a day</b></div>
+                <div class="tiny muted">That's ${money(total)} for the whole summer.</div>
+                <div class="tiny">At the end you pay back <b>${money(l.principal)}</b>.</div>
+              </button>`;
+            })
+            .join('')}</div>
+          <p class="tiny muted">💡 A bigger loan gives you more cash to spend now, but you pay more interest every day, and you still have to pay all of it back. ${(() => {
+            const [a, b, c] = C.loans;
+            return `The extra ${money(b.principal - a.principal)} in the middle loan costs ${money((b.dailyInterest - a.dailyInterest) * days)} more interest. The next ${money(c.principal - b.principal)} costs ${money((c.dailyInterest - b.dailyInterest) * days)} more.`;
+          })()}</p>
+          <div class="row" style="justify-content:space-between;margin-top:16px"><button class="btn" data-act="back">◀ Back</button><button class="btn big go" data-act="next" ${loan ? '' : 'disabled'}>Borrow it ▶</button></div>`;
+        return;
+      }
+      const L = C.loans.find((l) => l.id === loan);
+      const maxTruck = L.principal - C.minStartCash;
+      if (color && truckFor(color).price > maxTruck) color = null;
+      const t = color && truckFor(color);
+      if (step === 'truck') {
+        title.textContent = '🚚 Truck lot';
+        card.innerHTML = `<p style="margin-top:0">You borrowed <b>${money(L.principal)}</b>. Pick a truck to buy. Every truck works the same, but some paint jobs cost more. Whatever is left over is your cash for buying supplies.</p>
+          <div class="truck-lot">${TRUCK_COLORS.map((c) => {
+            const can = c.price <= maxTruck;
+            return `<button class="lot-truck ${color === c.id ? 'on' : ''}" data-act="color" data-id="${c.id}" ${can ? '' : 'disabled'}>
+              ${truckSVG(c.hex, c.name)}<div class="price">${money(c.price)}</div><div class="tiny">${can ? `${money(L.principal - c.price)} left over` : 'Too expensive for this loan'}</div></button>`;
+          }).join('')}</div>
+          <div class="row" style="justify-content:space-between;margin-top:16px"><button class="btn" data-act="toBank">◀ Back to the bank</button>
+            <button class="btn big go" data-act="next" ${t ? '' : 'disabled'}>${t ? `Buy it for ${money(t.price)} ▶` : 'Pick a truck'}</button></div>`;
+        return;
+      }
+      title.textContent = '🪧 Your sign';
+      card.innerHTML = `<div style="max-width:420px;margin:0 auto">${truckSVG(t.hex, name)}</div>
+        <div class="row center" style="margin:6px 0"><span class="chip">🏦 Loan ${money(L.principal)}</span><span class="chip">🚚 Truck −${money(t.price)}</span><span class="chip">💵 Cash left ${money(L.principal - t.price)}</span></div>
         <h3>🪧 Business name</h3><input class="text-in" maxlength="28" value="${esc(name)}" aria-label="Business name">
-        <div class="row" style="justify-content:space-between;margin-top:16px"><button class="btn" data-act="back">◀ Back</button><button class="btn big go" data-act="go">Let's go! ▶</button></div>`;
+        <div class="row" style="justify-content:space-between;margin-top:16px"><button class="btn" data-act="toTruck">◀ Back</button><button class="btn big go" data-act="go">Let's go! ▶</button></div>`;
       card.querySelector('input').addEventListener('input', (e) => {
         name = e.target.value;
-        card.querySelector('div').innerHTML = truckSVG(this.truckHex(color), name);
+        card.querySelector('div').innerHTML = truckSVG(t.hex, name);
       });
     };
     render();
     onActs(card, {
+      loan: (t) => {
+        loan = t.dataset.id;
+        render();
+      },
       color: (t) => {
         color = t.dataset.id;
+        render();
+      },
+      next: () => {
+        step = step === 'bank' ? 'truck' : 'name';
+        render();
+      },
+      toBank: () => {
+        step = 'bank';
+        render();
+      },
+      toTruck: () => {
+        step = 'truck';
         render();
       },
       back: () => this.showTitle(),
       go: () => {
         if (!name.trim()) return toast('Your truck needs a name!');
-        this.game = Game.create({ player, business: name.trim(), color, tune: 'entertainer' });
+        const L = C.loans.find((l) => l.id === loan);
+        this.game = Game.create({ player, business: name.trim(), color, tune: 'medley', loan: L, truckCost: truckFor(color).price });
         this.save();
         this.startGameView();
       },
@@ -160,6 +220,9 @@ class App {
     this.toolbar = document.querySelector('.toolbar');
     this.scene = new Scene(document.querySelector('.scene-root'), this);
     this.speed = 1;
+    this.hudKey = '';
+    this.gadgetHTML = '';
+    this.walking = new Map();
     onActs(this.hud, {
       speed: (t) => this.setSpeed(Number(t.dataset.s)),
       skip: () => this.setSpeed(9),
@@ -187,6 +250,7 @@ class App {
       policies: policyPanel,
       truck: truckPanel,
       books: booksPanel,
+      places: placesPanel,
     };
     if (name === 'shoebox') return this.openShoebox(() => this.afterChange());
     const m = map[name]?.(this);
@@ -236,7 +300,7 @@ class App {
     const card = el(`<div class="morning"><div class="card">
       ${s.phase === 'seasonEnd' ? `<div style="font-size:40px">🌅</div><h2 style="margin:0">Summer's over!</h2>` : s.phase === 'setup' ? `<div style="font-size:40px">🏦➡️💵➡️🚚</div>` : `<h2 style="margin:0">${DAY_NAMES[g.dayOfWeek]} · Week ${g.week}${s.season > 1 ? ` · Summer ${s.season}` : ''}</h2>`}
       <div class="weather">${wIcon} <b style="font-size:30px">${w.temp}°F</b></div>
-      ${last && s.phase !== 'setup' ? `<p class="muted">Yesterday: 🍦 ${Object.values(last.sold).reduce((a, b) => a + b, 0)} · 💵 ${money(last.revenue)}</p>` : ''}
+      ${last && s.phase !== 'setup' ? `<p class="muted">Yesterday: 🍦 ${Object.values(last.sold).reduce((a, b) => a + b, 0)} · 💵 ${money(last.revenue)}${last.tooExpensive ? ` · 😤 ${last.tooExpensive} said “too expensive”` : ''}</p>` : ''}
       ${needFile ? `<button class="btn big yellow pulse" data-act="file">🗃️ Shoebox (${needFile})</button>` : `<button class="btn big go pulse" data-act="open">🔔 Open for business!</button>`}
     </div></div>`);
     this.stage.appendChild(card);
@@ -329,25 +393,72 @@ class App {
   }
 
   // ---------- HUD ----------
+  // The HUD is rebuilt only when the speed or open/closed changes. Rebuilding it every frame
+  // replaced the buttons between press and release, so taps on them never registered.
   renderHUD() {
     const g = this.game;
     if (!g || !this.hud) return;
     const s = g.state;
-    const fuelPct = Math.round((s.fuel / C.gas.tankGal) * 100);
     const sp = this.speed;
     const open = s.phase === 'open';
-    this.hud.innerHTML = `
+    const key = `${sp}|${open}|${s.business}|${s.color}`;
+    if (key !== this.hudKey) {
+      this.hudKey = key;
+      this.hud.innerHTML = `
       <div class="biz"><span class="dot" style="background:${this.truckHex()}"></span><span class="n">${esc(s.business)}</span></div>
       <div class="row" style="gap:6px">
-        <span class="clock">${DAY_NAMES[g.dayOfWeek]} wk ${g.week} · ${open ? fmtTime(s.minute) : '🌙'}</span>
-        <span class="pill">${s.weather?.rain ? '🌧️' : '☀️'} ${s.weather?.temp ?? ''}°</span>
-        <span class="pill cash">💵 ${money(g.cash)}</span>
-        <span class="fuel ${fuelPct < 25 ? 'low' : ''}" title="Gas">⛽<span class="bar"><i style="width:${fuelPct}%"></i></span></span>
+        <span class="clock"></span>
+        <span class="pill wx"></span>
+        <span class="pill cash"></span>
+        <span class="fuel" title="Gas">⛽<span class="bar"><i></i></span></span>
       </div>
       <div class="speed" role="group" aria-label="Speed">
         ${['⏸', '▶', '▶▶', '▶▶▶'].map((l, i) => `<button class="${sp === i ? 'on' : ''}" data-act="speed" data-s="${i}" ${open ? '' : 'disabled'} aria-label="Speed ${i}">${l}</button>`).join('')}
         <button class="${sp === 9 ? 'on' : ''}" data-act="skip" ${open ? '' : 'disabled'} aria-label="Skip to end of day">⏭</button>
       </div>`;
+      this.hudEls = {
+        clock: this.hud.querySelector('.clock'),
+        wx: this.hud.querySelector('.wx'),
+        cash: this.hud.querySelector('.cash'),
+        fuel: this.hud.querySelector('.fuel'),
+        bar: this.hud.querySelector('.fuel i'),
+      };
+    }
+    const e = this.hudEls;
+    const fuelPct = Math.round((s.fuel / C.gas.tankGal) * 100);
+    const set = (node, text) => {
+      if (node.textContent !== text) node.textContent = text;
+    };
+    set(e.clock, `${DAY_NAMES[g.dayOfWeek]} wk ${g.week} · ${open ? fmtTime(s.minute) : '🌙'}`);
+    set(e.wx, `${s.weather?.rain ? '🌧️' : '☀️'} ${s.weather?.temp ?? ''}°`);
+    set(e.cash, `💵 ${money(this.shownCash())}`);
+    e.fuel.classList.toggle('low', fuelPct < 25);
+    e.bar.style.width = fuelPct + '%';
+  }
+
+  // Customers still walking up to the window haven't paid yet, so the dashboard leaves them out.
+  partyWalking(p) {
+    const sold = {};
+    let people = 0;
+    for (const m of p.members) {
+      if (m.kind !== 'dog') people++;
+      if (m.result === 'bought' && m.item) {
+        const k = `${m.item.flavor}-${m.item.container}`;
+        sold[k] = (sold[k] || 0) + 1;
+      }
+    }
+    this.walking.set(p.id, { bill: p.bill, sold, people });
+  }
+  partyArrived(id) {
+    if (this.walking.delete(id)) {
+      this.renderHUD();
+      this.renderGadget();
+    }
+  }
+  shownCash() {
+    let c = this.game.cash;
+    if (this.game.state.phase === 'open') for (const w of this.walking.values()) c -= w.bill;
+    return c;
   }
 
   renderGadget() {
@@ -355,14 +466,26 @@ class App {
     if (!g || !this.gadget) return;
     const s = g.state;
     const t = s.phase === 'open' ? s.today : null;
-    const sold = t ? Object.entries(t.sold).sort((a, b) => b[1] - a[1]) : [];
+    const soldNow = t ? { ...t.sold } : {};
+    let customers = t ? t.customers : 0;
+    if (t) {
+      for (const w of this.walking.values()) {
+        customers -= w.people;
+        for (const [k, v] of Object.entries(w.sold)) soldNow[k] -= v;
+      }
+    }
+    const sold = Object.entries(soldNow).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]);
     const n = sold.reduce((a, [, v]) => a + v, 0);
-    this.gadget.innerHTML = `<div class="big">💵 ${money(g.cash)}</div>
-      ${t ? `<div class="cust">🍦 ${n} today · 🚶 ${t.customers}</div>
+    const html = `<div class="big">💵 ${money(this.shownCash())}</div>
+      ${t ? `<div class="cust">🍦 ${n} today · 🚶 ${customers}</div>
       <div class="sold">${sold.slice(0, 12).map(([k, v]) => {
         const [flavor, container] = k.split('-');
         return `<span>${iceCreamSVG({ flavor, container, topping: null }, 22)}${v}</span>`;
       }).join('')}</div>` : ''}`;
+    if (html !== this.gadgetHTML) {
+      this.gadgetHTML = html;
+      this.gadget.innerHTML = html;
+    }
   }
 
   renderToolbar() {
@@ -375,6 +498,7 @@ class App {
       b('shop', '🛒', 'Shop', noStock && !files) +
       b('menu', '📋', 'Menu') +
       b('map', '🗺️', 'Map') +
+      b('places', '📍', 'Places') +
       b('gift', '🎁', 'Gift cards') +
       b('stock', '📦', 'Stock') +
       b('books', '📒', 'Books') +

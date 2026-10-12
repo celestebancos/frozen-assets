@@ -65,6 +65,8 @@ export function openShoebox(app, onDone) {
         </div>`;
     },
   });
+  // Back to the top so the next paper is in view (on a phone the board is below the paper).
+  const toTop = () => m.el.scrollTo({ top: 0 });
   onActs(m.body, {
     pick: (t) => {
       current = g.docsToFile().find((d) => d.id === t.dataset.id) || current;
@@ -91,6 +93,7 @@ export function openShoebox(app, onDone) {
         picks = {};
         current = null;
         m.refresh();
+        toTop();
         // flash the stamp on the next document view
         const paper = m.body.querySelector('.paper');
         if (paper && !paper.querySelector('.stamp') && g.docsToFile().length) showStampToast(m.body);
@@ -100,6 +103,7 @@ export function openShoebox(app, onDone) {
           picks = {};
           current = null;
           m.refresh();
+          toTop();
         });
       }
     },
