@@ -1,7 +1,7 @@
 // Frozen Assets game engine. Pure logic, no DOM, so it runs in the browser and in Node.
 // All state lives in `game.state` (plain JSON, saved as-is). `game.events` is a transient feed for the UI.
 
-import { CONFIG, SUPPLIES, SUPPLY, SPOTS, SPOT, CONTAINERS, FLAVORS, TOPPINGS } from './config.js';
+import { CONFIG, SUPPLIES, SUPPLY, SPOTS, SPOT, CONTAINERS, FLAVORS, TOPPINGS, CROWDS, DROP_BY_PERSON } from './config.js';
 import { makeRng } from './rng.js';
 import { balanceCheck, applyEntries, emptyTotals, share } from './ledger.js';
 import { addToDoc, docLines, docEntryList, checkFiling, DOC_TYPES } from './documents.js';
@@ -69,7 +69,26 @@ export class Game {
     this.state = state;
     this.events = [];
     this.rng = makeRng(state.rngState);
+    state.log ||= { actions: [], days: [] }; // older saves had no log
   }
+
+  // ---------- play log (for grown-ups to export and analyze) ----------
+  logAction(type, data = {}) {
+    const s = this.state;
+    const acts = s.log.actions;
+    const last = acts[acts.length - 1];
+    const t = Date.now();
+    // collapse repeated clicks on the same thing into one entry
+    if (last && last.day === s.day && last.season === s.season && last.type === type) {
+      if ((type === 'price' && last.id === data.id) || type === 'route' || type === 'giftSale') {
+        Object.assign(last, data, { from: last.from ?? data.from, t });
+        return;
+      }
+    }
+    acts.push({ t, season: s.season, day: s.day, minute: s.phase === 'open' ? s.minute : null, type, ...data });
+    if (acts.length > 5000) acts.splice(0, acts.length - 5000);
+  }
+
 
   static create(opts) {
     const g = new Game(newGameState(opts));
@@ -174,8 +193,14 @@ export class Game {
     const pack = sup.packs[packIdx];
     const total = this.priceFor(id, packIdx, payLater) * count;
     if (payLater) {
-      if (this.creditUsed() + total > C.credit.limit) return { ok: false, reason: 'limit' };
-    } else if (this.cash < total) return { ok: false, reason: 'cash' };
+      if (this.creditUsed() + total > C.credit.limit) {
+        this.logAction('buyFail', { id, pack: pack.size, count, payLater, total, reason: 'limit' });
+        return { ok: false, reason: 'limit' };
+      }
+    } else if (this.cash < total) {
+      this.logAction('buyFail', { id, pack: pack.size, count, payLater, total, reason: 'cash' });
+      return { ok: false, reason: 'cash' };
+    }
     const raw = pack.size * count * (sup.halfUnits ? 2 : 1);
     if (s.menuAutoOff?.includes(id)) {
       s.menuAutoOff = s.menuAutoOff.filter((x) => x !== id);
@@ -200,6 +225,7 @@ export class Game {
       ], { label, amt: total });
     }
     this.emit({ t: 'buy', id, total, payLater });
+    this.logAction('buy', { id, pack: pack.size, count, payLater, total, onSale: !!(s.sale && s.sale.supply === id && s.day <= s.sale.until) });
     return { ok: true, total };
   }
 
@@ -210,6 +236,7 @@ export class Game {
     if (units <= 0) return { ok: false, reason: 'none' };
     const cost = this.consume(id, units);
     const got = Math.round(cost * C.sellBackRate);
+    this.logAction('sellBack', { id, units, got, cost });
     this.post('sellBack', [
       { acct: 'cash', amt: got },
       { acct: 'sellBackLoss', amt: cost - got },
@@ -360,6 +387,7 @@ export class Game {
     const filedBefore = { ...s.filed };
     doc.filed = true;
     doc.firstTry = res.ok;
+    this.logAction('file', { doc: doc.type, week: doc.week, ok: res.ok, picks: { ...picks }, answer: res.correct.map((c) => `${c.acct}:${c.dir}`) });
     const entries = docEntryList(doc);
     applyEntries(s.filed, entries);
     (s.filedByWeek[doc.week] ||= []).push(...entries);
@@ -407,13 +435,14 @@ export class Game {
     // spoilage at the start of the day
     this.spoil();
     // gas
-    if (s.policies.autoGas && s.fuel < C.gas.tankGal * C.gas.autoFillBelow) this.fillGas();
+    if (s.policies.autoGas && s.fuel < C.gas.tankGal * C.gas.autoFillBelow) this.fillGas(true);
     // first stop
     const first = this.routeStopAt(C.dayStartMin);
     if (first && first !== s.spot) this.teleportMorning(first);
     // gift card holders who come today
     this.scheduleRedemptions();
     this.emit({ t: 'open' });
+    this.logAction('open', { cash: this.cash, route: s.route.map((r) => `${r.spot}@${r.at}`) });
     this.sync();
   }
 
@@ -449,6 +478,7 @@ export class Game {
           { acct: 'supplies', amt: -lot.cost },
         ], { label: `${(lot.qty / 2).toLocaleString()} servings ${sup.short} (bought day ${lot.bought})`, amt: lot.cost });
         this.emit({ t: 'spoiled', supply: lot.supply, qty: lot.qty / 2 });
+        if (s.today) s.today.spoiled = (s.today.spoiled || 0) + lot.cost;
         lot.qty = 0;
         lot.cost = 0;
       }
@@ -496,6 +526,7 @@ export class Game {
     const b = this.state.bills.find((x) => x.id === billId);
     if (!b || this.cash < b.amt) return false;
     b.due = this.state.day;
+    this.logAction('payBill', { amt: b.amt });
     this.payBills();
     return true;
   }
@@ -513,7 +544,7 @@ export class Game {
     return a === b ? 0 : 0.3 + this.dist(a, b) * 0.012;
   }
 
-  fillGas() {
+  fillGas(auto = false) {
     const s = this.state;
     const need = C.gas.tankGal - s.fuel;
     if (need < 0.05) return 0;
@@ -530,6 +561,7 @@ export class Game {
       { acct: 'cash', amt: -cost },
     ], { label: `${gal.toFixed(1)} gal on ${this.dayName} (day ${s.day})`, amt: cost });
     this.emit({ t: 'gas', cost });
+    this.logAction('gas', { cost, gal: +gal.toFixed(2), auto });
     return cost;
   }
 
@@ -542,9 +574,10 @@ export class Game {
 
   setRoute(route) {
     this.state.route = route.filter((r) => SPOT[r.spot]).sort((a, b) => a.at - b.at);
+    this.logAction('route', { route: this.state.route.map((r) => `${r.spot}@${r.at}`) });
   }
 
-  driveTo(spot) {
+  driveTo(spot, manual = true) {
     const s = this.state;
     if (s.spot === spot && !s.driving) return { ok: true };
     const from = s.driving ? s.driving.from : s.spot;
@@ -556,6 +589,7 @@ export class Game {
     s.fuel -= fuel;
     s.driving = { from: s.spot, to: spot, left: this.driveMinutes(from, spot), total: this.driveMinutes(from, spot) };
     this.emit({ t: 'drive', to: spot });
+    if (manual) this.logAction('driveNow', { from: s.spot, to: spot });
     return { ok: true };
   }
 
@@ -632,7 +666,7 @@ export class Game {
     }
     // promo / route
     const stop = this.routeStopAt(s.minute);
-    if (s.route.some((r) => r.at === s.minute) && stop && stop !== s.spot && !(s.driving && s.driving.to === stop)) this.driveTo(stop);
+    if (s.route.some((r) => r.at === s.minute) && stop && stop !== s.spot && !(s.driving && s.driving.to === stop)) this.driveTo(stop, false);
 
     s.fuel = Math.max(0, s.fuel - C.gas.idleGalPerHour / 60);
     if (s.driving) {
@@ -674,13 +708,10 @@ export class Game {
     const s = this.state;
     const r = this.rng;
     const kind = SPOT[s.spot].kind;
-    const weights = {
-      home: [['family', 3], ['parentKid', 3], ['soloKid', 2], ['kids', 2], ['dog', 2], ['soloAdult', 1], ['adults', 1], ['teens', 1]],
-      school: [['kids', 4], ['parentKid', 3], ['family', 2], ['soloKid', 3], ['teens', 1]],
-      pool: [['teens', 3], ['family', 3], ['kids', 3], ['soloKid', 2], ['parentKid', 1]],
-      downtown: [['soloAdult', 4], ['adults', 3], ['dog', 2], ['teens', 1], ['parentKid', 1]],
-      fields: [['family', 3], ['kids', 3], ['adults', 2], ['parentKid', 2], ['teens', 2]],
-    }[kind];
+    const crowd = CROWDS[kind];
+    const hour = s.minute / 60;
+    const groups = crowd.times?.find((t) => hour >= t.from && hour < t.to)?.groups || crowd.groups;
+    const weights = Object.entries(groups);
     let type = r.weighted(weights);
     let members = [];
     const add = (k, n = 1) => {
@@ -905,7 +936,7 @@ export class Game {
       this.nudge('noTopping');
     }
     // dropped it!
-    if ((m.kind === 'kid' || m.kind === 'teen') && this.rng.chance(C.dropChance)) {
+    if (!forDog && this.rng.chance(C.dropChance * CROWDS[SPOT[s.spot].kind].dropMult * (DROP_BY_PERSON[m.kind] ?? 0))) {
       m.dropped = true;
       s.today.drops++;
       const choice = this.decide('drop', { party, idx });
@@ -942,7 +973,9 @@ export class Game {
     const s = this.state;
     s.today.outOfStock++;
     s.week.outOfStock++;
+    const svc = (s.today.service ||= { gift: 0, discountOk: 0, discountNo: 0, nothing: 0 });
     if (choice.kind === 'gift') {
+      svc.gift++;
       this.issueCard('service');
       m.result = 'giftCard';
       this.nudge('serviceSaved');
@@ -959,11 +992,14 @@ export class Game {
           this.sellItem(party, m, it, price, m.kind === 'dog');
           m.mood = 'discountOk';
           this.nudge('serviceSaved');
+          svc.discountOk++;
           return;
         }
         m.declined = true;
       }
     }
+    if (choice.kind === 'discount') svc.discountNo++;
+    else svc.nothing++;
     m.result = 'mad';
     this.nudge('outOfStockMad');
     if (party.members.length > 1 && this.rng.chance(0.5)) party.soured = true;
@@ -977,6 +1013,7 @@ export class Game {
       if (avail) {
         this.makeItem(it, 1);
         m.replaced = true;
+        this.state.today.dropsReplaced = (this.state.today.dropsReplaced || 0) + 1;
         this.nudge('dropReplaced');
         return;
       }
@@ -1044,6 +1081,15 @@ export class Game {
       party.queue.shift();
     }
     this.continueParty(party);
+    const outcome = m.result === 'bought' ? (m.dropped ? (m.replaced ? 'replaced' : 'notReplaced') : 'bought') : m.result;
+    this.logAction('decision', {
+      kind: p.kind,
+      choice: typeof choice === 'string' ? choice : choice.kind,
+      off: choice?.off,
+      wanted: m.want ? `${m.want.flavor}-${m.want.container}` : null,
+      missing: m.resolved?.missing || null,
+      outcome,
+    });
     this.sync();
   }
 
@@ -1224,6 +1270,7 @@ export class Game {
       } else s.unpaidStreak = 0;
     }
     // popularity: today's average mood, then a drift back toward normal
+    const popBefore = s.popularity;
     const P = C.popularity;
     const word = (s.today.mood * P.moodScale) / Math.max(P.moodMinCustomers, s.today.customers);
     this.bumpPopularity(Math.max(-P.moodCap, Math.min(P.moodCap, word)));
@@ -1232,6 +1279,7 @@ export class Game {
     if (s.buzz < target) s.buzz += (target - s.buzz) * C.buzzRisePerDay;
     else s.buzz -= (s.buzz - target) * C.buzzFadePerDay;
     s.lastDay = { ...s.today, endCash: this.cash, day: s.day };
+    this.logDay(popBefore);
     this.emit({ t: 'close', day: s.day });
 
     const endOfWeek = s.day % 7 === 0;
@@ -1255,6 +1303,58 @@ export class Game {
     this.sync();
   }
 
+  logDay(popBefore) {
+    const s = this.state;
+    const t = s.today;
+    const sold = Object.values(t.sold).reduce((a, b) => a + b, 0);
+    s.log.days.push({
+      t: Date.now(),
+      season: s.season,
+      day: s.day,
+      week: this.week,
+      dow: this.dayName,
+      temp: s.weather.temp,
+      rain: s.weather.rain,
+      spots: { ...s.minutesHere },
+      route: s.route.map((r) => `${r.spot}@${r.at}`),
+      prices: { ...s.prices },
+      menuOff: Object.keys(s.menuOn).filter((k) => s.menuOn[k] === false),
+      customers: t.customers,
+      parties: t.parties,
+      sold,
+      soldBy: { ...t.sold },
+      toppings: { ...t.toppings },
+      tooExpensive: t.tooExpensive,
+      outOfStock: t.outOfStock,
+      service: t.service || null,
+      drops: t.drops,
+      dropsReplaced: t.dropsReplaced || 0,
+      cardsSold: t.cardsSold,
+      cardsRedeemed: t.cardsRedeemed,
+      cardsOut: s.cards.length,
+      revenue: t.revenue,
+      startCash: t.startCash,
+      endCash: this.cash,
+      share: share(s.truth),
+      spoiled: t.spoiled || 0,
+      popularityStart: +popBefore.toFixed(3),
+      popularityEnd: +s.popularity.toFixed(3),
+      buzz: +s.buzz.toFixed(3),
+      ads: s.adTier,
+      fuel: +s.fuel.toFixed(1),
+      stock: Object.fromEntries(SUPPLIES.map((x) => [x.id, this.stock(x.id)])),
+      billsToPay: s.truth.billsToPay,
+      interestOwed: s.truth.interestOwed,
+      policies: { ...s.policies },
+    });
+  }
+
+  setPolicy(key, value) {
+    if (this.state.policies[key] === value) return;
+    this.logAction('policy', { key, from: this.state.policies[key], to: value });
+    this.state.policies[key] = value;
+  }
+
   // ---------- weekly choices ----------
   setAds(tierId) {
     const s = this.state;
@@ -1263,6 +1363,7 @@ export class Game {
     if (s.adWeekPaid === this.gw) return { ok: false, reason: 'already' };
     if (tier.cost > this.cash) return { ok: false, reason: 'cash' };
     s.adTier = tier.id;
+    this.logAction('ads', { tier: tier.id, cost: tier.cost });
     if (tier.cost > 0) {
       s.adWeekPaid = this.gw;
       this.post('adInvoice', [
@@ -1275,16 +1376,21 @@ export class Game {
 
   setGiftSale(price, count) {
     this.state.giftSale = { price: Math.max(0, Math.min(C.giftCard.face, Math.round(price))), left: Math.max(0, count | 0) };
+    this.logAction('giftSale', { ...this.state.giftSale });
   }
   startPromo(n) {
     this.state.promoLeft += Math.max(0, n | 0);
+    this.logAction('promo', { n });
   }
 
   setPrice(id, cents) {
+    const from = this.state.prices[id];
     this.state.prices[id] = Math.max(0, Math.min(5000, Math.round(cents)));
+    if (from !== this.state.prices[id]) this.logAction('price', { id, from, to: this.state.prices[id] });
   }
   setMenuOn(id, on) {
     this.state.menuOn[id] = on;
+    this.logAction('menu', { id, on });
     if (this.state.menuAutoOff) this.state.menuAutoOff = this.state.menuAutoOff.filter((x) => x !== id);
   }
 
@@ -1317,6 +1423,7 @@ export class Game {
     if (s.rebrandDay.paint && s.rebrandDay.sign) pull = 1;
     else pull = (paint ? C.rebrand.paintPull : 0) + (sign ? C.rebrand.signPull : 0);
     pull = Math.min(1, pull);
+    this.logAction('rebrand', { paint: !!paint, sign: !!sign, cost, pull });
     s.popularity += (C.popularity.start - s.popularity) * pull;
     s.buzz -= s.buzz * pull;
     if (pull === 1) s.adTier = 'none';
@@ -1333,6 +1440,7 @@ export class Game {
     if (s.phase !== 'seasonEnd') return null;
     const due = this.amountDueToBank();
     const finalShare = share(s.truth);
+    this.logAction('loanDue', { cash: this.cash, due, share: finalShare, won: !s.loanActive || this.cash >= due });
     if (!s.loanActive) {
       s.phase = 'won';
       s.results.push({ season: s.season, share: finalShare, won: true });
@@ -1358,6 +1466,7 @@ export class Game {
   nextSeason() {
     const s = this.state;
     if (s.phase !== 'won') return;
+    this.logAction('nextSeason');
     s.season++;
     s.day = 1;
     s.phase = 'closed';

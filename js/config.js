@@ -129,6 +129,44 @@ export const SPOTS = [
   { id: 'downtown', name: 'Downtown', kind: 'downtown', x: 50, y: 25 },
   { id: 'fields', name: 'Ball Fields', kind: 'fields', x: 25, y: 88 },
 ];
+// Who shows up where. groups are weighted party types; "times" override them for part of the day
+// (hours, 24h clock). dropMult scales how often cones hit the ground at that kind of spot.
+export const CROWDS = {
+  home: {
+    dropMult: 1,
+    groups: { family: 3, parentKid: 3, soloKid: 2, kids: 2, dog: 2, soloAdult: 1, adults: 1, teens: 1 },
+    times: [
+      { from: 10, to: 15, groups: { kids: 3, soloKid: 3, parentKid: 3, family: 2, dog: 1, teens: 1, soloAdult: 1 } },
+      { from: 17, to: 20, groups: { family: 5, parentKid: 3, dog: 3, adults: 2, kids: 1, soloAdult: 1, teens: 1 } },
+    ],
+  },
+  school: {
+    dropMult: 3.5, // climbing around with a cone in one hand
+    groups: { kids: 4, soloKid: 3, parentKid: 4, family: 2, teens: 0.5 },
+    times: [{ from: 14.5, to: 16, groups: { kids: 6, soloKid: 4, parentKid: 4, family: 1, teens: 1 } }],
+  },
+  pool: {
+    dropMult: 1.8, // wet, slippery hands
+    groups: { family: 3, kids: 3, soloKid: 2, parentKid: 2, teens: 2 },
+    times: [{ from: 13, to: 18, groups: { teens: 5, kids: 3, family: 2, soloKid: 2, parentKid: 1 } }],
+  },
+  downtown: {
+    dropMult: 0.5,
+    groups: { soloAdult: 4, adults: 3, dog: 2, parentKid: 1, teens: 1 },
+    times: [
+      { from: 11.5, to: 13.5, groups: { soloAdult: 6, adults: 5, dog: 1 } },
+      { from: 15, to: 20, groups: { soloAdult: 3, adults: 2, dog: 2, teens: 2, parentKid: 1, family: 1 } },
+    ],
+  },
+  fields: {
+    dropMult: 2,
+    groups: { family: 3, kids: 3, adults: 2, parentKid: 2, teens: 2 },
+    times: [{ from: 17, to: 20, groups: { family: 4, kids: 4, parentKid: 2, adults: 2, teens: 1 } }],
+  },
+};
+// How likely each kind of person is to drop a cone, relative to a kid.
+export const DROP_BY_PERSON = { kid: 1, teen: 0.5, adult: 0.1, dog: 0 };
+
 export const SPOT = Object.fromEntries(SPOTS.map((s) => [s.id, s]));
 
 export const TRUCK_COLORS = [

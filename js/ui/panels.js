@@ -183,7 +183,7 @@ export function mapPanel(app) {
     const r = route();
     if (t.dataset.chg === 'time') r[Number(t.dataset.i)].at = Number(t.value);
     if (t.dataset.chg === 'spot') r[Number(t.dataset.i)].spot = t.value;
-    if (t.dataset.chg === 'auto') g.state.policies.autoGas = t.checked;
+    if (t.dataset.chg === 'auto') g.setPolicy('autoGas', t.checked);
     if (t.dataset.chg !== 'auto') g.setRoute(r);
     app.changed();
     m.refresh();
@@ -312,13 +312,13 @@ export function policyPanel(app) {
   });
   onActs(m.body, {
     pol: (t) => {
-      g.state.policies[t.dataset.k] = t.dataset.v;
+      g.setPolicy(t.dataset.k, t.dataset.v);
       app.changed();
       m.refresh();
     },
   });
   m.body.addEventListener('change', (e) => {
-    if (e.target.dataset.chg === 'auto') g.state.policies.autoGas = e.target.checked;
+    if (e.target.dataset.chg === 'auto') g.setPolicy('autoGas', e.target.checked);
     app.changed();
   });
   return m;

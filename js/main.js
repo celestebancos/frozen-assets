@@ -11,6 +11,7 @@ import { shopPanel, menuPanel, mapPanel, giftPanel, inventoryPanel, policyPanel,
 import { openShoebox } from './ui/filing.js';
 import { weeklyReport, seasonEnd } from './ui/reports.js';
 import { showDecision } from './ui/popups.js';
+import { buildExport, exportFileName } from './export.js';
 
 const C = CONFIG;
 const MS_PER_MIN = [0, 150, 50, 12];
@@ -444,6 +445,9 @@ class App {
           <label class="stack">Base ID<input class="text-in" data-k="airtableBase" value="${esc(this.settings.airtableBase)}" placeholder="app…" autocomplete="off"></label>
           <label class="stack" style="margin-top:8px">Access token<input class="text-in" type="password" data-k="airtableToken" value="${esc(this.settings.airtableToken)}" placeholder="pat…" autocomplete="off"></label>
           <div class="row" style="margin-top:8px"><button class="btn go" data-act="saveLb">Save</button><button class="btn" data-act="test">Test</button><span class="lbmsg"></span></div>
+          <h3>📤 Export game data</h3>
+          <p class="tiny muted">Downloads everything about a player's game (works mid-summer too).</p>
+          <div class="row">${storage.players().map((n) => `<button class="btn small" data-act="export" data-n="${esc(n)}">📤 ${esc(n)}</button>`).join('') || '<span class="muted">No saved games yet</span>'}</div>
           <h3>🔊 Sound</h3>
           <label class="row">Volume <input type="range" min="0" max="1" step="0.05" value="${this.music.volume}" data-k="vol"></label>
           <label class="row"><input type="checkbox" data-k="mute" ${this.music.muted ? 'checked' : ''}> Mute</label>`;
@@ -454,6 +458,18 @@ class App {
       this.saveSettings();
     };
     onActs(m.body, {
+      export: (t) => {
+        const st = storage.loadGame(t.dataset.n);
+        if (!st) return toast('No saved game');
+        const blob = new Blob([JSON.stringify(buildExport(st), null, 1)], { type: 'application/json' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = exportFileName(st);
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+      },
       saveLb: () => {
         read();
         toast('Saved');

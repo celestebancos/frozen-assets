@@ -39,6 +39,20 @@ The leaderboard lives in an Airtable base, so every device in the house sees the
 
 The token is stored only in that browser's local storage. It is never in this repository. Scores finished before a device was connected are saved and uploaded automatically once it is. To skip the Base ID step on every device, put it in `LEADERBOARD.baseId` in `js/config.js`. The base ID isn't secret; the token is what grants access.
 
+## Looking at a kid's game
+
+The game keeps a play log alongside each save. The log has a summary of every day (where the truck went, prices, customers, what sold, sold-outs, drops, popularity, cash and stock) and every decision the player made (purchases, price and menu changes, routes, pop-up choices, policies, ads, and every shoebox filing, right or wrong).
+
+To get it, open **⚙️ Settings** on the title screen and press **📤 Export game data** next to a player's name. This works mid-summer too, because games autosave. It downloads one JSON file with the full save, the log, the game settings in use, and a `daysCsv` field you can paste into a spreadsheet.
+
+For a quick readout:
+
+```sh
+node tools/analyze.mjs frozen-assets-luke-2026-10-12.json
+```
+
+It shows week-by-week sales, price changes, supply buying and spoilage, customer service choices, and filing accuracy by paper type. It also shows how the simulated *decent* and *smart* players do with the same weather and customers.
+
 ## Turning on GitHub Pages
 
 The workflow in `.github/workflows/pages.yml` runs the tests and publishes the site on every push to `main`. To set it up, one time: **Settings → Pages → Build and deployment → Source: GitHub Actions**.

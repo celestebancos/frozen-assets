@@ -163,3 +163,63 @@ test('a saved game survives JSON and keeps playing; next summer starts clean', (
   assert.equal(g.state.truth.interest, r.game.state.truth.interest, 'no interest once the loan is paid');
   assert.equal(share(g.state.truth), profit(g.state.truth));
 });
+
+test('location changes who shows up and how often cones get dropped', () => {
+  const g = Game.create({ player: 'N', business: 'T', color: 'pink', seed: 11 });
+  const mix = (spot, minute) => {
+    g.state.spot = spot;
+    g.state.minute = minute;
+    const c = { adult: 0, kid: 0, teen: 0, dog: 0 };
+    for (let i = 0; i < 3000; i++) for (const m of g.makeParty().members) c[m.kind]++;
+    return c;
+  };
+  const down = mix('downtown', 12 * 60);
+  const play = mix('school', 15 * 60);
+  assert.ok(down.adult > 3 * (down.kid + down.teen), 'downtown lunch is mostly adults');
+  assert.ok(play.kid > 2 * play.adult, 'playground after school is mostly kids');
+});
+
+test('play log: days, actions, filings, and the export file', async () => {
+  const { buildExport, daysCsv } = await import('../js/export.js');
+  const r = playSeason('decent', 77);
+  const st = r.game.state;
+  assert.equal(st.log.days.length, 84);
+  const types = new Set(st.log.actions.map((a) => a.type));
+  for (const t of ['buy', 'file', 'open', 'route', 'ads', 'loanDue']) assert.ok(types.has(t), 'logged ' + t);
+  const ex = JSON.parse(JSON.stringify(buildExport(st)));
+  assert.equal(ex.app, 'frozen-assets');
+  assert.equal(ex.daysCsv.split('\n').length, 85);
+  assert.equal(ex.summary.filing.right, ex.summary.filing.tries, 'bot files everything right');
+  // an old save without a log still loads and exports
+  const old = JSON.parse(JSON.stringify(st));
+  delete old.log;
+  const g2 = new Game(old);
+  assert.deepEqual(g2.state.log, { actions: [], days: [] });
+  assert.ok(daysCsv([]).startsWith('season,day'));
+});
+
+test('playground drops happen much more than downtown drops', () => {
+  const rate = (spot) => {
+    const g = Game.create({ player: 'N', business: 'T', color: 'pink', seed: 12 });
+    for (const d of g.docsToFile()) g.fileDoc(d.id, Object.fromEntries(docLines(d).map((l) => [l.acct, l.dir])));
+    g.state.policies.drop = 'refuse';
+    g.state.policies.outOfStock = 'nothing';
+    let drops = 0;
+    let sold = 0;
+    for (let day = 0; day < 6; day++) {
+      g.state.lots = [];
+      g.post('registerTape', [{ acct: 'salesCash', amt: 100000 }, { acct: 'cash', amt: 100000 }]);
+      for (const [id, p] of [['vanilla', 2], ['chocolate', 2], ['cake', 1], ['napkins', 1]]) g.buy(id, p, 1);
+      g.setRoute([{ spot, at: 600 }]);
+      g.state.spot = spot;
+      g.openDay();
+      g.runDay();
+      drops += g.state.lastDay.drops;
+      sold += Object.values(g.state.lastDay.sold).reduce((a, b) => a + b, 0);
+      for (const d of g.docsToFile()) g.fileDoc(d.id, Object.fromEntries(docLines(d).map((l) => [l.acct, l.dir])));
+      g.state.needWeekReport = null;
+    }
+    return drops / sold;
+  };
+  assert.ok(rate('school') > 3 * rate('downtown'));
+});
