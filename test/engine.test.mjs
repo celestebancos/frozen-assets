@@ -145,3 +145,21 @@ test('rebranding pulls popularity back to the start', () => {
   assert.equal(g.state.popularity, 1.0, 'both on the same day = full reset');
   assert.equal(g.state.buzz, 0);
 });
+
+test('a saved game survives JSON and keeps playing; next summer starts clean', () => {
+  const r = playSeason('decent', 321);
+  const g = new Game(JSON.parse(JSON.stringify(r.game.state)));
+  assert.equal(g.state.phase, 'won');
+  g.nextSeason();
+  assert.equal(g.state.season, 2);
+  assert.equal(g.state.day, 1);
+  assert.equal(g.state.loanActive, false);
+  for (const d of g.docsToFile()) g.fileDoc(d.id, Object.fromEntries(docLines(d).map((l) => [l.acct, l.dir])));
+  g.state.policies.outOfStock = 'gift';
+  g.state.policies.drop = 'replace';
+  g.buy('vanilla', 1, 1);
+  g.openDay();
+  g.runDay();
+  assert.equal(g.state.truth.interest, r.game.state.truth.interest, 'no interest once the loan is paid');
+  assert.equal(share(g.state.truth), profit(g.state.truth));
+});
