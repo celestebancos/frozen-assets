@@ -495,9 +495,11 @@ function bush(x, w = 60, flowers = false, y = GROUND + 4) {
 }
 
 function picketFence(x1, x2, y = GROUND + 28, color = '#fffaf0') {
-  const posts = [];
-  for (let x = x1; x <= x2 - 8; x += 15) posts.push(`M${x} ${y} V${y - 28} l5 -6 l5 6 V${y} Z`);
-  return `<path d="M${x1 - 2} ${y - 21} H${x2 + 2} M${x1 - 2} ${y - 8} H${x2 + 2}" stroke="${SOFT}" stroke-width="6.5"/><path d="M${x1 - 2} ${y - 21} H${x2 + 2} M${x1 - 2} ${y - 8} H${x2 + 2}" stroke="${color}" stroke-width="4"/><path d="${posts.join(' ')}" fill="${color}" ${so(1.8)}/>`;
+  // pickets spread evenly so the first and last sit right at the ends
+  const n = Math.max(2, Math.round((x2 - x1 - 10) / 15) + 1);
+  const step = (x2 - x1 - 10) / (n - 1);
+  const posts = Array.from({ length: n }, (_, i) => `M${(x1 + i * step).toFixed(1)} ${y} V${y - 28} l5 -6 l5 6 V${y} Z`);
+  return `<path d="M${x1 + 2} ${y - 21} H${x2 - 2} M${x1 + 2} ${y - 8} H${x2 - 2}" stroke="${SOFT}" stroke-width="6.5"/><path d="M${x1 + 2} ${y - 21} H${x2 - 2} M${x1 + 2} ${y - 8} H${x2 - 2}" stroke="${color}" stroke-width="4"/><path d="${posts.join(' ')}" fill="${color}" ${so(1.8)}/>`;
 }
 
 function lamp(x, y = 346) {
@@ -514,36 +516,45 @@ function win(x, y, w, h, o = {}) {
     ${box ? `<rect x="${x - 3}" y="${y + h}" width="${w + 6}" height="7" rx="1.5" fill="#8b5a2b" ${so(1.6)}/><g>${[0.2, 0.45, 0.7, 0.9].map((t, i) => `<circle cx="${x + w * t}" cy="${y + h - 1}" r="3.6" fill="${[box, '#fff', box, '#ffd23f'][i]}" ${so(1)}/>`).join('')}</g>` : ''}`;
 }
 
-// A house that stands on the ground line. two = two stories.
-function house(x, { w = 150, body, roof, door = '#c3423f', two = false, chimney = true, porch = false, shutter = null, box = null } = {}) {
+// A house that stands on the ground line. two = two stories. The door is in the middle and the windows
+// are centered in the wall on each side of it, so shutters, flower boxes and the porch never touch.
+// Yard: fence (picket fence with a gap for the front walk) and bushes ('plain' or 'flowers', under the windows).
+function house(x, { w = 180, body, roof, door = '#c3423f', two = false, chimney = true, porch = false, shutter = null, box = null, fence = false, bushes = null } = {}) {
   const h = two ? 150 : 92;
   const top = GROUND - h;
   const peak = top - (two ? 62 : 54);
+  const mid = x + w / 2;
   const siding = Array.from({ length: Math.floor(h / 10) }, (_, i) => `M${x + 2} ${top + 8 + i * 10} H${x + w - 2}`).join(' ');
   const shingles = [0.3, 0.55, 0.8].map((t) => {
     const yy = peak + (top + 4 - peak) * t;
     const half = (w / 2 + 14) * t;
-    return `M${x + w / 2 - half + 6} ${yy} H${x + w / 2 + half - 6}`;
+    return `M${mid - half + 6} ${yy} H${mid + half - 6}`;
   }).join(' ');
   const dw = 30;
-  const dx = x + w / 2 - dw / 2 + (two ? 0 : -10);
+  const dx = mid - dw / 2;
+  const doorHalf = porch ? 30 : 20; // half the width of the door frame, or of the porch around it
+  const sideC = (w / 2 - doorHalf) / 2; // windows sit in the middle of the wall beside the door
+  const lowerC = [x + sideC, x + w - sideC];
+  const ww = 30;
   const winY = two ? [top + 22, top + 88] : [top + 22];
   const wins = winY
     .map((wy, row) => {
       const lower = row === winY.length - 1;
-      return lower
-        ? win(x + 18, wy, 30, 32, { shutter, box }) + win(x + w - 48, wy, 30, 32, { shutter, box })
-        : win(x + 18, wy, 30, 30, { shutter }) + win(x + w / 2 - 15, wy, 30, 30, { shutter }) + win(x + w - 48, wy, 30, 30, { shutter });
+      const cs = lower ? lowerC : [lowerC[0], mid, lowerC[1]];
+      return cs.map((c) => win(c - ww / 2, wy, ww, lower ? 32 : 30, { shutter, box: lower ? box : null })).join('');
     })
     .join('');
+  let yard = '';
+  if (bushes) yard += lowerC.map((c) => bush(c, two ? 40 : 46, bushes === 'flowers')).join('');
+  if (fence) yard += picketFence(x - 10, mid - doorHalf - 18) + picketFence(mid + doorHalf + 18, x + w + 10);
   return `<g>
     ${chimney ? `<rect x="${x + w * 0.7}" y="${peak + 10}" width="20" height="44" fill="#b5532a" ${so(2)}/><rect x="${x + w * 0.7 - 3}" y="${peak + 6}" width="26" height="8" fill="#9a4322" ${so(2)}/>` : ''}
     <rect x="${x}" y="${top}" width="${w}" height="${h}" fill="${body}" ${so(2.5)}/>
     <path d="${siding}" stroke="${shade(body, -0.07)}" stroke-width="1.5"/>
-    <path d="M${x - 14} ${top + 4} L${x + w / 2} ${peak} L${x + w + 14} ${top + 4} Z" fill="${roof}" ${so(2.5)}/>
+    <path d="M${x - 14} ${top + 4} L${mid} ${peak} L${x + w + 14} ${top + 4} Z" fill="${roof}" ${so(2.5)}/>
     <path d="${shingles}" stroke="${shade(roof, -0.15)}" stroke-width="2"/>
     <path d="M${x - 14} ${top + 4} H${x + w + 14}" stroke="${shade(roof, -0.25)}" stroke-width="5" stroke-linecap="round"/>
-    ${two ? `<circle cx="${x + w / 2}" cy="${top - 22}" r="10" fill="#fffaf0" ${so(2)}/><circle cx="${x + w / 2}" cy="${top - 22}" r="6.5" fill="#a9dcf7"/>` : ''}
+    ${two ? `<circle cx="${mid}" cy="${top - 22}" r="10" fill="#fffaf0" ${so(2)}/><circle cx="${mid}" cy="${top - 22}" r="6.5" fill="#a9dcf7"/>` : ''}
     ${wins}
     ${porch ? `<path d="M${dx - 14} ${GROUND - 70} H${dx + dw + 14} L${dx + dw + 8} ${GROUND - 80} H${dx - 8} Z" fill="${roof}" ${so(2)}/><path d="M${dx - 10} ${GROUND - 70} V${GROUND} M${dx + dw + 10} ${GROUND - 70} V${GROUND}" stroke="${SOFT}" stroke-width="6"/><path d="M${dx - 10} ${GROUND - 70} V${GROUND} M${dx + dw + 10} ${GROUND - 70} V${GROUND}" stroke="#fffaf0" stroke-width="3.5"/>` : ''}
     <rect x="${dx - 4}" y="${GROUND - 62}" width="${dw + 8}" height="62" fill="#fffaf0" ${so(2)}/>
@@ -552,6 +563,7 @@ function house(x, { w = 150, body, roof, door = '#c3423f', two = false, chimney 
     <circle cx="${dx + dw - 6}" cy="${GROUND - 26}" r="2.6" fill="#ffd23f" ${so(1)}/>
     <rect x="${dx - 8}" y="${GROUND}" width="${dw + 16}" height="6" fill="#d8cfc0" ${so(1.6)}/>
     <path d="M${dx + 2} ${GROUND + 6} L${dx - 6} ${334} H${dx + dw + 6} L${dx + dw - 2} ${GROUND + 6} Z" fill="#e2dacb" opacity=".9"/>
+    ${yard}
   </g>`;
 }
 
@@ -582,67 +594,82 @@ function street() {
 const HOMES = {
   maple: {
     houses: [
-      [30, { body: '#ffd6a5', roof: '#c3423f', door: '#3a8ee6', shutter: '#c3423f', box: '#ff8fc7' }],
-      [340, { body: '#cdeac0', roof: '#355070', door: '#ffd23f', porch: true }],
-      [640, { body: '#fdffb6', roof: '#7d5ba6', door: '#c3423f', shutter: '#7d5ba6', box: '#ff6f91' }],
+      [30, { body: '#ffd6a5', roof: '#c3423f', door: '#3a8ee6', shutter: '#c3423f', box: '#ff8fc7', fence: true, bushes: 'flowers' }],
+      [340, { body: '#cdeac0', roof: '#355070', door: '#ffd23f', porch: true, bushes: 'plain' }],
+      [640, { body: '#fdffb6', roof: '#7d5ba6', door: '#c3423f', shutter: '#7d5ba6', box: '#ff6f91', fence: true, bushes: 'flowers' }],
     ],
-    trees: [[250, 1.05], [560, 0.9], [870, 1.15]],
-    fences: [[20, 190], [690, 800]],
+    trees: [[275, 0.85], [580, 0.8], [905, 1.05]],
+    mailbox: 305,
   },
   oak: {
     houses: [
-      [40, { body: '#e9c46a', roof: '#264653', door: '#e76f51', porch: true }],
-      [380, { body: '#f4a261', roof: '#2a9d8f', door: '#264653', shutter: '#2a9d8f', box: '#fff' }],
-      [700, { body: '#ffcad4', roof: '#6d597a', door: '#6d597a', chimney: false }],
+      [40, { body: '#e9c46a', roof: '#264653', door: '#e76f51', porch: true, bushes: 'plain' }],
+      [380, { body: '#f4a261', roof: '#2a9d8f', door: '#264653', shutter: '#2a9d8f', box: '#fff', bushes: 'plain' }],
+      [700, { body: '#ffcad4', roof: '#6d597a', door: '#6d597a', chimney: false, bushes: 'flowers' }],
     ],
-    trees: [[275, 1.35], [610, 1.25], [930, 1.3]],
-    fences: [],
+    trees: [[300, 1.1], [630, 0.95], [950, 0.9]],
+    mailbox: 352,
   },
   sunset: {
     houses: [
-      [20, { w: 200, body: '#fff1e6', roof: '#5c4033', door: '#355070', two: true, shutter: '#355070', box: '#ff8fc7' }],
-      [400, { w: 200, body: '#e2ece9', roof: '#3d405b', door: '#c3423f', two: true, porch: true, shutter: '#3d405b' }],
-      [760, { w: 200, body: '#fde2e4', roof: '#6d597a', door: '#2a9d8f', two: true, shutter: '#6d597a', box: '#ffd23f' }],
+      [20, { w: 200, body: '#fff1e6', roof: '#5c4033', door: '#355070', two: true, shutter: '#355070', box: '#ff8fc7', bushes: 'plain' }],
+      [400, { w: 200, body: '#e2ece9', roof: '#3d405b', door: '#c3423f', two: true, porch: true, shutter: '#3d405b', bushes: 'flowers' }],
+      [760, { w: 200, body: '#fde2e4', roof: '#6d597a', door: '#2a9d8f', two: true, shutter: '#6d597a', box: '#ffd23f', bushes: 'plain' }],
     ],
-    trees: [[245, 1, 'tall'], [355, 0.9, 'tall'], [640, 1.05, 'tall'], [720, 0.85, 'tall']],
-    fences: [],
-    lamps: [150, 500, 860],
+    trees: [[262, 1, 'tall'], [360, 0.9, 'tall'], [640, 1, 'tall'], [724, 0.85, 'tall']],
+    lamps: [310],
+    mailbox: 690,
   },
   riverside: {
     houses: [
-      [60, { body: '#bde0fe', roof: '#355070', door: '#ffd23f', shutter: '#355070', box: '#ff6f91' }],
-      [640, { body: '#ffc8dd', roof: '#c3423f', door: '#355070', porch: true }],
+      [60, { body: '#bde0fe', roof: '#355070', door: '#ffd23f', shutter: '#355070', box: '#ff6f91', bushes: 'flowers' }],
+      [640, { body: '#ffc8dd', roof: '#c3423f', door: '#355070', porch: true, fence: true }],
     ],
-    trees: [[300, 1.1], [870, 1.2]],
-    fences: [[700, 840]],
+    trees: [[312, 1], [900, 1.1]],
+    mailbox: 25,
   },
 };
 
+// The river runs left to right behind the Riverside houses: a rowboat tied to a post, a little sailboat,
+// cattails along the bank and a duck.
+function riverProps() {
+  const cattails = (x) =>
+    `<g><path d="M${x} 300 Q${x - 2} 284 ${x - 4} 270 M${x + 8} 300 Q${x + 9} 282 ${x + 12} 266 M${x + 16} 300 Q${x + 18} 288 ${x + 22} 278" stroke="#4e9a3d" stroke-width="2.5" fill="none" stroke-linecap="round"/>` +
+    `<rect x="${x - 7}" y="268" width="6" height="14" rx="3" fill="#8b5a2b" ${so(1.2)}/><rect x="${x + 9}" y="263" width="6" height="14" rx="3" fill="#8b5a2b" ${so(1.2)}/></g>`;
+  return `<path d="M0 262 Q200 250 420 262 T1000 258 V300 H0 Z" fill="#7ec8e3" ${so(2)}/>
+    <path d="M40 276 q20 -6 40 0 M180 288 q24 -6 48 0 M520 274 q20 -6 40 0 M760 286 q22 -6 44 0" stroke="#d6f1fb" stroke-width="3" fill="none" stroke-linecap="round"/>
+    <g>
+      <rect x="382" y="262" width="8" height="38" rx="2" fill="#8b5a2b" ${so(1.8)}/>
+      <path d="M388 268 Q400 280 410 282" stroke="#e8d3a8" stroke-width="2" fill="none"/>
+      <path d="M405 280 H481 Q477 296 459 296 H423 Q409 296 405 280 Z" fill="#e5484d" ${so(2)}/>
+      <path d="M407 285 H479" stroke="#fff" stroke-width="3"/>
+      <path d="M431 276 L417 300 M455 276 L473 300" stroke="#b5835a" stroke-width="3.5" stroke-linecap="round"/>
+      <path d="M411 299 q10 -4 20 0 t20 0 t20 0 t20 0" stroke="#d6f1fb" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+    </g>
+    <g>
+      <path d="M515 282 H567 L559 294 H523 Z" fill="#3a8ee6" ${so(2)}/>
+      <path d="M541 282 V232" stroke="${SOFT}" stroke-width="3"/>
+      <path d="M544 236 L544 278 L571 278 Z" fill="#fff" ${so(1.8)}/><path d="M538 240 L538 278 L519 278 Z" fill="#ffd23f" ${so(1.8)}/>
+      <path d="M541 232 l10 3 l-10 3 z" fill="#e5484d"/>
+    </g>
+    ${cattails(266)}${cattails(596)}
+    <g transform="translate(326 286)"><path d="M0 0 q10 -10 22 -2 q6 -8 12 -2 l-4 4 q4 6 -6 8 h-20 q-6 -2 -4 -8 z" fill="#fff" ${so(1.6)}/><path d="M34 -4 l6 1 l-6 2" fill="#ff9f1c"/><circle cx="28" cy="-6" r="1.4" fill="${INK}"/></g>`;
+}
+
 function homeProps(spot) {
   const H = HOMES[spot.id] || HOMES.maple;
-  let out = '';
-  if (spot.id === 'riverside') {
-    // the river runs behind the houses, with a little footbridge
-    out += `<path d="M0 262 Q200 250 420 262 T1000 258 V300 H0 Z" fill="#7ec8e3" ${so(2)}/>
-      <path d="M40 276 q20 -6 40 0 M180 288 q24 -6 48 0 M520 274 q20 -6 40 0 M760 286 q22 -6 44 0" stroke="#d6f1fb" stroke-width="3" fill="none" stroke-linecap="round"/>
-      <path d="M380 280 Q470 236 560 280" stroke="${SOFT}" stroke-width="9" fill="none"/><path d="M380 280 Q470 236 560 280" stroke="#b5835a" stroke-width="6" fill="none"/>
-      <path d="M392 272 V252 M422 256 V238 M470 250 V230 M518 256 V238 M548 272 V252 M392 252 Q470 214 548 252" stroke="#8b5a2b" stroke-width="3.5" fill="none" stroke-linecap="round"/>
-      <g transform="translate(610 284)"><path d="M0 0 q10 -10 22 -2 q6 -8 12 -2 l-4 4 q4 6 -6 8 h-20 q-6 -2 -4 -8 z" fill="#fff" ${so(1.6)}/><path d="M34 -4 l6 1 l-6 2" fill="#ff9f1c"/><circle cx="28" cy="-6" r="1.4" fill="${INK}"/></g>`;
-  }
+  let out = spot.id === 'riverside' ? riverProps() : '';
   for (const [tx, ts, tk] of H.trees) out += tree(tx, ts, tk);
   for (const [hx, ho] of H.houses) out += house(hx, ho);
-  for (const [f1, f2] of H.fences) out += picketFence(f1, f2);
-  out += bush(H.houses[0][0] + 60, 50, true) + bush(H.houses[H.houses.length - 1][0] + 130, 70, spot.id !== 'oak');
-  if (spot.id === 'oak') out += bush(560, 120) + bush(900, 90, true);
-  if (spot.id === 'sunset') out += bush(250, 110) + bush(620, 120, true) + (H.lamps || []).map((x) => lamp(x)).join('');
-  out += mailbox(H.houses[1]?.[0] ? H.houses[1][0] - 20 : 220, spot.id === 'oak' ? '#e5484d' : '#3a8ee6');
+  if (spot.id === 'sunset') out += (H.lamps || []).map((x) => lamp(x)).join('');
+  out += mailbox(H.mailbox, spot.id === 'oak' ? '#e5484d' : '#3a8ee6');
   return out;
 }
 
 function schoolProps() {
   const bricks = Array.from({ length: 13 }, (_, r) => `M60 ${152 + r * 11} H420`).join(' ');
   const wins = [80, 140, 300, 360].flatMap((x) => [win(x, 160, 40, 34), win(x, 226, 40, 34)]).join('');
-  return `${tree(30, 1.1)}
+  return `
     <rect x="60" y="140" width="360" height="160" fill="#d9654a" ${so(2.5)}/>
     <path d="${bricks}" stroke="#c25640" stroke-width="1.5"/>
     <rect x="52" y="132" width="376" height="12" fill="#fffaf0" ${so(2)}/>
@@ -668,7 +695,7 @@ function schoolProps() {
       <path d="M70 -106 V-40 M94 -106 V-40 M114 -106 V-52 M138 -106 V-52" stroke="${SOFT}" stroke-width="1.6"/>
       <rect x="66" y="-42" width="32" height="7" rx="3" fill="#e5484d" ${so(1.6)}/><rect x="110" y="-54" width="32" height="7" rx="3" fill="#3a8ee6" ${so(1.6)}/>
     </g>
-    ${tree(950, 1.2)}${bush(150, 90, true)}${bush(340, 90, true)}`;
+    ${tree(960, 0.95)}${bush(150, 90, true)}${bush(340, 90, true)}`;
 }
 
 function poolProps() {
@@ -762,11 +789,11 @@ function fieldsProps() {
     <path d="M0 252 H1000 M0 270 H1000 M0 288 H1000" stroke="#5fc495" stroke-width="9"/>
     <rect x="0" y="226" width="1000" height="22" fill="#2d6a4f" ${so(2)}/><path d="M0 226 H1000" stroke="#ffd23f" stroke-width="4"/>
     <text x="500" y="243" text-anchor="middle" font-family="'Baloo 2', system-ui, sans-serif" font-size="15" font-weight="800" fill="#d8f3dc">★ GO TEAM! ★</text>
-    <path d="M330 300 Q520 236 720 300 Z" fill="#d8a873" ${so(2)}/>
-    <path d="M440 300 Q520 262 610 300" fill="#52b788"/>
-    <ellipse cx="525" cy="276" rx="16" ry="4" fill="#c99761"/>
-    <g fill="#fff" ${so(1.4)}><path d="M398 290 l8 -3 l8 3 l-8 3 z"/><path d="M517 262 l8 -3 l8 3 l-8 3 z"/><path d="M638 290 l8 -3 l8 3 l-8 3 z"/></g>
-    <g transform="translate(250 300)"><path d="M0 0 V-120 M110 0 V-120" stroke="${SOFT}" stroke-width="7"/><path d="M0 0 V-120 M110 0 V-120" stroke="#9aa3b2" stroke-width="4"/>
+    <path d="M360 300 Q520 238 680 300 Z" fill="#d8a873" ${so(2)}/>
+    <path d="M450 300 Q520 266 590 300" fill="#52b788"/>
+    <ellipse cx="520" cy="278" rx="15" ry="4" fill="#c99761"/>
+    <g fill="#fff" ${so(1.4)}><path d="M414 290 l8 -3 l8 3 l-8 3 z"/><path d="M512 264 l8 -3 l8 3 l-8 3 z"/><path d="M610 290 l8 -3 l8 3 l-8 3 z"/></g>
+    <g transform="translate(228 300)"><path d="M0 0 V-120 M110 0 V-120" stroke="${SOFT}" stroke-width="7"/><path d="M0 0 V-120 M110 0 V-120" stroke="#9aa3b2" stroke-width="4"/>
       <path d="${Array.from({ length: 11 }, (_, r) => Array.from({ length: 10 }, (_, i) => `M${i * 11} ${-120 + r * 11} l11 11 M${i * 11 + 11} ${-120 + r * 11} l-11 11`).join(' ')).join(' ')}" stroke="#aab3c0" stroke-width="1.1"/>
       <path d="M0 -120 H110" stroke="#9aa3b2" stroke-width="4"/></g>
     <g>${rows}</g>
@@ -776,7 +803,7 @@ function fieldsProps() {
       <text x="45" y="-108" text-anchor="middle" font-size="12" font-weight="800" fill="#d8f3dc" font-family="'Baloo 2', system-ui, sans-serif">HOME</text><text x="125" y="-108" text-anchor="middle" font-size="12" font-weight="800" fill="#d8f3dc" font-family="'Baloo 2', system-ui, sans-serif">GUEST</text>
       <rect x="27" y="-102" width="36" height="32" rx="4" fill="#1b2f38"/><rect x="107" y="-102" width="36" height="32" rx="4" fill="#1b2f38"/>
       <text x="45" y="-78" text-anchor="middle" font-size="24" font-weight="800" fill="#ff9f43" font-family="'Baloo 2', system-ui, sans-serif">3</text><text x="125" y="-78" text-anchor="middle" font-size="24" font-weight="800" fill="#ff9f43" font-family="'Baloo 2', system-ui, sans-serif">2</text></g>
-    ${tree(965, 1)}`;
+    ${tree(985, 0.7)}`;
 }
 
 // Backdrop for a spot. Sky colors come from CSS variables that follow the time of day.
