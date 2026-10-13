@@ -299,3 +299,55 @@ test('second chances: wrong tries stay in the shoebox; Penny can file it', async
   assert.equal(f.byPenny, 1);
   assert.equal(f.firstTry, 0);
 });
+
+test('back un-files the last paper; profit moves to the share once a week', () => {
+  const g = Game.create({ player: 'N', business: 'T', color: 'pink', seed: 5 });
+  fileAllCorrectly(g);
+  g.buy('vanilla', 0, 1);
+  g.buy('cake', 0, 1);
+  g.buy('napkins', 0, 1);
+  g.setRoute([{ spot: 'maple', at: 600 }]);
+  Object.assign(g.state.policies, { outOfStock: 'nothing', drop: 'refuse' });
+  for (let d = 0; d < 7; d++) {
+    fileAllCorrectly(g);
+    g.openDay();
+    g.runDay();
+  }
+  assert.ok(g.state.needWeekReport);
+  assert.equal(g.pendingProfit(), 0, 'nothing filed yet this week');
+  const docs = g.docsToFile();
+  const before = { ...g.state.filed };
+  fileAllCorrectly(g);
+  const t = g.state.filed;
+  assert.equal(g.pendingProfit(), profit(t) - profit(before));
+  // only the most recent paper can be un-filed
+  assert.equal(g.unfileDoc(docs[0].id), false);
+  const last = docs[docs.length - 1];
+  assert.equal(g.unfileDoc(last.id), true);
+  assert.equal(last.filed, false);
+  assert.equal(g.docsToFile().length, 1);
+  fileAllCorrectly(g);
+  assert.deepEqual(g.state.filed, t);
+  const pending = g.pendingProfit();
+  const { amt, ids } = g.moveProfit();
+  assert.equal(amt, pending);
+  assert.equal(g.pendingProfit(), 0);
+  assert.equal(g.unfileDoc(last.id), false, 'closed papers stay filed');
+  g.undoMoveProfit(ids);
+  assert.equal(g.pendingProfit(), pending);
+});
+
+test('older saves count all filed profit as already moved', () => {
+  const g = Game.create({ player: 'N', business: 'T', color: 'pink', seed: 6 });
+  fileAllCorrectly(g);
+  g.buy('vanilla', 0, 1);
+  const s = JSON.parse(JSON.stringify(g.state));
+  delete s.closeTracked;
+  for (const d of s.docs) {
+    delete d.closed;
+    d.filed = true;
+  }
+  const g2 = new Game(s);
+  assert.equal(g2.openProfitDocs().length, 0);
+  assert.equal(s.closeTracked, true);
+});

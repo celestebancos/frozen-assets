@@ -3,7 +3,7 @@
 
 import { CONFIG, SUPPLIES, SUPPLY, SPOTS, SPOT, CONTAINERS, FLAVORS, TOPPINGS, CROWDS, DROP_BY_PERSON } from './config.js';
 import { makeRng } from './rng.js';
-import { balanceCheck, applyEntries, emptyTotals, share } from './ledger.js';
+import { ACCOUNT, balanceCheck, applyEntries, emptyTotals, share } from './ledger.js';
 import { addToDoc, docLines, docEntryList, checkFiling, DOC_TYPES } from './documents.js';
 
 const C = CONFIG;
@@ -32,7 +32,8 @@ export function newGameState({ player, business, color, tune = 'entertainer', se
     truth: emptyTotals(),
     filed: emptyTotals(),
     filedByWeek: {},
-    docs: [],
+    docs: [], // filed docs get closed = true once their profit moves to the player's Share
+    closeTracked: true,
     lots: [],
     prices: { cake: 300, sugar: 350, waffle: 450, bowl: 300, chocSprinkles: 50, rainbowSprinkles: 50 },
     menuOn: {},
@@ -76,6 +77,12 @@ export class Game {
     state.log ||= { actions: [], days: [] }; // older saves had no log
     // songs that were removed or renamed
     state.tune = { medley: 'entertainer', musicBox: 'entertainer', truckSong: 'turkey' }[state.tune] || state.tune;
+    // older saves didn't track which profit has moved to the player's Share: count it all as moved,
+    // except a week whose report hasn't been seen yet
+    if (!state.closeTracked) {
+      for (const d of state.docs) if (d.filed && d.week !== state.needWeekReport) d.closed = true;
+      state.closeTracked = true;
+    }
   }
 
   // ---------- play log (for grown-ups to export and analyze) ----------
@@ -428,6 +435,56 @@ export class Game {
     const entries = docEntryList(doc);
     applyEntries(s.filed, entries);
     (s.filedByWeek[doc.week] ||= []).push(...entries);
+  }
+
+  // Undo the most recent filing (the shoebox's Back button). Only works on the last paper filed.
+  unfileDoc(docId) {
+    const s = this.state;
+    const doc = s.docs.find((d) => d.id === docId);
+    if (!doc || !doc.filed || doc.closed) return false;
+    const entries = docEntryList(doc);
+    const wk = s.filedByWeek[doc.week] || [];
+    const tail = wk.slice(wk.length - entries.length);
+    const same = tail.length === entries.length && tail.every((e, i) => e.acct === entries[i].acct && e.amt === entries[i].amt && e.detail === entries[i].detail);
+    if (!same) return false;
+    wk.splice(wk.length - entries.length);
+    applyEntries(s.filed, entries, -1);
+    doc.filed = false;
+    delete doc.byPenny;
+    this.logAction('unfile', { docId, doc: doc.type, week: doc.week });
+    return true;
+  }
+
+  // Filed papers whose profit hasn't moved to the player's Share yet.
+  openProfitDocs() {
+    return this.state.docs.filter((d) => d.filed && !d.closed);
+  }
+
+  // Income minus expenses on those papers: "Profit this week" on the balance sheet.
+  pendingProfit() {
+    let p = 0;
+    for (const d of this.openProfitDocs()) {
+      for (const e of docEntryList(d)) {
+        const sec = ACCOUNT[e.acct].section;
+        if (sec === 'income') p += e.amt;
+        else if (sec === 'expense') p -= e.amt;
+      }
+    }
+    return p;
+  }
+
+  // Move this week's profit (or loss) into the player's Share.
+  moveProfit() {
+    const amt = this.pendingProfit();
+    const ids = this.openProfitDocs().map((d) => d.id);
+    for (const d of this.openProfitDocs()) d.closed = true;
+    this.logAction('moveProfit', { amt, docs: ids.length });
+    return { amt, ids };
+  }
+
+  undoMoveProfit(ids) {
+    for (const d of this.state.docs) if (ids.includes(d.id)) delete d.closed;
+    this.logAction('undoMoveProfit', { docs: ids.length });
   }
 
   // Remove unfiled empty docs (e.g. everything netted to zero).

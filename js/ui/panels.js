@@ -259,7 +259,9 @@ export function giftPanel(app) {
         <div class="row">${stepper(promoN, 'pn', 'n', promoN)} <button class="btn small pink" data-act="promo">🎉 Hand them out</button></div>
         ${s.promoLeft > 0 ? `<p class="muted">Still handing out: ${s.promoLeft}</p>` : ''}
         <h3>Out there</h3>
-        <p>🎫 ${s.cards.length} cards people still have</p>`;
+        <p>🎫 ${s.cards.length} cards people still have</p>
+        <h3>📣 Promotion</h3>
+        ${promotionHTML(g)}`;
     },
   });
   onActs(m.body, {
@@ -277,6 +279,12 @@ export function giftPanel(app) {
       promoN = Math.max(5, promoN + Math.sign(Number(t.dataset.d)) * 5);
       m.refresh();
     },
+    ad: (t) => {
+      const res = g.setAds(t.dataset.id);
+      if (res.ok && t.dataset.id !== 'none') app.music.sfx('ching');
+      app.changed();
+      m.refresh();
+    },
     promo: () => {
       g.startPromo(promoN);
       toast(`🎉 Handing out ${promoN} free cards`);
@@ -285,6 +293,19 @@ export function giftPanel(app) {
     },
   });
   return m;
+}
+
+// Advertising for this week. It can be bought once a week, before opening.
+function promotionHTML(g) {
+  const s = g.state;
+  const paid = s.adWeekPaid === g.gw;
+  const canPick = s.phase === 'closed' && !paid;
+  const note = paid ? 'Paid for this week.' : s.phase === 'closed' ? 'Ads bring more people this week.' : 'Pick ads in the morning, before you open.';
+  return `<p class="tiny muted" style="margin:0 0 6px">${note}</p>
+    <div class="ad-choices">${C.ads.map((a) => {
+      const e = { none: '🤐', flyers: '📄', radio: '📻', billboard: '🪧' }[a.id];
+      return `<button data-act="ad" data-id="${a.id}" class="${s.adTier === a.id ? 'on' : ''}" ${!canPick || a.cost > g.cash ? 'disabled' : ''}><span class="e">${e}</span>${a.name}<br><span class="muted">${a.cost ? money(a.cost) : 'Free'}</span></button>`;
+    }).join('')}</div>`;
 }
 
 // ---------------- Inventory ----------------
