@@ -191,11 +191,11 @@ export const TRUCK_COLORS = [
 ];
 
 export const TUNES = [
-  { id: 'medley', name: '🔀 All of them' },
   { id: 'entertainer', name: 'The Entertainer' },
   { id: 'greensleeves', name: 'Greensleeves' },
   { id: 'weasel', name: 'Pop Goes the Weasel' },
   { id: 'turkey', name: 'Turkey in the Straw' },
+  { id: 'waltz', name: 'Ice Cream Waltz' },
 ];
 
 export const LEADERBOARD = {
