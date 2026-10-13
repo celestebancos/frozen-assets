@@ -1,6 +1,6 @@
 // The street: backdrop for the current spot, the truck, and customers walking up.
-import { SPOT, FLAVORS, CONTAINERS, TOPPINGS, POPS, POP, CONFIG, MARKET_DAYS } from '../config.js';
-import { sceneSVG, streetSVG, truckSVG, personSVG, iceCreamSVG } from '../art.js';
+import { SPOT, FEATURE, FLAVORS, CONTAINERS, TOPPINGS, POPS, POP, CONFIG, MARKET_DAYS } from '../config.js';
+import { skySVG, tileSVG, truckSVG, personSVG, iceCreamSVG } from '../art.js';
 import { esc, money } from './dom.js';
 
 const NAMES = Object.fromEntries([...FLAVORS, ...CONTAINERS, ...TOPPINGS, ...POPS].map((x) => [x.id, x.name.toLowerCase()]));
@@ -40,68 +40,183 @@ function skyAt(min) {
   return [SKY[SKY.length - 1][1], SKY[SKY.length - 1][2]];
 }
 
+// How fast the world scrolls past the truck (world units per second) at each game speed.
+const SCROLL = { 0: 0, 1: 240, 2: 480, 3: 1100, 9: 4000 };
+const SVGNS = 'http://www.w3.org/2000/svg';
+
+// The street is one long world made of 1000-wide pieces (a block of houses, a place, a welcome sign,
+// open road) that scrolls past the truck. Pieces are added ahead as the truck goes, following the game:
+// driving around a neighborhood brings its blocks and places; when the truck parks at a place, that
+// place slides in and the truck stops in front of it.
 export class Scene {
   constructor(root, app) {
     this.root = root;
     this.app = app;
-    root.innerHTML = `<div class="scene"></div><div class="rain hidden"></div><div class="truck-wrap"></div><div class="crowd"></div><div class="feed" aria-live="polite"></div><div class="road-msg hidden"></div>`;
+    root.innerHTML = `<div class="scene"><svg viewBox="0 0 1000 500" preserveAspectRatio="xMidYMax slice" class="scene-svg" xmlns="${SVGNS}">${skySVG()}<g class="world"></g></svg></div><div class="rain hidden"></div><div class="truck-wrap"></div><div class="crowd"></div><div class="feed" aria-live="polite"></div><div class="road-msg hidden"></div>`;
     this.sceneEl = root.querySelector('.scene');
+    this.world = root.querySelector('.world');
     this.truckEl = root.querySelector('.truck-wrap');
     this.crowd = root.querySelector('.crowd');
     this.roadMsg = root.querySelector('.road-msg');
     this.rainEl = root.querySelector('.rain');
     this.feed = root.querySelector('.feed');
-    this.spot = null;
-    this.sceneKey = '';
     this.truckKey = '';
     this.active = 0;
     this.curbHold = 0; // the truck stays stopped (on screen) until this time while curb customers are served
     this.lastHint = 0;
     this.truckSettleAt = 0;
+    this.tiles = [];
+    this.camX = 0;
+    this.target = null; // world x to stop at (a place the truck parks at)
+    this.goal = null; // world x of the newest piece: scroll faster until it's in view
+    this.resetKey = '';
+    this.seg = null;
+    this.driveKey = '';
+    this.welcomed = true;
+    this.n = 0;
+    this.lastT = performance.now();
+  }
+
+  // ---------- the world ----------
+  marketOpen() {
+    const g = this.app.game;
+    return MARKET_DAYS.includes(g.dayOfWeek) && g.state.minute < 14 * 60;
+  }
+  street(spotId) {
+    return { type: 'street', spot: SPOT[spotId], variant: this.n++ % 3 };
+  }
+  // The next piece to add ahead of the truck.
+  nextSpec() {
+    const s = this.app.game.state;
+    const d = s.driving;
+    if (d && s.phase === 'open') {
+      if (!this.welcomed) {
+        if (d.left > 3 && d.left / d.total > 0.3) return { type: 'transit', to: SPOT[d.to], variant: this.n++ % 3 };
+        this.welcomed = true;
+        return { type: 'welcome', spot: SPOT[d.to] };
+      }
+      return this.street(d.to);
+    }
+    return this.street(s.spot);
+  }
+  addTile(spec, x) {
+    const el = document.createElementNS(SVGNS, 'g');
+    el.setAttribute('transform', `translate(${x} 0)`);
+    el.innerHTML = tileSVG(spec);
+    this.world.appendChild(el);
+    this.tiles.push({ x, spec, el });
+  }
+  end() {
+    const last = this.tiles[this.tiles.length - 1];
+    return last ? last.x + 1000 : this.camX;
+  }
+  // Forget pieces that haven't come into view yet (the plan changed).
+  dropUnseen() {
+    while (this.tiles.length > 1 && this.tiles[this.tiles.length - 1].x >= this.camX + 1000) this.tiles.pop().el.remove();
+  }
+  // Start over with just what's under the truck right now.
+  resetWorld() {
+    const g = this.app.game;
+    const s = g.state;
+    for (const t of this.tiles) t.el.remove();
+    this.tiles = [];
+    this.camX = 0;
+    this.target = null;
+    const parked = s.phase === 'open' ? g.parkedAt() : null;
+    if (parked) {
+      this.addTile({ type: 'place', feature: parked, marketOpen: this.marketOpen() }, 0);
+      this.target = 0;
+    } else this.addTile(s.driving && s.phase === 'open' ? { type: 'transit', to: SPOT[s.driving.to] } : this.street(s.spot), 0);
+    this.seg = s.cruise?.seg ?? null;
+    this.driveKey = s.driving ? `${s.driving.from}>${s.driving.to}` : '';
+    this.welcomed = !s.driving;
+  }
+  // The game reached a place: bring it in next. If the truck parks there, stop in front of it.
+  placeAhead(featureId, park) {
+    this.dropUnseen();
+    const x = this.end();
+    this.addTile({ type: 'place', feature: FEATURE[featureId], marketOpen: this.marketOpen() }, x);
+    this.target = park ? x : null;
+    this.goal = x;
   }
 
   update() {
     const g = this.app.game;
     const s = g.state;
+    const now = performance.now();
+    const dt = Math.min(0.1, Math.max(0, (now - this.lastT) / 1000));
+    this.lastT = now;
     const [sky, sun] = skyAt(s.minute);
     this.root.style.setProperty('--sky', sky);
     this.root.style.setProperty('--sun', sun);
-    this.rainEl.classList.toggle('hidden', !s.weather?.rain || s.phase !== 'open');
-    // parked: the spot's backdrop. Driving (or cruising a neighborhood): the street rolls by.
     const open = s.phase === 'open';
-    const cruising = open && g.cruising();
-    const driving = (!!s.driving && open) || cruising;
-    const marketOpen = MARKET_DAYS.includes(g.dayOfWeek);
-    const sceneKey = driving ? `road|${g.here().area}` : `${s.spot}|${marketOpen}`;
-    if (sceneKey !== this.sceneKey) {
-      const wasDriving = this.sceneKey.startsWith('road|');
-      this.sceneKey = sceneKey;
-      this.spot = s.spot;
-      this.sceneEl.innerHTML = driving ? streetSVG(g.here().area) : sceneSVG(SPOT[s.spot], { marketOpen });
-      if (wasDriving && !driving) {
-        // pull in to the new spot
-        this.truckEl.classList.add('arriving');
-        void this.truckEl.offsetWidth;
-        this.truckEl.classList.remove('arriving');
-        this.truckSettleAt = performance.now() + 1300;
+    this.rainEl.classList.toggle('hidden', !s.weather?.rain || !open);
+
+    const resetKey = `${s.season}|${s.day}|${open}`;
+    if (resetKey !== this.resetKey || !this.tiles.length) {
+      this.resetKey = resetKey;
+      this.resetWorld();
+    }
+    // follow the game: drives between neighborhoods, and reaching places while driving around
+    const driveKey = s.driving ? `${s.driving.from}>${s.driving.to}` : '';
+    if (driveKey !== this.driveKey) {
+      this.driveKey = driveKey;
+      this.target = null;
+      this.dropUnseen();
+      this.goal = this.end();
+      if (driveKey) this.welcomed = false;
+      else if (!this.welcomed) {
+        // arrived before the welcome sign came into view: show it now
+        this.welcomed = true;
+        this.addTile({ type: 'welcome', spot: SPOT[s.spot] }, this.end());
       }
     }
-    const stopped = driving && (s.driving?.stopped > 0 || performance.now() < this.curbHold);
-    this.root.classList.toggle('driving', driving);
-    this.root.classList.toggle('stopped', stopped);
-    const key = `${s.color}|${s.business}|${driving}|${s.bling || 0}`;
+    const cr = s.cruise;
+    if (open && !s.driving && cr && cr.seg !== this.seg) {
+      this.seg = cr.seg;
+      if (cr.mode === 'park' || cr.mode === 'pass') this.placeAhead(cr.feature, cr.mode === 'park');
+      else this.target = null;
+    }
+    while (this.end() < this.camX + 1500) this.addTile(this.nextSpec(), this.end());
+
+    // move
+    const speed = this.app.speed;
+    const hold = now < this.curbHold;
+    let v = open && !hold ? SCROLL[speed] ?? 240 : 0;
+    // catch up to what just happened (a place, the open road, a welcome sign) within about a second
+    if (this.goal != null) {
+      if (this.camX >= this.goal - 5) this.goal = null;
+      else if (v) v = Math.max(v, (this.goal - this.camX) * 1.4);
+    }
+    let step = v * dt;
+    if (this.target != null) {
+      const left = this.target - this.camX;
+      if (speed >= 9 || document.hidden || left > 2600) this.camX = Math.max(this.camX, this.target - 200);
+      step = Math.max(0, Math.min(step, this.target - this.camX));
+    }
+    this.camX += step;
+    const moving = step > 0.01;
+    while (this.tiles.length > 2 && this.tiles[0].x + 1000 < this.camX - 50) this.tiles.shift().el.remove();
+    this.world.setAttribute('transform', `translate(${(-this.camX).toFixed(1)} 0)`);
+    this.root.classList.toggle('driving', moving);
+    this.root.classList.toggle('stopped', open && !moving);
+
+    const key = `${s.color}|${s.business}|${moving}|${s.bling || 0}`;
     if (key !== this.truckKey) {
       this.truckKey = key;
-      this.truckEl.innerHTML = truckSVG(this.app.truckHex(), s.business, { wheelsSpin: driving, bling: s.bling || 0 });
+      this.truckEl.innerHTML = truckSVG(this.app.truckHex(), s.business, { wheelsSpin: moving, bling: s.bling || 0 });
     }
-    if (driving) {
-      this.roadMsg.classList.remove('hidden');
-      const msg = stopped ? '🛑 Stopping for customers!' : cruising ? `🚚 Driving around ${esc(SPOT[s.spot].name)}` : `🚚💨 ${esc(SPOT[s.driving.to].name)}`;
-      const html = `${msg}${s.driving ? `<div class="tiny muted">${s.driving.left} min to go</div>` : ''}`;
-      if (this.roadMsg.innerHTML !== html) this.roadMsg.innerHTML = html;
-    } else {
-      this.roadMsg.classList.add('hidden');
+    // what's going on, in a few words
+    let html = '';
+    if (open) {
+      const parked = g.parkedAt();
+      if (hold) html = '🛑 Stopping for customers!';
+      else if (s.driving) html = `🚚💨 ${esc(SPOT[s.driving.to].name)}<div class="tiny muted">${s.driving.left} min to go</div>`;
+      else if (parked) html = `🅿️ ${esc(parked.name)}<div class="tiny muted">${esc(SPOT[s.spot].name)}</div>`;
+      else html = `🚚 Driving around ${esc(SPOT[s.spot].name)}`;
     }
+    this.roadMsg.classList.toggle('hidden', !html);
+    if (this.roadMsg.innerHTML !== html) this.roadMsg.innerHTML = html;
   }
 
   // events from the engine

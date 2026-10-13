@@ -116,15 +116,13 @@ svg.truck-svg { width: 100%; height: auto; display: block; }
 @keyframes spin { to { transform: rotate(360deg); } }
 .stage .road-msg { position: absolute; left: 50%; top: 10px; transform: translateX(-50%); white-space: nowrap; text-align: center; background: #fff; border: 3px solid var(--ink); border-radius: 14px; padding: 4px 12px; font-weight: 800; font-size: 18px; z-index: 4; box-shadow: var(--shadow); }
 /* driving: the street rolls by under a parked-in-place truck; it pauses when the truck stops for customers */
-.scene-svg .roll { animation: roll 5s linear infinite; }
-@keyframes roll { to { transform: translateX(-1000px); } }
-.scene-root.stopped .scene-svg .roll, .scene-root.stopped .wheel.spin { animation-play-state: paused; }
+.scene-root.stopped .wheel.spin { animation-play-state: paused; }
 .scene-root.driving .truck-wrap { animation: rumble 0.35s ease-in-out infinite; }
 .scene-root.stopped .truck-wrap { animation: none; }
 @keyframes rumble { 50% { margin-bottom: 2px; } }
 .party .wave { animation: wave 0.5s ease-in-out infinite alternate; }
 @keyframes wave { to { transform: translateX(-50%) rotate(-18deg); } }
-@media (prefers-reduced-motion: reduce) { .scene-svg .roll, .scene-root.driving .truck-wrap, .party .wave { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .scene-root.driving .truck-wrap, .party .wave { animation: none; } }
 .rain { position: absolute; inset: 0; pointer-events: none; background-image: linear-gradient(transparent 90%, rgba(80, 120, 200, 0.5) 90%); background-size: 3px 26px; animation: rain 0.4s linear infinite; opacity: 0.6; z-index: 3; }
 @keyframes rain { to { background-position: 0 26px; } }
 .crowd { position: absolute; inset: 0; pointer-events: none; z-index: 3; }
@@ -503,3 +501,6 @@ table.books tr.bottom td { font-weight: 800; font-size: 18px; background: #fff3b
 }
 .route-stop select[data-chg="time"] { flex: none; }
 .route-stop select[data-chg="spot"] { flex: 1; min-width: 0; }
+.pin-dot { flex: none; width: 24px; height: 24px; border-radius: 50%; border: 2px solid var(--ink); color: #fff; font-weight: 800; font-size: 13px; display: grid; place-items: center; }
+.place-list { margin: 4px 0; padding-left: 4px; list-style: none; }
+.place-list li { margin: 2px 0; }
