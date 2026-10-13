@@ -299,3 +299,165 @@ test('second chances: wrong tries stay in the shoebox; Penny can file it', async
   assert.equal(f.byPenny, 1);
   assert.equal(f.firstTry, 0);
 });
+
+// ---------- map, routes, popsicles and new customers ----------
+
+function readyGame(seed, buys = [['vanilla', 2], ['chocolate', 2], ['cake', 1], ['napkins', 1]]) {
+  const g = Game.create({ player: 'N', business: 'T', color: 'pink', seed });
+  fileAllCorrectly(g);
+  g.post('registerTape', [{ acct: 'salesCash', amt: 100000 }, { acct: 'cash', amt: 100000 }]);
+  for (const [id, p] of buys) g.buy(id, p, 1);
+  g.state.policies.outOfStock = 'nothing';
+  g.state.policies.drop = 'refuse';
+  return g;
+}
+
+test('every neighborhood has 2 or 3 places besides its streets; downtown has offices, a market, a zoo and a park', async () => {
+  const { SPOTS, AREAS } = await import('../js/config.js');
+  for (const a of AREAS.filter((x) => x.id !== 'downtown')) {
+    const places = SPOTS.filter((s) => s.area === a.id && s.kind !== 'home');
+    assert.ok(places.length >= 2 && places.length <= 3, a.id);
+    for (const p of places) assert.ok(['playground', 'pool', 'fields', 'school'].includes(p.kind), p.id);
+  }
+  const kinds = SPOTS.filter((s) => s.area === 'downtown').map((s) => s.kind);
+  assert.ok(kinds.filter((k) => k === 'office').length >= 2);
+  for (const k of ['market', 'zoo', 'park']) assert.ok(kinds.includes(k), k);
+});
+
+test('stops in the same area are a few minutes apart; across town takes longer', () => {
+  const g = Game.create({ player: 'N', business: 'T', color: 'pink', seed: 1 });
+  assert.ok(g.driveMinutes('maple', 'maplePlay') <= 5);
+  assert.ok(g.driveMinutes('pool', 'riverFields') <= 5);
+  assert.ok(g.driveMinutes('maple', 'riverFields') >= 25);
+});
+
+test('kids with only pocket money buy a cheap pop, or say so and leave without grumbling', () => {
+  const g = readyGame(31);
+  g.openDay();
+  const kid = () => ({ id: 1, type: 'soloKid', together: true, members: [{ kind: 'kid', look: 1, cash: 100 }] });
+  const mood = g.state.today.mood;
+  const p1 = kid();
+  g.arrive(p1);
+  assert.equal(p1.members[0].result, 'broke');
+  assert.equal(g.state.today.tooExpensive, 0);
+  assert.equal(g.state.today.mood, mood, 'no grumbling');
+  g.buy('rocketPop', 0, 1);
+  g.setPrice('rocketPop', 100);
+  const p2 = kid();
+  g.arrive(p2);
+  assert.equal(p2.members[0].result, 'bought');
+  assert.deepEqual(p2.members[0].item, { pop: 'rocketPop' });
+  assert.equal(g.stock('rocketPop'), 23);
+  assert.equal(g.state.today.sold.rocketPop, 1);
+  g.setPrice('rocketPop', 125);
+  const p3 = kid();
+  g.arrive(p3);
+  assert.equal(p3.members[0].result, 'broke', 'a $1.25 pop is too much for $1');
+});
+
+test('staying put brings families who already had ice cream today; a fresh spot does not', () => {
+  const run = (route) => {
+    const g = readyGame(41, [['vanilla', 2], ['chocolate', 2], ['cake', 2], ['bowl', 2], ['spoons', 1], ['napkins', 1]]);
+    g.setRoute(route);
+    g.state.day = 36; // midsummer
+    g.rollWeather();
+    g.openDay();
+    g.runDay();
+    return g.state.lastDay;
+  };
+  const stay = run([{ spot: 'maple', at: 600 }]);
+  assert.ok(stay.alreadyHad > 3, 'parked all day: ' + stay.alreadyHad);
+  assert.ok(stay.alreadyHad < stay.parties, 'still fewer than real customers');
+  // first hour at a fresh spot: nobody has had ice cream yet
+  const g = readyGame(42);
+  g.setRoute([{ spot: 'zoo', at: 600 }]);
+  g.openDay();
+  for (let i = 0; i < 30; i++) g.step();
+  assert.equal(g.state.today.alreadyHad, 0);
+});
+
+test('driving: people on the sidewalk flag the truck down and it stops for them', () => {
+  const g = readyGame(51, [['vanilla', 2], ['chocolate', 2], ['cake', 2], ['napkins', 1]]);
+  let stops = 0;
+  let road = 0;
+  for (let day = 0; day < 4; day++) {
+    // back and forth across town all day
+    g.setRoute(Array.from({ length: 10 }, (_, i) => ({ spot: i % 2 ? 'riverFields' : 'maple', at: 600 + i * 60 })));
+    g.openDay();
+    while (g.state.phase === 'open') {
+      const d = g.state.driving;
+      const before = d && { left: d.left, stopped: d.stopped };
+      g.step();
+      if (before?.stopped > 0 && g.state.driving) assert.equal(g.state.driving.left, before.left, 'stopped trucks do not move');
+    }
+    stops += g.state.lastDay.curb;
+    road += g.state.lastDay.bySpot.road?.customers || 0;
+    fileAllCorrectly(g);
+    g.state.needWeekReport = null;
+  }
+  assert.ok(stops > 0, 'some curb stops');
+  assert.ok(road >= stops);
+});
+
+test('saved routes and a plan for each day of the week', () => {
+  const g = Game.create({ player: 'N', business: 'T', color: 'pink', seed: 61 });
+  fileAllCorrectly(g);
+  g.setRoute([{ spot: 'market', at: 600 }, { spot: 'pool', at: 840 }]);
+  const market = g.saveRoute('Market day');
+  g.setRoute([{ spot: 'sunset', at: 600 }]);
+  const rich = g.saveRoute('Sunset');
+  assert.equal(g.state.routes.length, 2);
+  g.saveRoute('market DAY'); // same name replaces
+  assert.equal(g.state.routes.length, 2);
+  assert.deepEqual(market.stops, [{ spot: 'sunset', at: 600 }]);
+  g.setRoute([{ spot: 'market', at: 600 }, { spot: 'pool', at: 840 }]);
+  g.saveRoute('Market day');
+  // every day Sunset, but Wednesday the market
+  g.setWeekPlan('all', rich.id);
+  assert.deepEqual(g.state.route, [{ spot: 'sunset', at: 600 }], "today's plan applies right away");
+  g.setWeekPlan(2, market.id);
+  g.buy('vanilla', 0, 1);
+  for (const expect of ['sunset', 'sunset', 'market']) {
+    assert.equal(g.state.route[0].spot, expect, `day ${g.state.day}`);
+    fileAllCorrectly(g);
+    g.openDay();
+    g.runDay();
+  }
+  g.deleteRoute(market.id);
+  assert.equal(g.state.weekPlan[2], null);
+  assert.equal(g.useRoute(rich.id), true);
+});
+
+test('richer neighborhoods will pay more', () => {
+  const g = Game.create({ player: 'N', business: 'T', color: 'pink', seed: 71 });
+  g.rollWeather();
+  const avg = (spot) => {
+    g.state.spot = spot;
+    let t = 0;
+    for (let i = 0; i < 4000; i++) t += g.wtp({ kind: 'adult' });
+    return t / 4000;
+  };
+  assert.ok(avg('sunset') > 1.2 * avg('riverside'));
+});
+
+test('an older save without saved routes or pops still loads; pops join the menu once bought', () => {
+  const { game } = playSeason('cheapskate', 5);
+  const old = JSON.parse(JSON.stringify(game.state));
+  delete old.routes;
+  delete old.weekPlan;
+  delete old.nextRouteId;
+  for (const k of ['rocketPop', 'fudgePop', 'freezePop']) {
+    delete old.prices[k];
+    delete old.menuOn[k];
+    old.menuAutoOff = old.menuAutoOff.filter((x) => x !== k);
+  }
+  old.lots = old.lots.filter((l) => !['rocketPop', 'fudgePop', 'freezePop'].includes(l.supply));
+  const g = new Game(old);
+  assert.deepEqual(g.state.routes, []);
+  assert.equal(g.state.weekPlan.length, 7);
+  assert.equal(g.state.prices.rocketPop, 100);
+  assert.equal(g.isOn('rocketPop'), false, 'not on the menu until bought');
+  g.post('registerTape', [{ acct: 'salesCash', amt: 10000 }, { acct: 'cash', amt: 10000 }]);
+  g.buy('rocketPop', 0, 1);
+  assert.equal(g.isOn('rocketPop'), true);
+});

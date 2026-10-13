@@ -1,7 +1,7 @@
 // Frozen Assets game engine. Pure logic, no DOM, so it runs in the browser and in Node.
 // All state lives in `game.state` (plain JSON, saved as-is). `game.events` is a transient feed for the UI.
 
-import { CONFIG, SUPPLIES, SUPPLY, SPOTS, SPOT, CONTAINERS, FLAVORS, TOPPINGS, CROWDS, DROP_BY_PERSON } from './config.js';
+import { CONFIG, SUPPLIES, SUPPLY, SPOTS, SPOT, AREA, CONTAINERS, FLAVORS, TOPPINGS, POPS, CROWDS, DROP_BY_PERSON, START_PRICES, MARKET_DAYS, OFFICE_ADULT_PAY, STREET_CROWD, itemKey } from './config.js';
 import { makeRng } from './rng.js';
 import { balanceCheck, applyEntries, emptyTotals, share } from './ledger.js';
 import { addToDoc, docLines, docEntryList, checkFiling, DOC_TYPES } from './documents.js';
@@ -34,7 +34,7 @@ export function newGameState({ player, business, color, tune = 'entertainer', se
     filedByWeek: {},
     docs: [],
     lots: [],
-    prices: { cake: 300, sugar: 350, waffle: 450, bowl: 300, chocSprinkles: 50, rainbowSprinkles: 50 },
+    prices: { ...START_PRICES },
     menuOn: {},
     popularity: C.popularity.start,
     buzz: 0,
@@ -42,6 +42,9 @@ export function newGameState({ player, business, color, tune = 'entertainer', se
     fuel: C.gas.startGal,
     spot: 'maple',
     route: [{ spot: 'maple', at: C.dayStartMin }],
+    routes: [], // saved routes: { id, name, stops: [{ spot, at }] }
+    nextRouteId: 1,
+    weekPlan: Array(7).fill(null), // saved route id for each day of the week (0 = Monday), or null
     driving: null,
     minutesHere: {},
     weather: null,
@@ -74,6 +77,19 @@ export class Game {
     this.events = [];
     this.rng = makeRng(state.rngState);
     state.log ||= { actions: [], days: [] }; // older saves had no log
+    // older saves: no saved routes or popsicles yet
+    state.routes ||= [];
+    state.nextRouteId ||= 1;
+    state.weekPlan ||= Array(7).fill(null);
+    for (const p of POPS) {
+      state.prices[p.id] ??= START_PRICES[p.id];
+      // already opened once: pops join the menu when first bought, like everything else
+      if (state.menuAutoOff && state.menuOn[p.id] == null && !this.rawStock(p.id)) {
+        state.menuOn[p.id] = false;
+        state.menuAutoOff.push(p.id);
+      }
+    }
+    if (!SPOT[state.spot]) state.spot = 'maple';
     // songs that were removed or renamed
     state.tune = { medley: 'entertainer', musicBox: 'entertainer', truckSong: 'turkey', lullaby: 'entertainer', greensleeves: 'entertainer' }[state.tune] || state.tune;
   }
@@ -285,9 +301,20 @@ export class Game {
   toppingAvail(t) {
     return this.isOn(t) && this.rawStock(t) >= 1;
   }
+  popAvail(id) {
+    return this.isOn(id) && this.rawStock(id) >= 1;
+  }
+  itemAvail(it, forDog = false) {
+    if (it.pop) return !forDog && this.popAvail(it.pop);
+    return this.flavorAvail(it.flavor) && this.containerAvail(it.container, forDog) && (!it.topping || this.toppingAvail(it.topping));
+  }
   itemPrice(item) {
     const p = this.state.prices;
+    if (item.pop) return p[item.pop];
     return p[item.container] + (item.topping ? p[item.topping] : 0);
+  }
+  availablePops() {
+    return POPS.filter((p) => this.popAvail(p.id)).map((p) => ({ pop: p.id }));
   }
   availableItems() {
     const out = [];
@@ -299,7 +326,7 @@ export class Game {
         for (const t of TOPPINGS) if (this.toppingAvail(t.id)) out.push({ flavor: f.id, container: c.id, topping: t.id });
       }
     }
-    return out;
+    return out.concat(this.availablePops());
   }
 
   // Use up the supplies for one ice cream. Returns cost.
@@ -309,13 +336,16 @@ export class Game {
       const cost = this.consume(id, n);
       used.push({ id, n, cost });
     };
-    if (item.flavor === 'swirl') {
-      take('vanilla', 1);
-      take('chocolate', 1);
-    } else take(item.flavor, 2);
-    take(item.container, 1);
-    if (item.container === 'bowl' && !forDog) take('spoons', 1);
-    if (item.topping) take(item.topping, 1);
+    if (item.pop) take(item.pop, 1);
+    else {
+      if (item.flavor === 'swirl') {
+        take('vanilla', 1);
+        take('chocolate', 1);
+      } else take(item.flavor, 2);
+      take(item.container, 1);
+      if (item.container === 'bowl' && !forDog) take('spoons', 1);
+      if (item.topping) take(item.topping, 1);
+    }
     const nap = Math.min(napkins, this.rawStock('napkins'));
     if (nap > 0) take('napkins', nap);
     const total = used.reduce((s, u) => s + u.cost, 0);
@@ -447,7 +477,7 @@ export class Game {
     if (!s.menuAutoOff) {
       // First opening: the menu lists only what's in the truck. Buying something later adds it.
       s.menuAutoOff = [];
-      const ids = ['vanilla', 'chocolate', 'swirl', ...CONTAINERS.map((c) => c.id), ...TOPPINGS.map((t) => t.id)];
+      const ids = ['vanilla', 'chocolate', 'swirl', ...CONTAINERS.map((c) => c.id), ...TOPPINGS.map((t) => t.id), ...POPS.map((p) => p.id)];
       for (const id of ids) {
         const has = id === 'swirl' ? this.rawStock('vanilla') > 0 && this.rawStock('chocolate') > 0 : this.rawStock(id) > 0;
         if (!has && s.menuOn[id] !== false) {
@@ -460,8 +490,8 @@ export class Game {
     s.minute = C.dayStartMin;
     s.minutesHere = {};
     s.driving = null;
-    s.today = { customers: 0, parties: 0, sold: {}, toppings: {}, tooExpensive: 0, tooExpensiveWants: {}, outOfStock: 0, revenue: 0, cardsSold: 0, cardsRedeemed: 0, startCash: this.cash, drops: 0, mood: 0, bySpot: {} };
-    if (!s.week || s.week.gw !== this.gw) s.week = { gw: this.gw, sold: {}, toppings: {}, customers: 0, tooExpensive: 0, tooExpensiveWants: {}, outOfStock: 0, startTotals: { ...s.truth } };
+    s.today = { customers: 0, parties: 0, sold: {}, toppings: {}, tooExpensive: 0, tooExpensiveWants: {}, outOfStock: 0, revenue: 0, cardsSold: 0, cardsRedeemed: 0, startCash: this.cash, drops: 0, mood: 0, bySpot: {}, broke: 0, alreadyHad: 0, curb: 0 };
+    if (!s.week || s.week.gw !== this.gw) s.week = { gw: this.gw, sold: {}, toppings: {}, customers: 0, tooExpensive: 0, tooExpensiveWants: {}, outOfStock: 0, broke: 0, startTotals: { ...s.truth } };
     s.dayFactor = this.rng.range(...C.dayRandom);
     // supply sale roll
     if (s.sale && s.day > s.sale.until) s.sale = null;
@@ -572,11 +602,17 @@ export class Game {
     const B = SPOT[b];
     return Math.hypot(A.x - B.x, A.y - B.y);
   }
+  sameArea(a, b) {
+    return SPOT[a].area === SPOT[b].area;
+  }
   driveMinutes(a, b) {
-    return a === b ? 0 : Math.round(8 + this.dist(a, b) * 0.35);
+    if (a === b) return 0;
+    const D = C.drive;
+    return this.sameArea(a, b) ? Math.max(2, Math.round(this.dist(a, b) * D.nearPerUnit)) : Math.round(D.farBase + this.dist(a, b) * D.farPerUnit);
   }
   driveFuel(a, b) {
-    return a === b ? 0 : 0.3 + this.dist(a, b) * 0.012;
+    if (a === b) return 0;
+    return this.sameArea(a, b) ? 0.05 + this.dist(a, b) * 0.008 : 0.3 + this.dist(a, b) * 0.009;
   }
 
   fillGas(auto = false) {
@@ -612,6 +648,46 @@ export class Game {
     this.logAction('route', { route: this.state.route.map((r) => `${r.spot}@${r.at}`) });
   }
 
+  // Saved routes. Saving with a name that's already used replaces that route.
+  saveRoute(name) {
+    const s = this.state;
+    name = String(name || '').trim().slice(0, 24) || `Route ${s.nextRouteId}`;
+    const stops = s.route.map((r) => ({ spot: r.spot, at: r.at }));
+    let r = s.routes.find((x) => x.name.toLowerCase() === name.toLowerCase());
+    if (r) r.stops = stops;
+    else s.routes.push((r = { id: s.nextRouteId++, name, stops }));
+    this.logAction('saveRoute', { name, route: stops.map((x) => `${x.spot}@${x.at}`) });
+    return r;
+  }
+  deleteRoute(id) {
+    const s = this.state;
+    s.routes = s.routes.filter((r) => r.id !== id);
+    s.weekPlan = s.weekPlan.map((x) => (x === id ? null : x));
+    this.logAction('deleteRoute', { id });
+  }
+  useRoute(id) {
+    const r = this.state.routes.find((x) => x.id === id);
+    if (r) this.setRoute(r.stops.map((x) => ({ ...x })));
+    return !!r;
+  }
+  // dow: 0 = Monday … 6 = Sunday, or 'all'. id: a saved route, or null for "keep the last route".
+  setWeekPlan(dow, id) {
+    const s = this.state;
+    if (dow === 'all') s.weekPlan = Array(7).fill(id);
+    else s.weekPlan[dow] = id;
+    this.logAction('weekPlan', { dow, id });
+    // the plan for today takes effect right away if the day hasn't started
+    if ((dow === 'all' || dow === this.dayOfWeek) && s.phase !== 'open') this.applyWeekPlan();
+  }
+  plannedRoute(dow = this.dayOfWeek) {
+    const id = this.state.weekPlan?.[dow];
+    return id == null ? null : this.state.routes.find((r) => r.id === id) || null;
+  }
+  applyWeekPlan() {
+    const r = this.plannedRoute();
+    if (r) this.state.route = r.stops.map((x) => ({ ...x }));
+  }
+
   driveTo(spot, manual = true) {
     const s = this.state;
     if (s.spot === spot && !s.driving) return { ok: true };
@@ -622,7 +698,7 @@ export class Game {
       return { ok: false, reason: 'gas' };
     }
     s.fuel -= fuel;
-    s.driving = { from: s.spot, to: spot, left: this.driveMinutes(from, spot), total: this.driveMinutes(from, spot) };
+    s.driving = { from: s.spot, to: spot, left: this.driveMinutes(from, spot), total: this.driveMinutes(from, spot), stopped: 0 };
     this.emit({ t: 'drive', to: spot });
     if (manual) this.logAction('driveNow', { from: s.spot, to: spot });
     return { ok: true };
@@ -636,6 +712,7 @@ export class Game {
 
   spotProfile(spotId, hour) {
     const spot = SPOT[spotId];
+    const size = spot.size ?? 1;
     const wk = this.week;
     const weekend = this.isWeekend;
     const w = this.state.weather;
@@ -652,6 +729,7 @@ export class Game {
         if (weekend) v = 0.25;
         else if (schoolDays) v = hour >= 14.75 && hour < 16 ? 3.6 : 0.08;
         else v = hour >= 11.5 && hour < 15 ? 0.7 : 0.12;
+        v *= size;
         break;
       }
       case 'pool': {
@@ -662,30 +740,85 @@ export class Game {
           if (weekend) v *= 1.4;
           if (w.rain) v *= 0.3;
         }
+        v *= size;
         break;
       }
-      case 'downtown': {
-        if (weekend) v = 0.7;
+      case 'office': {
+        if (weekend) v = spot.weekend ?? 0.7;
         else v = hour >= 11.5 && hour < 13.5 ? 2.0 : hour >= 17 && hour < 19 ? 0.6 : 0.3;
+        v *= size;
         break;
       }
       case 'fields': {
         const league = wk <= 9 ? 1 : 0.45;
         if (weekend) v = hour < 18 ? 1.2 : 0.4;
         else v = hour >= 17 ? 1.5 : 0.15;
-        v *= league;
+        v *= league * size;
+        break;
+      }
+      case 'playground': {
+        v = hour < 12 ? 0.6 : hour < 15 ? 0.55 : hour < 18 ? 0.95 : 0.55;
+        if (weekend) v *= 1.25;
+        if (w.rain) v *= 0.4;
+        v *= size;
+        break;
+      }
+      case 'market': {
+        const open = MARKET_DAYS.includes(this.dayOfWeek) && hour < 14;
+        v = open ? 2.2 : 0.15;
+        v *= size;
+        break;
+      }
+      case 'zoo': {
+        v = hour < 17 ? (hour < 12 ? 0.8 : 1.1) : 0.05; // closes at 5
+        if (weekend) v *= 1.5;
+        if (w.rain) v *= 0.5;
+        v *= size;
+        break;
+      }
+      case 'park': {
+        v = hour < 11.5 ? 0.45 : hour < 13.5 ? 0.9 : hour < 17 ? 0.65 : 1.05;
+        if (weekend) v *= 1.3;
+        v *= size;
         break;
       }
     }
     return v;
   }
 
-  arrivalRate(spotId, minute) {
+  // How tired a spot's crowd is (1 = fresh). Time at other stops in the same area counts in part.
+  saturation(spotId) {
+    const s = this.state;
+    const spot = SPOT[spotId];
+    const here = s.minutesHere[spotId] || 0;
+    let area = 0;
+    for (const [id, m] of Object.entries(s.minutesHere)) if (id !== spotId && SPOT[id]?.area === spot.area) area += m;
+    const mins = here + C.saturation.areaShare * area;
+    const floor = spot.kind === 'home' ? C.saturation.homeFloor : C.saturation.floor;
+    return Math.max(floor, Math.pow(0.5, mins / C.saturation.minutesToHalf));
+  }
+
+  // The spot whose people the truck meets: where it's parked, or the nearer end of the drive.
+  here() {
+    const s = this.state;
+    const d = s.driving;
+    if (!d) return SPOT[s.spot];
+    return SPOT[d.total - d.left < d.total / 2 ? d.from : d.to];
+  }
+  crowdKind() {
+    const s = this.state;
+    if (!s.driving) return SPOT[s.spot].kind;
+    return this.here().area === 'downtown' ? STREET_CROWD.downtown : STREET_CROWD.other;
+  }
+  // Key for the places stats: the spot, or "road" while driving.
+  statKey() {
+    return this.state.driving ? 'road' : this.state.spot;
+  }
+
+  arrivalRate(spotId, minute, fresh = false) {
     const s = this.state;
     const hour = minute / 60;
-    const here = s.minutesHere[spotId] || 0;
-    const floor = SPOT[spotId].kind === 'home' ? C.saturation.homeFloor : C.saturation.floor;
-    const sat = Math.max(floor, Math.pow(0.5, here / C.saturation.minutesToHalf));
+    const sat = fresh ? 1 : this.saturation(spotId);
     const weather = this.heat() * (s.weather.rain ? C.weather.rainDemand : 1);
     const season = C.seasonCurve[this.week - 1];
     return (C.demandScale / 60) * this.spotProfile(spotId, hour) * season * weather * s.popularity * (1 + s.buzz) * sat * s.dayFactor;
@@ -706,15 +839,32 @@ export class Game {
 
     s.fuel = Math.max(0, s.fuel - C.gas.idleGalPerHour / 60);
     if (s.driving) {
-      s.driving.left--;
-      if (s.driving.left <= 0) {
-        s.spot = s.driving.to;
+      const d = s.driving;
+      s.minutesHere.road = (s.minutesHere.road || 0) + 1;
+      this.spotStats('road').minByHour[this.hourIndex()]++;
+      if (d.stopped > 0) d.stopped--;
+      else d.left--;
+      if (d.left <= 0) {
+        s.spot = d.to;
         s.driving = null;
         this.emit({ t: 'arrive', spot: s.spot });
+      } else if (!d.stopped) {
+        // people on the sidewalk wave the truck down
+        const n = this.rng.poisson(this.arrivalRate(this.here().id, s.minute) * C.curb.share);
+        for (let i = 0; i < n && !s.pending; i++) {
+          d.stopped = C.curb.stopMinutes;
+          s.today.curb++;
+          this.arrive(this.makeParty(null, { curb: true }));
+        }
       }
     } else {
       s.minutesHere[s.spot] = (s.minutesHere[s.spot] || 0) + 1;
       this.spotStats().minByHour[this.hourIndex()]++;
+      // families who already bought today wander by (a hint that it's time to move on)
+      if (CROWDS[SPOT[s.spot].kind].hint !== false) {
+        const missing = 1 - this.saturation(s.spot);
+        if (missing > 0 && this.rng.chance(Math.min(1, this.arrivalRate(s.spot, s.minute, true) * missing * C.alreadyHad.share))) this.alreadyHadParty();
+      }
       let n = this.rng.poisson(this.arrivalRate(s.spot, s.minute));
       // many gift card holders would have come (and paid) anyway
       while (n > 0 && s.displace >= 1) {
@@ -741,15 +891,14 @@ export class Game {
   }
 
   // ---------- customers ----------
-  makeParty(cardIds = null) {
+  makeParty(cardIds = null, { curb = false, type: forceType = null } = {}) {
     const s = this.state;
     const r = this.rng;
-    const kind = SPOT[s.spot].kind;
-    const crowd = CROWDS[kind];
+    const crowd = CROWDS[this.crowdKind()];
     const hour = s.minute / 60;
     const groups = crowd.times?.find((t) => hour >= t.from && hour < t.to)?.groups || crowd.groups;
     const weights = Object.entries(groups);
-    let type = r.weighted(weights);
+    let type = forceType || r.weighted(weights);
     let members = [];
     const add = (k, n = 1) => {
       for (let i = 0; i < n; i++) members.push({ kind: k, look: r.int(0, 11) });
@@ -777,11 +926,31 @@ export class Game {
     else if (hasAdult && hasKid) together = true;
     else if (people.length <= 1) together = true;
     else together = r.chance(Math.max(0.15, 1 - 0.22 * (people.length - 1)));
-    return { id: s.nextPartyId++, type, members, together, cardIds };
+    // kids out on their own sometimes have only pocket money
+    if (!cardIds && !hasAdult) {
+      const chance = C.pocket.chance * (AREA[this.here().area]?.pocket ?? 1);
+      for (const m of members) if (m.kind === 'kid' && r.chance(chance)) m.cash = r.weighted(C.pocket.amounts);
+    }
+    return { id: s.nextPartyId++, type, members, together, cardIds, curb };
+  }
+
+  // A parent and kids who already got ice cream today. They don't buy; the parent says so.
+  alreadyHadParty() {
+    const s = this.state;
+    const party = this.makeParty(null, { type: this.rng.chance(0.6) ? 'parentKid' : 'family' });
+    party.alreadyHad = true;
+    for (const m of party.members) {
+      m.result = 'alreadyHad';
+      m.done = true;
+    }
+    s.today.alreadyHad++;
+    this.emit({ t: 'served', party: this.partySummary(party) });
   }
 
   wants(m) {
     const r = this.rng;
+    const pops = POPS.filter((p) => this.isOn(p.id));
+    if (pops.length && r.chance(C.popWant[m.kind] ?? 0)) return { pop: r.weighted(pops.map((p) => [p.id, p.want])) };
     const kid = m.kind === 'kid' || m.kind === 'teen';
     const flavor = r.weighted(kid ? [['vanilla', 35], ['chocolate', 40], ['swirl', 25]] : [['vanilla', 40], ['chocolate', 30], ['swirl', 30]]);
     const container = r.weighted(kid ? [['cake', 35], ['sugar', 25], ['waffle', 15], ['bowl', 25]] : [['cake', 20], ['sugar', 25], ['waffle', 30], ['bowl', 25]]);
@@ -794,13 +963,15 @@ export class Game {
     let f = this.rng.range(...C.wtpRange);
     if (m.kind === 'kid') f *= 0.92;
     if (m.kind === 'teen') f *= 0.95;
-    if (SPOT[s.spot].rich) f *= 1.2;
-    if (SPOT[s.spot].kind === 'downtown' && m.kind === 'adult') f *= 1.08;
+    const spot = this.here();
+    f *= AREA[spot.area].pay * (spot.pay ?? 1);
+    if (this.crowdKind() === 'office' && m.kind === 'adult') f *= OFFICE_ADULT_PAY;
     f *= 0.96 + (s.weather.temp - 78) / 150;
     return f;
   }
 
   fairOf(item) {
+    if (item.pop) return C.fairPrice[item.pop];
     return C.fairPrice[item.container] + (item.topping ? C.fairTopping : 0);
   }
 
@@ -819,8 +990,24 @@ export class Game {
   // Figure out what the member gets given stock. Returns { item } or { upset, wanted }.
   resolveWant(want, forDog) {
     const r = this.rng;
+    // a pop: another pop if theirs is sold out, or maybe an ice cream instead
+    if (want.pop) {
+      if (this.popAvail(want.pop)) return { item: { pop: want.pop } };
+      const pops = this.availablePops();
+      if (pops.length && r.chance(0.6)) return { item: r.pick(pops), substituted: true };
+      const ice = this.availableItems().filter((it) => !it.pop && !it.topping);
+      if (ice.length && r.chance(0.5)) return { item: r.pick(ice), substituted: true };
+      if (!this.isOn(want.pop)) return { skip: true };
+      return { upset: true, wanted: want, missing: want.pop };
+    }
     let { flavor, container, topping } = want;
     let substituted = false;
+    let alt;
+    // no ice cream they'd take, but there are pops: some people get a pop instead
+    const popInstead = () => {
+      const pops = forDog ? [] : this.availablePops();
+      return pops.length && r.chance(0.4) ? { item: r.pick(pops), substituted: true } : null;
+    };
     // Not on the menu: most people just pick something else. On the menu but sold out: upset.
     if (!this.flavorAvail(flavor)) {
       const alts = FLAVORS.map((f) => f.id).filter((f) => this.flavorAvail(f));
@@ -828,7 +1015,8 @@ export class Game {
       if (alts.length && r.chance(offMenu ? 0.85 : 0.55)) {
         flavor = r.pick(alts);
         substituted = true;
-      } else if (offMenu) return { skip: true };
+      } else if (!alts.length && (alt = popInstead())) return alt;
+      else if (offMenu) return { skip: true };
       else return { upset: true, wanted: want, missing: flavor };
     }
     if (!this.containerAvail(container, forDog)) {
@@ -855,7 +1043,7 @@ export class Game {
     const people = party.members.filter((m) => m.kind !== 'dog');
     s.today.customers += people.length;
     s.week.customers += people.length;
-    const st = this.spotStats();
+    const st = this.spotStats(this.statKey());
     st.customers += people.length;
     st.custByHour[this.hourIndex()] += people.length;
     // promo giveaway: every person gets a free card while they last
@@ -933,11 +1121,27 @@ export class Game {
       }
       return this.applyServiceChoice(party, m, m.serviceChoice);
     }
-    // price check
     let item = res.item;
     let price = this.itemPrice(item);
-    const fair = this.fairOf(item);
-    let ratio = price / (fair * m.wtp);
+    let ratio;
+    if (m.cash != null) {
+      // pocket money: they buy whatever they can afford, or say so (no grumbling)
+      if (price > m.cash) {
+        const can = this.availableItems().filter((it) => this.itemPrice(it) <= m.cash);
+        if (!can.length) {
+          m.result = 'broke';
+          s.today.broke++;
+          s.week.broke = (s.week.broke || 0) + 1;
+          return;
+        }
+        const pops = can.filter((it) => it.pop);
+        item = pops.length ? this.rng.pick(pops) : can.sort((a, b) => this.itemPrice(a) - this.itemPrice(b))[0];
+        price = this.itemPrice(item);
+      }
+      ratio = 1;
+    }
+    // price check
+    if (ratio == null) ratio = price / (this.fairOf(item) * m.wtp);
     if (ratio > 1 && item.topping) {
       const plain = { ...item, topping: null };
       const r2 = this.itemPrice(plain) / (this.fairOf(plain) * m.wtp);
@@ -948,14 +1152,19 @@ export class Game {
       }
     }
     if (ratio > 1) {
-      // maybe try a cheaper container
-      const cheaper = CONTAINERS.map((c) => c.id)
+      // maybe try a cheaper container (or a cheaper pop), or settle for a pop
+      const fairEnough = (it) => this.itemPrice(it) / (this.fairOf(it) * m.wtp) <= 1;
+      const cheaper = (item.pop ? this.availablePops().filter((it) => it.pop !== item.pop) : CONTAINERS.map((c) => c.id)
         .filter((c) => c !== item.container && this.containerAvail(c, forDog))
-        .map((c) => ({ ...item, container: c, topping: null }))
-        .filter((it) => this.itemPrice(it) / (this.fairOf(it) * m.wtp) <= 1)
+        .map((c) => ({ ...item, container: c, topping: null })))
+        .filter(fairEnough)
         .sort((a, b) => this.itemPrice(a) - this.itemPrice(b));
-      if (cheaper.length && this.rng.chance(0.4)) {
-        item = cheaper[0];
+      const pops = item.pop || forDog ? [] : this.availablePops().filter(fairEnough);
+      let pick = null;
+      if (cheaper.length && this.rng.chance(0.4)) pick = cheaper[0];
+      else if (pops.length && this.rng.chance(0.35)) pick = this.rng.pick(pops);
+      if (pick) {
+        item = pick;
         price = this.itemPrice(item);
         ratio = price / (this.fairOf(item) * m.wtp);
       } else {
@@ -965,7 +1174,7 @@ export class Game {
         s.today.tooExpensive++;
         s.week.tooExpensive++;
         // remember what they wanted and what it cost, so the player can see which prices scare people off
-        const key = `${item.flavor}-${item.container}${item.topping ? '-' + item.topping : ''}`;
+        const key = itemKey(item) + (item.topping ? '-' + item.topping : '');
         for (const t of [s.today, s.week]) {
           const w = ((t.tooExpensiveWants ||= {})[key] ||= { n: 0, price });
           w.n++;
@@ -985,7 +1194,7 @@ export class Game {
       this.nudge('noTopping');
     }
     // dropped it!
-    if (!forDog && this.rng.chance(C.dropChance * CROWDS[SPOT[s.spot].kind].dropMult * (DROP_BY_PERSON[m.kind] ?? 0))) {
+    if (!forDog && this.rng.chance(C.dropChance * CROWDS[this.crowdKind()].dropMult * (DROP_BY_PERSON[m.kind] ?? 0))) {
       m.dropped = true;
       s.today.drops++;
       const choice = this.decide('drop', { party, idx });
@@ -1008,7 +1217,7 @@ export class Game {
     m.item = item;
     m.paid = price;
     m.result = 'bought';
-    const key = `${item.flavor}-${item.container}`;
+    const key = itemKey(item);
     s.today.sold[key] = (s.today.sold[key] || 0) + 1;
     s.week.sold[key] = (s.week.sold[key] || 0) + 1;
     if (item.topping) {
@@ -1032,9 +1241,9 @@ export class Game {
     }
     if (choice.kind === 'discount' && choice.item) {
       const it = choice.item;
-      const avail = this.flavorAvail(it.flavor) && this.containerAvail(it.container, m.kind === 'dog') && (!it.topping || this.toppingAvail(it.topping));
-      if (avail) {
-        const sim = it.container === m.want.container ? 0.85 : it.flavor === m.want.flavor ? 0.6 : 0.35;
+      if (this.itemAvail(it, m.kind === 'dog')) {
+        const w = m.want;
+        const sim = w.pop ? (it.pop ? 0.75 : 0.35) : it.pop ? 0.3 : it.container === w.container ? 0.85 : it.flavor === w.flavor ? 0.6 : 0.35;
         const p = Math.max(0.03, Math.min(0.97, sim * (0.45 + choice.off) + this.rng.range(-0.12, 0.12)));
         if (this.rng.chance(p)) {
           const price = Math.round(this.itemPrice(it) * (1 - choice.off));
@@ -1058,8 +1267,7 @@ export class Game {
     m.awaitDrop = false;
     if (choice === 'replace') {
       const it = m.item;
-      const avail = this.flavorAvail(it.flavor) && this.containerAvail(it.container) && (!it.topping || this.toppingAvail(it.topping));
-      if (avail) {
+      if (this.itemAvail(it)) {
         this.makeItem(it, 1);
         m.replaced = true;
         this.state.today.dropsReplaced = (this.state.today.dropsReplaced || 0) + 1;
@@ -1100,12 +1308,16 @@ export class Game {
   discountOptions(want) {
     // available items sorted by how close they are to what they wanted
     const items = this.availableItems().filter((it) => !it.topping || it.topping === want.topping);
-    const score = (it) => (it.container === want.container ? 0 : it.flavor === want.flavor ? 1 : 2) + (it.topping === want.topping ? 0 : 0.5);
+    const score = (it) => {
+      if (want.pop) return it.pop ? 0 : 2;
+      if (it.pop) return 2.5;
+      return (it.container === want.container ? 0 : it.flavor === want.flavor ? 1 : 2) + (it.topping === want.topping ? 0 : 0.5);
+    };
     const seen = new Set();
     return items
       .sort((a, b) => score(a) - score(b))
       .filter((it) => {
-        const k = `${it.flavor}-${it.container}-${it.topping}`;
+        const k = itemKey(it) + '-' + it.topping;
         if (seen.has(k)) return false;
         seen.add(k);
         return true;
@@ -1135,7 +1347,7 @@ export class Game {
       kind: p.kind,
       choice: typeof choice === 'string' ? choice : choice.kind,
       off: choice?.off,
-      wanted: m.want ? `${m.want.flavor}-${m.want.container}` : null,
+      wanted: m.want ? itemKey(m.want) : null,
       missing: m.resolved?.missing || null,
       outcome,
     });
@@ -1158,9 +1370,12 @@ export class Game {
     const scored = items.map((it) => {
       const price = this.itemPrice(it);
       let score = 0;
-      if (it.flavor === want.flavor) score += 2;
-      if (it.container === want.container) score += 1;
-      if (it.topping === want.topping) score += 0.5;
+      if (want.pop || it.pop) score += it.pop === want.pop ? 3.5 : 0;
+      else {
+        if (it.flavor === want.flavor) score += 2;
+        if (it.container === want.container) score += 1;
+        if (it.topping === want.topping) score += 0.5;
+      }
       if (price >= face && price <= face + 150) score += 3;
       else if (price < face) score -= (face - price) / 100;
       else score -= (price - face) / 80;
@@ -1172,7 +1387,7 @@ export class Game {
     m.item = it;
     m.result = 'bought';
     m.withCard = true;
-    const key = `${it.flavor}-${it.container}`;
+    const key = itemKey(it);
     s.today.sold[key] = (s.today.sold[key] || 0) + 1;
     s.week.sold[key] = (s.week.sold[key] || 0) + 1;
     if (it.topping) {
@@ -1205,7 +1420,7 @@ export class Game {
     const s = this.state;
     if (party.bill > 0) {
       this.takeCash(party.bill);
-      if (!party.cardIds) this.spotStats().revenue += party.bill;
+      if (!party.cardIds) this.spotStats(this.statKey()).revenue += party.bill;
     }
     // maybe buy a gift card
     if (!party.cardIds && s.giftSale.left > 0 && party.members.some((m) => m.result === 'bought')) {
@@ -1225,6 +1440,8 @@ export class Game {
       id: party.id,
       type: party.type,
       together: party.together,
+      curb: !!party.curb,
+      alreadyHad: !!party.alreadyHad,
       bill: party.bill || 0,
       boughtCard: !!party.boughtCard,
       members: party.members.map((m) => ({
@@ -1241,6 +1458,7 @@ export class Game {
         declined: !!m.declined,
         missing: m.resolved?.missing || null,
         paid: m.paid,
+        cash: m.cash,
         askedPrice: m.askedPrice,
         askedItem: m.askedItem,
       })),
@@ -1363,6 +1581,7 @@ export class Game {
     } else {
       this.rollWeather();
       this.rollSale();
+      this.applyWeekPlan();
     }
     this.sync();
   }
@@ -1390,6 +1609,9 @@ export class Game {
       toppings: { ...t.toppings },
       tooExpensive: t.tooExpensive,
       tooExpensiveWants: t.tooExpensiveWants || {},
+      broke: t.broke || 0,
+      alreadyHad: t.alreadyHad || 0,
+      curbStops: t.curb || 0,
       bySpot: Object.fromEntries(Object.entries(t.bySpot || {}).map(([k, v]) => [k, { minutes: s.minutesHere[k] || 0, ...v }])),
       outOfStock: t.outOfStock,
       service: t.service || null,
@@ -1547,6 +1769,7 @@ export class Game {
     this.spoil();
     for (const c of s.cards) c.returnDay = this.rng.int(1, 14);
     this.rollWeather();
+    this.applyWeekPlan();
     this.sync();
   }
 
