@@ -53,8 +53,7 @@ export const CONFIG = {
     serviceSaved: 0.001,
     dropReplaced: 0.004,
     dropRefused: -0.006,
-    giftCardExact: 0.003,
-    giftCardForfeit: -0.004,
+    giftCardFree: 0.003,
     promoCard: 0.003,
   },
 

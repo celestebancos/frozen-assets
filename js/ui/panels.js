@@ -291,7 +291,7 @@ export function giftPanel(app) {
     render(body) {
       const s = g.state;
       body.innerHTML = `
-        <div class="card2" style="text-align:center"><div style="font-size:40px">🎁</div><b>${money(C.giftCard.face)} gift card</b></div>
+        <div class="card2" style="text-align:center"><div style="font-size:40px">🎁</div><b>Gift card: one free ice cream</b><div class="tiny muted">Any ice cream on the menu. In the books, each card counts as ${money(C.giftCard.face)}.</div></div>
         <h3>Sell cards</h3>
         <div class="row">Price: ${stepper(s.giftSale.price, 'gprice', 'p', money(s.giftSale.price))}</div>
         <div class="row" style="margin-top:6px">For sale: ${stepper(s.giftSale.left, 'gleft', 'n', s.giftSale.left)}</div>
