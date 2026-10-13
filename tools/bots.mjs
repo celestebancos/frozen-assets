@@ -46,10 +46,10 @@ function snapshotStock(g) {
 const SHARE = { vanilla: 0.6, chocolate: 0.6, cake: 0.3, sugar: 0.25, waffle: 0.25, bowl: 0.25, chocSprinkles: 0.3, rainbowSprinkles: 0.3, spoons: 0.25, napkins: 1.8, rocketPop: 0.08, fudgePop: 0.06, freezePop: 0.06 };
 const POP_IDS = ['rocketPop', 'fudgePop', 'freezePop'];
 
-// A simple 2-stop route: a neighborhood, the pool across town, back for the evening.
+// A simple 2-stop route: home neighborhood, Riverside (it has the big pool) after lunch, back for the evening.
 const SIMPLE_ROUTE = [
   { spot: 'maple', at: 600 },
-  { spot: 'pool', at: 720 },
+  { spot: 'riverside', at: 720 },
   { spot: 'maple', at: 1020 },
 ];
 
@@ -66,25 +66,20 @@ export const BOTS = {
     policies: { outOfStock: 'gift', drop: 'replace', autoGas: true },
     route: (g) => {
       const wk = g.week;
-      const dow = g.dayOfWeek;
-      const market = MARKET_DAYS.includes(dow);
-      const r = [];
-      if (g.isWeekend) {
-        r.push({ spot: market ? 'market' : 'zoo', at: 600 });
-        r.push({ spot: wk >= 2 && wk <= 11 ? 'pool' : 'zoo', at: market ? 840 : 700 });
-        r.push({ spot: wk <= 9 ? 'fields' : 'riverside', at: 1000 });
-        r.push({ spot: 'sunset', at: 1110 });
-        return r;
-      }
-      r.push({ spot: market ? 'market' : 'sunset', at: 600 });
-      r.push({ spot: 'techPark', at: 690 });
-      if (wk <= 2 || wk >= 11) {
-        r.push({ spot: 'school', at: 860 });
-        r.push({ spot: 'maple', at: 965 });
-      } else r.push({ spot: 'pool', at: 815 });
-      r.push({ spot: wk <= 9 ? 'fields' : 'oak', at: 1020 });
-      r.push({ spot: wk <= 9 ? 'oak' : 'riverside', at: 1120 });
-      return r;
+      const market = MARKET_DAYS.includes(g.dayOfWeek);
+      const school = wk <= 2 || wk >= 11;
+      if (g.isWeekend)
+        return [
+          { spot: market ? 'downtown' : 'parkside', at: 600 },
+          { spot: market ? 'parkside' : 'riverside', at: market ? 840 : 780 },
+          { spot: wk <= 9 ? 'oak' : 'sunset', at: 1020 },
+        ];
+      return [
+        { spot: market ? 'downtown' : 'sunset', at: 600 },
+        { spot: 'downtown', at: 660 },
+        { spot: school ? 'maple' : 'riverside', at: 840 },
+        { spot: wk <= 9 ? 'oak' : 'sunset', at: 1020 },
+      ];
     },
     ads: (g) => (g.week >= 2 && g.week <= 10 && g.cash > 40000 ? 'radio' : g.cash > 20000 ? 'flyers' : 'none'),
     restock: { days: 3, mixDays: 2.2, preferPack: 1 },

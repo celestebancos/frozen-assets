@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { Game } from '../js/engine.js';
+import { FEATURE } from '../js/config.js';
 import { sectionTotal, share, ACCOUNTS } from '../js/ledger.js';
 import { docLines, checkFiling, pennyComparison, DOC_TYPES } from '../js/documents.js';
 import { playSeason } from '../tools/bots.mjs';
@@ -168,7 +169,8 @@ test('a saved game survives JSON and keeps playing; next summer starts clean', (
 test('location changes who shows up and how often cones get dropped', () => {
   const g = Game.create({ player: 'N', business: 'T', color: 'pink', seed: 11 });
   const mix = (spot, minute) => {
-    g.state.spot = spot;
+    if (FEATURE[spot]) g.parkAt(spot);
+    else g.state.spot = spot;
     g.state.minute = minute;
     const c = { adult: 0, kid: 0, teen: 0, dog: 0 };
     for (let i = 0; i < 3000; i++) for (const m of g.makeParty().members) c[m.kind]++;
@@ -207,14 +209,17 @@ test('playground drops happen much more than downtown drops', () => {
     g.state.policies.outOfStock = 'nothing';
     let drops = 0;
     let sold = 0;
-    for (let day = 0; day < 6; day++) {
+    for (let day = 0; day < 20; day++) {
       g.state.lots = [];
       g.post('registerTape', [{ acct: 'salesCash', amt: 100000 }, { acct: 'cash', amt: 100000 }]);
       for (const [id, p] of [['vanilla', 2], ['chocolate', 2], ['cake', 1], ['napkins', 1]]) g.buy(id, p, 1);
-      g.setRoute([{ spot, at: 600 }]);
-      g.state.spot = spot;
+      g.setRoute([{ spot: FEATURE[spot].area, at: 600 }]);
       g.openDay();
-      g.runDay();
+      // stay parked at the place all day
+      while (g.state.phase === 'open') {
+        g.parkAt(spot);
+        g.step();
+      }
       drops += g.state.lastDay.drops;
       sold += Object.values(g.state.lastDay.sold).reduce((a, b) => a + b, 0);
       for (const d of g.docsToFile()) g.fileDoc(d.id, Object.fromEntries(docLines(d).map((l) => [l.acct, l.dir])));
@@ -222,7 +227,8 @@ test('playground drops happen much more than downtown drops', () => {
     }
     return drops / sold;
   };
-  assert.ok(rate('school') > 3 * rate('downtown'));
+  const [a, b] = [rate('school'), rate('mainSt')];
+  assert.ok(a > 3 * b, `${a} vs ${b}`);
 });
 
 test('bigger loan and deluxe truck: cash left over and daily interest follow the choice', async () => {
@@ -427,23 +433,23 @@ function readyGame(seed, buys = [['vanilla', 2], ['chocolate', 2], ['cake', 1], 
   return g;
 }
 
-test('every neighborhood has 2 or 3 places besides its streets; downtown has offices, a market, a zoo and a park', async () => {
-  const { SPOTS, AREAS } = await import('../js/config.js');
-  for (const a of AREAS.filter((x) => x.id !== 'downtown')) {
-    const places = SPOTS.filter((s) => s.area === a.id && s.kind !== 'home');
-    assert.ok(places.length >= 2 && places.length <= 3, a.id);
-    for (const p of places) assert.ok(['playground', 'pool', 'fields', 'school'].includes(p.kind), p.id);
-  }
-  const kinds = SPOTS.filter((s) => s.area === 'downtown').map((s) => s.kind);
-  assert.ok(kinds.filter((k) => k === 'office').length >= 2);
-  for (const k of ['market', 'zoo', 'park']) assert.ok(kinds.includes(k), k);
+test('about six neighborhoods, each with its own places', async () => {
+  const { SPOTS, FEATURES } = await import('../js/config.js');
+  assert.equal(SPOTS.length, 6);
+  const has = (area, kind) => FEATURES.some((f) => f.area === area && f.kind === kind);
+  for (const a of SPOTS) assert.ok(FEATURES.filter((f) => f.area === a.id).length >= 2, a.id);
+  for (const a of ['maple', 'oak', 'sunset', 'riverside', 'parkside']) assert.ok(has(a, 'playground'), a + ' playground');
+  assert.ok(has('riverside', 'pool') && !has('maple', 'pool'), 'some have a pool, some do not');
+  assert.ok(has('oak', 'fields') && !has('sunset', 'fields'), 'some have ball fields, some do not');
+  assert.ok(FEATURES.filter((f) => f.area === 'downtown' && f.kind === 'office').length >= 2);
+  assert.ok(has('downtown', 'market') && has('parkside', 'zoo') && has('parkside', 'park'));
 });
 
-test('stops in the same area are a few minutes apart; across town takes longer', () => {
+test('neighbors are a short drive apart; across town takes longer', () => {
   const g = Game.create({ player: 'N', business: 'T', color: 'pink', seed: 1 });
-  assert.ok(g.driveMinutes('maple', 'maplePlay') <= 5);
-  assert.ok(g.driveMinutes('pool', 'riverFields') <= 5);
-  assert.ok(g.driveMinutes('maple', 'riverFields') >= 25);
+  assert.ok(g.driveMinutes('maple', 'downtown') < g.driveMinutes('maple', 'riverside'));
+  assert.ok(g.driveMinutes('maple', 'oak') <= 20);
+  assert.ok(g.driveMinutes('maple', 'riverside') >= 25);
 });
 
 test('kids with only pocket money buy a cheap pop, or say so and leave without grumbling', () => {
@@ -485,7 +491,7 @@ test('staying put brings families who already had ice cream today; a fresh spot 
   assert.ok(stay.alreadyHad < stay.parties, 'still fewer than real customers');
   // first hour at a fresh spot: nobody has had ice cream yet
   const g = readyGame(42);
-  g.setRoute([{ spot: 'zoo', at: 600 }]);
+  g.setRoute([{ spot: 'parkside', at: 600 }]);
   g.openDay();
   for (let i = 0; i < 30; i++) g.step();
   assert.equal(g.state.today.alreadyHad, 0);
@@ -520,7 +526,7 @@ test('driving: people on the sidewalk flag the truck down and it stops for them'
 test('saved routes and a plan for each day of the week', () => {
   const g = Game.create({ player: 'N', business: 'T', color: 'pink', seed: 61 });
   fileAllCorrectly(g);
-  g.setRoute([{ spot: 'market', at: 600 }, { spot: 'pool', at: 840 }]);
+  g.setRoute([{ spot: 'downtown', at: 600 }, { spot: 'riverside', at: 840 }]);
   const market = g.saveRoute('Market day');
   g.setRoute([{ spot: 'sunset', at: 600 }]);
   const rich = g.saveRoute('Sunset');
@@ -528,14 +534,14 @@ test('saved routes and a plan for each day of the week', () => {
   g.saveRoute('market DAY'); // same name replaces
   assert.equal(g.state.routes.length, 2);
   assert.deepEqual(market.stops, [{ spot: 'sunset', at: 600 }]);
-  g.setRoute([{ spot: 'market', at: 600 }, { spot: 'pool', at: 840 }]);
+  g.setRoute([{ spot: 'downtown', at: 600 }, { spot: 'riverside', at: 840 }]);
   g.saveRoute('Market day');
   // every day Sunset, but Wednesday the market
   g.setWeekPlan('all', rich.id);
   assert.deepEqual(g.state.route, [{ spot: 'sunset', at: 600 }], "today's plan applies right away");
   g.setWeekPlan(2, market.id);
   g.buy('vanilla', 0, 1);
-  for (const expect of ['sunset', 'sunset', 'market']) {
+  for (const expect of ['sunset', 'sunset', 'downtown']) {
     assert.equal(g.state.route[0].spot, expect, `day ${g.state.day}`);
     fileAllCorrectly(g);
     g.openDay();
@@ -580,25 +586,34 @@ test('an older save without saved routes or pops still loads; pops join the menu
   assert.equal(g.isOn('rocketPop'), true);
 });
 
-test('in a neighborhood the truck drives around: every customer waves it down, and it uses more gas', () => {
-  const run = (spot) => {
-    const g = readyGame(81);
-    g.setRoute([{ spot, at: 600 }]);
-    g.state.spot = spot;
-    g.openDay();
+test('in a neighborhood the truck drives around, and parks at a busy place while customers keep coming', () => {
+  const g = readyGame(81, [['vanilla', 2], ['chocolate', 2], ['cake', 2], ['bowl', 2], ['spoons', 1], ['napkins', 1]]);
+  g.state.day = 41; // a midsummer Saturday
+  g.rollWeather();
+  g.state.weather = { temp: 92, rain: false, cloudy: false };
+  g.setRoute([{ spot: 'riverside', at: 600 }]);
+  g.openDay();
+  const seen = { street: [], park: [] };
+  let fuelMoving = 0;
+  let fuelParked = 0;
+  let movingMin = 0;
+  let parkedMin = 0;
+  while (g.state.phase === 'open') {
+    const parked = !!g.parkedAt();
     const fuel = g.state.fuel;
-    const curb = [];
-    while (g.state.phase === 'open') {
-      g.step();
-      for (const ev of g.events.splice(0)) if (ev.t === 'served') curb.push(ev.party.curb);
-    }
-    return { fuel: fuel - g.state.fuel, curb };
-  };
-  const home = run('maple');
-  const zoo = run('zoo');
-  assert.ok(home.curb.length > 0 && home.curb.every(Boolean), 'neighborhood parties all wave the truck down');
-  assert.ok(zoo.curb.every((c) => !c), 'at the zoo the truck is parked');
-  assert.ok(home.fuel > 3 * zoo.fuel);
+    g.step();
+    if (g.state.phase !== 'open') break;
+    if (parked) (fuelParked += fuel - g.state.fuel), parkedMin++;
+    else (fuelMoving += fuel - g.state.fuel), movingMin++;
+    for (const ev of g.events.splice(0)) if (ev.t === 'served' && !ev.party.alreadyHad) seen[parked ? 'park' : 'street'].push(ev.party.curb);
+  }
+  const places = g.state.log.days.at(-1).places;
+  assert.ok(places.pool > 60, 'stayed at the pool a while: ' + places.pool);
+  assert.ok(places.riverside > 30, 'and drove around the streets');
+  assert.ok(seen.street.length && seen.street.every(Boolean), 'driving around, people wave the truck down');
+  assert.ok(seen.park.length && seen.park.every((c) => !c), 'parked, people walk up');
+  assert.ok(fuelMoving / movingMin > 2 * (fuelParked / parkedMin), 'parking saves gas');
+  assert.deepEqual(Object.keys(g.state.lastDay.bySpot), ['riverside'], 'all of it counts for Riverside');
 });
 
 test("Penny's weekly bill: a flat fee plus each paper she filed", async () => {
