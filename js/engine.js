@@ -74,7 +74,8 @@ export class Game {
     this.events = [];
     this.rng = makeRng(state.rngState);
     state.log ||= { actions: [], days: [] }; // older saves had no log
-    if (state.tune === 'medley') state.tune = 'entertainer'; // the medley was removed
+    // songs that were removed or renamed
+    state.tune = { medley: 'entertainer', musicBox: 'entertainer', truckSong: 'turkey' }[state.tune] || state.tune;
   }
 
   // ---------- play log (for grown-ups to export and analyze) ----------
