@@ -965,27 +965,28 @@ export function mapSVG(spots, areas, current, route = []) {
       return `<rect x="${x0}" y="${y0}" width="${x1 - x0}" height="${y1 - y0}" rx="28" fill="${a.tint}" stroke="#fff" stroke-width="3" opacity=".92"/>`;
     })
     .join('');
-  // roads: each neighborhood's places to its streets, the streets to the nearest downtown stop,
-  // and downtown stops to their nearest neighbor
+  // roads: join nearby stops, shortest first, skipping any road that would cross another
+  // or run through a stop, so neighbors connect and the map stays tidy
   const roads = [];
-  const road = (a, b) => {
+  const segs = [];
+  const cross = (p1, p2, p3, p4) => {
+    const o = (a, b, c) => Math.sign((b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x));
+    return o(p1, p2, p3) * o(p1, p2, p4) < 0 && o(p3, p4, p1) * o(p3, p4, p2) < 0;
+  };
+  const nearLine = (p, a, b) => {
+    const t = Math.max(0, Math.min(1, ((p.x - a.x) * (b.x - a.x) + (p.y - a.y) * (b.y - a.y)) / ((b.x - a.x) ** 2 + (b.y - a.y) ** 2)));
+    return Math.hypot(p.x - (a.x + t * (b.x - a.x)), p.y - (a.y + t * (b.y - a.y))) < 5;
+  };
+  const pairs = [];
+  for (let i = 0; i < spots.length; i++) for (let j = i + 1; j < spots.length; j++) pairs.push([spots[i], spots[j], Math.hypot(spots[i].x - spots[j].x, spots[i].y - spots[j].y)]);
+  for (const [a, b, d] of pairs.sort((x, y) => x[2] - y[2])) {
+    if (d > 36) break;
+    if (segs.some(([c, e]) => c !== a && c !== b && e !== a && e !== b && cross(a, b, c, e))) continue;
+    if (spots.some((p) => p !== a && p !== b && nearLine(p, a, b))) continue;
+    segs.push([a, b]);
     const [x1, y1] = pos(a);
     const [x2, y2] = pos(b);
     roads.push(`M${x1} ${y1} L${x2} ${y2}`);
-  };
-  const d2 = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
-  const nearest = (s, list) => list.reduce((b, x) => (d2(x, s) < d2(b, s) ? x : b));
-  const downtown = spots.filter((s) => s.area === 'downtown');
-  for (const a of areas) {
-    const list = spots.filter((s) => s.area === a.id);
-    if (!list.length) continue;
-    if (a.id === 'downtown') {
-      for (const s of list) road(s, nearest(s, list.filter((x) => x !== s)));
-      continue;
-    }
-    const home = list.find((s) => s.kind === 'home') || list[0];
-    for (const s of list) if (s !== home) road(home, s);
-    road(nearest(home, downtown), home);
   }
   const roadD = roads.join(' ');
   const ordered = route.map((r) => byId[r.spot]).filter(Boolean);

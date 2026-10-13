@@ -501,12 +501,15 @@ test('driving: people on the sidewalk flag the truck down and it stops for them'
       if (before?.stopped > 0 && g.state.driving) assert.equal(g.state.driving.left, before.left, 'stopped trucks do not move');
     }
     stops += g.state.lastDay.curb;
-    road += g.state.lastDay.bySpot.road?.customers || 0;
+    const by = g.state.lastDay.bySpot;
+    assert.equal(by.road, undefined, 'no separate on-the-road row');
+    // sales on the way count for where the truck was going, so the stops add up to the day
+    road += Object.values(by).reduce((a, v) => a + v.customers, 0) - g.state.lastDay.customers;
     fileAllCorrectly(g);
     g.state.needWeekReport = null;
   }
   assert.ok(stops > 0, 'some curb stops');
-  assert.ok(road >= stops);
+  assert.equal(road, 0);
 });
 
 test('saved routes and a plan for each day of the week', () => {
@@ -570,4 +573,25 @@ test('an older save without saved routes or pops still loads; pops join the menu
   g.post('registerTape', [{ acct: 'salesCash', amt: 10000 }, { acct: 'cash', amt: 10000 }]);
   g.buy('rocketPop', 0, 1);
   assert.equal(g.isOn('rocketPop'), true);
+});
+
+test('in a neighborhood the truck drives around: every customer waves it down, and it uses more gas', () => {
+  const run = (spot) => {
+    const g = readyGame(81);
+    g.setRoute([{ spot, at: 600 }]);
+    g.state.spot = spot;
+    g.openDay();
+    const fuel = g.state.fuel;
+    const curb = [];
+    while (g.state.phase === 'open') {
+      g.step();
+      for (const ev of g.events.splice(0)) if (ev.t === 'served') curb.push(ev.party.curb);
+    }
+    return { fuel: fuel - g.state.fuel, curb };
+  };
+  const home = run('maple');
+  const zoo = run('zoo');
+  assert.ok(home.curb.length > 0 && home.curb.every(Boolean), 'neighborhood parties all wave the truck down');
+  assert.ok(zoo.curb.every((c) => !c), 'at the zoo the truck is parked');
+  assert.ok(home.fuel > 3 * zoo.fuel);
 });

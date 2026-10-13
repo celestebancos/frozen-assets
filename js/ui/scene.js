@@ -67,8 +67,10 @@ export class Scene {
     this.root.style.setProperty('--sky', sky);
     this.root.style.setProperty('--sun', sun);
     this.rainEl.classList.toggle('hidden', !s.weather?.rain || s.phase !== 'open');
-    // parked: the spot's backdrop. Driving: the street rolls by (downtown buildings or houses).
-    const driving = !!s.driving && s.phase === 'open';
+    // parked: the spot's backdrop. Driving (or cruising a neighborhood): the street rolls by.
+    const open = s.phase === 'open';
+    const cruising = open && g.cruising();
+    const driving = (!!s.driving && open) || cruising;
     const marketOpen = MARKET_DAYS.includes(g.dayOfWeek);
     const sceneKey = driving ? `road|${g.here().area}` : `${s.spot}|${marketOpen}`;
     if (sceneKey !== this.sceneKey) {
@@ -84,7 +86,7 @@ export class Scene {
         this.truckSettleAt = performance.now() + 1300;
       }
     }
-    const stopped = driving && (s.driving.stopped > 0 || performance.now() < this.curbHold);
+    const stopped = driving && (s.driving?.stopped > 0 || performance.now() < this.curbHold);
     this.root.classList.toggle('driving', driving);
     this.root.classList.toggle('stopped', stopped);
     const key = `${s.color}|${s.business}|${driving}|${s.bling || 0}`;
@@ -94,8 +96,8 @@ export class Scene {
     }
     if (driving) {
       this.roadMsg.classList.remove('hidden');
-      const msg = stopped ? '🛑 Stopping for customers!' : `🚚💨 ${esc(SPOT[s.driving.to].name)}`;
-      const html = `${msg}<div class="tiny muted">${s.driving.left} min to go</div>`;
+      const msg = stopped ? '🛑 Stopping for customers!' : cruising ? `🚚 Driving around ${esc(SPOT[s.spot].name)}` : `🚚💨 ${esc(SPOT[s.driving.to].name)}`;
+      const html = `${msg}${s.driving ? `<div class="tiny muted">${s.driving.left} min to go</div>` : ''}`;
       if (this.roadMsg.innerHTML !== html) this.roadMsg.innerHTML = html;
     } else {
       this.roadMsg.classList.add('hidden');

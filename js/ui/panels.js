@@ -211,9 +211,10 @@ function spotNote(sp) {
   if (sp.kind === 'market') notes.push(`Open ${MARKET_DAYS.map((d) => DAY_NAMES[d]).join(' & ')}, 10am–2pm`);
   if (sp.kind === 'zoo') notes.push('Closes at 5pm');
   if (sp.kind === 'office') notes.push(sp.weekend < 0.3 ? 'Busy at lunch. Empty on weekends.' : 'Busy at lunch');
+  if (sp.kind === 'home') notes.push('🚚 You drive up and down the streets here');
   const pay = a.pay * (sp.pay ?? 1);
-  if (pay >= 1.1) notes.push('💰 People here will pay more');
-  else if (pay < 0.97) notes.push('🪙 People here watch their money');
+  if (pay >= 1.1) notes.push('💰 People here tend to have a bit more money to spend');
+  else if (pay < 0.97) notes.push('🪙 People here tend to have a bit less money to spend');
   return notes.join(' · ');
 }
 
@@ -477,7 +478,7 @@ export function policyPanel(app) {
 }
 
 // ---------------- Places: how busy each spot was ----------------
-const placeName = (id) => (id === 'road' ? '🚚 On the road' : esc(SPOT[id]?.name || id));
+const placeName = (id) => esc(SPOT[id]?.name || id);
 const BLOCKS = [
   { name: 'Morning', sub: '10–1', from: 0, to: 3 },
   { name: 'Afternoon', sub: '1–4', from: 3, to: 6 },
@@ -505,6 +506,7 @@ export function placesPanel(app) {
         const agg = {};
         for (const d of days)
           for (const [id, v] of Object.entries(d.bySpot)) {
+            if (!SPOT[id]) continue; // an old "on the road" row
             const a = (agg[id] ||= { days: 0, minutes: 0, customers: 0, revenue: 0, min: Array(10).fill(0), cust: Array(10).fill(0) });
             a.days++;
             a.minutes += v.minutes;
@@ -524,7 +526,7 @@ export function placesPanel(app) {
           <tr><th>Place</th><th>Days</th><th>Hours</th><th>People</th><th>👥 per hour</th><th>💵 per hour</th>${BLOCKS.map((b) => `<th>${b.name}<br><span class="tiny muted">${b.sub}</span></th>`).join('')}</tr>
           ${rows.map(([id, a]) => `<tr><td><b>${placeName(id)}</b></td><td>${a.days}</td><td>${(a.minutes / 60).toFixed(1)}</td><td>${a.customers}</td><td><b>${perHour(a.customers, a.minutes)}</b></td><td>${a.minutes ? money(Math.round((a.revenue * 60) / a.minutes)) : '—'}</td>${BLOCKS.map((b) => `<td>${block(a, b)}</td>`).join('')}</tr>`).join('')}
           </table></div>
-          <p class="tiny muted">The morning, afternoon and evening columns are people per hour at that time of day. Weekends, hot days and ads bring more people everywhere, so try a place more than once! 🚚 On the road counts people who waved you down while driving.</p>`;
+          <p class="tiny muted">The morning, afternoon and evening columns are people per hour at that time of day. Weekends, hot days and ads bring more people everywhere, so try a place more than once!</p>`;
         return;
       }
       const at = (min) => fmtTime(min).replace(':00', '');
