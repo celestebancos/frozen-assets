@@ -476,7 +476,7 @@ test('kids with only pocket money buy a cheap pop, or say so and leave without g
   assert.equal(p3.members[0].result, 'broke', 'a $1.25 pop is too much for $1');
 });
 
-test('staying put brings families who already had ice cream today; a fresh spot does not', () => {
+test('staying put long past a sensible stay brings a family or two who already had ice cream; a fresh spot does not', () => {
   const run = (route) => {
     const g = readyGame(41, [['vanilla', 2], ['chocolate', 2], ['cake', 2], ['bowl', 2], ['spoons', 1], ['napkins', 1]]);
     g.setRoute(route);
@@ -487,13 +487,13 @@ test('staying put brings families who already had ice cream today; a fresh spot 
     return g.state.lastDay;
   };
   const stay = run([{ spot: 'maple', at: 600 }]);
-  assert.ok(stay.alreadyHad > 3, 'parked all day: ' + stay.alreadyHad);
-  assert.ok(stay.alreadyHad < stay.parties, 'still fewer than real customers');
-  // first hour at a fresh spot: nobody has had ice cream yet
+  assert.ok(stay.alreadyHad >= 1, 'parked all day: ' + stay.alreadyHad);
+  assert.ok(stay.alreadyHad <= 2, 'at most twice a day in one neighborhood: ' + stay.alreadyHad);
+  // the first two hours in a fresh neighborhood: too soon for the hint
   const g = readyGame(42);
   g.setRoute([{ spot: 'parkside', at: 600 }]);
   g.openDay();
-  for (let i = 0; i < 30; i++) g.step();
+  for (let i = 0; i < 120; i++) g.step();
   assert.equal(g.state.today.alreadyHad, 0);
 });
 

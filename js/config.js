@@ -101,8 +101,9 @@ export const CONFIG = {
 
   // Driving: people on the sidewalk wave the truck down. Rate = share × the crowd at the nearer stop.
   curb: { share: 0.35, stopMinutes: 2 },
-  // Families who already bought from you today come back by. Rate = share × the people a tired spot is missing.
-  alreadyHad: { share: 0.25 },
+  // Families who already bought from you today come back by: a hint it's time to move on. Only once a
+  // spot's crowd has thinned to `below` (well past a sensible stay), and at most `perArea` times a day per neighborhood.
+  alreadyHad: { share: 0.5, below: 0.65, perArea: 2 },
 };
 
 // Starting menu prices (cents).
