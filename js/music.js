@@ -12,15 +12,6 @@ export function freq(n) {
 // or chords ("startBeat:note:beats", notes can overlap). Songs loop with no gap at the end.
 const SONG_LIST = {
   entertainer: { name: 'The Entertainer', bpm: 105, voice: 'musicbox', melody: MIDI_SONGS.entertainer.melody },
-  greensleeves: {
-    name: 'Greensleeves',
-    bpm: 250,
-    voice: 'musicbox',
-    melody: `A4:1 C5:2 D5:1 E5:1.5 F5:0.5 E5:1 D5:2 B4:1 G4:1.5 A4:0.5 B4:1 C5:2 A4:1 A4:1.5 G#4:0.5 A4:1 B4:2 G#4:1 E4:2
-      A4:1 C5:2 D5:1 E5:1.5 F5:0.5 E5:1 D5:2 B4:1 G4:1.5 A4:0.5 B4:1 C5:1.5 B4:0.5 A4:1 G#4:1.5 F#4:0.5 G#4:1 A4:3
-      G5:3 G5:1.5 F#5:0.5 E5:1 D5:2 B4:1 G4:1.5 A4:0.5 B4:1 C5:2 A4:1 A4:1.5 G#4:0.5 A4:1 B4:2 G#4:1 E4:3
-      G5:3 G5:1.5 F#5:0.5 E5:1 D5:2 B4:1 G4:1.5 A4:0.5 B4:1 C5:1.5 B4:0.5 A4:1 G#4:1.5 F#4:0.5 G#4:1 A4:2`,
-  },
   weasel: {
     name: 'Pop Goes the Weasel',
     bpm: 230,
