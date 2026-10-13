@@ -991,12 +991,20 @@ export class Game {
   newCruise() {
     const s = this.state;
     const places = FEATURES.filter((f) => f.area === s.spot);
-    return { seg: (s.cruise?.seg || 0) + 1, mode: 'street', i: this.rng.int(0, places.length - 1), left: this.rng.int(C.cruise.legMin, C.cruise.legMax), stopped: 0, idle: 0, feature: null };
+    return { seg: (s.cruise?.seg || 0) + 1, mode: 'street', i: this.rng.int(0, places.length - 1), left: this.legMinutes(), stopped: 0, idle: 0, feature: null };
+  }
+  // How spread out the neighborhood is: 1 is normal, less is farther between houses.
+  density() {
+    return SPOT[this.state.spot]?.density || 1;
+  }
+  // Minutes of streets between places: longer where the houses are far apart.
+  legMinutes() {
+    return Math.round(this.rng.int(C.cruise.legMin, C.cruise.legMax) / this.density());
   }
   nextLeg() {
     const cr = this.state.cruise;
     const n = FEATURES.filter((f) => f.area === this.state.spot).length;
-    Object.assign(cr, { seg: cr.seg + 1, mode: 'street', i: (cr.i + 1) % n, left: this.rng.int(C.cruise.legMin, C.cruise.legMax), stopped: 0, idle: 0, feature: null });
+    Object.assign(cr, { seg: cr.seg + 1, mode: 'street', i: (cr.i + 1) % n, left: this.legMinutes(), stopped: 0, idle: 0, feature: null });
     this.emit({ t: 'cruise', mode: 'street' });
   }
   reachPlace() {
@@ -1027,7 +1035,8 @@ export class Game {
     s.minutesHere[loc.id] = (s.minutesHere[loc.id] || 0) + 1;
     this.countMinute(s.spot);
     const moving = cr.mode !== 'park';
-    if (moving) s.fuel = Math.max(0, s.fuel - C.gas.cruiseGalPerHour / 60);
+    // spread-out streets mean more road for every customer
+    if (moving) s.fuel = Math.max(0, s.fuel - C.gas.cruiseGalPerHour / 60 / this.density());
     // families who already bought today come by (a hint that it's time to move on)
     if (CROWDS[this.crowdKind()].hint !== false) {
       const missing = 1 - this.saturation(loc.id);

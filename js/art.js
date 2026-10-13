@@ -619,15 +619,15 @@ const HOMES = {
     trees: [[300, 1.1], [630, 0.95], [950, 0.9]],
     mailbox: 352,
   },
+  // big houses on big lots: lots of lawn between them
   sunset: {
     houses: [
-      [20, { w: 200, body: '#fff1e6', roof: '#5c4033', door: '#355070', two: true, shutter: '#355070', box: '#ff8fc7', bushes: 'plain' }],
-      [400, { w: 200, body: '#e2ece9', roof: '#3d405b', door: '#c3423f', two: true, porch: true, shutter: '#3d405b', bushes: 'flowers' }],
-      [760, { w: 200, body: '#fde2e4', roof: '#6d597a', door: '#2a9d8f', two: true, shutter: '#6d597a', box: '#ffd23f', bushes: 'plain' }],
+      [70, { w: 220, body: '#fff1e6', roof: '#5c4033', door: '#355070', two: true, shutter: '#355070', box: '#ff8fc7', bushes: 'plain' }],
+      [600, { w: 220, body: '#e2ece9', roof: '#3d405b', door: '#c3423f', two: true, porch: true, shutter: '#3d405b', bushes: 'flowers' }],
     ],
-    trees: [[262, 1, 'tall'], [360, 0.9, 'tall'], [640, 1, 'tall'], [724, 0.85, 'tall']],
-    lamps: [310],
-    mailbox: 690,
+    trees: [[350, 1, 'tall'], [455, 0.85, 'tall'], [900, 1, 'tall']],
+    lamps: [400],
+    mailbox: 560,
   },
   riverside: {
     houses: [
@@ -1093,16 +1093,18 @@ const cityBlock = (cx, cy, dx, dy, i) => {
 };
 
 // Curvy suburban streets: a loop road with branches that end in cul-de-sacs, houses along them.
-function curvyStreets(loop, branches, seed) {
+// Spread-out neighborhoods get fewer, bigger houses (step: gap along each street; big: house size; pairs: a house on both sides).
+function curvyStreets(loop, branches, seed, { step = 0.3, big = 1.15, pairs = true } = {}) {
   let out = ROAD(loop, 8);
   let houses = '';
   branches.forEach(([x1, y1, x2, y2, cx, cy], b) => {
     out += ROAD(`M${x1} ${y1} Q${cx} ${cy} ${x2} ${y2}`, 7) + CUL(x2, y2);
-    for (let t = 0.3; t <= 0.9; t += 0.3) {
+    for (let t = 0.3; t <= 0.9001; t += step) {
       const x = (1 - t) * (1 - t) * x1 + 2 * (1 - t) * t * cx + t * t * x2;
       const y = (1 - t) * (1 - t) * y1 + 2 * (1 - t) * t * cy + t * t * y2;
       const side = hash(b, t + seed) < 0.5 ? -1 : 1;
-      houses += HOUSE_DOT(x + side * 14, y - 12, b * 3 + Math.round(t * 10), 1.15) + HOUSE_DOT(x - side * 14, y + 14, b * 5 + Math.round(t * 7), 1.15);
+      houses += HOUSE_DOT(x + side * 14 * big, y - 12 * big, b * 3 + Math.round(t * 10), big);
+      if (pairs) houses += HOUSE_DOT(x - side * 14 * big, y + 14 * big, b * 5 + Math.round(t * 7), big);
     }
   });
   return out + houses;
@@ -1156,9 +1158,9 @@ export function mapSVG(spots, features, current, route = [], picked = null) {
   const mains = ROAD('M190 175 C300 175 380 300 500 305 C620 300 700 175 815 175 M190 175 C150 320 150 400 185 515 M815 175 C850 320 850 400 815 515 M185 515 C300 560 380 600 500 590 C620 600 700 560 815 515 M500 305 V590 M185 515 C300 470 380 360 500 305 M815 515 C700 470 620 360 500 305', 12);
   const streets = {
     maple: gridStreets(box('maple'), 58, 48, houseBlock, 1, ['maplePlay', 'school', 'mapleLibrary'].map((k) => MAP_PLACES[k])),
-    downtown: gridStreets(box('downtown'), 46, 40, cityBlock, 2, ['cityHall', 'techPark', 'mainSt', 'market', 'downtownPlay'].map((k) => MAP_PLACES[k])),
+    downtown: gridStreets(box('downtown'), 38, 34, cityBlock, 2, ['cityHall', 'techPark', 'mainSt', 'market', 'downtownPlay'].map((k) => MAP_PLACES[k])),
     riverside: gridStreets([670, 400, 290, 260], 60, 52, houseBlock, 3, ['riverPlay', 'pool', 'riverFields', 'riverLibrary'].map((k) => MAP_PLACES[k])),
-    sunset: curvyStreets('M700 180 C700 90 790 60 850 90 C930 130 930 220 870 280 C800 320 700 280 700 180 Z', [[790 + 0, 72, 800, 150, 830, 110], [920, 160, 840, 190, 880, 200], [760, 297, 805, 225, 760, 250], [700, 180, 790, 205, 740, 210]], 4),
+    sunset: curvyStreets('M700 180 C700 90 790 60 850 90 C930 130 930 220 870 280 C800 320 700 280 700 180 Z', [[790 + 0, 72, 800, 150, 830, 110], [920, 160, 840, 190, 880, 200], [760, 297, 805, 225, 760, 250], [700, 180, 790, 205, 740, 210]], 4, { step: 0.6, big: 1.7, pairs: false }),
     oak: curvyStreets('M70 500 C70 410 190 400 250 420 C330 450 330 560 280 620 C210 670 90 650 70 560 Z', [[150, 404, 150, 470, 120, 440], [320, 520, 230, 520, 280, 500], [180, 650, 180, 560, 210, 600], [70, 530, 140, 545, 100, 560]], 5),
     parkside: `<path d="M400 470 C450 520 420 600 480 640 M610 470 C560 520 610 580 540 640 M390 560 H610" stroke="#e9dcc0" stroke-width="5" fill="none" stroke-linecap="round"/>${[[395, 610], [610, 470], [460, 470], [400, 655], [620, 600]].map(([x, y]) => `<circle cx="${x}" cy="${y}" r="9" fill="#52b788" stroke="#2d6a4f" stroke-width="1.5"/>`).join('')}`,
   };
