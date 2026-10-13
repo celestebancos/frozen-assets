@@ -81,17 +81,18 @@ test('pay later costs a bit more and creates a bill', () => {
   assert.equal(g.buy('waffle', 1, 1, true).ok, false, 'over the credit limit');
 });
 
-test('gift cards: discounted sale, giveaway, and redemption', () => {
+test('gift cards: a sold card is booked at what it sold for; a free one at the usual price', () => {
   const g = Game.create({ player: 'N', business: 'T', color: 'pink', seed: 5 });
   fileAllCorrectly(g);
   g.state.giftSale = { price: 300, left: 1 };
   g.issueCard('sale');
-  assert.equal(g.state.truth.giftCards, 500);
-  assert.equal(g.state.truth.giftDiscounts, 200);
+  assert.equal(g.state.truth.giftCards, 300);
+  assert.equal(g.state.truth.giftDiscounts, 0, 'no discount: the card is worth what it sold for');
   assert.equal(g.cash, 10300);
   g.issueCard('promo');
-  assert.equal(g.state.truth.giftCards, 1000);
-  assert.equal(g.state.truth.giftDiscounts, 700);
+  assert.equal(g.state.truth.giftCards, 800);
+  assert.equal(g.state.truth.giftDiscounts, 500);
+  assert.deepEqual(g.state.cards.map((c) => c.value), [300, 500]);
   assert.equal(share(g.state.truth), profit(g.state.truth));
 });
 
@@ -367,3 +368,4 @@ test('a shopping order is bought all at once, or not at all', () => {
   assert.equal(g.stock('vanilla'), 2 * 50);
   assert.equal(g.buyOrder([]).ok, false);
 });
+

@@ -14,7 +14,7 @@ export const DOC_TYPES = {
   registerTape: { title: 'Cash register tape', look: 'tape', icon: '🧾',
     penny: "Customers paid you for ice cream. That's income — Ice cream sold for money went up. And the money went into the cash box, so Cash went up too." },
   giftSales: { title: 'Gift card sales log', look: 'log', icon: '🎁',
-    penny: "Selling a gift card brings in cash, but you haven't given any ice cream yet. You owe the ice cream later — that's a liability (Gift cards not yet used). If you sold it for less than $5, the difference is a discount, which is an expense." },
+    penny: "Selling a gift card brings in cash, but you haven't given any ice cream yet. You owe the ice cream later — that's a liability (Gift cards not yet used), worth what the card sold for." },
   freeCards: { title: 'Free gift card log', look: 'log', icon: '🎟️',
     penny: "You gave away gift cards. No money came in, but now you owe ice cream to whoever brings the card back — Gift cards not yet used went up. Giving away $5 of value is an expense: Gift card discounts & giveaways." },
   redemptions: { title: 'Gift card redemption slips', look: 'slips', icon: '🎫',
