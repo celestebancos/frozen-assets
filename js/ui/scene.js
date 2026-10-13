@@ -73,10 +73,10 @@ export class Scene {
         this.truckEl.classList.remove('arriving');
       }
     }
-    const key = `${s.color}|${s.business}|${!!s.driving}`;
+    const key = `${s.color}|${s.business}|${!!s.driving}|${s.bling || 0}`;
     if (key !== this.truckKey) {
       this.truckKey = key;
-      this.truckEl.innerHTML = truckSVG(this.app.truckHex(), s.business, { wheelsSpin: !!s.driving });
+      this.truckEl.innerHTML = truckSVG(this.app.truckHex(), s.business, { wheelsSpin: !!s.driving, bling: s.bling || 0 });
     }
     if (s.driving) {
       this.truckEl.classList.add('away');

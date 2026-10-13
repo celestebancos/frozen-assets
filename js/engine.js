@@ -10,7 +10,7 @@ const C = CONFIG;
 const SEASON_DAYS = C.seasonWeeks * C.daysPerWeek;
 const DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
-export function newGameState({ player, business, color, tune = 'entertainer', seed, loan, truckCost }) {
+export function newGameState({ player, business, color, tune = 'entertainer', seed, loan, truckCost, bling = 0, blingName = '' }) {
   const s = {
     version: 1,
     seed: seed ?? Math.floor(Math.random() * 2 ** 31),
@@ -26,6 +26,8 @@ export function newGameState({ player, business, color, tune = 'entertainer', se
     loanActive: true,
     loanTerms: loan ? { principal: loan.principal, dailyInterest: loan.dailyInterest } : { principal: C.loan.principal, dailyInterest: C.loan.dailyInterest },
     truckCost: truckCost ?? C.loan.truckCost,
+    bling,
+    blingName,
     cash: 0,
     truth: emptyTotals(),
     filed: emptyTotals(),
@@ -362,7 +364,7 @@ export class Game {
     this.post('truckBill', [
       { acct: 'truck', amt: truck },
       { acct: 'cash', amt: -truck },
-    ], { label: 'One ice cream truck', amt: truck });
+    ], { label: `One ice cream truck${s.blingName ? ` with ${s.blingName.toLowerCase()}` : ''}`, amt: truck });
     s.phase = 'setup';
     this.rollWeather();
     this.sync();
