@@ -178,30 +178,30 @@ export const AREA = Object.fromEntries(AREAS.map((a) => [a.id, a]));
 // Town map. x/y are 0–100 map coordinates; spotProfile(hour) gives each kind's crowd, times size.
 // The first spot of each neighborhood is its streets (kind "home").
 export const SPOTS = [
-  { id: 'maple', name: 'Maple Street', kind: 'home', area: 'maple', x: 13, y: 10, size: 1.0 },
-  { id: 'school', name: 'Maple School', kind: 'school', area: 'maple', x: 27, y: 25 },
-  { id: 'maplePlay', name: 'Maple Playground', kind: 'playground', area: 'maple', x: 9, y: 33, size: 0.9 },
+  { id: 'maple', name: 'Maple Street', kind: 'home', area: 'maple', x: 13, y: 6, size: 1.0 },
+  { id: 'school', name: 'Maple School', kind: 'school', area: 'maple', x: 23, y: 24 },
+  { id: 'maplePlay', name: 'Maple Playground', kind: 'playground', area: 'maple', x: 8, y: 38, size: 0.9 },
 
-  { id: 'oak', name: 'Oak Hollow', kind: 'home', area: 'oak', x: 13, y: 63, size: 0.8 },
-  { id: 'oakPlay', name: 'Oak Playground', kind: 'playground', area: 'oak', x: 29, y: 70, size: 0.8 },
-  { id: 'fields', name: 'Oak Ball Fields', kind: 'fields', area: 'oak', x: 10, y: 88 },
-  { id: 'oakPool', name: 'Oak Pool', kind: 'pool', area: 'oak', x: 30, y: 92, size: 0.7 },
+  { id: 'oak', name: 'Oak Hollow', kind: 'home', area: 'oak', x: 13, y: 71, size: 0.8 },
+  { id: 'oakPlay', name: 'Oak Playground', kind: 'playground', area: 'oak', x: 30, y: 77, size: 0.8 },
+  { id: 'fields', name: 'Oak Ball Fields', kind: 'fields', area: 'oak', x: 10, y: 92 },
+  { id: 'oakPool', name: 'Oak Pool', kind: 'pool', area: 'oak', x: 30, y: 96, size: 0.7 },
 
-  { id: 'sunset', name: 'Sunset Ridge', kind: 'home', area: 'sunset', x: 85, y: 10, size: 0.7 },
-  { id: 'sunsetPool', name: 'Sunset Pool', kind: 'pool', area: 'sunset', x: 90, y: 32, size: 0.8 },
-  { id: 'sunsetSchool', name: 'Sunset School', kind: 'school', area: 'sunset', x: 75, y: 40, size: 0.8 },
+  { id: 'sunset', name: 'Sunset Ridge', kind: 'home', area: 'sunset', x: 86, y: 6, size: 0.7 },
+  { id: 'sunsetPool', name: 'Sunset Pool', kind: 'pool', area: 'sunset', x: 91, y: 26, size: 0.8 },
+  { id: 'sunsetSchool', name: 'Sunset School', kind: 'school', area: 'sunset', x: 78, y: 40, size: 0.8 },
 
-  { id: 'riverside', name: 'Riverside', kind: 'home', area: 'riverside', x: 72, y: 68, size: 0.9 },
-  { id: 'pool', name: 'Riverside Pool', kind: 'pool', area: 'riverside', x: 90, y: 60 },
-  { id: 'riverPlay', name: 'River Playground', kind: 'playground', area: 'riverside', x: 60, y: 90, size: 0.9 },
-  { id: 'riverFields', name: 'River Ball Fields', kind: 'fields', area: 'riverside', x: 87, y: 88, size: 0.8 },
+  { id: 'riverside', name: 'Riverside', kind: 'home', area: 'riverside', x: 72, y: 77, size: 0.9 },
+  { id: 'pool', name: 'Riverside Pool', kind: 'pool', area: 'riverside', x: 90, y: 71 },
+  { id: 'riverPlay', name: 'River Playground', kind: 'playground', area: 'riverside', x: 60, y: 95, size: 0.9 },
+  { id: 'riverFields', name: 'River Ball Fields', kind: 'fields', area: 'riverside', x: 87, y: 93, size: 0.8 },
 
-  { id: 'cityHall', name: 'City Hall', kind: 'office', area: 'downtown', x: 40, y: 8, size: 0.7, weekend: 0.1 },
-  { id: 'techPark', name: 'Tech Park', kind: 'office', area: 'downtown', x: 60, y: 8, size: 1.1, weekend: 0.1, pay: 1.1 },
-  { id: 'downtown', name: 'Main St Offices', kind: 'office', area: 'downtown', x: 50, y: 24, size: 1.0, weekend: 0.7 },
-  { id: 'market', name: 'Farmers Market', kind: 'market', area: 'downtown', x: 38, y: 42 },
-  { id: 'zoo', name: 'City Zoo', kind: 'zoo', area: 'downtown', x: 62, y: 44, pay: 1.1 },
-  { id: 'park', name: 'Central Park', kind: 'park', area: 'downtown', x: 49, y: 60 },
+  { id: 'cityHall', name: 'City Hall', kind: 'office', area: 'downtown', x: 40, y: 6, size: 0.7, weekend: 0.1 },
+  { id: 'techPark', name: 'Tech Park', kind: 'office', area: 'downtown', x: 60, y: 6, size: 1.1, weekend: 0.1, pay: 1.1 },
+  { id: 'downtown', name: 'Main St Offices', kind: 'office', area: 'downtown', x: 50, y: 20, size: 1.0, weekend: 0.7 },
+  { id: 'market', name: 'Farmers Market', kind: 'market', area: 'downtown', x: 40, y: 36 },
+  { id: 'zoo', name: 'City Zoo', kind: 'zoo', area: 'downtown', x: 60, y: 36, pay: 1.1 },
+  { id: 'park', name: 'Central Park', kind: 'park', area: 'downtown', x: 50, y: 50 },
 ];
 // The farmers market is open these days (0 = Monday), 10am–2pm.
 export const MARKET_DAYS = [2, 5];

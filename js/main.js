@@ -1,5 +1,5 @@
 // Frozen Assets — app controller: title screen, setup, the game loop, HUD, and wiring of panels.
-import { CONFIG, TRUCK_COLORS, TRUCK_PRICE, BLING, SPOT, FLAVORS } from './config.js';
+import { CONFIG, TRUCK_COLORS, TRUCK_PRICE, BLING, SPOT, FLAVORS, itemKey, itemFromKey } from './config.js';
 import { Game, DAY_NAMES } from './engine.js';
 import { Music } from './music.js';
 import { storage } from './storage.js';
@@ -314,7 +314,8 @@ class App {
     const card = el(`<div class="morning"><div class="card">
       ${s.phase === 'seasonEnd' ? `<div style="font-size:40px">🌅</div><h2 style="margin:0">Summer's over!</h2>` : s.phase === 'setup' ? `<div style="font-size:40px">🏦➡️💵➡️🚚</div>` : `<h2 style="margin:0">${DAY_NAMES[g.dayOfWeek]} · Week ${g.week}${s.season > 1 ? ` · Summer ${s.season}` : ''}</h2>`}
       <div class="weather">${wIcon} <b style="font-size:30px">${w.temp}°F</b></div>
-      ${last && s.phase !== 'setup' ? `<p class="muted">Yesterday: 🍦 ${Object.values(last.sold).reduce((a, b) => a + b, 0)} · 💵 ${money(last.revenue)}${last.tooExpensive ? ` · 😤 ${last.tooExpensive} said “too expensive”` : ''}</p>` : ''}
+      ${last && s.phase !== 'setup' ? `<p class="muted">Yesterday: 🍦 ${Object.values(last.sold).reduce((a, b) => a + b, 0)} · 💵 ${money(last.revenue)}${last.tooExpensive ? ` · 😤 ${last.tooExpensive} said “too expensive”` : ''}${last.broke ? ` · 🪙 ${last.broke} only had pocket money` : ''}</p>` : ''}
+      ${s.phase !== 'setup' && s.phase !== 'seasonEnd' && g.plannedRoute() ? `<p class="tiny muted">🗺️ Today's route: <b>${esc(g.plannedRoute().name)}</b></p>` : ''}
       ${needFile ? `<button class="btn big yellow pulse" data-act="file">🗃️ Shoebox (${needFile})</button>` : `<button class="btn big go pulse" data-act="open">🔔 Open for business!</button>`}
     </div></div>`);
     this.stage.appendChild(card);
@@ -459,7 +460,7 @@ class App {
     for (const m of p.members) {
       if (m.kind !== 'dog') people++;
       if (m.result === 'bought' && m.item) {
-        const k = `${m.item.flavor}-${m.item.container}`;
+        const k = itemKey(m.item);
         sold[k] = (sold[k] || 0) + 1;
       }
     }
@@ -495,8 +496,7 @@ class App {
     const html = `<div class="big">💵 ${money(this.shownCash())}</div>
       ${t ? `<div class="cust">🍦 ${n} today · 🚶 ${customers}</div>
       <div class="sold">${sold.slice(0, 12).map(([k, v]) => {
-        const [flavor, container] = k.split('-');
-        return `<span>${iceCreamSVG({ flavor, container, topping: null }, 22)}${v}</span>`;
+        return `<span>${iceCreamSVG(itemFromKey(k), 22)}${v}</span>`;
       }).join('')}</div>` : ''}`;
     if (html !== this.gadgetHTML) {
       this.gadgetHTML = html;

@@ -1,9 +1,9 @@
 // Pop-ups for customer service decisions: sold out, and dropped ice cream.
-import { FLAVORS, CONTAINERS, TOPPINGS } from '../config.js';
+import { FLAVORS, CONTAINERS, TOPPINGS, POPS } from '../config.js';
 import { personSVG, iceCreamSVG } from '../art.js';
 import { esc, money, openModal, onActs } from './dom.js';
 
-const NAMES = Object.fromEntries([...FLAVORS, ...CONTAINERS, ...TOPPINGS].map((x) => [x.id, x.name.toLowerCase()]));
+const NAMES = Object.fromEntries([...FLAVORS, ...CONTAINERS, ...TOPPINGS, ...POPS].map((x) => [x.id, x.name.toLowerCase() + (x.want ? 's' : '')]));
 
 function partyRow(party, idx, extra = '') {
   return `<div class="who-big">${party.members

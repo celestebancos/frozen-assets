@@ -1,6 +1,6 @@
 // Weekly report (with profit graph and the advertising choice) and the end-of-summer screens.
 import { itemName } from './scene.js';
-import { CONFIG, FLAVORS, CONTAINERS, TOPPINGS } from '../config.js';
+import { CONFIG, FLAVORS, CONTAINERS, TOPPINGS, itemFromKey } from '../config.js';
 import { ACCOUNTS, ACCOUNT, pnlRowsFor } from '../ledger.js';
 import { iceCreamSVG, truckSVG } from '../art.js';
 import { esc, money, openModal, onActs } from './dom.js';
@@ -65,8 +65,7 @@ export function tooExpensiveList(wants) {
     <div class="sold-grid">${rows
       .slice(0, 10)
       .map(([k, w]) => {
-        const [flavor, container, topping] = k.split('-');
-        const it = { flavor, container, topping: topping || null };
+        const it = itemFromKey(k);
         return `<span class="chip" title="${esc(itemName(it))}">${iceCreamSVG(it, 26)} ${w.n}× at ${money(w.price)}</span>`;
       })
       .join('')}</div>
@@ -103,12 +102,11 @@ export function weeklyReport(app, onDone) {
         </div>
         <h3>What sold</h3>
         <div class="sold-grid">${sold.map(([k, n]) => {
-          const [flavor, container] = k.split('-');
-          return `<span class="chip">${iceCreamSVG({ flavor, container, topping: null }, 26)} ${n}</span>`;
+          return `<span class="chip" title="${esc(itemName(itemFromKey(k)))}">${iceCreamSVG(itemFromKey(k), 26)} ${n}</span>`;
         }).join('')}
         ${TOPPINGS.filter((t) => lw.toppings[t.id]).map((t) => `<span class="chip">${iceCreamSVG({ flavor: 'vanilla', container: 'cake', topping: t.id }, 26)} +${lw.toppings[t.id]}</span>`).join('')}
         </div>
-        <div class="row tiny muted" style="margin-top:4px">🚶 ${lw.customers.toLocaleString()} people · 😤 ${lw.tooExpensive} said “too expensive” · 😠 ${lw.outOfStock} found something sold out</div>
+        <div class="row tiny muted" style="margin-top:4px">🚶 ${lw.customers.toLocaleString()} people · 😤 ${lw.tooExpensive} said “too expensive” · 😠 ${lw.outOfStock} found something sold out${lw.broke ? ` · 🪙 ${lw.broke} kids only had pocket money` : ''}</div>
         ${tooExpensiveList(lw.tooExpensiveWants)}
         <div class="compare">
           <div class="col"><h4>🏠 Assets changed</h4>${chg('asset')}</div>

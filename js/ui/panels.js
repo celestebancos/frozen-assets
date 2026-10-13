@@ -1,8 +1,9 @@
 // The toolbar panels: shop, menu & prices, map, gift cards, inventory, policies, truck & music, books.
-import { CONFIG, SUPPLIES, SUPPLY, CONTAINERS, FLAVORS, TOPPINGS, SPOTS, SPOT, TRUCK_COLORS } from '../config.js';
+import { CONFIG, SUPPLIES, SUPPLY, CONTAINERS, FLAVORS, TOPPINGS, POPS, POP, SPOTS, SPOT, AREAS, AREA, TRUCK_COLORS, MARKET_DAYS } from '../config.js';
+import { DAY_NAMES } from '../engine.js';
 import { TUNES, VOICES } from '../music.js';
 import { ACCOUNTS, ACCOUNT, pnlRowsFor, sectionTotal, share } from '../ledger.js';
-import { mapSVG, iceCreamSVG, truckSVG } from '../art.js';
+import { mapSVG, mapIcon, iceCreamSVG, truckSVG } from '../art.js';
 import { esc, money, openModal, onActs, toast, fmtTime, stepper } from './dom.js';
 
 const C = CONFIG;
@@ -10,6 +11,7 @@ const C = CONFIG;
 export function supplyIcon(sup, size = 30) {
   if (['cake', 'sugar', 'waffle', 'bowl'].includes(sup.id)) return iceCreamSVG({ flavor: null, container: sup.id }, size);
   if (sup.id === 'vanilla' || sup.id === 'chocolate') return iceCreamSVG({ flavor: sup.id, container: 'bowl' }, size);
+  if (POP[sup.id]) return iceCreamSVG({ pop: sup.id }, size);
   return sup.emoji;
 }
 
@@ -114,6 +116,13 @@ export function menuPanel(app) {
             <button class="chip ${g.isOn(t.id) ? '' : 'off'}" data-act="toggle" data-id="${t.id}">${g.isOn(t.id) ? '✅' : '🚫'}</button></span>
           ${stepper(s.prices[t.id], 'price', t.id, '+' + money(s.prices[t.id]))}
         </div>`).join('')}
+        <h3>Popsicles</h3>
+        ${POPS.map((p) => `<div class="menu-row ${g.isOn(p.id) ? '' : 'off'}">
+          <span class="nm">${iceCreamSVG({ pop: p.id }, 34)} ${p.name}
+            <button class="chip ${g.isOn(p.id) ? '' : 'off'}" data-act="toggle" data-id="${p.id}">${g.isOn(p.id) ? '✅' : '🚫'}</button></span>
+          ${stepper(s.prices[p.id], 'price', p.id, money(s.prices[p.id]))}
+        </div>`).join('')}
+        <p class="tiny" style="margin:4px 0 0;color:#f3e9d2">🪙 Some kids only have $1 or less. A cheap pop is something they can buy.</p>
       </div>
       <details class="card2" style="margin-top:10px" open>
         <summary><b>🍦 What goes into each ice cream?</b></summary>
@@ -123,6 +132,7 @@ export function menuPanel(app) {
           <li>🥄 <b>1 spoon</b> with every bowl. No spoons means no bowls!</li>
           <li>🧻 <b>Napkins</b>: grown-ups take 1, kids take 1 to 3. No napkins and people get sticky and grumpy.</li>
           <li>🌈 <b>1 serving of sprinkles</b> if they want a topping</li>
+          <li>🚀 <b>Popsicles</b> are sold as is: 1 pop, plus napkins</li>
         </ul>
         <p class="tiny muted" style="margin:6px 0 0">Spoons and napkins are free for customers, but they cost you money. That's part of what each ice cream costs to make.</p>
       </details>`;
@@ -149,9 +159,28 @@ export function menuPanel(app) {
 const TIMES = [];
 for (let t = C.dayStartMin; t < C.dayEndMin; t += 15) TIMES.push(t);
 
+// A <select> of every spot, grouped by area.
+function spotOptions(selected) {
+  return AREAS.map((a) => `<optgroup label="${esc(a.name)}">${SPOTS.filter((sp) => sp.area === a.id).map((sp) => `<option value="${sp.id}" ${sp.id === selected ? 'selected' : ''}>${mapIcon(sp.kind)} ${esc(sp.name)}</option>`).join('')}</optgroup>`).join('');
+}
+
+// One line about what makes a place different.
+function spotNote(sp) {
+  const a = AREA[sp.area];
+  const notes = [];
+  if (sp.kind === 'market') notes.push(`Open ${MARKET_DAYS.map((d) => DAY_NAMES[d]).join(' & ')}, 10am–2pm`);
+  if (sp.kind === 'zoo') notes.push('Closes at 5pm');
+  if (sp.kind === 'office') notes.push(sp.weekend < 0.3 ? 'Busy at lunch. Empty on weekends.' : 'Busy at lunch');
+  const pay = a.pay * (sp.pay ?? 1);
+  if (pay >= 1.1) notes.push('💰 People here will pay more');
+  else if (pay < 0.97) notes.push('🪙 People here watch their money');
+  return notes.join(' · ');
+}
+
 export function mapPanel(app) {
   const g = app.game;
   let picked = null;
+  let saveName = '';
   const m = modal(app, {
     title: '🗺️ Town Map',
     render(body) {
@@ -159,22 +188,40 @@ export function mapPanel(app) {
       const open = s.phase === 'open';
       const route = [...s.route].sort((a, b) => a.at - b.at);
       const fuelPct = Math.round((s.fuel / C.gas.tankGal) * 100);
-      const pickedInfo = picked && picked !== s.spot
-        ? `<div class="card2" style="margin-top:8px"><b>${esc(SPOT[picked].name)}</b><br>
-           🕒 ${g.driveMinutes(s.spot, picked)} min drive · ⛽ ${g.driveFuel(s.spot, picked).toFixed(1)} gal
-           ${open ? `<div style="margin-top:6px"><button class="btn small go" data-act="driveNow">🚚 Drive here now</button></div>` : ''}
+      const from = s.driving ? s.driving.to : s.spot;
+      const pickedInfo = picked
+        ? `<div class="card2" style="margin-top:8px"><b>${mapIcon(SPOT[picked].kind)} ${esc(SPOT[picked].name)}</b> <span class="tiny muted">${esc(AREA[SPOT[picked].area].name)}</span>
+           ${spotNote(SPOT[picked]) ? `<div class="tiny">${spotNote(SPOT[picked])}</div>` : ''}
+           ${picked !== from ? `<div>🕒 ${g.driveMinutes(from, picked)} min drive · ⛽ ${g.driveFuel(from, picked).toFixed(1)} gal</div>` : '<div class="tiny muted">🚚 You are here</div>'}
+           ${open && picked !== from ? `<div style="margin-top:6px"><button class="btn small go" data-act="driveNow">🚚 Drive here now</button></div>` : ''}
            <div style="margin-top:6px"><button class="btn small" data-act="addPicked">➕ Add to my route</button></div></div>`
-        : '';
+        : '<p class="tiny muted">Tap a place on the map to see how far it is.</p>';
+      const plan = s.weekPlan;
+      const today = g.dayOfWeek;
+      const routeOpts = (sel) => `<option value="">↩️ No change</option>${s.routes.map((r) => `<option value="${r.id}" ${r.id === sel ? 'selected' : ''}>${esc(r.name)}</option>`).join('')}`;
+      const allSame = plan.every((x) => x === plan[0]) ? plan[0] : undefined;
       body.innerHTML = `<div class="map-wrap">
-        <div>${mapSVG(SPOTS, s.driving ? null : s.spot, route)}${pickedInfo}</div>
+        <div><div class="map-scroll">${mapSVG(SPOTS, AREAS, s.driving ? null : s.spot, route)}</div>${pickedInfo}</div>
         <div>
-          <h3 style="margin-top:0">Daily route</h3>
-          ${route.map((r, i) => `<div class="route-stop">
+          <h3 style="margin-top:0">Today's route</h3>
+          ${route.map((r, i) => `${i > 0 && route[i - 1].spot !== r.spot ? `<div class="tiny muted drive-gap">🚚 ${g.driveMinutes(route[i - 1].spot, r.spot)} min</div>` : ''}<div class="route-stop">
             <select data-chg="time" data-i="${i}" aria-label="Time">${TIMES.map((t) => `<option value="${t}" ${t === r.at ? 'selected' : ''}>${fmtTime(t)}</option>`).join('')}</select>
-            <select data-chg="spot" data-i="${i}" aria-label="Spot">${SPOTS.map((sp) => `<option value="${sp.id}" ${sp.id === r.spot ? 'selected' : ''}>${esc(sp.name)}</option>`).join('')}</select>
+            <select data-chg="spot" data-i="${i}" aria-label="Spot">${spotOptions(r.spot)}</select>
             ${route.length > 1 ? `<button class="btn small" data-act="rm" data-i="${i}" aria-label="Remove">✕</button>` : ''}
           </div>`).join('')}
           <button class="btn small" data-act="add">➕ Add stop</button>
+          <div class="row" style="margin-top:8px">
+            <input class="text-in small" maxlength="24" placeholder="Name this route" value="${esc(saveName)}" data-chg="saveName" aria-label="Route name">
+            <button class="btn small go" data-act="save">💾 Save</button>
+          </div>
+          ${s.routes.length ? `<h3>💾 My routes</h3>
+          ${s.routes.map((r) => `<div class="saved-route"><span><b>${esc(r.name)}</b><br><span class="tiny muted">${r.stops.map((x) => esc(SPOT[x.spot]?.name || '?')).join(' → ')}</span></span>
+            <span class="row" style="gap:4px;flex-wrap:nowrap"><button class="btn small" data-act="use" data-id="${r.id}">Use today</button><button class="btn small" data-act="del" data-id="${r.id}" aria-label="Delete ${esc(r.name)}">🗑️</button></span></div>`).join('')}
+          <h3>📅 Week plan</h3>
+          <p class="tiny muted" style="margin-top:0">Pick a route for each day, or the same one every day. ↩️ No change keeps the route you had the day before.</p>
+          <div class="row" style="margin-bottom:6px"><span class="tiny"><b>Every day:</b></span><select data-chg="planAll" aria-label="Route for every day"><option value="mixed" ${allSame === undefined ? 'selected' : ''} disabled>— mixed —</option>${routeOpts(allSame)}</select></div>
+          <div class="week-plan">${DAY_NAMES.map((d, i) => `<label class="${i === today ? 'today' : ''}"><span>${d}${i === today ? ' ⭐' : ''}</span><select data-chg="plan" data-dow="${i}">${routeOpts(plan[i])}</select></label>`).join('')}</div>`
+          : '<p class="tiny muted">💾 Save a route to use it again, or plan a different route for each day of the week.</p>'}
           <h3>⛽ Gas</h3>
           <div class="fuel ${fuelPct < 25 ? 'low' : ''}"><span class="bar" style="width:140px"><i style="width:${fuelPct}%"></i></span> ${s.fuel.toFixed(1)} / ${C.gas.tankGal} gal</div>
           <div class="row" style="margin-top:6px">
@@ -182,22 +229,34 @@ export function mapPanel(app) {
             <label class="row tiny"><input type="checkbox" data-chg="auto" ${s.policies.autoGas ? 'checked' : ''}> Auto fill-up</label>
           </div>
         </div></div>`;
-      body.querySelectorAll('.map-spot').forEach((n) =>
-        n.addEventListener('click', () => {
+      body.querySelectorAll('.map-spot').forEach((n) => {
+        const pick = () => {
           picked = n.dataset.spot;
           m.refresh();
-        }),
-      );
+        };
+        n.addEventListener('click', pick);
+        n.addEventListener('keydown', (e) => (e.key === 'Enter' || e.key === ' ') && pick());
+      });
     },
   });
   const route = () => [...g.state.route].sort((a, b) => a.at - b.at);
+  const planId = (v) => (v === '' ? null : Number(v));
+  m.body.addEventListener('input', (e) => {
+    if (e.target.dataset.chg === 'saveName') saveName = e.target.value;
+  });
   m.body.addEventListener('change', (e) => {
     const t = e.target;
-    const r = route();
-    if (t.dataset.chg === 'time') r[Number(t.dataset.i)].at = Number(t.value);
-    if (t.dataset.chg === 'spot') r[Number(t.dataset.i)].spot = t.value;
-    if (t.dataset.chg === 'auto') g.setPolicy('autoGas', t.checked);
-    if (t.dataset.chg !== 'auto') g.setRoute(r);
+    const k = t.dataset.chg;
+    if (k === 'saveName') return;
+    if (k === 'auto') g.setPolicy('autoGas', t.checked);
+    else if (k === 'plan') g.setWeekPlan(Number(t.dataset.dow), planId(t.value));
+    else if (k === 'planAll') g.setWeekPlan('all', planId(t.value));
+    else {
+      const r = route();
+      if (k === 'time') r[Number(t.dataset.i)].at = Number(t.value);
+      if (k === 'spot') r[Number(t.dataset.i)].spot = t.value;
+      g.setRoute(r);
+    }
     app.changed();
     m.refresh();
   });
@@ -220,6 +279,25 @@ export function mapPanel(app) {
       const r = route();
       r.splice(Number(t.dataset.i), 1);
       g.setRoute(r);
+      m.refresh();
+    },
+    save: () => {
+      const r = g.saveRoute(saveName);
+      toast(`💾 Saved “${r.name}”`);
+      saveName = '';
+      app.changed();
+      m.refresh();
+    },
+    use: (t) => {
+      g.useRoute(Number(t.dataset.id));
+      app.changed();
+      m.refresh();
+    },
+    del: (t) => {
+      const r = g.state.routes.find((x) => x.id === Number(t.dataset.id));
+      if (r && !confirm(`Delete the route “${r.name}”?`)) return;
+      g.deleteRoute(Number(t.dataset.id));
+      app.changed();
       m.refresh();
     },
     driveNow: () => {
@@ -338,6 +416,7 @@ export function policyPanel(app) {
 }
 
 // ---------------- Places: how busy each spot was ----------------
+const placeName = (id) => (id === 'road' ? '🚚 On the road' : esc(SPOT[id]?.name || id));
 const BLOCKS = [
   { name: 'Morning', sub: '10–1', from: 0, to: 3 },
   { name: 'Afternoon', sub: '1–4', from: 3, to: 6 },
@@ -382,16 +461,16 @@ export function placesPanel(app) {
         body.innerHTML = `${tabs}<p class="tiny muted" style="margin-top:0">This summer so far. <b>People per hour</b> is the fair way to compare places, because you spent different amounts of time at each one.</p>
           <div class="scroll-x"><table class="books">
           <tr><th>Place</th><th>Days</th><th>Hours</th><th>People</th><th>👥 per hour</th><th>💵 per hour</th>${BLOCKS.map((b) => `<th>${b.name}<br><span class="tiny muted">${b.sub}</span></th>`).join('')}</tr>
-          ${rows.map(([id, a]) => `<tr><td><b>${esc(SPOT[id].name)}</b></td><td>${a.days}</td><td>${(a.minutes / 60).toFixed(1)}</td><td>${a.customers}</td><td><b>${perHour(a.customers, a.minutes)}</b></td><td>${a.minutes ? money(Math.round((a.revenue * 60) / a.minutes)) : '—'}</td>${BLOCKS.map((b) => `<td>${block(a, b)}</td>`).join('')}</tr>`).join('')}
+          ${rows.map(([id, a]) => `<tr><td><b>${placeName(id)}</b></td><td>${a.days}</td><td>${(a.minutes / 60).toFixed(1)}</td><td>${a.customers}</td><td><b>${perHour(a.customers, a.minutes)}</b></td><td>${a.minutes ? money(Math.round((a.revenue * 60) / a.minutes)) : '—'}</td>${BLOCKS.map((b) => `<td>${block(a, b)}</td>`).join('')}</tr>`).join('')}
           </table></div>
-          <p class="tiny muted">The morning, afternoon and evening columns are people per hour at that time of day. Weekends, hot days and ads bring more people everywhere, so try a place more than once!</p>`;
+          <p class="tiny muted">The morning, afternoon and evening columns are people per hour at that time of day. Weekends, hot days and ads bring more people everywhere, so try a place more than once! 🚚 On the road counts people who waved you down while driving.</p>`;
         return;
       }
       const at = (min) => fmtTime(min).replace(':00', '');
       body.innerHTML = `${tabs}<div class="scroll-x"><table class="books">
         <tr><th>Day</th><th>Weather</th><th>Route</th><th>People</th><th>Sales</th></tr>
         ${days.slice().reverse().map((d) => `<tr><td><b>${d.dow} wk ${d.week}</b>${d.today ? ' <span class="tiny muted">(today)</span>' : ''}</td><td>${d.rain ? '🌧️' : '☀️'} ${d.temp}°</td>
-          <td style="text-align:left;white-space:normal">${d.route.map((r) => { const [id, t] = r.split('@'); const v = d.bySpot[id]; return `${at(Number(t))} ${esc(SPOT[id].name)}${v ? ` <span class="tiny muted">(${v.customers})</span>` : ''}`; }).join(' → ')}</td>
+          <td style="text-align:left;white-space:normal">${d.route.map((r) => { const [id, t] = r.split('@'); const v = d.bySpot[id]; return `${at(Number(t))} ${placeName(id)}${v ? ` <span class="tiny muted">(${v.customers})</span>` : ''}`; }).join(' → ')}</td>
           <td>${d.customers}</td><td>${money(d.revenue)}</td></tr>`).join('')}
         </table></div><p class="tiny muted">The number after each place is how many people came while you were parked there.</p>`;
     },
