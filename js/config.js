@@ -174,19 +174,21 @@ export const TOPPINGS = [
 // The town: six neighborhoods to pick from when planning a route. In each one the truck drives
 // around the streets and pulls over at a place when it's busy. pay scales what people will spend,
 // pocket how many kids have only pocket money, streets how many people are out on the streets.
+// density is how close together the homes are (never shown as a number; the map and street view show it):
+// more people live near any corner, so more come out to the truck, and the drive between places is shorter.
 // x/y place the neighborhood's pin on the map (0–1000 × 0–700); style picks the buildings you see.
 export const SPOTS = [
-  { id: 'maple', name: 'Maple Street', pay: 1.0, pocket: 1.0, streets: 1.0, x: 185, y: 175, style: 'maple', tint: '#ffe8c2',
+  { id: 'maple', name: 'Maple Street', pay: 1.0, pocket: 1.0, streets: 1.0, density: 1.0, x: 185, y: 175, style: 'maple', tint: '#ffe8c2',
     about: 'Neat blocks of family houses' },
-  { id: 'oak', name: 'Oak Hollow', pay: 0.95, pocket: 1.4, streets: 0.9, x: 185, y: 515, style: 'oak', tint: '#e3f2c1',
+  { id: 'oak', name: 'Oak Hollow', pay: 0.95, pocket: 1.4, streets: 0.9, density: 0.85, x: 185, y: 515, style: 'oak', tint: '#e3f2c1',
     about: 'Curvy streets and cul-de-sacs full of kids' },
-  { id: 'sunset', name: 'Sunset Ridge', pay: 1.25, pocket: 0.4, streets: 0.65, x: 815, y: 175, style: 'sunset', tint: '#fde2e4',
+  { id: 'sunset', name: 'Sunset Ridge', pay: 1.25, pocket: 0.4, streets: 0.65, density: 0.6, x: 815, y: 175, style: 'sunset', tint: '#fde2e4',
     about: 'Big houses up on the hill' },
-  { id: 'riverside', name: 'Riverside', pay: 0.92, pocket: 1.6, streets: 0.95, x: 815, y: 515, style: 'riverside', tint: '#d7ecff',
+  { id: 'riverside', name: 'Riverside', pay: 0.92, pocket: 1.6, streets: 0.95, density: 0.95, x: 815, y: 515, style: 'riverside', tint: '#d7ecff',
     about: 'Houses along the river' },
-  { id: 'downtown', name: 'Downtown', pay: 1.05, pocket: 0.8, streets: 0.6, x: 500, y: 305, style: 'downtown', tint: '#e9e4f5',
+  { id: 'downtown', name: 'Downtown', pay: 1.05, pocket: 0.8, streets: 0.6, density: 1.4, x: 500, y: 305, style: 'downtown', tint: '#e9e4f5',
     about: 'Offices, shops and the market' },
-  { id: 'parkside', name: 'Parkside', pay: 1.05, pocket: 1.0, streets: 0.6, x: 500, y: 570, style: 'parkside', tint: '#d8f3dc',
+  { id: 'parkside', name: 'Parkside', pay: 1.05, pocket: 1.0, streets: 0.6, density: 0.8, x: 500, y: 570, style: 'parkside', tint: '#d8f3dc',
     about: 'The big park and the zoo' },
 ];
 export const SPOT = Object.fromEntries(SPOTS.map((s) => [s.id, s]));
@@ -225,7 +227,7 @@ export const FEATURE = Object.fromEntries(FEATURES.map((f) => [f.id, f]));
 
 // Everywhere customers come from: a neighborhood's streets (same id as the neighborhood) and its places.
 export const LOCS = {
-  ...Object.fromEntries(SPOTS.map((s) => [s.id, { id: s.id, name: s.name, kind: 'home', area: s.id, size: s.streets }])),
+  ...Object.fromEntries(SPOTS.map((s) => [s.id, { id: s.id, name: s.name, kind: 'home', area: s.id, size: s.streets * s.density }])),
   ...FEATURE,
 };
 // Saves from before the town had six neighborhoods named single places.
