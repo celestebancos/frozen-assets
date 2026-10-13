@@ -919,9 +919,14 @@ export class Game {
     if (!s.driving) return SPOT[s.spot].kind;
     return this.here().area === 'downtown' ? STREET_CROWD.downtown : STREET_CROWD.other;
   }
-  // Key for the places stats: the spot, or "road" while driving.
+  // Key for the places stats. Time and sales on the way to a stop count for that stop.
   statKey() {
-    return this.state.driving ? 'road' : this.state.spot;
+    return this.state.driving ? this.state.driving.to : this.state.spot;
+  }
+  // In a neighborhood the truck drives up and down the streets the whole time, stopping when people wave.
+  cruising() {
+    const s = this.state;
+    return !s.driving && SPOT[s.spot].kind === 'home';
   }
 
   arrivalRate(spotId, minute, fresh = false) {
@@ -949,8 +954,7 @@ export class Game {
     s.fuel = Math.max(0, s.fuel - C.gas.idleGalPerHour / 60);
     if (s.driving) {
       const d = s.driving;
-      s.minutesHere.road = (s.minutesHere.road || 0) + 1;
-      this.spotStats('road').minByHour[this.hourIndex()]++;
+      this.countMinute(d.to);
       if (d.stopped > 0) d.stopped--;
       else d.left--;
       if (d.left <= 0) {
@@ -968,7 +972,9 @@ export class Game {
       }
     } else {
       s.minutesHere[s.spot] = (s.minutesHere[s.spot] || 0) + 1;
-      this.spotStats().minByHour[this.hourIndex()]++;
+      this.countMinute(s.spot);
+      const curb = this.cruising();
+      if (curb) s.fuel = Math.max(0, s.fuel - C.gas.cruiseGalPerHour / 60);
       // families who already bought today wander by (a hint that it's time to move on)
       if (CROWDS[SPOT[s.spot].kind].hint !== false) {
         const missing = 1 - this.saturation(s.spot);
@@ -980,14 +986,14 @@ export class Game {
         n--;
         s.displace--;
       }
-      for (let i = 0; i < n && !s.pending; i++) this.arrive(this.makeParty());
+      for (let i = 0; i < n && !s.pending; i++) this.arrive(this.makeParty(null, { curb }));
       // gift card holders
       const due = s.scheduled.filter((x) => x.minute <= s.minute);
       for (const r of due) {
         if (s.pending) break;
         s.scheduled = s.scheduled.filter((x) => x !== r);
         s.displace = (s.displace || 0) + 0.6 * r.cards.length;
-        this.arrive(this.makeParty(r.cards));
+        this.arrive(this.makeParty(r.cards, { curb }));
       }
     }
     s.minute++;
@@ -1046,7 +1052,7 @@ export class Game {
   // A parent and kids who already got ice cream today. They don't buy; the parent says so.
   alreadyHadParty() {
     const s = this.state;
-    const party = this.makeParty(null, { type: this.rng.chance(0.6) ? 'parentKid' : 'family' });
+    const party = this.makeParty(null, { type: this.rng.chance(0.6) ? 'parentKid' : 'family', curb: this.cruising() });
     party.alreadyHad = true;
     for (const m of party.members) {
       m.result = 'alreadyHad';
@@ -1563,7 +1569,13 @@ export class Game {
   spotStats(spot = this.state.spot) {
     const t = this.state.today;
     const hours = (C.dayEndMin - C.dayStartMin) / 60;
-    return ((t.bySpot ||= {})[spot] ||= { customers: 0, revenue: 0, minByHour: Array(hours).fill(0), custByHour: Array(hours).fill(0) });
+    return ((t.bySpot ||= {})[spot] ||= { customers: 0, revenue: 0, minutes: 0, minByHour: Array(hours).fill(0), custByHour: Array(hours).fill(0) });
+  }
+  // One minute parked at a stop, or driving to it.
+  countMinute(spot) {
+    const st = this.spotStats(spot);
+    st.minutes = (st.minutes || 0) + 1;
+    st.minByHour[this.hourIndex()]++;
   }
   hourIndex() {
     return Math.min((C.dayEndMin - C.dayStartMin) / 60 - 1, Math.floor((this.state.minute - C.dayStartMin) / 60));

@@ -18,7 +18,7 @@ export const CONFIG = {
   minStartCash: 10_000, // the truck must leave at least this much for supplies
   lateFee: { unpaidDays: 3, amount: 1000 },
 
-  gas: { pricePerGal: 350, tankGal: 20, idleGalPerHour: 0.1, startGal: 20, autoFillBelow: 0.3 },
+  gas: { pricePerGal: 350, tankGal: 20, idleGalPerHour: 0.1, cruiseGalPerHour: 0.25, startGal: 20, autoFillBelow: 0.3 },
 
   // Arrival rate scale (bunches per hour at a "1.0" moment).
   demandScale: 4.25,
