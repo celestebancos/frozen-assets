@@ -53,6 +53,7 @@ export class Scene {
     this.spot = null;
     this.truckKey = '';
     this.active = 0;
+    this.truckSettleAt = 0;
   }
 
   update() {
@@ -71,6 +72,7 @@ export class Scene {
         this.truckEl.classList.add('arriving');
         void this.truckEl.offsetWidth;
         this.truckEl.classList.remove('arriving');
+        this.truckSettleAt = performance.now() + 1300;
       }
     }
     const key = `${s.color}|${s.business}|${!!s.driving}|${s.bling || 0}`;
@@ -152,6 +154,15 @@ export class Scene {
     }, 5000);
   }
 
+  // Left edge (%) for a party so it stops in front of the serving window.
+  windowSlot(el) {
+    const cr = this.crowd.getBoundingClientRect();
+    const tr = this.truckEl.getBoundingClientRect();
+    const settled = performance.now() > this.truckSettleAt && !this.truckEl.classList.contains('away');
+    if (settled && cr.width && tr.width) this.slotBase = ((tr.left + tr.width * 0.32 - cr.left) / cr.width) * 100;
+    return (this.slotBase ?? 40) - (cr.width ? (el.offsetWidth / 2 / cr.width) * 100 : 6);
+  }
+
   party(p, speed) {
     const comments = p.members.map((m) => [m, this.bubbleFor(m)]).filter(([, b]) => b);
     const fast = speed >= 3 || this.active >= 6 || document.hidden;
@@ -168,7 +179,7 @@ export class Scene {
     const dur = speed === 1 ? 1600 : 700;
     const wait = speed === 1 ? 1800 : 800;
     const el = document.createElement('div');
-    el.className = 'party';
+    el.className = 'party walking';
     el.style.left = '-15%';
     el.style.transitionDuration = dur + 'ms';
     el.innerHTML = p.members
@@ -179,10 +190,11 @@ export class Scene {
       .join('');
     this.crowd.appendChild(el);
     this.active++;
-    const slot = 28 + (this.active % 3) * 5;
+    const slot = this.windowSlot(el) + ((this.active % 3) - 1) * 4;
     requestAnimationFrame(() => requestAnimationFrame(() => (el.style.left = slot + '%')));
     setTimeout(() => {
       if (!el.isConnected) return;
+      el.classList.remove('walking');
       el.querySelectorAll('.bubble, .hand').forEach((b) => b.classList.remove('hidden'));
       this.app.partyArrived(p.id);
       for (const c of comments) this.say(...c);
@@ -190,6 +202,7 @@ export class Scene {
       if (p.boughtCard) this.blip('🎁 +card', slot + 12, 38, 'good');
     }, dur);
     setTimeout(() => {
+      el.classList.add('walking');
       el.style.transitionDuration = dur * 1.4 + 'ms';
       el.style.left = '115%';
     }, dur + wait);
