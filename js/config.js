@@ -178,24 +178,24 @@ export const DROP_BY_PERSON = { kid: 1, teen: 0.5, adult: 0.1, dog: 0 };
 
 export const SPOT = Object.fromEntries(SPOTS.map((s) => [s.id, s]));
 
-// Trucks for sale. Every truck works the same; fancier paint costs more.
+// Trucks for sale. Every color costs the same; bling costs extra up front and is just for looks.
+export const TRUCK_PRICE = 970_000;
 export const TRUCK_COLORS = [
-  { id: 'white', name: 'Vanilla', hex: '#fff7ea', price: 960_000 },
-  { id: 'sky', name: 'Sky', hex: '#7cc8ff', price: 975_000 },
-  { id: 'mint', name: 'Mint', hex: '#7fe3c4', price: 975_000 },
-  { id: 'pink', name: 'Bubblegum', hex: '#ff8fc7', price: 990_000 },
-  { id: 'lemon', name: 'Lemon', hex: '#ffe066', price: 990_000 },
-  { id: 'grape', name: 'Grape', hex: '#b69cff', price: 1_020_000 },
-  { id: 'cherry', name: 'Cherry', hex: '#ff6b6b', price: 1_020_000 },
-  { id: 'orange', name: 'Creamsicle', hex: '#ffab5e', price: 1_050_000 },
+  { id: 'white', name: 'Vanilla', hex: '#fff7ea' },
+  { id: 'sky', name: 'Sky', hex: '#7cc8ff' },
+  { id: 'mint', name: 'Mint', hex: '#7fe3c4' },
+  { id: 'pink', name: 'Bubblegum', hex: '#ff8fc7' },
+  { id: 'lemon', name: 'Lemon', hex: '#ffe066' },
+  { id: 'grape', name: 'Grape', hex: '#b69cff' },
+  { id: 'cherry', name: 'Cherry', hex: '#ff6b6b' },
+  { id: 'orange', name: 'Creamsicle', hex: '#ffab5e' },
 ];
-
-export const TUNES = [
-  { id: 'entertainer', name: 'The Entertainer' },
-  { id: 'greensleeves', name: 'Greensleeves' },
-  { id: 'weasel', name: 'Pop Goes the Weasel' },
-  { id: 'turkey', name: 'Turkey in the Straw' },
-  { id: 'waltz', name: 'Ice Cream Waltz' },
+// Each level includes everything from the levels before it.
+export const BLING = [
+  { level: 0, name: 'Plain', emoji: '🚚', price: 0, about: 'Just the truck.' },
+  { level: 1, name: 'Sparkle stickers', emoji: '✨', price: 15_000, about: 'Stars and hearts all over.' },
+  { level: 2, name: 'Chrome & lights', emoji: '💡', price: 30_000, about: 'Stickers, shiny chrome and a row of lights.' },
+  { level: 3, name: 'Deluxe', emoji: '👑', price: 80_000, about: 'Everything, plus gold trim and party flags.' },
 ];
 
 export const LEADERBOARD = {

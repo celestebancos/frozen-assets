@@ -1,5 +1,5 @@
 // Frozen Assets — app controller: title screen, setup, the game loop, HUD, and wiring of panels.
-import { CONFIG, TRUCK_COLORS, SPOT, FLAVORS } from './config.js';
+import { CONFIG, TRUCK_COLORS, TRUCK_PRICE, BLING, SPOT, FLAVORS } from './config.js';
 import { Game, DAY_NAMES } from './engine.js';
 import { Music } from './music.js';
 import { storage } from './storage.js';
@@ -23,6 +23,7 @@ class App {
     this.music = new Music();
     this.music.setVolume(this.settings.musicVolume);
     this.music.setMuted(this.settings.muted);
+    this.music.setVoice(this.settings.musicVoice || 'own');
     this.game = null;
     this.speed = 1;
     this.lastFrame = 0;
@@ -40,6 +41,7 @@ class App {
   saveSettings() {
     this.settings.musicVolume = this.music.volume;
     this.settings.muted = this.music.muted;
+    this.settings.musicVoice = this.music.voice;
     storage.saveSettings(this.settings);
   }
   save() {
@@ -112,6 +114,7 @@ class App {
     let step = 'bank';
     let loan = null;
     let color = null;
+    let bling = 0;
     let name = `${player}'s Ice Cream`;
     const scr = el(`<div class="screen"><h1 class="logo" style="font-size:44px"></h1><div class="setup-card"></div></div>`);
     document.body.appendChild(scr);
@@ -143,28 +146,34 @@ class App {
       }
       const L = C.loans.find((l) => l.id === loan);
       const maxTruck = L.principal - C.minStartCash;
-      if (color && truckFor(color).price > maxTruck) color = null;
+      if (TRUCK_PRICE + BLING[bling].price > maxTruck) bling = 0;
       const t = color && truckFor(color);
+      const price = TRUCK_PRICE + BLING[bling].price;
       if (step === 'truck') {
         title.textContent = '🚚 Truck lot';
-        card.innerHTML = `<p style="margin-top:0">You borrowed <b>${money(L.principal)}</b>. Pick a truck to buy. Every truck works the same, but some paint jobs cost more. Whatever is left over is your cash for buying supplies.</p>
-          <div class="truck-lot">${TRUCK_COLORS.map((c) => {
-            const can = c.price <= maxTruck;
-            return `<button class="lot-truck ${color === c.id ? 'on' : ''}" data-act="color" data-id="${c.id}" ${can ? '' : 'disabled'}>
-              ${truckSVG(c.hex, c.name)}<div class="price">${money(c.price)}</div><div class="tiny">${can ? `${money(L.principal - c.price)} left over` : 'Too expensive for this loan'}</div></button>`;
+        card.innerHTML = `<p style="margin-top:0">You borrowed <b>${money(L.principal)}</b>. Every truck costs <b>${money(TRUCK_PRICE)}</b>, whatever the color. Bling makes it fancier but costs more up front. It doesn't bring more customers. Whatever is left over is your cash for supplies.</p>
+          <div style="max-width:420px;margin:0 auto">${truckSVG(t ? t.hex : '#ddd', t ? t.name : 'Pick a color', { bling })}</div>
+          <h3>🎨 Color</h3><div class="swatches">${TRUCK_COLORS.map((c) => `<button class="swatch ${color === c.id ? 'on' : ''}" style="background:${c.hex}" data-act="color" data-id="${c.id}" aria-label="${c.name}" title="${c.name}"></button>`).join('')}</div>
+          <h3>✨ Bling</h3>
+          <div class="truck-lot">${BLING.map((b) => {
+            const total = TRUCK_PRICE + b.price;
+            const can = total <= maxTruck;
+            return `<button class="lot-truck ${bling === b.level ? 'on' : ''}" data-act="bling" data-l="${b.level}" ${can ? '' : 'disabled'}>
+              <div style="font-size:28px">${b.emoji}</div><b>${b.name}</b><div class="tiny">${b.about}</div>
+              <div class="price">${b.price ? '+' + money(b.price) : 'Free'}</div><div class="tiny">${can ? `${money(L.principal - total)} left over` : 'Too much for this loan'}</div></button>`;
           }).join('')}</div>
           <div class="row" style="justify-content:space-between;margin-top:16px"><button class="btn" data-act="toBank">◀ Back to the bank</button>
-            <button class="btn big go" data-act="next" ${t ? '' : 'disabled'}>${t ? `Buy it for ${money(t.price)} ▶` : 'Pick a truck'}</button></div>`;
+            <button class="btn big go" data-act="next" ${t ? '' : 'disabled'}>${t ? `Buy it for ${money(price)} ▶` : 'Pick a color'}</button></div>`;
         return;
       }
       title.textContent = '🪧 Your sign';
-      card.innerHTML = `<div style="max-width:420px;margin:0 auto">${truckSVG(t.hex, name)}</div>
-        <div class="row center" style="margin:6px 0"><span class="chip">🏦 Loan ${money(L.principal)}</span><span class="chip">🚚 Truck −${money(t.price)}</span><span class="chip">💵 Cash left ${money(L.principal - t.price)}</span></div>
+      card.innerHTML = `<div style="max-width:420px;margin:0 auto">${truckSVG(t.hex, name, { bling })}</div>
+        <div class="row center" style="margin:6px 0"><span class="chip">🏦 Loan ${money(L.principal)}</span><span class="chip">🚚 Truck −${money(price)}</span><span class="chip">💵 Cash left ${money(L.principal - price)}</span></div>
         <h3>🪧 Business name</h3><input class="text-in" maxlength="28" value="${esc(name)}" aria-label="Business name">
         <div class="row" style="justify-content:space-between;margin-top:16px"><button class="btn" data-act="toTruck">◀ Back</button><button class="btn big go" data-act="go">Let's go! ▶</button></div>`;
       card.querySelector('input').addEventListener('input', (e) => {
         name = e.target.value;
-        card.querySelector('div').innerHTML = truckSVG(t.hex, name);
+        card.querySelector('div').innerHTML = truckSVG(t.hex, name, { bling });
       });
     };
     render();
@@ -175,6 +184,10 @@ class App {
       },
       color: (t) => {
         color = t.dataset.id;
+        render();
+      },
+      bling: (t) => {
+        bling = Number(t.dataset.l);
         render();
       },
       next: () => {
@@ -193,7 +206,8 @@ class App {
       go: () => {
         if (!name.trim()) return toast('Your truck needs a name!');
         const L = C.loans.find((l) => l.id === loan);
-        this.game = Game.create({ player, business: name.trim(), color, tune: 'entertainer', loan: L, truckCost: truckFor(color).price });
+        const B = BLING[bling];
+        this.game = Game.create({ player, business: name.trim(), color, tune: 'entertainer', loan: L, truckCost: TRUCK_PRICE + B.price, bling, blingName: bling ? B.name : '' });
         this.save();
         this.startGameView();
       },
@@ -319,7 +333,7 @@ class App {
         this.scene.clearCrowd();
         this.music.setTune(g.state.tune);
         this.music.play();
-        if (this.speed === 0 || this.speed === 9) this.speed = 1;
+        this.setSpeed(this.speed === 0 || this.speed === 9 ? 1 : this.speed);
         this.changed();
       },
     });
@@ -331,6 +345,8 @@ class App {
   // ---------- loop ----------
   setSpeed(sp) {
     this.speed = sp;
+    // a little faster music at faster game speeds: noticeable, not frantic
+    this.music.setRate({ 2: 1.06, 3: 1.12, 9: 1.12 }[sp] || 1);
     this.music.ensure();
     this.renderHUD();
   }
@@ -382,7 +398,7 @@ class App {
     if (s.phase !== 'open') {
       // the day just ended
       this.music.stop();
-      if (this.speed === 9) this.speed = 1;
+      if (this.speed === 9) this.setSpeed(1);
       this.save();
       this.scene.clearCrowd();
       this.renderToolbar();

@@ -224,14 +224,16 @@ test('playground drops happen much more than downtown drops', () => {
   assert.ok(rate('school') > 3 * rate('downtown'));
 });
 
-test('bigger loan and pricier truck: cash left over and daily interest follow the choice', async () => {
-  const { CONFIG, TRUCK_COLORS } = await import('../js/config.js');
+test('bigger loan and deluxe truck: cash left over and daily interest follow the choice', async () => {
+  const { CONFIG, TRUCK_PRICE, BLING } = await import('../js/config.js');
   const loan = CONFIG.loans.find((l) => l.id === 'large');
-  const truck = TRUCK_COLORS.find((c) => c.id === 'orange');
-  const g = Game.create({ player: 'Nathan', business: 'Big', color: 'orange', seed: 2, loan, truckCost: truck.price });
+  const price = TRUCK_PRICE + BLING[3].price;
+  const g = Game.create({ player: 'Nathan', business: 'Big', color: 'orange', seed: 2, loan, truckCost: price, bling: 3, blingName: BLING[3].name });
   assert.equal(g.state.truth.loan, loan.principal);
-  assert.equal(g.state.truth.truck, truck.price);
-  assert.equal(g.cash, loan.principal - truck.price);
+  assert.equal(g.state.truth.truck, price);
+  assert.equal(g.state.bling, 3);
+  assert.match(g.docsToFile()[1].items[0].label, /deluxe/);
+  assert.equal(g.cash, loan.principal - price);
   assert.ok(g.cash >= CONFIG.minStartCash);
   fileAllCorrectly(g);
   g.buy('vanilla', 0, 1);
@@ -244,10 +246,12 @@ test('bigger loan and pricier truck: cash left over and daily interest follow th
   assert.equal(share(g.state.truth), profit(g.state.truth));
 });
 
-test('every truck leaves enough cash for supplies with at least the biggest loan', async () => {
-  const { CONFIG, TRUCK_COLORS } = await import('../js/config.js');
+test('every bling level leaves enough cash for supplies with at least the biggest loan', async () => {
+  const { CONFIG, TRUCK_PRICE, BLING } = await import('../js/config.js');
   const big = Math.max(...CONFIG.loans.map((l) => l.principal));
-  for (const c of TRUCK_COLORS) assert.ok(c.price <= big - CONFIG.minStartCash, c.id);
+  for (const b of BLING) assert.ok(TRUCK_PRICE + b.price <= big - CONFIG.minStartCash, b.name);
+  // a plain truck fits the smallest loan
+  assert.ok(TRUCK_PRICE <= CONFIG.loans[0].principal - CONFIG.minStartCash);
   // the default truck fits the smallest loan
   assert.ok(CONFIG.loan.truckCost <= CONFIG.loans[0].principal - CONFIG.minStartCash);
 });

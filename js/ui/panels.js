@@ -1,5 +1,6 @@
 // The toolbar panels: shop, menu & prices, map, gift cards, inventory, policies, truck & music, books.
-import { CONFIG, SUPPLIES, SUPPLY, CONTAINERS, FLAVORS, TOPPINGS, SPOTS, SPOT, TRUCK_COLORS, TUNES } from '../config.js';
+import { CONFIG, SUPPLIES, SUPPLY, CONTAINERS, FLAVORS, TOPPINGS, SPOTS, SPOT, TRUCK_COLORS } from '../config.js';
+import { TUNES, VOICES } from '../music.js';
 import { ACCOUNTS, ACCOUNT, pnlRowsFor, sectionTotal, share } from '../ledger.js';
 import { mapSVG, iceCreamSVG, truckSVG } from '../art.js';
 import { esc, money, openModal, onActs, toast, fmtTime, stepper } from './dom.js';
@@ -420,10 +421,11 @@ export function truckPanel(app) {
       body.innerHTML = `
         <h3 style="margin-top:0">🎵 Music</h3>
         <div class="row">${TUNES.map((t) => `<button class="btn small ${s.tune === t.id ? 'on' : ''}" data-act="tune" data-id="${t.id}">${t.name}</button>`).join('')}</div>
+        <div class="row" style="margin-top:6px"><span class="tiny muted">Sound:</span>${VOICES.map((v) => `<button class="btn small ${app.music.voice === v.id ? 'on' : ''}" data-act="voice" data-id="${v.id}">${v.name}</button>`).join('')}</div>
         <div class="row" style="margin-top:6px"><label class="row">🔈 <input type="range" min="0" max="1" step="0.05" value="${app.music.volume}" data-chg="vol"></label>
           <button class="btn small ${app.music.muted ? 'on' : ''}" data-act="mute">${app.music.muted ? '🔇 Muted' : '🔊 Sound on'}</button></div>
         <h3>🎨 Truck</h3>
-        <div style="max-width:360px">${truckSVG(hex, name || s.business)}</div>
+        <div style="max-width:360px">${truckSVG(hex, name || s.business, { bling: s.bling || 0 })}</div>
         <div class="swatches">${TRUCK_COLORS.map((c) => `<button class="swatch ${color === c.id ? 'on' : ''}" style="background:${c.hex}" data-act="color" data-id="${c.id}" aria-label="${c.name}"></button>`).join('')}</div>
         <div style="margin-top:8px"><input class="text-in" maxlength="28" value="${esc(name)}" data-chg="name" aria-label="Business name"></div>
         <div class="row" style="margin-top:8px">
@@ -438,6 +440,12 @@ export function truckPanel(app) {
       app.music.setTune(t.dataset.id);
       app.music.play();
       app.changed();
+      m.refresh();
+    },
+    voice: (t) => {
+      app.music.setVoice(t.dataset.id);
+      app.saveSettings();
+      app.music.play();
       m.refresh();
     },
     mute: () => {

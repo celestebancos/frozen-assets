@@ -11,12 +11,55 @@ export function shade(hex, amt) {
   return '#' + ((r << 16) | (g << 8) | b).toString(16).padStart(6, '0');
 }
 
-export function truckSVG(color, name, { width = 300, wheelsSpin = false } = {}) {
+const star = (x, y, r, fill) => {
+  const pts = Array.from({ length: 10 }, (_, i) => {
+    const a = (Math.PI / 5) * i - Math.PI / 2;
+    const rr = i % 2 ? r * 0.45 : r;
+    return `${(x + rr * Math.cos(a)).toFixed(1)},${(y + rr * Math.sin(a)).toFixed(1)}`;
+  }).join(' ');
+  return `<polygon points="${pts}" fill="${fill}" stroke="#fff" stroke-width="1"/>`;
+};
+const heart = (x, y, s, fill) => `<path d="M${x} ${y + s * 0.9} l${-s} ${-s} a${s * 0.55} ${s * 0.55} 0 0 1 ${s} ${-s * 0.6} a${s * 0.55} ${s * 0.55} 0 0 1 ${s} ${s * 0.6} z" fill="${fill}" stroke="#fff" stroke-width="1"/>`;
+
+// Bling levels (each includes the ones before): 1 stickers, 2 chrome & lights, 3 gold trim & flags.
+function blingBack(level) {
+  if (level < 3) return '';
+  // party flags strung from the giant cone to both ends of the truck
+  const flags = (x1, y1, x2, y2, n) =>
+    Array.from({ length: n }, (_, i) => {
+      const t = (i + 0.5) / n;
+      const x = x1 + (x2 - x1) * t;
+      const y = y1 + (y2 - y1) * t + Math.sin(t * Math.PI) * 6;
+      return `<path d="M${x - 6} ${y} h12 l-6 13 z" fill="${['#ff595e', '#ffca3a', '#8ac926', '#1982c4', '#6a4c93'][i % 5]}"/>`;
+    }).join('');
+  return `<path d="M100 22 L12 58 M100 22 L206 58" stroke="#777" stroke-width="1.5" fill="none"/>${flags(100, 22, 12, 58, 5)}${flags(100, 22, 206, 58, 5)}`;
+}
+function blingFront(level) {
+  if (!level) return '';
+  let out = '';
+  // stickers
+  out += star(21, 104, 10, '#ffd23f') + heart(21, 131, 7, '#ff6f91') + star(182, 116, 9, '#ffd23f') + heart(182, 138, 6, '#fff') + star(250, 145, 8, '#ffd23f');
+  if (level >= 2) {
+    // chrome stripe, chrome bumpers and a row of lights along the sign
+    out += `<rect x="8" y="140" width="280" height="7" fill="#e9eef3" stroke="#9aa5b1" stroke-width="1"/><path d="M14 142 h270" stroke="#fff" stroke-width="2"/>`;
+    out += `<rect x="2" y="148" width="14" height="10" rx="3" fill="#dfe6ee" stroke="#9aa5b1"/><rect x="280" y="148" width="14" height="10" rx="3" fill="#dfe6ee" stroke="#9aa5b1"/>`;
+    out += Array.from({ length: 13 }, (_, i) => `<circle cx="${16 + i * 15.6}" cy="59" r="4.5" fill="${['#ffe066', '#ff6f91', '#7cc8ff', '#7fe3c4'][i % 4]}" stroke="#fff" stroke-width="1"/>`).join('');
+  }
+  if (level >= 3) {
+    // gold trim on the sign and the body
+    out += `<rect x="10" y="62" width="200" height="22" rx="6" fill="none" stroke="#e0b100" stroke-width="4"/><rect x="8" y="84" width="210" height="76" rx="10" fill="none" stroke="#e0b100" stroke-width="4"/>`;
+    out += star(100, 14, 11, '#ffd23f');
+  }
+  return out;
+}
+
+export function truckSVG(color, name, { width = 300, wheelsSpin = false, bling = 0 } = {}) {
   const dark = shade(color, -0.18);
   const light = shade(color, 0.12);
   const label = esc(name || '').slice(0, 28);
   const fs = label.length > 18 ? 11 : label.length > 12 ? 14 : 17;
   return `<svg class="truck-svg" viewBox="0 0 300 190" width="${width}" xmlns="http://www.w3.org/2000/svg" aria-label="Ice cream truck">
+  ${blingBack(bling)}
   <g class="giant-cone" transform="translate(70 0)">
     <path d="M18 52 L30 88 L42 52 Z" fill="#e2a65a" stroke="#a8692a" stroke-width="2"/>
     <path d="M22 60 L38 60 M24 68 L36 68 M27 76 L33 76" stroke="#a8692a" stroke-width="1.5"/>
@@ -39,8 +82,9 @@ export function truckSVG(color, name, { width = 300, wheelsSpin = false } = {}) 
   <circle cx="198" cy="128" r="3" fill="${dark}"/>
   <rect x="8" y="148" width="280" height="12" rx="4" fill="${dark}"/>
   <rect x="280" y="134" width="12" height="10" rx="3" fill="#ffe066" stroke="${dark}" stroke-width="2"/>
-  <g class="wheel${wheelsSpin ? ' spin' : ''}" style="transform-origin:62px 162px"><circle cx="62" cy="162" r="18" fill="#333"/><circle cx="62" cy="162" r="8" fill="#ccc"/><path d="M62 154 v16 M54 162 h16" stroke="#888" stroke-width="2"/></g>
-  <g class="wheel${wheelsSpin ? ' spin' : ''}" style="transform-origin:240px 162px"><circle cx="240" cy="162" r="18" fill="#333"/><circle cx="240" cy="162" r="8" fill="#ccc"/><path d="M240 154 v16 M232 162 h16" stroke="#888" stroke-width="2"/></g>
+  ${blingFront(bling)}
+  <g class="wheel${wheelsSpin ? ' spin' : ''}" style="transform-origin:62px 162px"><circle cx="62" cy="162" r="18" fill="#333"/><circle cx="62" cy="162" r="${bling >= 2 ? 12 : 8}" fill="${bling >= 2 ? '#eef2f6' : '#ccc'}"/><path d="M62 154 v16 M54 162 h16" stroke="#888" stroke-width="2"/></g>
+  <g class="wheel${wheelsSpin ? ' spin' : ''}" style="transform-origin:240px 162px"><circle cx="240" cy="162" r="18" fill="#333"/><circle cx="240" cy="162" r="${bling >= 2 ? 12 : 8}" fill="${bling >= 2 ? '#eef2f6' : '#ccc'}"/><path d="M240 154 v16 M232 162 h16" stroke="#888" stroke-width="2"/></g>
 </svg>`;
 }
 

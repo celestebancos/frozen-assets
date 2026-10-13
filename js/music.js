@@ -1,4 +1,5 @@
-// Ice cream truck tunes (all public domain), played as a little music-box synth with WebAudio.
+// Ice cream truck tunes, played by a little synth with WebAudio.
+import { MIDI_SONGS } from './songs-midi.js';
 
 const NOTE = { C: 0, 'C#': 1, Db: 1, D: 2, 'D#': 3, Eb: 3, E: 4, F: 5, 'F#': 6, Gb: 6, G: 7, 'G#': 8, Ab: 8, A: 9, 'A#': 10, Bb: 10, B: 11 };
 export function freq(n) {
@@ -6,53 +7,89 @@ export function freq(n) {
   const midi = 12 * (Number(m[2]) + 1) + NOTE[m[1]];
   return 440 * Math.pow(2, (midi - 69) / 12);
 }
-const seq = (s) => s.trim().split(/\s+/).map((t) => {
-  const [n, b] = t.split(':');
-  return [n, Number(b)];
-});
 
-// Whole tunes (every phrase), not just the opening.
-export const SONGS = {
-  entertainer: {
-    bpm: 210,
-    notes: seq(`D4:0.5 D#4:0.5
-      E4:0.5 C5:1 E4:0.5 C5:1 E4:0.5 C5:2.5 R:0.5 C5:0.5 D5:0.5 D#5:0.5 E5:0.5 C5:0.5 D5:0.5 E5:1 B4:0.5 D5:1 C5:2 R:0.5 D4:0.5 D#4:0.5
-      E4:0.5 C5:1 E4:0.5 C5:1 E4:0.5 C5:2.5 R:0.5 A4:0.5 G4:0.5 F#4:0.5 A4:0.5 C5:0.5 E5:1 D5:0.5 C5:0.5 A4:0.5 D5:2.5 R:0.5 D4:0.5 D#4:0.5
-      E4:0.5 C5:1 E4:0.5 C5:1 E4:0.5 C5:2.5 R:0.5 C5:0.5 D5:0.5 D#5:0.5 E5:0.5 C5:0.5 D5:0.5 E5:1 B4:0.5 D5:1 C5:2.5 R:0.5
-      C5:0.5 D5:0.5 E5:0.5 C5:0.5 D5:0.5 E5:1 C5:0.5 D5:0.5 C5:0.5 E5:0.5 C5:0.5 D5:0.5 E5:1 C5:0.5 D5:0.5 C5:0.5 E5:0.5 C5:0.5 D5:0.5 B4:1 D5:1 C5:3`),
-  },
+// Each song has a tempo, its own sound, and either a melody ("note:beats", one after another)
+// or chords ("startBeat:note:beats", notes can overlap). Songs loop with no gap at the end.
+const SONG_LIST = {
+  entertainer: { name: 'The Entertainer', bpm: 105, voice: 'musicbox', melody: MIDI_SONGS.entertainer.melody },
   greensleeves: {
+    name: 'Greensleeves',
     bpm: 250,
-    notes: seq(`A4:1 C5:2 D5:1 E5:1.5 F5:0.5 E5:1 D5:2 B4:1 G4:1.5 A4:0.5 B4:1 C5:2 A4:1 A4:1.5 G#4:0.5 A4:1 B4:2 G#4:1 E4:2
+    voice: 'musicbox',
+    melody: `A4:1 C5:2 D5:1 E5:1.5 F5:0.5 E5:1 D5:2 B4:1 G4:1.5 A4:0.5 B4:1 C5:2 A4:1 A4:1.5 G#4:0.5 A4:1 B4:2 G#4:1 E4:2
       A4:1 C5:2 D5:1 E5:1.5 F5:0.5 E5:1 D5:2 B4:1 G4:1.5 A4:0.5 B4:1 C5:1.5 B4:0.5 A4:1 G#4:1.5 F#4:0.5 G#4:1 A4:3
       G5:3 G5:1.5 F#5:0.5 E5:1 D5:2 B4:1 G4:1.5 A4:0.5 B4:1 C5:2 A4:1 A4:1.5 G#4:0.5 A4:1 B4:2 G#4:1 E4:2
-      G5:3 G5:1.5 F#5:0.5 E5:1 D5:2 B4:1 G4:1.5 A4:0.5 B4:1 C5:1.5 B4:0.5 A4:1 G#4:1.5 F#4:0.5 G#4:1 A4:3`),
+      G5:3 G5:1.5 F#5:0.5 E5:1 D5:2 B4:1 G4:1.5 A4:0.5 B4:1 C5:1.5 B4:0.5 A4:1 G#4:1.5 F#4:0.5 G#4:1 A4:2`,
   },
   weasel: {
+    name: 'Pop Goes the Weasel',
     bpm: 230,
-    // "All around the mulberry bush…", then the higher "A penny for a spool of thread…"
-    notes: seq(`C4:1 C4:0.5 D4:1 D4:0.5 E4:0.5 G4:0.5 E4:0.5 C4:1.5 C4:1 C4:0.5 D4:1 D4:0.5 E4:1.5 C4:1 G3:0.5
-      C4:1 C4:0.5 D4:1 D4:0.5 E4:0.5 G4:0.5 E4:0.5 C4:1.5 A4:1.5 D4:1 F4:0.5 E4:1.5 C4:1.5
-      C5:1 A4:0.5 D5:1 C5:0.5 E5:0.5 D5:0.5 C5:0.5 A4:1.5 C5:1 A4:0.5 D5:1 C5:0.5 E5:1.5 C5:1 G4:0.5
-      C5:1 A4:0.5 D5:1 C5:0.5 E5:0.5 D5:0.5 C5:0.5 A4:1.5 A4:1.5 D4:1 F4:0.5 E4:1.5 C4:1.5`),
-  },
-  // The ice cream truck waltz (3/4), from the family's memory: G A G E D C D - C A - C B - C D - G E - - C - -
-  waltz: {
-    bpm: 200,
-    notes: seq(`G5:1 A5:1 G5:1 E5:1 D5:1 C5:1 D5:2 C5:1 A4:2 C5:1 B4:2 C5:1 D5:2 G5:1 E5:3 C5:3`),
+    voice: 'musicbox',
+    // "All around the mulberry bush…", then the higher "A penny for a spool of thread…" (notes from the MIDI file)
+    melody: `G3:0.5 C4:1 C4:0.5 D4:1 D4:0.5 E4:0.5 G4:0.5 E4:0.5 C4:1 G3:0.5 C4:1 C4:0.5 D4:1 F4:0.5 E4:1.5 C4:1 G3:0.5
+      C4:1 C4:0.5 D4:1 D4:0.5 E4:0.5 G4:0.5 E4:0.5 C4:1.5 A4:1.5 D4:1 F4:0.5 E4:1.5 C4:1 G4:0.5
+      C5:1 C5:0.5 A4:1 C5:0.5 B4:1 D5:0.5 G4:1 G4:0.5 C5:1 C5:0.5 A4:1 C5:0.5 B4:1 G4:0.5 F4:1 E4:0.5
+      F4:1 G4:0.5 A4:1 B4:0.5 C5:1.5 A4:1.5 D4:1 F4:0.5 E4:1.5 C4:2.5`,
   },
   turkey: {
+    name: 'Turkey in the Straw',
     bpm: 150,
-    notes: seq(`D5:0.5 C5:0.5 B4:0.5 A4:0.5 G4:0.5 G4:0.5 G4:0.5 A4:0.25 B4:0.25 G4:0.5 E4:0.5 D4:0.5 D4:0.5 D4:0.5 E4:0.25 F#4:0.25 G4:0.5 A4:0.5 B4:0.5 B4:0.5 B4:0.5 A4:0.5 B4:0.5 G4:1.5
-      D5:0.5 C5:0.5 B4:0.5 A4:0.5 G4:0.5 G4:0.5 G4:0.5 A4:0.25 B4:0.25 G4:0.5 E4:0.5 D4:0.5 D4:0.5 D4:0.5 E4:0.25 F#4:0.25 G4:0.5 A4:0.5 B4:0.5 A4:0.5 G4:0.5 F#4:0.5 G4:1.5 R:0.5`),
+    voice: 'musicbox',
+    melody: `D5:0.5 C5:0.5 B4:0.5 A4:0.5 G4:0.5 G4:0.5 G4:0.5 A4:0.25 B4:0.25 G4:0.5 E4:0.5 D4:0.5 D4:0.5 D4:0.5 E4:0.25 F#4:0.25 G4:0.5 A4:0.5 B4:0.5 B4:0.5 B4:0.5 A4:0.5 B4:0.5 G4:1.5
+      D5:0.5 C5:0.5 B4:0.5 A4:0.5 G4:0.5 G4:0.5 G4:0.5 A4:0.25 B4:0.25 G4:0.5 E4:0.5 D4:0.5 D4:0.5 D4:0.5 E4:0.25 F#4:0.25 G4:0.5 A4:0.5 B4:0.5 A4:0.5 G4:0.5 F#4:0.5 G4:1.5`,
   },
+  // The ice cream truck waltz (3/4), from the family's memory. First part twice, then the second part twice.
+  waltz: {
+    name: 'Ice Cream Waltz',
+    bpm: 200,
+    voice: 'musicbox',
+    melody: `G5:1 A5:1 G5:1 E5:1 D5:1 C5:1 D5:2 C5:1 A4:2 C5:1 B4:2 C5:1 D5:2 G5:1 E5:3 C5:3
+      G5:1 A5:1 G5:1 E5:1 D5:1 C5:1 D5:2 C5:1 A4:2 C5:1 B4:2 C5:1 D5:2 G5:1 E5:3 C5:3
+      B4:2 C5:1 D5:2 B4:1 C5:2 D5:1 E5:2 C5:1 B4:2 C5:1 D5:2 G5:1 E5:3 C5:3
+      B4:2 C5:1 D5:2 B4:1 C5:2 D5:1 E5:2 C5:1 B4:2 C5:1 D5:2 G5:1 E5:3 C5:3`,
+  },
+  hello: { name: 'Hello Song', bpm: 120, voice: 'xylophone', melody: MIDI_SONGS.hello.melody },
+  truckSong: { name: 'Ice Cream Truck Song', bpm: 120, voice: 'truck', ...MIDI_SONGS.truckSong },
+  musicBox: { name: 'Music Box', bpm: 90, voice: 'musicbox', ...MIDI_SONGS.musicBox },
+  lullaby: { name: 'Music Box Lullaby', bpm: 160, voice: 'musicbox', ...MIDI_SONGS.lullaby },
 };
 
+// Turn a song into timed notes: [startBeat, frequency, beats], plus its loop length in beats.
+function build(song) {
+  const events = [];
+  let length = song.length;
+  if (song.melody) {
+    let t = 0;
+    for (const tok of song.melody.trim().split(/\s+/)) {
+      const [n, b] = tok.split(':');
+      if (n !== 'R') events.push([t, freq(n), Number(b)]);
+      t += Number(b);
+    }
+    length = t;
+  } else {
+    for (const tok of song.chords.trim().split(/\s+/)) {
+      const [t, n, b] = tok.split(':');
+      events.push([Number(t), freq(n), Number(b)]);
+    }
+    events.sort((a, b) => a[0] - b[0]);
+  }
+  return { ...song, events, length, chordy: !song.melody };
+}
+export const SONGS = Object.fromEntries(Object.entries(SONG_LIST).map(([id, s]) => [id, build(s)]));
+export const TUNES = Object.entries(SONG_LIST).map(([id, s]) => ({ id, name: s.name }));
+export const VOICES = [
+  { id: 'own', name: "🎵 Song's own" },
+  { id: 'musicbox', name: '🎁 Music box' },
+  { id: 'truck', name: '📢 Truck speaker' },
+  { id: 'xylophone', name: '🎹 Xylophone' },
+];
 
 export class Music {
   constructor() {
     this.ctx = null;
     this.tune = 'entertainer';
+    this.voice = 'own';
+    this.rate = 1;
     this.volume = 0.5;
     this.muted = false;
     this.playing = false;
@@ -80,6 +117,13 @@ export class Music {
   setMuted(m) {
     this.muted = m;
     if (this.master) this.master.gain.value = m ? 0 : this.volume * 0.25;
+  }
+  setVoice(v) {
+    if (VOICES.some((x) => x.id === v)) this.voice = v;
+  }
+  // Faster game speeds play the music a little faster (takes effect from the next note).
+  setRate(r) {
+    this.rate = r;
   }
 
   setTune(t) {
@@ -132,39 +176,98 @@ export class Music {
     const now = this.ctx.currentTime;
     // after a pause, don't try to play every missed note at once
     if (this.next < now) this.next = now + 0.05;
+    const song = SONGS[this.tune] || SONGS.entertainer;
+    const voice = this.voice === 'own' ? song.voice : this.voice;
+    const beat = 60 / song.bpm / this.rate;
+    const ev = song.events;
     while (this.next < now + 0.4) {
-      const song = SONGS[this.tune] || SONGS.entertainer;
-      const beat = 60 / song.bpm;
-      const [n, b] = song.notes[this.i];
-      if (n !== 'R') this.blip(freq(n), this.next, b * beat);
-      this.next += b * beat;
+      if (this.i >= ev.length) this.i = 0;
+      const [t, f, b] = ev[this.i];
+      this.note(voice, f, this.next, b * beat, song.chordy ? (voice === 'truck' ? 0.35 : 0.6) : 1);
+      // time to the next note; after the last one, straight back to the first (no gap)
+      const nextT = this.i + 1 < ev.length ? ev[this.i + 1][0] : song.length + ev[0][0];
+      this.next += (nextT - t) * beat;
       this.i++;
-      if (this.i >= song.notes.length) {
-        this.i = 0;
-        this.next += beat * 3;
-      }
     }
     this.timer = setTimeout(() => this.schedule(), 120);
   }
 
-  // A tinny music-box chime, like the speaker on top of an ice cream truck.
-  blip(f, t, dur) {
+  note(voice, f, t, dur, vol = 1) {
+    if (voice === 'truck') return this.truckNote(f, t, dur, vol);
+    if (voice === 'xylophone') return this.xyloNote(f, t, dur, vol);
+    return this.blip(f, t, dur, vol);
+  }
+
+  // A tinny music-box chime.
+  blip(f, t, dur, vol = 1) {
     const ctx = this.ctx;
     const g = ctx.createGain();
     g.connect(this.master);
     const len = Math.max(0.18, Math.min(dur * 1.6, 0.7));
     g.gain.setValueAtTime(0.0001, t);
-    g.gain.exponentialRampToValueAtTime(0.55, t + 0.005);
+    g.gain.exponentialRampToValueAtTime(0.55 * vol, t + 0.005);
     g.gain.exponentialRampToValueAtTime(0.0001, t + len);
-    const parts = [
+    this.partials(g, t, [
       ['square', f, 0.1, len],
       ['triangle', f * 1.003, 0.7, len],
       ['sine', f * 2, 0.35, len * 0.6],
       ['sine', f * 4.2, 0.18, 0.08], // the "ting" at the start of each note
-    ];
-    for (const [type, fr, vol, l] of parts) {
+    ]);
+  }
+
+  // The buzzy, slightly wobbly square-wave speaker on top of a real ice cream truck.
+  truckNote(f, t, dur, vol = 1) {
+    const ctx = this.ctx;
+    const filt = ctx.createBiquadFilter();
+    filt.type = 'lowpass';
+    filt.frequency.value = 2600;
+    filt.connect(this.master);
+    const g = ctx.createGain();
+    g.connect(filt);
+    const hold = Math.max(0.06, dur * 0.85);
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(0.32 * vol, t + 0.01);
+    g.gain.setValueAtTime(0.32 * vol, t + hold);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + hold + 0.06);
+    const lfo = ctx.createOscillator();
+    const depth = ctx.createGain();
+    lfo.frequency.value = 6;
+    depth.gain.value = f * 0.004;
+    lfo.connect(depth);
+    for (const [type, fr, v] of [['square', f, 0.5], ['square', f * 1.004, 0.3], ['triangle', f * 2, 0.2]]) {
       const o = ctx.createOscillator();
       const og = ctx.createGain();
+      o.type = type;
+      o.frequency.value = fr;
+      depth.connect(o.frequency);
+      og.gain.value = v;
+      o.connect(og).connect(g);
+      o.start(t);
+      o.stop(t + hold + 0.08);
+    }
+    lfo.start(t);
+    lfo.stop(t + hold + 0.08);
+  }
+
+  // A bright wooden "tok" that rings briefly.
+  xyloNote(f, t, dur, vol = 1) {
+    const g = this.ctx.createGain();
+    g.connect(this.master);
+    const len = Math.max(0.15, Math.min(dur * 1.2, 0.45));
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(0.6 * vol, t + 0.002);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + len);
+    this.partials(g, t, [
+      ['sine', f, 0.8, len],
+      ['sine', f * 3.98, 0.35, 0.07],
+      ['triangle', f * 2, 0.12, len * 0.5],
+    ]);
+  }
+
+  partials(g, t, parts) {
+    for (const [type, fr, vol, l] of parts) {
+      const o = this.ctx.createOscillator();
+      const og = this.ctx.createGain();
       o.type = type;
       o.frequency.value = fr;
       og.gain.setValueAtTime(vol, t);
