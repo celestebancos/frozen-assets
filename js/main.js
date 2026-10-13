@@ -158,15 +158,14 @@ class App {
       const price = TRUCK_PRICE + BLING[bling].price;
       if (step === 'truck') {
         title.textContent = '🚚 Truck lot';
-        card.innerHTML = `<p style="margin-top:0">You borrowed <b>${money(L.principal)}</b>. A plain truck costs <b>${money(TRUCK_PRICE)}</b>, whatever the color. Bling makes it fancier but costs more up front. It doesn't bring more customers. Whatever is left over is your cash for supplies.</p>
-          <div class="truck-lot">${lot.map((x) => {
+        card.innerHTML = `<div class="truck-lot">${lot.map((x) => {
             const c = truckFor(x.color);
             const b = BLING[x.bling];
             const total = TRUCK_PRICE + b.price;
             const can = total <= maxTruck;
             return `<button class="lot-truck ${color === x.color ? 'on' : ''}" data-act="pickTruck" data-c="${x.color}" data-l="${x.bling}" ${can ? '' : 'disabled'}>
               ${truckSVG(c.hex, c.name, { bling: x.bling })}
-              <b>${b.emoji} ${b.name}</b><div class="tiny">${b.about}</div>
+              <b>${c.name}</b>
               <div class="price">${money(total)}</div><div class="tiny">${can ? `${money(L.principal - total)} left over` : 'Too much for this loan'}</div></button>`;
           }).join('')}</div>
           <div class="row" style="justify-content:space-between;margin-top:16px"><button class="btn" data-act="toBank">◀ Back to the bank</button>
