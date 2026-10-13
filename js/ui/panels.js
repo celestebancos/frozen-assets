@@ -291,7 +291,7 @@ export function giftPanel(app) {
     render(body) {
       const s = g.state;
       body.innerHTML = `
-        <div class="card2" style="text-align:center"><div style="font-size:40px">🎁</div><b>Gift card: one free ice cream</b><div class="tiny muted">Any ice cream on the menu. In the books, each card counts as ${money(C.giftCard.face)}.</div></div>
+        <div class="card2" style="text-align:center"><div style="font-size:40px">🎁</div><b>Gift card: one free ice cream</b><div class="tiny muted">Any ice cream on the menu. In the books, a card counts as what it sold for. A free card counts as ${money(C.giftCard.face)}.</div></div>
         <h3>Sell cards</h3>
         <div class="row">Price: ${stepper(s.giftSale.price, 'gprice', 'p', money(s.giftSale.price))}</div>
         <div class="row" style="margin-top:6px">For sale: ${stepper(s.giftSale.left, 'gleft', 'n', s.giftSale.left)}</div>
@@ -604,7 +604,11 @@ export function balanceSheet(g, totals) {
   const s = g.state;
   const t = totals || s.filed;
   const line = (id, extra = '') => (t[id] === 0 && !['cash', 'truck', 'supplies', 'loan'].includes(id) ? '' : `<tr><td>${ACCOUNT[id].name}${extra}</td><td>${money(t[id])}</td></tr>`);
-  const cards = Math.round(t.giftCards / C.giftCard.face);
+  // cards on the filed papers: sold and given away, minus used
+  const cardCount = (d) => d.items.reduce((n, i) => n + (i.count || 0), 0);
+  const cards = s.docs
+    .filter((d) => d.filed)
+    .reduce((n, d) => n + (d.type === 'giftSales' || d.type === 'freeCards' ? cardCount(d) : d.type === 'redemptions' ? -cardCount(d) : 0), 0);
   return `<div class="scroll-x" style="max-width:560px"><table class="books">
     <tr class="sec"><td colspan="2">🏠 Assets (what the business has)</td></tr>
     ${line('cash')}${line('truck')}${line('supplies')}

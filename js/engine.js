@@ -1219,13 +1219,13 @@ export class Game {
 
   serveCardHolder(party, m, idx) {
     const s = this.state;
-    const face = C.giftCard.face;
+    const card = s.cards.find((c) => c.id === party.cardIds[idx]);
+    const value = card?.value ?? C.giftCard.face; // older saves: every card was $5
     const items = this.availableItems();
     if (!items.length) {
       // can't use the card today; they'll try again
       m.result = 'mad';
       this.nudge('outOfStockMad');
-      const card = s.cards.find((c) => c.id === party.cardIds[idx]);
       if (card) card.returnDay = s.day + this.rng.int(1, 5);
       return;
     }
@@ -1252,9 +1252,9 @@ export class Game {
       s.week.toppings[it.topping] = (s.week.toppings[it.topping] || 0) + 1;
     }
     this.post('redemptions', [
-      { acct: 'giftCards', amt: -face },
-      { acct: 'salesGift', amt: face },
-    ], { key: 'day' + s.day, label: `${this.dayName} (day ${s.day})`, amt: face, count: 1 });
+      { acct: 'giftCards', amt: -value },
+      { acct: 'salesGift', amt: value },
+    ], { key: 'day' + s.day, label: `${this.dayName} (day ${s.day})`, amt: value, count: 1 });
     s.cards = s.cards.filter((c) => c.id !== party.cardIds[idx]);
     s.today.cardsRedeemed++;
     m.mood = 'cardFree';
@@ -1321,14 +1321,16 @@ export class Game {
     const s = this.state;
     const face = C.giftCard.face;
     const id = s.nextCardId++;
-    s.cards.push({ id, returnDay: s.day + this.rng.int(C.giftCard.returnMinDays, C.giftCard.returnMaxDays) });
+    // A sold card is booked at what it sold for; a free one at the usual card price, as a giveaway.
+    const paid = how === 'sale' ? s.giftSale.price : 0;
+    const value = paid > 0 ? paid : face;
+    s.cards.push({ id, value, returnDay: s.day + this.rng.int(C.giftCard.returnMinDays, C.giftCard.returnMaxDays) });
     if (how === 'sale') {
-      const paid = s.giftSale.price;
       const entries = [
         { acct: 'cash', amt: paid },
-        { acct: 'giftCards', amt: face },
+        { acct: 'giftCards', amt: value },
       ];
-      if (face - paid) entries.push({ acct: 'giftDiscounts', amt: face - paid });
+      if (!paid) entries.push({ acct: 'giftDiscounts', amt: face });
       this.post('giftSales', entries, { key: 'p' + paid, label: `Cards sold for ${fmt(paid)}`, amt: paid, count: 1 });
       if (s.today) s.today.cardsSold++;
       if (paid > 0) this.payOwedInterest();
