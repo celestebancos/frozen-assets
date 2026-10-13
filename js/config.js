@@ -81,9 +81,10 @@ export const CONFIG = {
 
   sellBackRate: 0.5,
 
-  // Papers a kid keeps filing right: after `streak` first-try rights in a row, Penny files that kind
-  // for them, except every `checkEvery`th one still comes to the kid to keep them sharp.
-  filing: { streak: 3, checkEvery: 3 },
+  // Penny the bookkeeper sends a bill every week: a flat fee, plus a fee for each paper she filed for you.
+  // She'll only take over a kind of paper after `streak` first-try rights in a row, and every
+  // `checkEvery`th one still comes back so you can check her work.
+  filing: { streak: 3, checkEvery: 3, weeklyFee: 1000, perPaper: 300 },
   giftCard: { face: 500, buyChance: 0.025, discountBoost: 4, returnMinDays: 1, returnMaxDays: 14 },
 
   dropChance: 0.02,

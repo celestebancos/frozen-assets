@@ -1,5 +1,5 @@
 // Frozen Assets — app controller: title screen, setup, the game loop, HUD, and wiring of panels.
-import { CONFIG, TRUCK_COLORS, TRUCK_PRICE, BLING, SPOT, FLAVORS, SUPPLY, itemKey, itemFromKey } from './config.js';
+import { CONFIG, TRUCK_COLORS, TRUCK_PRICE, BLING, SPOT, FLAVORS, itemKey, itemFromKey } from './config.js';
 import { Game, DAY_NAMES } from './engine.js';
 import { Music } from './music.js';
 import { storage } from './storage.js';
@@ -422,15 +422,12 @@ class App {
     for (const ev of evs) {
       if (ev.t !== 'served') continue;
       for (const m of ev.party.members) {
-        let out = m.missing || (m.mood === 'noNapkin' ? 'napkins' : m.mood === 'noTopping' ? 'sprinkles' : null);
+        const out = m.missing || (m.mood === 'noNapkin' ? 'napkins' : m.mood === 'noTopping' ? 'sprinkles' : null);
         if (!out) continue;
-        if (out === 'bowl' && this.game.stock('bowl') > 0) out = 'spoons'; // bowls need a spoon
         const key = `${s.season}-${s.day}-${out}`;
         if ((this.slowedFor ||= new Set()).has(key)) continue;
         this.slowedFor.add(key);
         this.setSpeed(1);
-        const what = out === 'swirl' ? 'swirl mix' : out === 'sprinkles' ? 'sprinkles' : (SUPPLY[out]?.short || out).toLowerCase();
-        toast(`😠 Out of ${what}! Slowed down so you can restock.`, 3500);
         return;
       }
     }
