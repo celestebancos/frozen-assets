@@ -122,7 +122,7 @@ class App {
       const j = Math.floor(Math.random() * (i + 1));
       [levels[i], levels[j]] = [levels[j], levels[i]];
     }
-    const lot = TRUCK_COLORS.map((c, i) => ({ color: c.id, bling: levels[i] }));
+    const lot = TRUCK_COLORS.map((c, i) => ({ color: c.id, bling: levels[i] })).sort((a, b) => a.bling - b.bling); // cheapest first
     const scr = el(`<div class="screen"><h1 class="logo" style="font-size:44px"></h1><div class="setup-card"></div></div>`);
     document.body.appendChild(scr);
     const title = scr.querySelector('h1');
