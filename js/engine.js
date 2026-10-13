@@ -1038,9 +1038,12 @@ export class Game {
     // spread-out streets mean more road for every customer
     if (moving) s.fuel = Math.max(0, s.fuel - C.gas.cruiseGalPerHour / 60 / this.density());
     // families who already bought today come by (a hint that it's time to move on)
-    if (CROWDS[this.crowdKind()].hint !== false) {
-      const missing = 1 - this.saturation(loc.id);
-      if (missing > 0 && this.rng.chance(Math.min(1, this.arrivalRate(loc.id, s.minute, true) * missing * C.alreadyHad.share))) this.alreadyHadParty();
+    if (CROWDS[this.crowdKind()].hint !== false && this.saturation(loc.id) <= C.alreadyHad.below) {
+      const seen = (s.today.alreadyHadBy ||= {});
+      if ((seen[s.spot] || 0) < C.alreadyHad.perArea && this.rng.chance(Math.min(1, this.arrivalRate(loc.id, s.minute, true) * C.alreadyHad.share))) {
+        seen[s.spot] = (seen[s.spot] || 0) + 1;
+        this.alreadyHadParty();
+      }
     }
     let n = this.rng.poisson(this.arrivalRate(loc.id, s.minute));
     // many gift card holders would have come (and paid) anyway
