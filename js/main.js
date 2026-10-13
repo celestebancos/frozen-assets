@@ -14,7 +14,8 @@ import { showDecision } from './ui/popups.js';
 import { buildExport, exportFileName } from './export.js';
 
 const C = CONFIG;
-const MS_PER_MIN = [0, 150, 50, 12];
+// Real milliseconds per game minute at each speed: ▶ half a second, ▶▶ a bit faster, ▶▶▶ fast.
+const MS_PER_MIN = [0, 500, 150, 12];
 
 class App {
   constructor() {
