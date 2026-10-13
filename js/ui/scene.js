@@ -1,13 +1,14 @@
 // The street: backdrop for the current spot, the truck, and customers walking up.
-import { SPOT, FLAVORS, CONTAINERS, TOPPINGS, CONFIG } from '../config.js';
-import { sceneSVG, truckSVG, personSVG, iceCreamSVG } from '../art.js';
+import { SPOT, FLAVORS, CONTAINERS, TOPPINGS, POPS, POP, CONFIG, MARKET_DAYS } from '../config.js';
+import { sceneSVG, streetSVG, truckSVG, personSVG, iceCreamSVG } from '../art.js';
 import { esc, money } from './dom.js';
 
-const NAMES = Object.fromEntries([...FLAVORS, ...CONTAINERS, ...TOPPINGS].map((x) => [x.id, x.name.toLowerCase()]));
+const NAMES = Object.fromEntries([...FLAVORS, ...CONTAINERS, ...TOPPINGS, ...POPS].map((x) => [x.id, x.name.toLowerCase()]));
 
-// "a chocolate waffle cone with rainbow sprinkles"
+// "a chocolate waffle cone with rainbow sprinkles", "a rocket pop"
 export function itemName(it) {
   if (!it) return 'ice cream';
+  if (it.pop) return `a ${POP[it.pop]?.name.toLowerCase() || 'pop'}`;
   const flavor = NAMES[it.flavor] || '';
   const base = it.container === 'bowl' ? `${flavor} bowl` : `${flavor} ${NAMES[it.container] || 'cone'}`;
   return `a ${base}${it.topping ? ` with ${NAMES[it.topping]}` : ''}`;
@@ -51,8 +52,11 @@ export class Scene {
     this.rainEl = root.querySelector('.rain');
     this.feed = root.querySelector('.feed');
     this.spot = null;
+    this.sceneKey = '';
     this.truckKey = '';
     this.active = 0;
+    this.curbHold = 0; // the truck stays stopped (on screen) until this time while curb customers are served
+    this.lastHint = 0;
     this.truckSettleAt = 0;
   }
 
@@ -63,30 +67,36 @@ export class Scene {
     this.root.style.setProperty('--sky', sky);
     this.root.style.setProperty('--sun', sun);
     this.rainEl.classList.toggle('hidden', !s.weather?.rain || s.phase !== 'open');
-    if (!s.driving && this.spot !== s.spot) {
-      const first = this.spot === null;
+    // parked: the spot's backdrop. Driving: the street rolls by (downtown buildings or houses).
+    const driving = !!s.driving && s.phase === 'open';
+    const marketOpen = MARKET_DAYS.includes(g.dayOfWeek);
+    const sceneKey = driving ? `road|${g.here().area}` : `${s.spot}|${marketOpen}`;
+    if (sceneKey !== this.sceneKey) {
+      const wasDriving = this.sceneKey.startsWith('road|');
+      this.sceneKey = sceneKey;
       this.spot = s.spot;
-      this.sceneEl.innerHTML = sceneSVG(SPOT[s.spot]);
-      if (!first) {
-        this.truckEl.classList.remove('away');
+      this.sceneEl.innerHTML = driving ? streetSVG(g.here().area) : sceneSVG(SPOT[s.spot], { marketOpen });
+      if (wasDriving && !driving) {
+        // pull in to the new spot
         this.truckEl.classList.add('arriving');
         void this.truckEl.offsetWidth;
         this.truckEl.classList.remove('arriving');
         this.truckSettleAt = performance.now() + 1300;
       }
     }
-    const key = `${s.color}|${s.business}|${!!s.driving}|${s.bling || 0}`;
+    const stopped = driving && (s.driving.stopped > 0 || performance.now() < this.curbHold);
+    this.root.classList.toggle('driving', driving);
+    this.root.classList.toggle('stopped', stopped);
+    const key = `${s.color}|${s.business}|${driving}|${s.bling || 0}`;
     if (key !== this.truckKey) {
       this.truckKey = key;
-      this.truckEl.innerHTML = truckSVG(this.app.truckHex(), s.business, { wheelsSpin: !!s.driving, bling: s.bling || 0 });
+      this.truckEl.innerHTML = truckSVG(this.app.truckHex(), s.business, { wheelsSpin: driving, bling: s.bling || 0 });
     }
-    if (s.driving) {
-      this.truckEl.classList.add('away');
+    if (driving) {
       this.roadMsg.classList.remove('hidden');
-      const left = s.driving.left;
-      this.roadMsg.innerHTML = `🚚💨 ${esc(SPOT[s.driving.to].name)}<div class="tiny muted">${left} min</div>`;
-      this.crowd.innerHTML = '';
-      this.active = 0;
+      const msg = stopped ? '🛑 Stopping for customers!' : `🚚💨 ${esc(SPOT[s.driving.to].name)}`;
+      const html = `${msg}<div class="tiny muted">${s.driving.left} min to go</div>`;
+      if (this.roadMsg.innerHTML !== html) this.roadMsg.innerHTML = html;
     } else {
       this.roadMsg.classList.add('hidden');
     }
@@ -115,6 +125,10 @@ export class Scene {
     const good = (t, e = '😋') => ({ t, c: 'good', e });
     if (m.gotCard && m.result !== 'bought') return good('🎉 A free gift card!', '🎉');
     switch (m.result) {
+      case 'broke': {
+        const cash = m.cash >= 100 ? money(m.cash).replace('.00', '') : `${m.cash}¢`;
+        return { t: `I can't buy anything. I only have ${cash}!`, c: 'meh', e: '🪙' };
+      }
       case 'tooExpensive': {
         return bad(`${money(m.askedPrice || 0)} for ${itemName(m.askedItem || m.want)}? Too expensive!`, '💸');
       }
@@ -154,6 +168,14 @@ export class Scene {
     }, 5000);
   }
 
+  // A parent with kids who already got ice cream from you today. Only the parent talks.
+  alreadyHadLine(p) {
+    const kids = p.members.filter((m) => m.kind === 'kid');
+    const parent = p.members.find((m) => m.kind === 'adult');
+    const who = kids.length > 1 ? 'kids' : kids[0]?.look % 2 === 1 ? 'sweetie' : 'bud';
+    return [parent, { t: `Sorry ${who}, we already got ice cream today, remember?`, c: 'hint', e: '🙅' }];
+  }
+
   // Left edge (%) for a party so it stops in front of the serving window.
   windowSlot(el) {
     const cr = this.crowd.getBoundingClientRect();
@@ -164,8 +186,21 @@ export class Scene {
   }
 
   party(p, speed) {
-    const comments = p.members.map((m) => [m, this.bubbleFor(m)]).filter(([, b]) => b);
+    let comments = p.members.map((m) => [m, this.bubbleFor(m)]).filter(([, b]) => b);
+    if (p.alreadyHad) {
+      const [parent, line] = this.alreadyHadLine(p);
+      comments = [[parent, line], ...p.members.filter((m) => m.kind === 'kid').map((k) => [k, { t: '', c: 'meh', e: '😢' }])];
+    }
+    const say = (list) => list.filter(([, b]) => b.t).forEach((c) => this.say(...c));
     const fast = speed >= 3 || this.active >= 6 || document.hidden;
+    if (p.alreadyHad && fast) {
+      // a hint, not a sale: show it now and then, even when things are moving fast
+      if (speed < 9 && performance.now() - this.lastHint > 8000) {
+        this.lastHint = performance.now();
+        say(comments.slice(0, 1));
+      }
+      return;
+    }
     if (fast) {
       // quick blips near the truck window; only the complaints go to the feed
       const x = 30 + Math.random() * 25;
@@ -179,15 +214,18 @@ export class Scene {
     const dur = speed === 1 ? 1600 : 700;
     const wait = speed === 1 ? 1800 : 800;
     const el = document.createElement('div');
-    el.className = 'party walking';
-    el.style.left = '-15%';
+    el.className = 'party walking' + (p.curb ? ' curb' : '');
+    // curb customers stand on the sidewalk ahead of the truck and wave it down
+    el.style.left = p.curb ? '78%' : '-15%';
     el.style.transitionDuration = dur + 'ms';
+    if (p.curb) this.curbHold = performance.now() + dur * 2 + wait;
     el.innerHTML = p.members
       .map((m) => {
         const b = comments.find(([x]) => x === m)?.[1];
         return `<div class="who">${b ? `<div class="bubble ${b.c} hidden">${b.e}</div>` : ''}${personSVG(m.kind, m.look)}<div class="hand hidden">${m.result === 'bought' && m.item && !(m.dropped && !m.replaced) ? iceCreamSVG(m.item, 22) : ''}</div></div>`;
       })
       .join('');
+    if (p.curb) el.insertAdjacentHTML('afterbegin', '<div class="wave bubble good">👋</div>');
     this.crowd.appendChild(el);
     this.active++;
     const slot = this.windowSlot(el) + ((this.active % 3) - 1) * 4;
@@ -196,15 +234,17 @@ export class Scene {
       if (!el.isConnected) return;
       el.classList.remove('walking');
       el.querySelectorAll('.bubble, .hand').forEach((b) => b.classList.remove('hidden'));
+      el.querySelector('.wave')?.remove();
       this.app.partyArrived(p.id);
-      for (const c of comments) this.say(...c);
+      say(comments);
       if (p.bill > 0) this.blip(`+${money(p.bill)}`, slot + 6, 45, 'good');
       if (p.boughtCard) this.blip('🎁 +card', slot + 12, 38, 'good');
     }, dur);
     setTimeout(() => {
       el.classList.add('walking');
       el.style.transitionDuration = dur * 1.4 + 'ms';
-      el.style.left = '115%';
+      // the truck pulls away from curb customers, so they slide off behind it
+      el.style.left = p.curb ? '-25%' : '115%';
     }, dur + wait);
     setTimeout(() => {
       el.remove();

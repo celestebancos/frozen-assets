@@ -9,12 +9,29 @@ Play it at **https://celestebancos.github.io/frozen-assets/** once GitHub Pages 
 1. Pick a player, then a loan at the 🏦 bank: $10,000, $11,000 or $12,000. Bigger loans cost more interest every day, and the bank explains each one in plain words.
 2. Pick one of eight trucks on the lot. Each is a different color with its own bling (none, stickers, chrome and lights, or deluxe gold), and every price shows up at least once. Bling costs extra up front and is just for looks. Whatever's left of the loan is the cash for supplies. Then name the business.
 3. File the bank loan papers and the truck bill of sale in the 🗃️ shoebox. That's the first lesson: the loan is cash in *and* a debt.
-4. Buy supplies, set prices, and pick a route on the 🗺️ map. Then open for business. The 📍 Places page compares how many people came to each spot (per hour, and by time of day) so different routes can be tried on different days.
-5. Each day runs 10am–8pm. Speeds are ⏸ ▶ ▶▶ ▶▶▶ and ⏭ (skip to the end of the day).
+4. Buy supplies, set prices, and pick a route on the 🗺️ map. Then open for business. The 📍 Places page compares how many people came to each spot (per hour, and by time of day) so different routes can be tried on different days. Routes can be saved and reused, and the 📅 week plan picks a saved route for each day of the week (or the same one every day).
+5. Each day runs 10am–8pm. Speeds are ⏸ ▶ ▶▶ ▶▶▶ and ⏭ (skip to the end of the day). While the truck drives, the street rolls by, and it stops when people on the sidewalk wave it down.
 6. At the end of each week, file the shoebox. Each paper pops up over two pictures: the profit & loss (income is a pile of base-ten blocks, each expense digs a hole) and the balance sheet (bars on each side of a center line, with totals that tip like a scale). Penny the accountant checks every paper and explains any mistake with a "your books vs correct books" comparison. File a kind of paper right on the first try 3 times in a row and Penny files most of those for you; every third one still comes back as a check-up, and a miss means filing them yourself again. After the last paper, **Calculate Profit** fills the holes with income, and the leftover profit (or loss) moves into the owner's Share. Then the screen turns into the weekly report with the profit graph. Advertising is picked under 📣 Promotion on the 🎁 Gift Cards tab.
 7. After 12 weeks the loan comes due. If there's enough cash to pay the bank, you keep the truck and can play another summer. If not, the truck gets towed.
 
 Games save automatically in the browser and continue on the same device.
+
+## The town
+
+Four neighborhoods and downtown. Each neighborhood has its streets plus two or three places (playground, pool, ball fields, school). Stops in the same area are 2–5 minutes apart; going to another area takes 10–40 minutes.
+
+| Area | Places | Spending |
+| --- | --- | --- |
+| Maple Street | Maple School, Maple Playground | normal |
+| Oak Hollow | Oak Playground, Oak Ball Fields, Oak Pool | a bit less |
+| Sunset Ridge | Sunset Pool, Sunset School | pays the most |
+| Riverside | Riverside Pool, River Playground, River Ball Fields | less; more kids with only pocket money |
+| Downtown | City Hall, Tech Park and Main St offices (lunch rush, quiet weekends), Farmers Market (Wed & Sat, 10–2), City Zoo (closes at 5), Central Park | offices and the zoo pay a bit more |
+
+Things that teach a lesson without a lecture:
+
+- **Moving on.** A spot's crowd thins the longer the truck stays, and time at other stops in the same area counts too. When it does, a parent and kids walk up and the parent says *"Sorry bud, we already got ice cream today, remember?"*
+- **Pocket money.** Some kids out on their own only have $1 or less. If nothing costs that little, they say *"I can't buy anything. I only have $1!"* (no grumbling, no popularity hit). Popsicles (🚀 rocket pop, fudge pop, freeze pop) are the cheap option for them.
 
 ## Shared leaderboard (Airtable)
 
@@ -60,7 +77,7 @@ The workflow in `.github/workflows/pages.yml` runs the tests and publishes the s
 
 ## Tweaking the numbers
 
-All the balance numbers are in **`js/config.js`**: prices, demand, popularity, gas, interest, ads, gift cards, credit terms, sales and spots. After changing anything, check the balance with the simulated players:
+All the balance numbers are in **`js/config.js`**: prices, demand, popularity, gas, interest, ads, gift cards, credit terms, sales, areas and spots, popsicles, pocket money (`pocket`), curb stops while driving (`curb`) and the "already had ice cream" families (`alreadyHad`). After changing anything, check the balance with the simulated players:
 
 ```sh
 node tools/simulate.mjs 150            # every bot, 150 summers each
@@ -68,7 +85,7 @@ node tools/simulate.mjs 50 decent smart  # just some bots
 TRACE=1 node tools/simulate.mjs 1 decent # week-by-week trace
 ```
 
-Tuning targets: a **decent** player (fair prices, keeps stocked, a simple 2-stop route, flyers, gift card for upset customers) wins every time. A **smart** player (route follows the crowds) earns clearly more. **Poor** choices carry a real risk of losing: overpricing, overbuying mix that spoils, handing out piles of free gift cards, or parking in one place all day.
+Tuning targets: a **decent** player (fair prices, keeps stocked, a simple 2-stop route from Maple Street to Riverside Pool and back, flyers, gift card for upset customers) wins every time. A **smart** player (route follows the crowds) earns clearly more. **Poor** choices carry a real risk of losing: overpricing, overbuying mix that spoils, handing out piles of free gift cards, or parking in one place all day.
 
 ## Developing
 

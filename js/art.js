@@ -437,8 +437,17 @@ const CONE = {
     <path d="M4 21 H36" stroke="${INK}" stroke-width="3.6" stroke-linecap="round"/><path d="M4 21 H36" stroke="#e7f5ff" stroke-width="1.8" stroke-linecap="round"/>`,
 };
 
+// Popsicles on a stick, in the same 40 × 40 box as the ice creams.
+const STICK = `<path d="M18 27 H22 V37.5 Q22 39.5 20 39.5 Q18 39.5 18 37.5 Z" fill="#ecc993" ${ICE_OUT}/>`;
+const POP_ART = {
+  rocketPop: `${STICK}<path d="M20 1 L29 12 H11 Z" fill="#e5484d" ${ICE_OUT}/><path d="M11 12 H29 V19.5 H11 Z" fill="#fffaf0" ${ICE_OUT}/><path d="M11 19.5 H29 V26.5 Q29 28.5 27 28.5 H13 Q11 28.5 11 26.5 Z" fill="#3a8ee6" ${ICE_OUT}/><path d="M14 5 L12.8 18 M14 21 V26" stroke="#fff" stroke-width="1.8" opacity=".6" stroke-linecap="round"/>`,
+  fudgePop: `${STICK}<rect x="11" y="3" width="18" height="26" rx="8" fill="#7b4a2e" ${ICE_OUT}/><path d="M15 8.5 Q15 6.2 17.4 6" stroke="#b07a55" stroke-width="2" fill="none" stroke-linecap="round"/><path d="M14.5 14 V24" stroke="#5e3520" stroke-width="1.4" stroke-linecap="round"/>`,
+  freezePop: `<rect x="14" y="2" width="12" height="35.5" rx="2" fill="#c08cff" ${ICE_OUT}/><path d="M14 6 H26 M14 33.5 H26" stroke="#7d5ba6" stroke-width="1.2"/><rect x="16.5" y="8" width="2.6" height="22" rx="1.3" fill="#ead9ff"/>`,
+};
+
 export function iceCreamSVG(item, size = 28) {
   if (!item) return '';
+  if (item.pop) return `<svg viewBox="0 0 40 40" width="${size}" height="${size}" class="icecream" xmlns="http://www.w3.org/2000/svg">${POP_ART[item.pop] || ''}</svg>`;
   const { flavor, container, topping } = item;
   const bowl = container === 'bowl';
   const base = CONE[container] || CONE.cake;
@@ -657,16 +666,26 @@ function riverProps() {
 }
 
 function homeProps(spot) {
-  const H = HOMES[spot.id] || HOMES.maple;
-  let out = spot.id === 'riverside' ? riverProps() : '';
+  const area = spot.area || spot.id;
+  const H = HOMES[area] || HOMES.maple;
+  let out = area === 'riverside' ? riverProps() : '';
   for (const [tx, ts, tk] of H.trees) out += tree(tx, ts, tk);
   for (const [hx, ho] of H.houses) out += house(hx, ho);
-  if (spot.id === 'sunset') out += (H.lamps || []).map((x) => lamp(x)).join('');
-  out += mailbox(H.mailbox, spot.id === 'oak' ? '#e5484d' : '#3a8ee6');
+  if (area === 'sunset') out += (H.lamps || []).map((x) => lamp(x)).join('');
+  out += mailbox(H.mailbox, area === 'oak' ? '#e5484d' : '#3a8ee6');
   return out;
 }
 
-function schoolProps() {
+const FONT = `font-family="'Baloo 2', system-ui, sans-serif" font-weight="800"`;
+// A sign on two posts, centered on x, with its bottom edge at the ground.
+function postSign(x, text, { y = GROUND, h = 40, fill = '#fffaf0', color = SOFT, size = 20 } = {}) {
+  const w = Math.max(90, text.length * size * 0.62 + 30);
+  return `<g><path d="M${x - w / 2 + 16} ${y} V${y - h} M${x + w / 2 - 16} ${y} V${y - h}" stroke="${SOFT}" stroke-width="7"/><path d="M${x - w / 2 + 16} ${y} V${y - h} M${x + w / 2 - 16} ${y} V${y - h}" stroke="#8b5a2b" stroke-width="4"/>
+    <rect x="${x - w / 2}" y="${y - h - 34}" width="${w}" height="38" rx="8" fill="${fill}" ${so(2.5)}/>
+    <text x="${x}" y="${y - h - 8}" text-anchor="middle" ${FONT} font-size="${size}" fill="${color}">${esc(text)}</text></g>`;
+}
+
+function schoolProps(spot) {
   const bricks = Array.from({ length: 13 }, (_, r) => `M60 ${152 + r * 11} H420`).join(' ');
   const wins = [80, 140, 300, 360].flatMap((x) => [win(x, 160, 40, 34), win(x, 226, 40, 34)]).join('');
   return `
@@ -676,7 +695,7 @@ function schoolProps() {
     <path d="M180 140 V96 L240 62 L300 96 V140 Z" fill="#d9654a" ${so(2.5)}/>
     <path d="M170 100 L240 58 L310 100" stroke="#fffaf0" stroke-width="9" fill="none" stroke-linejoin="round"/><path d="M170 100 L240 58 L310 100" stroke="${SOFT}" stroke-width="2" fill="none" stroke-linejoin="round"/>
     <circle cx="240" cy="104" r="17" fill="#fffaf0" ${so(2.5)}/><path d="M240 93 V104 H248" stroke="${INK}" stroke-width="2.5" fill="none" stroke-linecap="round"/>
-    <rect x="188" y="128" width="104" height="22" rx="4" fill="#fffaf0" ${so(2)}/><text x="240" y="145" text-anchor="middle" font-family="'Baloo 2', system-ui, sans-serif" font-size="17" font-weight="800" fill="#7a3b2e">SCHOOL</text>
+    <rect x="188" y="128" width="104" height="22" rx="4" fill="#fffaf0" ${so(2)}/><text x="240" y="145" text-anchor="middle" font-family="'Baloo 2', system-ui, sans-serif" font-size="${spot?.name.length > 12 ? 13 : 17}" font-weight="800" fill="#7a3b2e">${esc((spot?.name || 'School').toUpperCase())}</text>
     ${wins}
     <rect x="208" y="226" width="64" height="74" fill="#fffaf0" ${so(2)}/><rect x="213" y="231" width="26" height="69" fill="#3a8ee6" ${so(1.6)}/><rect x="241" y="231" width="26" height="69" fill="#3a8ee6" ${so(1.6)}/>
     <rect x="218" y="240" width="16" height="22" fill="#a9dcf7"/><rect x="246" y="240" width="16" height="22" fill="#a9dcf7"/>
@@ -698,7 +717,7 @@ function schoolProps() {
     ${tree(960, 0.95)}${bush(150, 90, true)}${bush(340, 90, true)}`;
 }
 
-function poolProps() {
+function poolProps(spot) {
   const chain = [];
   for (let x = 318; x < 1000; x += 12) chain.push(`M${x} 250 l12 12 M${x + 12} 250 l-12 12`);
   return `${tree(970, 1.1)}${tree(400, 0.75, 'round', 250)}${tree(760, 0.7, 'round', 250)}
@@ -721,7 +740,7 @@ function poolProps() {
     <rect x="20" y="170" width="290" height="130" fill="#fffaf0" ${so(2.5)}/>
     <path d="M10 170 H320" stroke="#3a8ee6" stroke-width="12" stroke-linecap="round"/><path d="M10 170 H320" stroke="${SOFT}" stroke-width="2" opacity=".5"/>
     <rect x="50" y="128" width="230" height="42" rx="8" fill="#3a8ee6" ${so(2.5)}/>
-    <text x="165" y="158" text-anchor="middle" font-family="'Baloo 2', system-ui, sans-serif" font-size="26" font-weight="800" fill="#fff">TOWN POOL</text>
+    <text x="165" y="158" text-anchor="middle" font-family="'Baloo 2', system-ui, sans-serif" font-size="${spot?.name.length > 11 ? 21 : 26}" font-weight="800" fill="#fff">${esc((spot?.name || 'Town pool').toUpperCase())}</text>
     <path d="M60 140 q8 -6 16 0 t16 0 M238 140 q8 -6 16 0 t16 0" stroke="#bdf0ff" stroke-width="3" fill="none"/>
     ${win(40, 200, 60, 40)}
     <rect x="132" y="224" width="38" height="76" fill="#3a8ee6" ${so(2)}/><rect x="140" y="234" width="22" height="18" fill="#a9dcf7"/>
@@ -777,7 +796,7 @@ function downtownProps() {
   );
 }
 
-function fieldsProps() {
+function fieldsProps(spot) {
   const lights = (x) => `<g ${so(2)}><path d="M${x} 252 V110" stroke="${SOFT}" stroke-width="7"/><path d="M${x} 252 V110" stroke="#9aa3b2" stroke-width="4"/><rect x="${x - 22}" y="92" width="44" height="22" rx="3" fill="#4a4a5a"/>${[0, 1, 2].flatMap((c) => [0, 1].map((r) => `<circle cx="${x - 13 + c * 13}" cy="${98 + r * 10}" r="3.6" fill="#fff3b0" stroke="none"/>`)).join('')}</g>`;
   // bleachers: a stepped metal frame with plank seats
   const rows =
@@ -799,70 +818,197 @@ function fieldsProps() {
     <g>${rows}</g>
     <g transform="translate(40 300)"><path d="M20 0 V-60 M150 0 V-60" stroke="${SOFT}" stroke-width="8"/>
       <rect x="0" y="-150" width="170" height="92" rx="6" fill="#264653" ${so(2.5)}/>
-      <text x="85" y="-128" text-anchor="middle" font-family="'Baloo 2', system-ui, sans-serif" font-size="16" font-weight="800" fill="#ffd23f">BALL FIELDS</text>
+      <text x="85" y="-128" text-anchor="middle" font-family="'Baloo 2', system-ui, sans-serif" font-size="${spot?.name.length > 14 ? 13 : 16}" font-weight="800" fill="#ffd23f">${esc((spot?.name || 'Ball fields').toUpperCase())}</text>
       <text x="45" y="-108" text-anchor="middle" font-size="12" font-weight="800" fill="#d8f3dc" font-family="'Baloo 2', system-ui, sans-serif">HOME</text><text x="125" y="-108" text-anchor="middle" font-size="12" font-weight="800" fill="#d8f3dc" font-family="'Baloo 2', system-ui, sans-serif">GUEST</text>
       <rect x="27" y="-102" width="36" height="32" rx="4" fill="#1b2f38"/><rect x="107" y="-102" width="36" height="32" rx="4" fill="#1b2f38"/>
       <text x="45" y="-78" text-anchor="middle" font-size="24" font-weight="800" fill="#ff9f43" font-family="'Baloo 2', system-ui, sans-serif">3</text><text x="125" y="-78" text-anchor="middle" font-size="24" font-weight="800" fill="#ff9f43" font-family="'Baloo 2', system-ui, sans-serif">2</text></g>
     ${tree(985, 0.7)}`;
 }
 
-// Backdrop for a spot. Sky colors come from CSS variables that follow the time of day.
-export function sceneSVG(spot) {
+// A playground: swings, a slide with a ladder, a sandbox and the sign.
+function playgroundProps(spot) {
+  const swings = [70, 130, 190].map((x, i) => `<path d="M${x} 168 V${246 + (i % 2) * 6}" stroke="${SOFT}" stroke-width="2"/><path d="M${x + 22} 168 V${246 + (i % 2) * 6}" stroke="${SOFT}" stroke-width="2"/><rect x="${x - 4}" y="${246 + (i % 2) * 6}" width="30" height="8" rx="3" fill="${['#ffd23f', '#3a8ee6', '#2f9e44'][i]}" ${so(1.6)}/>`).join('');
+  return `${tree(980, 1)}${tree(400, 0.8)}
+    <g fill="none"><path d="M30 300 L60 160 H250 L280 300" stroke="${SOFT}" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/><path d="M30 300 L60 160 H250 L280 300" stroke="#e5484d" stroke-width="6.5" stroke-linecap="round" stroke-linejoin="round"/></g>
+    ${swings}
+    <g transform="translate(560 300)">
+      <path d="M0 0 V-120 M50 0 V-120" stroke="${SOFT}" stroke-width="8"/><path d="M0 0 V-120 M50 0 V-120" stroke="#7d5ba6" stroke-width="5"/>
+      <path d="M0 -24 H50 M0 -48 H50 M0 -72 H50 M0 -96 H50" stroke="#7d5ba6" stroke-width="4"/>
+      <path d="M-8 -126 H58 V-114 H-8 Z" fill="#ff6f91" ${so(2)}/><path d="M-4 -126 L25 -156 L54 -126 Z" fill="#ff6f91" ${so(2)}/>
+      <path d="M52 -118 Q120 -100 150 -14 Q156 0 176 0 L180 -14 Q166 -12 162 -22 Q134 -112 56 -132 Z" fill="#ffd23f" ${so(2.5)}/>
+    </g>
+    <rect x="780" y="270" width="150" height="34" rx="6" fill="#e9c891" ${so(2)}/><circle cx="820" cy="276" r="10" fill="#f0d6a2"/><path d="M860 274 l12 -14 l6 4 z" fill="#e5484d" ${so(1.4)}/>
+    ${postSign(420, spot.name.toUpperCase(), { size: 18 })}${bush(320, 70, true)}`;
+}
+
+// Offices downtown: City Hall, Tech Park, or Main Street's row of shops and offices.
+function officeProps(spot) {
+  if (spot.id === 'cityHall') {
+    const cols = [220, 290, 360, 640, 710, 780].map((x) => `<rect x="${x - 10}" y="168" width="20" height="124" fill="#fffaf0" ${so(2)}/>`).join('');
+    return `${tree(80, 1.05)}${tree(940, 1.1)}
+      <rect x="180" y="160" width="640" height="140" fill="#efe9dc" ${so(2.5)}/>
+      <path d="M160 162 L500 96 L840 162 Z" fill="#e2dacb" ${so(2.5)}/>
+      <rect x="430" y="40" width="140" height="60" fill="#efe9dc" ${so(2.5)}/>
+      <path d="M420 44 Q500 -30 580 44 Z" fill="#8fd3c7" ${so(2.5)}/><path d="M500 6 V-20" stroke="${SOFT}" stroke-width="3"/><path d="M500 -20 h24 l-6 7 l6 7 h-24 z" fill="#e5484d" ${so(1.4)}/>
+      <circle cx="500" cy="72" r="16" fill="#fffaf0" ${so(2)}/><path d="M500 62 V72 H508" stroke="${INK}" stroke-width="2.4" fill="none" stroke-linecap="round"/>
+      <rect x="395" y="132" width="210" height="26" rx="5" fill="#fffaf0" ${so(2)}/><text x="500" y="152" text-anchor="middle" ${FONT} font-size="20" fill="${SOFT}">CITY HALL</text>
+      ${cols}
+      <rect x="465" y="220" width="70" height="80" fill="#8b5a2b" ${so(2)}/><path d="M500 220 V300" stroke="${SOFT}" stroke-width="2"/>
+      <rect x="440" y="298" width="120" height="8" fill="#d8cfc0" ${so(1.6)}/>${lamp(150)}${lamp(850)}`;
+  }
+  if (spot.id === 'techPark') {
+    const tower = (x, w, h, c) => `<rect x="${x}" y="${GROUND - h}" width="${w}" height="${h}" rx="6" fill="${c}" ${so(2.5)}/>${Array.from({ length: Math.floor((h - 20) / 30) }, (_, r) => `<rect x="${x + 10}" y="${GROUND - h + 14 + r * 30}" width="${w - 20}" height="18" rx="2" fill="#dff3ff" ${so(1.5)}/>`).join('')}`;
+    return `${tower(20, 170, 240, '#8ecae6')}${tower(210, 150, 180, '#b8e0d2')}${tower(650, 160, 260, '#a0c4ff')}${tower(830, 150, 200, '#cdb4db')}
+      <g transform="translate(505 210)"><circle r="78" fill="#80ed99" ${so(2.5)}/><circle r="62" fill="none" stroke="#fff" stroke-width="3" opacity=".6"/><text y="8" text-anchor="middle" ${FONT} font-size="24" fill="#1b4332">TECH PARK</text></g>
+      <path d="M505 288 V300" stroke="${SOFT}" stroke-width="8"/>${bush(420, 70)}${bush(590, 70)}`;
+  }
+  return downtownProps();
+}
+
+// The farmers market: striped tents with fruit on the tables, or an empty lot on other days.
+function marketProps(spot, open) {
+  if (!open)
+    return `${tree(110, 1.1)}${tree(900, 1.15)}<rect x="200" y="286" width="600" height="18" fill="#d8cfc0" ${so(1.6)}/>
+      ${postSign(500, 'FARMERS MARKET', { size: 22, h: 70 })}
+      <text x="500" y="282" text-anchor="middle" ${FONT} font-size="17" fill="${SOFT}" paint-order="stroke" stroke="#fffaf0" stroke-width="5">Wed + Sat, 10 to 2</text>`;
+  const tent = (x, c, fruit) => {
+    const stripes = Array.from({ length: 6 }, (_, i) => `<path d="M${x + 14 + i * 27} 200 l-4 34 h14 l-4 -34 z" fill="#fff" opacity=".75"/>`).join('');
+    const goods = Array.from({ length: 6 }, (_, i) => `<circle cx="${x + 26 + i * 25}" cy="${258 - (i % 2) * 4}" r="11" fill="${fruit[i % fruit.length]}" ${so(1.4)}/>`).join('');
+    return `<path d="M${x} 234 L${x + 20} 200 H${x + 170} L${x + 190} 234 Z" fill="${c}" ${so(2.5)}/>${stripes}
+      <path d="M${x + 12} 234 V300 M${x + 178} 234 V300" stroke="${SOFT}" stroke-width="7"/><path d="M${x + 12} 234 V300 M${x + 178} 234 V300" stroke="#8b5a2b" stroke-width="4"/>
+      ${goods}<rect x="${x + 4}" y="264" width="182" height="36" fill="#c08552" ${so(2)}/>`;
+  };
+  return `${tent(20, '#e5484d', ['#ff595e', '#c3423f'])}${tent(260, '#2f9e44', ['#8ac926', '#55a630'])}${tent(500, '#ffb703', ['#ffd23f', '#fb8500'])}${tent(740, '#7d5ba6', ['#9d4edd', '#c77dff'])}
+    <rect x="330" y="132" width="340" height="44" rx="10" fill="#fffaf0" ${so(2.5)}/><text x="500" y="163" text-anchor="middle" ${FONT} font-size="26" fill="#2f9e44">FARMERS MARKET</text>
+    <path d="M330 154 L230 200 M670 154 L770 200" stroke="${SOFT}" stroke-width="2"/>`;
+}
+
+// The zoo: an arched gate, a giraffe peeking over the fence, an elephant.
+function zooProps(spot) {
+  const posts = Array.from({ length: 25 }, (_, i) => `M${i * 42 + 6} 300 V250`).join(' ');
+  return `${tree(940, 1.1, 'tall')}
+    <g transform="translate(650 300)">
+      <path d="M40 -40 V-200 L56 -250 L68 -246 L56 -196 V-40" fill="#f6bd60" ${so(2.5)}/>
+      <ellipse cx="68" cy="-252" rx="20" ry="11" fill="#f6bd60" ${so(2.5)}/><path d="M58 -262 l-3 -12 M66 -264 l0 -12" stroke="${SOFT}" stroke-width="3" stroke-linecap="round"/>
+      <circle cx="74" cy="-256" r="2.6" fill="${INK}"/>
+      ${[[46, -90], [50, -140], [44, -180], [54, -224]].map(([x, y]) => `<circle cx="${x}" cy="${y}" r="6" fill="#b5651d"/>`).join('')}
+    </g>
+    <g transform="translate(760 300)"><path d="M0 -10 Q-6 -88 70 -92 Q140 -90 136 -10 Z" fill="#adb5bd" ${so(2.5)}/><circle cx="140" cy="-74" r="34" fill="#adb5bd" ${so(2.5)}/>
+      <path d="M164 -60 Q186 -20 168 6" stroke="${SOFT}" stroke-width="18" fill="none" stroke-linecap="round"/><path d="M164 -60 Q186 -20 168 6" stroke="#adb5bd" stroke-width="13" fill="none" stroke-linecap="round"/>
+      <path d="M118 -96 Q96 -70 120 -50 Z" fill="#c9cfd6" ${so(2)}/><circle cx="150" cy="-82" r="3" fill="${INK}"/></g>
+    <path d="${posts}" stroke="${SOFT}" stroke-width="7"/><path d="${posts}" stroke="#a0703a" stroke-width="4"/>
+    <path d="M0 262 H1000 M0 284 H1000" stroke="#a0703a" stroke-width="5"/>
+    <g transform="translate(250 300)">
+      <path d="M-120 0 V-150 M120 0 V-150" stroke="${SOFT}" stroke-width="22"/><path d="M-120 0 V-150 M120 0 V-150" stroke="#8b5a2b" stroke-width="17"/>
+      <path d="M-136 -150 Q0 -250 136 -150" stroke="${SOFT}" stroke-width="22" fill="none"/><path d="M-136 -150 Q0 -250 136 -150" stroke="#8b5a2b" stroke-width="17" fill="none"/>
+      <rect x="-104" y="-196" width="208" height="40" rx="8" fill="#ffd23f" ${so(2.5)}/><text y="-168" text-anchor="middle" ${FONT} font-size="24" fill="#6b4f2a">${esc(spot.name.toUpperCase())}</text>
+    </g>`;
+}
+
+// A park: big trees, a fountain, benches and the sign.
+function parkProps(spot) {
+  const bench = (x) => `<g ${so(1.8)}><rect x="${x}" y="276" width="80" height="7" rx="2" fill="#8b5a2b"/><rect x="${x}" y="290" width="80" height="6" rx="2" fill="#8b5a2b"/><path d="M${x + 8} 296 v10 M${x + 72} 296 v10" stroke="#4a4a5a" stroke-width="4"/></g>`;
+  return `${tree(60, 1.25)}${tree(220, 1)}${tree(790, 1.15)}${tree(950, 1.3)}
+    <ellipse cx="500" cy="292" rx="140" ry="18" fill="#7ec8e3" ${so(2)}/>
+    <rect x="486" y="214" width="28" height="74" fill="#c9d1db" ${so(2)}/><ellipse cx="500" cy="214" rx="40" ry="8" fill="#c9d1db" ${so(2)}/>
+    <path d="M500 206 Q470 160 440 276 M500 206 Q530 160 560 276 M500 204 V170" stroke="#bdf0ff" stroke-width="5" fill="none" stroke-linecap="round"/>
+    ${bench(300)}${bench(620)}${bush(380, 60, true)}${bush(690, 60, true)}
+    ${postSign(150, spot.name.toUpperCase(), { size: 18, h: 30 })}`;
+}
+
+const SCENE_PROPS = { home: homeProps, school: schoolProps, pool: poolProps, office: officeProps, fields: fieldsProps, playground: playgroundProps, market: marketProps, zoo: zooProps, park: parkProps };
+
+// Sky, sun, clouds and the hills behind the buildings.
+function sky() {
   const id = `sky${++sceneN}`;
-  const props = { home: homeProps, school: schoolProps, pool: poolProps, downtown: downtownProps, fields: fieldsProps }[spot.kind]?.(spot) || '';
-  return `<svg viewBox="0 0 1000 500" preserveAspectRatio="xMidYMax slice" class="scene-svg" xmlns="http://www.w3.org/2000/svg">
-  <defs><linearGradient id="${id}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-color="#fff" stop-opacity=".55"/></linearGradient></defs>
+  return `<defs><linearGradient id="${id}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-color="#fff" stop-opacity=".55"/></linearGradient></defs>
   <rect width="1000" height="500" fill="var(--sky)"/>
   <rect width="1000" height="${GROUND}" fill="url(#${id})"/>
   <g class="sun"><circle cx="860" cy="84" r="72" fill="var(--sun)" opacity=".25"/><circle cx="860" cy="84" r="46" fill="var(--sun)"/></g>
   <g class="clouds">${cloud(190, 92, 1.1)}${cloud(560, 62, 1.3)}${cloud(760, 150, 0.75)}${cloud(-20, 180, 0.8)}</g>
   <path d="M0 ${GROUND} V238 Q90 196 210 226 T470 214 T730 206 T1000 226 V${GROUND} Z" fill="var(--grass)" opacity=".45"/>
-  <path d="M0 ${GROUND} V262 Q160 236 330 258 T680 250 T1000 256 V${GROUND} Z" fill="var(--grass)" opacity=".75"/>
-  ${LAWN}${props}
-  ${street()}
-</svg>`;
+  <path d="M0 ${GROUND} V262 Q160 236 330 258 T680 250 T1000 256 V${GROUND} Z" fill="var(--grass)" opacity=".75"/>`;
+}
+const wrapScene = (inner) => `<svg viewBox="0 0 1000 500" preserveAspectRatio="xMidYMax slice" class="scene-svg" xmlns="http://www.w3.org/2000/svg">${sky()}${inner}</svg>`;
+
+// Backdrop for a spot. Sky colors come from CSS variables that follow the time of day.
+// opts.marketOpen: the farmers market is set up today.
+export function sceneSVG(spot, opts = {}) {
+  const props = SCENE_PROPS[spot.kind]?.(spot, opts.marketOpen) || '';
+  return wrapScene(`${LAWN}${props}${street()}`);
 }
 
-export function mapSVG(spots, current, route = []) {
-  const pos = (s) => [s.x * 8 + 40, s.y * 5 + 30];
-  const icons = { home: '🏡', school: '🏫', pool: '🏊', downtown: '🏙️', fields: '⚾' };
-  const roads = [];
-  for (let i = 0; i < spots.length; i++)
-    for (let j = i + 1; j < spots.length; j++) {
-      const [x1, y1] = pos(spots[i]);
-      const [x2, y2] = pos(spots[j]);
-      if (Math.hypot(spots[i].x - spots[j].x, spots[i].y - spots[j].y) < 42) roads.push(`M${x1} ${y1} L${x2} ${y2}`);
-    }
-  const roadD = roads.join(' ');
-  const ordered = route.map((r) => spots.find((s) => s.id === r.spot)).filter(Boolean);
-  const routePath = ordered.length > 1 ? `<path d="M${ordered.map((s) => pos(s).join(' ')).join(' L')}" stroke="#ff6f91" stroke-width="6" stroke-dasharray="12 9" fill="none" stroke-linecap="round" stroke-linejoin="round"/>` : '';
-  // little clumps of trees in the open spaces
-  const trees = [[96, 92], [124, 120], [70, 140], [600, 64], [636, 92], [820, 470], [846, 440], [340, 530], [372, 520], [540, 250], [96, 270], [800, 200], [180, 560 - 34]]
-    .map(([x, y], i) => `<g transform="translate(${x} ${y})"><circle r="${i % 3 ? 11 : 14}" fill="${i % 2 ? '#6cc054' : '#5fae4b'}" stroke="#3f7f33" stroke-width="2"/><circle cx="-3" cy="-4" r="${i % 3 ? 4 : 5}" fill="#86cf6a"/></g>`)
+// The street going by while the truck drives: two copies of a 1000-wide strip that CSS scrolls left.
+// The second copy overlaps the first by a hair so no seam shows.
+export function streetSVG(area) {
+  const strip = `${LAWN}${area === 'downtown' ? downtownProps() : homeProps({ area })}${street()}`;
+  return wrapScene(`<g class="roll"><g>${strip}</g><g transform="translate(999 0)">${strip}</g></g>`);
+}
+
+const MAP_ICONS = { home: '🏡', school: '🏫', pool: '🏊', office: '🏢', fields: '⚾', playground: '🛝', market: '🍎', zoo: '🦒', park: '🌳' };
+export const mapIcon = (kind) => MAP_ICONS[kind] || '📍';
+
+export function mapSVG(spots, areas, current, route = []) {
+  const pos = (s) => [s.x * 8 + 40, s.y * 5.6 + 40];
+  const byId = Object.fromEntries(spots.map((s) => [s.id, s]));
+  // each area is a tinted patch behind its stops, named in the corner
+  const labels = [];
+  const blobs = areas
+    .map((a) => {
+      const pts = spots.filter((s) => s.area === a.id).map(pos);
+      if (!pts.length) return '';
+      const x0 = Math.min(...pts.map((p) => p[0])) - 62;
+      const x1 = Math.max(...pts.map((p) => p[0])) + 62;
+      const y0 = Math.min(...pts.map((p) => p[1])) - 58;
+      const y1 = Math.max(...pts.map((p) => p[1])) + 50;
+      labels.push(`<text x="${x0 + 16}" y="${y0 + 22}" font-size="14" font-weight="800" fill="#6d597a" letter-spacing="1" paint-order="stroke" stroke="${a.tint}" stroke-width="5">${esc(a.name.toUpperCase())}</text>`);
+      return `<rect x="${x0}" y="${y0}" width="${x1 - x0}" height="${y1 - y0}" rx="28" fill="${a.tint}" stroke="#fff" stroke-width="3" opacity=".92"/>`;
+    })
     .join('');
-  return `<svg viewBox="0 0 880 560" class="map-svg" xmlns="http://www.w3.org/2000/svg">
-  <rect width="880" height="560" rx="18" fill="#cdeac0"/>
-  <g fill="#bfe3ad"><ellipse cx="150" cy="110" rx="120" ry="70"/><ellipse cx="620" cy="80" rx="110" ry="50"/><ellipse cx="380" cy="500" rx="140" ry="60"/></g>
-  <g fill="#d9f2cd"><ellipse cx="760" cy="230" rx="90" ry="40"/><ellipse cx="80" cy="300" rx="60" ry="80"/></g>
-  <path d="M560 560 q40 -120 180 -160 t140 -120" stroke="#5fb3d3" stroke-width="36" fill="none"/>
-  <path d="M560 560 q40 -120 180 -160 t140 -120" stroke="#8fd3ec" stroke-width="28" fill="none"/>
-  <path d="M600 520 q14 -6 28 0 M700 420 q14 -6 28 0 M820 330 q12 -6 24 0" stroke="#d6f1fb" stroke-width="3" fill="none" stroke-linecap="round"/>
-  <ellipse cx="150" cy="210" rx="44" ry="24" fill="#8fd3ec" stroke="#5fb3d3" stroke-width="4"/><path d="M134 206 q8 -5 16 0" stroke="#d6f1fb" stroke-width="3" fill="none" stroke-linecap="round"/>
-  ${trees}
-  <path d="${roadD}" stroke="#5b5d68" stroke-width="18" stroke-linecap="round" fill="none"/>
-  <path d="${roadD}" stroke="#8c8e99" stroke-width="13" stroke-linecap="round" fill="none"/>
-  <path d="${roadD}" stroke="#ffe08a" stroke-width="2" stroke-dasharray="9 9" fill="none"/>
-  ${routePath}
+  // roads: each neighborhood's places to its streets, the streets to the nearest downtown stop,
+  // and downtown stops to their nearest neighbor
+  const roads = [];
+  const road = (a, b) => {
+    const [x1, y1] = pos(a);
+    const [x2, y2] = pos(b);
+    roads.push(`M${x1} ${y1} L${x2} ${y2}`);
+  };
+  const d2 = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
+  const nearest = (s, list) => list.reduce((b, x) => (d2(x, s) < d2(b, s) ? x : b));
+  const downtown = spots.filter((s) => s.area === 'downtown');
+  for (const a of areas) {
+    const list = spots.filter((s) => s.area === a.id);
+    if (!list.length) continue;
+    if (a.id === 'downtown') {
+      for (const s of list) road(s, nearest(s, list.filter((x) => x !== s)));
+      continue;
+    }
+    const home = list.find((s) => s.kind === 'home') || list[0];
+    for (const s of list) if (s !== home) road(home, s);
+    road(nearest(home, downtown), home);
+  }
+  const roadD = roads.join(' ');
+  const ordered = route.map((r) => byId[r.spot]).filter(Boolean);
+  const routePath = ordered.length > 1 ? `<path d="M${ordered.map((s) => pos(s).join(' ')).join(' L')}" stroke="#ff6f91" stroke-width="6" stroke-dasharray="12 9" fill="none" stroke-linecap="round" stroke-linejoin="round"/>` : '';
+  return `<svg viewBox="0 0 880 650" class="map-svg" xmlns="http://www.w3.org/2000/svg">
+  <rect width="880" height="650" rx="18" fill="#cdeac0"/>
+  <path d="M380 650 q40 -150 200 -230 t300 -90" stroke="#5fb3d3" stroke-width="30" fill="none"/>
+  <path d="M380 650 q40 -150 200 -230 t300 -90" stroke="#8fd3ec" stroke-width="22" fill="none"/>
+  ${blobs}
+  <path d="${roadD}" stroke="#5b5d68" stroke-width="14" stroke-linecap="round" fill="none"/>
+  <path d="${roadD}" stroke="#8c8e99" stroke-width="10" stroke-linecap="round" fill="none"/>
+  <path d="${roadD}" stroke="#ffe08a" stroke-width="1.6" stroke-dasharray="8 8" fill="none"/>
+  ${labels.join('')}${routePath}
   ${spots
     .map((s) => {
       const [x, y] = pos(s);
       const here = s.id === current;
       return `<g class="map-spot${here ? ' here' : ''}" data-spot="${s.id}" transform="translate(${x} ${y})" tabindex="0" role="button" aria-label="${esc(s.name)}">
-        <circle cy="5" r="34" fill="#2e2a45" opacity=".18"/>
-        <circle class="pin" r="34" fill="${here ? '#fff3b0' : '#fff'}" stroke="${here ? '#ff6f91' : '#6d597a'}" stroke-width="${here ? 5 : 3}"/>
-        <text y="12" text-anchor="middle" font-size="34">${icons[s.kind]}</text>
-        <text y="56" text-anchor="middle" font-size="17" font-weight="800" fill="#3d405b" paint-order="stroke" stroke="#fff" stroke-width="5" stroke-linejoin="round">${esc(s.name)}</text>
-        ${here ? '<text y="-40" text-anchor="middle" font-size="26">🚚</text>' : ''}
+        <circle cy="4" r="25" fill="#2e2a45" opacity=".18"/>
+        <circle class="pin" r="25" fill="${here ? '#fff3b0' : '#fff'}" stroke="${here ? '#ff6f91' : '#6d597a'}" stroke-width="${here ? 5 : 3}"/>
+        <text y="9" text-anchor="middle" font-size="26">${mapIcon(s.kind)}</text>
+        <text y="43" text-anchor="middle" font-size="14" font-weight="800" fill="#3d405b" paint-order="stroke" stroke="#fff" stroke-width="4" stroke-linejoin="round">${esc(s.name)}</text>
+        ${here ? '<text y="-30" text-anchor="middle" font-size="24">🚚</text>' : ''}
       </g>`;
     })
     .join('')}

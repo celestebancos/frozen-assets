@@ -21,13 +21,16 @@ export const CONFIG = {
   gas: { pricePerGal: 350, tankGal: 20, idleGalPerHour: 0.1, startGal: 20, autoFillBelow: 0.3 },
 
   // Arrival rate scale (bunches per hour at a "1.0" moment).
-  demandScale: 3.9,
+  demandScale: 4.25,
   seasonCurve: [0.55, 0.65, 0.8, 0.95, 1.05, 1.1, 1.1, 1.05, 0.95, 0.8, 0.65, 0.55],
   weekendBoost: 1.25,
   dayRandom: [0.9, 1.1],
-  // Spot crowd thins the longer you stay there today.
   // A spot's crowd thins the longer you stay. Neighborhoods thin less: people keep coming home all day.
-  saturation: { minutesToHalf: 240, floor: 0.45, homeFloor: 0.7 },
+  // Time at other stops in the same area counts too (areaShare): it's the same families.
+  saturation: { minutesToHalf: 240, floor: 0.45, homeFloor: 0.62, areaShare: 0.5 },
+
+  // Drive time in minutes: stops in the same area are a few minutes apart; across town takes longer.
+  drive: { nearPerUnit: 0.12, farBase: 5, farPerUnit: 0.3 },
 
   weather: {
     baseTemp: [76, 79, 83, 87, 90, 92, 92, 90, 87, 83, 79, 76],
@@ -83,10 +86,23 @@ export const CONFIG = {
   dropChance: 0.02,
 
   // What a typical customer thinks is fair (cents).
-  fairPrice: { cake: 300, sugar: 350, waffle: 450, bowl: 300 },
+  fairPrice: { cake: 300, sugar: 350, waffle: 450, bowl: 300, rocketPop: 125, fudgePop: 150, freezePop: 60 },
   fairTopping: 50,
   wtpRange: [0.85, 1.6],
+  // How often each kind of person wants a popsicle instead of ice cream (when pops are on the menu).
+  popWant: { kid: 0.08, teen: 0.05, adult: 0.02 },
+
+  // Kids out on their own sometimes only have pocket money. They buy only if something costs that much or less.
+  pocket: { chance: 0.18, amounts: [[100, 6], [75, 2], [50, 1]] },
+
+  // Driving: people on the sidewalk wave the truck down. Rate = share × the crowd at the nearer stop.
+  curb: { share: 0.35, stopMinutes: 2 },
+  // Families who already bought from you today come back by. Rate = share × the people a tired spot is missing.
+  alreadyHad: { share: 0.5 },
 };
+
+// Starting menu prices (cents).
+export const START_PRICES = { cake: 300, sugar: 350, waffle: 450, bowl: 300, chocSprinkles: 50, rainbowSprinkles: 50, rocketPop: 100, fudgePop: 125, freezePop: 50 };
 
 // Supplies. "unit" is what one pack count means. Mix is tracked in half-servings internally.
 export const SUPPLIES = [
@@ -106,6 +122,12 @@ export const SUPPLIES = [
     packs: [{ size: 100, price: 600 }, { size: 500, price: 2500 }, { size: 5000, price: 20000 }] },
   { id: 'rainbowSprinkles', name: 'Rainbow sprinkles', short: 'Rainbow sprinkles', unit: 'servings', emoji: '🌈', use: 'One serving on each ice cream that gets rainbow sprinkles.',
     packs: [{ size: 100, price: 600 }, { size: 500, price: 2500 }, { size: 5000, price: 20000 }] },
+  { id: 'rocketPop', name: 'Rocket pops', short: 'Rocket pops', unit: 'pops', emoji: '🚀', use: 'Red, white and blue. Sold as is: 1 pop per sale. Pops stay frozen all summer.',
+    packs: [{ size: 24, price: 720 }, { size: 100, price: 2500 }, { size: 500, price: 10000 }] },
+  { id: 'fudgePop', name: 'Fudge pops', short: 'Fudge pops', unit: 'pops', emoji: '🍫', use: 'Chocolate on a stick. Sold as is: 1 pop per sale. Pops stay frozen all summer.',
+    packs: [{ size: 24, price: 840 }, { size: 100, price: 3000 }, { size: 500, price: 12500 }] },
+  { id: 'freezePop', name: 'Freeze pops', short: 'Freeze pops', unit: 'pops', emoji: '🧊', use: 'Little ice tubes. Cheap! Sold as is: 1 per sale. Pops stay frozen all summer.',
+    packs: [{ size: 50, price: 400 }, { size: 250, price: 1500 }, { size: 1000, price: 5000 }] },
   { id: 'spoons', name: 'Spoons', short: 'Spoons', unit: 'spoons', emoji: '🥄', use: "Every bowl needs a spoon. No spoons = you can't sell bowls! (Dogs don't need one.)",
     packs: [{ size: 100, price: 200 }, { size: 1000, price: 1000 }] },
   { id: 'napkins', name: 'Napkins', short: 'Napkins', unit: 'napkins', emoji: '🧻', use: 'Each grown-up takes 1 napkin and each kid takes 1 to 3. No napkins = sticky, grumpy customers.',
@@ -124,22 +146,70 @@ export const CONTAINERS = [
   { id: 'waffle', name: 'Waffle cone' },
   { id: 'bowl', name: 'Bowl' },
 ];
+// Popsicles: sold as is, one supply each. A cheap way to sell to kids with only a little money.
+export const POPS = [
+  { id: 'rocketPop', name: 'Rocket pop', want: 4 },
+  { id: 'fudgePop', name: 'Fudge pop', want: 3 },
+  { id: 'freezePop', name: 'Freeze pop', want: 3 },
+];
+export const POP = Object.fromEntries(POPS.map((p) => [p.id, p]));
+export const isPop = (item) => !!item?.pop;
+// Key used to count sales: "vanilla-cake", or a pop id like "rocketPop".
+export const itemKey = (item) => (item.pop ? item.pop : `${item.flavor}-${item.container}`);
+export const itemFromKey = (key) => {
+  if (POP[key]) return { pop: key };
+  const [flavor, container, topping] = key.split('-');
+  return { flavor, container, topping: topping || null };
+};
+
 export const TOPPINGS = [
   { id: 'chocSprinkles', name: 'Chocolate sprinkles' },
   { id: 'rainbowSprinkles', name: 'Rainbow sprinkles' },
 ];
 
-// Town map. x/y are 0–100 map coordinates; profile(hour, ctx) gives relative crowd.
-export const SPOTS = [
-  { id: 'maple', name: 'Maple Street', kind: 'home', x: 30, y: 35, size: 1.0 },
-  { id: 'oak', name: 'Oak Hollow', kind: 'home', x: 15, y: 70, size: 0.8 },
-  { id: 'sunset', name: 'Sunset Ridge', kind: 'home', x: 85, y: 15, size: 0.7, rich: true },
-  { id: 'riverside', name: 'Riverside', kind: 'home', x: 70, y: 80, size: 0.9 },
-  { id: 'school', name: 'School Playground', kind: 'school', x: 45, y: 60 },
-  { id: 'pool', name: 'Town Pool', kind: 'pool', x: 80, y: 55 },
-  { id: 'downtown', name: 'Downtown', kind: 'downtown', x: 50, y: 25 },
-  { id: 'fields', name: 'Ball Fields', kind: 'fields', x: 25, y: 88 },
+// Town areas. pay scales what people there will spend; pocket scales how many kids have only pocket money.
+export const AREAS = [
+  { id: 'maple', name: 'Maple Street', pay: 1.0, pocket: 1.0, tint: '#ffe8c2' },
+  { id: 'oak', name: 'Oak Hollow', pay: 0.95, pocket: 1.4, tint: '#e3f2c1' },
+  { id: 'sunset', name: 'Sunset Ridge', pay: 1.25, pocket: 0.4, tint: '#fde2e4' },
+  { id: 'riverside', name: 'Riverside', pay: 0.92, pocket: 1.6, tint: '#d7ecff' },
+  { id: 'downtown', name: 'Downtown', pay: 1.05, pocket: 0.8, tint: '#e9e4f5' },
 ];
+export const AREA = Object.fromEntries(AREAS.map((a) => [a.id, a]));
+
+// Town map. x/y are 0–100 map coordinates; spotProfile(hour) gives each kind's crowd, times size.
+// The first spot of each neighborhood is its streets (kind "home").
+export const SPOTS = [
+  { id: 'maple', name: 'Maple Street', kind: 'home', area: 'maple', x: 13, y: 6, size: 1.0 },
+  { id: 'school', name: 'Maple School', kind: 'school', area: 'maple', x: 23, y: 24 },
+  { id: 'maplePlay', name: 'Maple Playground', kind: 'playground', area: 'maple', x: 8, y: 38, size: 0.9 },
+
+  { id: 'oak', name: 'Oak Hollow', kind: 'home', area: 'oak', x: 13, y: 71, size: 0.8 },
+  { id: 'oakPlay', name: 'Oak Playground', kind: 'playground', area: 'oak', x: 30, y: 77, size: 0.8 },
+  { id: 'fields', name: 'Oak Ball Fields', kind: 'fields', area: 'oak', x: 10, y: 92 },
+  { id: 'oakPool', name: 'Oak Pool', kind: 'pool', area: 'oak', x: 30, y: 96, size: 0.7 },
+
+  { id: 'sunset', name: 'Sunset Ridge', kind: 'home', area: 'sunset', x: 86, y: 6, size: 0.7 },
+  { id: 'sunsetPool', name: 'Sunset Pool', kind: 'pool', area: 'sunset', x: 91, y: 26, size: 0.8 },
+  { id: 'sunsetSchool', name: 'Sunset School', kind: 'school', area: 'sunset', x: 78, y: 40, size: 0.8 },
+
+  { id: 'riverside', name: 'Riverside', kind: 'home', area: 'riverside', x: 72, y: 77, size: 0.9 },
+  { id: 'pool', name: 'Riverside Pool', kind: 'pool', area: 'riverside', x: 90, y: 71 },
+  { id: 'riverPlay', name: 'River Playground', kind: 'playground', area: 'riverside', x: 60, y: 95, size: 0.9 },
+  { id: 'riverFields', name: 'River Ball Fields', kind: 'fields', area: 'riverside', x: 87, y: 93, size: 0.8 },
+
+  { id: 'cityHall', name: 'City Hall', kind: 'office', area: 'downtown', x: 40, y: 6, size: 0.7, weekend: 0.1 },
+  { id: 'techPark', name: 'Tech Park', kind: 'office', area: 'downtown', x: 60, y: 6, size: 1.1, weekend: 0.1, pay: 1.1 },
+  { id: 'downtown', name: 'Main St Offices', kind: 'office', area: 'downtown', x: 50, y: 20, size: 1.0, weekend: 0.7 },
+  { id: 'market', name: 'Farmers Market', kind: 'market', area: 'downtown', x: 40, y: 36 },
+  { id: 'zoo', name: 'City Zoo', kind: 'zoo', area: 'downtown', x: 60, y: 36, pay: 1.1 },
+  { id: 'park', name: 'Central Park', kind: 'park', area: 'downtown', x: 50, y: 50 },
+];
+// The farmers market is open these days (0 = Monday), 10am–2pm.
+export const MARKET_DAYS = [2, 5];
+// Office workers spend a bit more than other grown-ups.
+export const OFFICE_ADULT_PAY = 1.08;
+
 // Who shows up where. groups are weighted party types; "times" override them for part of the day
 // (hours, 24h clock). dropMult scales how often cones hit the ground at that kind of spot.
 export const CROWDS = {
@@ -161,8 +231,13 @@ export const CROWDS = {
     groups: { family: 3, kids: 3, soloKid: 2, parentKid: 2, teens: 2 },
     times: [{ from: 13, to: 18, groups: { teens: 5, kids: 3, family: 2, soloKid: 2, parentKid: 1 } }],
   },
-  downtown: {
+  playground: {
+    dropMult: 3.5,
+    groups: { parentKid: 5, kids: 4, soloKid: 3, family: 3, teens: 0.3 },
+  },
+  office: {
     dropMult: 0.5,
+    hint: false, // grown-ups at work don't come by with kids
     groups: { soloAdult: 4, adults: 3, dog: 2, parentKid: 1, teens: 1 },
     times: [
       { from: 11.5, to: 13.5, groups: { soloAdult: 6, adults: 5, dog: 1 } },
@@ -174,7 +249,22 @@ export const CROWDS = {
     groups: { family: 3, kids: 3, adults: 2, parentKid: 2, teens: 2 },
     times: [{ from: 17, to: 20, groups: { family: 4, kids: 4, parentKid: 2, adults: 2, teens: 1 } }],
   },
+  market: {
+    dropMult: 1,
+    groups: { soloAdult: 3, adults: 3, family: 3, parentKid: 3, dog: 2, kids: 0.5 },
+  },
+  zoo: {
+    dropMult: 2,
+    groups: { family: 6, parentKid: 4, kids: 1, adults: 1, teens: 1 },
+  },
+  park: {
+    dropMult: 1.5,
+    groups: { parentKid: 3, dog: 3, family: 2, soloAdult: 2, adults: 2, kids: 2, soloKid: 1, teens: 2 },
+    times: [{ from: 11.5, to: 13.5, groups: { soloAdult: 5, adults: 3, dog: 2, parentKid: 2, family: 1 } }],
+  },
 };
+// On the road, people come out of whatever is around: offices downtown, houses everywhere else.
+export const STREET_CROWD = { downtown: 'office', other: 'home' };
 // How likely each kind of person is to drop a cone, relative to a kid.
 export const DROP_BY_PERSON = { kid: 1, teen: 0.5, adult: 0.1, dog: 0 };
 

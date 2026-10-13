@@ -6,7 +6,7 @@ export const EXPORT_VERSION = 1;
 
 const DAY_COLUMNS = [
   'season', 'day', 'week', 'dow', 'temp', 'rain', 'customers', 'parties', 'sold', 'revenue', 'startCash', 'endCash', 'share',
-  'tooExpensive', 'outOfStock', 'drops', 'dropsReplaced', 'cardsSold', 'cardsRedeemed', 'cardsOut', 'spoiled',
+  'tooExpensive', 'broke', 'alreadyHad', 'curbStops', 'outOfStock', 'drops', 'dropsReplaced', 'cardsSold', 'cardsRedeemed', 'cardsOut', 'spoiled',
   'popularityStart', 'popularityEnd', 'buzz', 'ads', 'fuel', 'billsToPay', 'interestOwed',
 ];
 
@@ -17,11 +17,12 @@ function csvCell(v) {
 }
 
 export function daysCsv(days) {
-  const priceKeys = ['cake', 'sugar', 'waffle', 'bowl', 'chocSprinkles', 'rainbowSprinkles'];
-  const header = [...DAY_COLUMNS, ...SPOTS.map((s) => 'min_' + s.id), ...priceKeys.map((k) => 'price_' + k), ...SUPPLIES.map((s) => 'stock_' + s.id), 'route', 'menuOff', 'policy_outOfStock', 'policy_drop'];
+  const priceKeys = ['cake', 'sugar', 'waffle', 'bowl', 'chocSprinkles', 'rainbowSprinkles', 'rocketPop', 'fudgePop', 'freezePop'];
+  const header = [...DAY_COLUMNS, ...SPOTS.map((s) => 'min_' + s.id), 'min_road', ...priceKeys.map((k) => 'price_' + k), ...SUPPLIES.map((s) => 'stock_' + s.id), 'route', 'menuOff', 'policy_outOfStock', 'policy_drop'];
   const rows = days.map((d) => [
     ...DAY_COLUMNS.map((c) => d[c]),
     ...SPOTS.map((s) => d.spots?.[s.id] || 0),
+    d.spots?.road || 0,
     ...priceKeys.map((k) => d.prices?.[k]),
     ...SUPPLIES.map((s) => d.stock?.[s.id]),
     (d.route || []).join(' '),

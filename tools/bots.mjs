@@ -1,9 +1,9 @@
 // Simulated players used for tuning and tests.
 import { Game } from '../js/engine.js';
-import { SUPPLIES, SUPPLY, CONFIG } from '../js/config.js';
+import { SUPPLIES, SUPPLY, CONFIG, MARKET_DAYS } from '../js/config.js';
 import { docLines } from '../js/documents.js';
 
-const FAIR = { cake: 300, sugar: 350, waffle: 450, bowl: 300, chocSprinkles: 50, rainbowSprinkles: 50 };
+const FAIR = { cake: 300, sugar: 350, waffle: 450, bowl: 300, chocSprinkles: 50, rainbowSprinkles: 50, rocketPop: 100, fudgePop: 125, freezePop: 50 };
 
 function fileAll(g) {
   for (const d of g.docsToFile()) {
@@ -43,17 +43,21 @@ function snapshotStock(g) {
   return Object.fromEntries(SUPPLIES.map((s) => [s.id, g.stock(s.id)]));
 }
 
-const SHARE = { vanilla: 0.6, chocolate: 0.6, cake: 0.3, sugar: 0.25, waffle: 0.25, bowl: 0.25, chocSprinkles: 0.3, rainbowSprinkles: 0.3, spoons: 0.25, napkins: 1.8 };
+const SHARE = { vanilla: 0.6, chocolate: 0.6, cake: 0.3, sugar: 0.25, waffle: 0.25, bowl: 0.25, chocSprinkles: 0.3, rainbowSprinkles: 0.3, spoons: 0.25, napkins: 1.8, rocketPop: 0.08, fudgePop: 0.06, freezePop: 0.06 };
+const POP_IDS = ['rocketPop', 'fudgePop', 'freezePop'];
+
+// A simple 2-stop route: a neighborhood, the pool across town, back for the evening.
+const SIMPLE_ROUTE = [
+  { spot: 'maple', at: 600 },
+  { spot: 'pool', at: 720 },
+  { spot: 'maple', at: 1020 },
+];
 
 export const BOTS = {
   decent: {
     prices: FAIR,
     policies: { outOfStock: 'gift', drop: 'replace', autoGas: true },
-    route: () => [
-      { spot: 'maple', at: 600 },
-      { spot: 'pool', at: 720 },
-      { spot: 'maple', at: 1020 },
-    ],
+    route: () => SIMPLE_ROUTE,
     ads: (g) => (g.week >= 2 && g.cash > 30000 ? 'flyers' : 'none'),
     restock: { days: 3, mixDays: 2.5, preferPack: 1 },
   },
@@ -62,23 +66,24 @@ export const BOTS = {
     policies: { outOfStock: 'gift', drop: 'replace', autoGas: true },
     route: (g) => {
       const wk = g.week;
-      const wkend = g.isWeekend;
+      const dow = g.dayOfWeek;
+      const market = MARKET_DAYS.includes(dow);
       const r = [];
-      if (wkend) {
-        r.push({ spot: 'maple', at: 600 });
-        r.push({ spot: wk >= 2 && wk <= 11 ? 'pool' : 'fields', at: 690 });
+      if (g.isWeekend) {
+        r.push({ spot: market ? 'market' : 'zoo', at: 600 });
+        r.push({ spot: wk >= 2 && wk <= 11 ? 'pool' : 'zoo', at: market ? 840 : 700 });
         r.push({ spot: wk <= 9 ? 'fields' : 'riverside', at: 1000 });
         r.push({ spot: 'sunset', at: 1110 });
         return r;
       }
-      r.push({ spot: 'sunset', at: 600 });
-      r.push({ spot: 'downtown', at: 680 });
+      r.push({ spot: market ? 'market' : 'sunset', at: 600 });
+      r.push({ spot: 'techPark', at: 690 });
       if (wk <= 2 || wk >= 11) {
         r.push({ spot: 'school', at: 860 });
-        r.push({ spot: 'riverside', at: 965 });
+        r.push({ spot: 'maple', at: 965 });
       } else r.push({ spot: 'pool', at: 815 });
-      r.push({ spot: wk <= 9 ? 'fields' : 'maple', at: 1020 });
-      r.push({ spot: 'oak', at: 1120 });
+      r.push({ spot: wk <= 9 ? 'fields' : 'oak', at: 1020 });
+      r.push({ spot: wk <= 9 ? 'oak' : 'riverside', at: 1120 });
       return r;
     },
     ads: (g) => (g.week >= 2 && g.week <= 10 && g.cash > 40000 ? 'radio' : g.cash > 20000 ? 'flyers' : 'none'),
@@ -87,21 +92,21 @@ export const BOTS = {
   overpricer: {
     prices: { cake: 900, sugar: 1000, waffle: 1200, bowl: 900, chocSprinkles: 150, rainbowSprinkles: 150 },
     policies: { outOfStock: 'nothing', drop: 'refuse', autoGas: true },
-    route: () => [{ spot: 'maple', at: 600 }, { spot: 'pool', at: 720 }, { spot: 'maple', at: 1020 }],
+    route: () => SIMPLE_ROUTE,
     ads: () => 'none',
     restock: { days: 3, mixDays: 2.5, preferPack: 1 },
   },
   overbuyer: {
     prices: FAIR,
     policies: { outOfStock: 'nothing', drop: 'replace', autoGas: true },
-    route: () => [{ spot: 'maple', at: 600 }, { spot: 'pool', at: 720 }, { spot: 'maple', at: 1020 }],
+    route: () => SIMPLE_ROUTE,
     ads: () => 'none',
     restock: { days: 3, mixDays: 3, huge: true },
   },
   promoSpammer: {
     prices: FAIR,
     policies: { outOfStock: 'gift', drop: 'replace', autoGas: true },
-    route: () => [{ spot: 'maple', at: 600 }, { spot: 'pool', at: 720 }, { spot: 'maple', at: 1020 }],
+    route: () => SIMPLE_ROUTE,
     ads: () => 'none',
     daily: (g) => g.startPromo(60),
     restock: { days: 3, mixDays: 2.5, preferPack: 1 },
@@ -116,7 +121,7 @@ export const BOTS = {
   billboard: {
     prices: FAIR,
     policies: { outOfStock: 'gift', drop: 'replace', autoGas: true },
-    route: () => [{ spot: 'maple', at: 600 }, { spot: 'pool', at: 720 }, { spot: 'maple', at: 1020 }],
+    route: () => SIMPLE_ROUTE,
     ads: () => 'billboard',
     restock: { days: 3, mixDays: 2.5, preferPack: 1 },
   },
@@ -124,9 +129,9 @@ export const BOTS = {
     // never restocks beyond the first $100 and credit
     prices: FAIR,
     policies: { outOfStock: 'nothing', drop: 'refuse', autoGas: true },
-    route: () => [{ spot: 'maple', at: 600 }, { spot: 'pool', at: 720 }, { spot: 'maple', at: 1020 }],
+    route: () => SIMPLE_ROUTE,
     ads: () => 'none',
-    restock: { days: 1, mixDays: 1, preferPack: 0, credit: false, minDaily: 10 },
+    restock: { days: 1, mixDays: 1, preferPack: 0, credit: false, minDaily: 10, pops: false },
   },
 };
 
@@ -136,7 +141,7 @@ export function playSeason(botName, seed, { trace = false } = {}) {
   for (const [k, v] of Object.entries(bot.prices)) g.setPrice(k, v);
   Object.assign(g.state.policies, bot.policies);
   fileAll(g);
-  const mem = { use: {}, share: SHARE };
+  const mem = { use: {}, share: SHARE, skip: bot.restock.pops === false ? POP_IDS : [] };
   // first purchase with $100
   for (const [id, p] of [['vanilla', 0], ['chocolate', 0], ['cake', 0], ['bowl', 0], ['spoons', 0], ['napkins', 0], ['rainbowSprinkles', 0], ['sugar', 0]]) g.buy(id, p, 1, false);
   const weekly = [];

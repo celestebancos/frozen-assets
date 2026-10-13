@@ -111,11 +111,20 @@ svg.truck-svg { width: 100%; height: auto; display: block; }
 .stage .scene svg { width: 100%; height: 100%; display: block; }
 .stage .truck-wrap { position: absolute; left: 50%; bottom: 10%; width: min(48%, 420px); transform: translateX(-30%); transition: transform 1.2s ease-in; z-index: 2; }
 .stage .truck-wrap svg { width: 100%; height: auto; display: block; }
-.stage .truck-wrap.away { transform: translateX(160%); }
 .stage .truck-wrap.arriving { transform: translateX(-200%); transition: none; }
 .wheel.spin { animation: spin 0.6s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
-.stage .road-msg { position: absolute; left: 50%; top: 30%; transform: translate(-50%, -50%); background: #fff; border: 3px solid var(--ink); border-radius: 16px; padding: 10px 18px; font-weight: 800; font-size: 22px; z-index: 4; box-shadow: var(--shadow); text-align: center; }
+.stage .road-msg { position: absolute; left: 50%; top: 10px; transform: translateX(-50%); white-space: nowrap; text-align: center; background: #fff; border: 3px solid var(--ink); border-radius: 14px; padding: 4px 12px; font-weight: 800; font-size: 18px; z-index: 4; box-shadow: var(--shadow); }
+/* driving: the street rolls by under a parked-in-place truck; it pauses when the truck stops for customers */
+.scene-svg .roll { animation: roll 5s linear infinite; }
+@keyframes roll { to { transform: translateX(-1000px); } }
+.scene-root.stopped .scene-svg .roll, .scene-root.stopped .wheel.spin { animation-play-state: paused; }
+.scene-root.driving .truck-wrap { animation: rumble 0.35s ease-in-out infinite; }
+.scene-root.stopped .truck-wrap { animation: none; }
+@keyframes rumble { 50% { margin-bottom: 2px; } }
+.party .wave { animation: wave 0.5s ease-in-out infinite alternate; }
+@keyframes wave { to { transform: translateX(-50%) rotate(-18deg); } }
+@media (prefers-reduced-motion: reduce) { .scene-svg .roll, .scene-root.driving .truck-wrap, .party .wave { animation: none; } }
 .rain { position: absolute; inset: 0; pointer-events: none; background-image: linear-gradient(transparent 90%, rgba(80, 120, 200, 0.5) 90%); background-size: 3px 26px; animation: rain 0.4s linear infinite; opacity: 0.6; z-index: 3; }
 @keyframes rain { to { background-position: 0 26px; } }
 .crowd { position: absolute; inset: 0; pointer-events: none; z-index: 3; }
@@ -130,6 +139,7 @@ svg.truck-svg { width: 100%; height: auto; display: block; }
 .bubble { position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%); background: #fff; border: 2px solid var(--ink); border-radius: 12px; padding: 2px 8px; font-size: 13px; font-weight: 800; white-space: nowrap; margin-bottom: 4px; animation: pop 0.25s ease-out; }
 .bubble.bad { background: #ffe3e3; }
 .bubble.good { background: #e6fcf5; }
+.bubble.hint { background: #fff3b0; }
 @keyframes pop { from { transform: translateX(-50%) scale(0.3); } }
 .party.walking .who > svg.person { animation: walk 0.34s ease-in-out infinite alternate; transform-origin: 50% 100%; }
 .party.walking .who:nth-child(2n) > svg.person { animation-delay: -0.17s; }
@@ -209,6 +219,7 @@ svg.truck-svg { width: 100%; height: auto; display: block; }
 .chip.off { opacity: 0.45; }
 
 .map-wrap { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(240px, 1fr); gap: 12px; }
+.map-wrap > div { min-width: 0; }
 @media (max-width: 760px) { .map-wrap { grid-template-columns: 1fr; } }
 .map-svg { width: 100%; height: auto; display: block; border: 3px solid var(--ink); border-radius: 18px; }
 .map-spot { cursor: pointer; }
@@ -441,6 +452,7 @@ table.books tr.bottom td { font-weight: 800; font-size: 18px; background: #fff3b
 .feed .say { display: flex; align-items: center; gap: 6px; background: #fff; border: 2px solid var(--ink); border-radius: 12px; padding: 2px 8px 2px 4px; font-weight: 800; font-size: 14px; line-height: 1.15; animation: rise 0.35s ease-out; transition: opacity 0.4s; box-shadow: var(--shadow); }
 .feed .say.bad { background: #ffe3e3; }
 .feed .say.good { background: #e6fcf5; }
+.feed .say.hint { background: #fff3b0; }
 .feed .say.gone { opacity: 0; }
 .feed .say .face { flex: none; width: 22px; height: 26px; overflow: hidden; }
 .feed .say .face svg { width: 22px; height: auto; display: block; }
@@ -448,6 +460,7 @@ table.books tr.bottom td { font-weight: 800; font-size: 18px; background: #fff3b
 .bubble { font-size: 18px; padding: 0 4px; }
 @media (max-width: 600px) {
   .feed { top: auto; bottom: 62%; width: 62%; }
+  .stage .road-msg { font-size: 13px; left: auto; right: 8px; transform: none; padding: 2px 8px; }
   .feed .say { font-size: 12px; }
 }
 
@@ -472,3 +485,21 @@ table.books tr.bottom td { font-weight: 800; font-size: 18px; background: #fff3b
 .penny-strip { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; background: #fff4e6; border: 3px solid var(--red); border-radius: 14px; padding: 6px 10px; margin-bottom: 8px; font-weight: 700; }
 .penny-strip.soft { border-color: var(--line); background: #fff; }
 .penny-strip .face { font-size: 30px; }
+
+/* ---------- saved routes & week plan ---------- */
+.text-in.small { font-size: 15px; padding: 4px 8px; flex: 1; min-width: 120px; }
+.drive-gap { margin: -2px 0 4px 14px; }
+.saved-route { display: flex; justify-content: space-between; align-items: center; gap: 6px; background: #fff; border: 2px solid var(--ink); border-radius: 12px; padding: 4px 8px; margin-bottom: 6px; }
+.week-plan { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 4px; }
+.week-plan label { display: flex; align-items: center; gap: 6px; background: #fff; border: 2px solid var(--line); border-radius: 10px; padding: 2px 6px; }
+.week-plan label.today { border-color: var(--ink); background: #fff3b0; }
+.week-plan label span { width: 44px; font-weight: 800; flex: none; }
+.week-plan select, .route-stop select, select[data-chg="planAll"] { min-width: 0; max-width: 100%; border: 2px solid var(--ink); border-radius: 8px; padding: 2px 4px; background: #fff; }
+.week-plan select { flex: 1; }
+@media (max-width: 600px) {
+  /* the town map stays big enough to read; slide it sideways */
+  .map-scroll { overflow-x: auto; border-radius: 18px; }
+  .map-scroll .map-svg { min-width: 680px; }
+}
+.route-stop select[data-chg="time"] { flex: none; }
+.route-stop select[data-chg="spot"] { flex: 1; min-width: 0; }

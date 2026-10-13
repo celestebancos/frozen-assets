@@ -1,7 +1,7 @@
 // Pieces of the weekly report (profit graph, "too expensive" list) and the end-of-summer screens.
 // The weekly report itself is the end of the shoebox (filing.js).
 import { itemName } from './scene.js';
-import { CONFIG } from '../config.js';
+import { CONFIG, itemFromKey } from '../config.js';
 import { pnlRowsFor } from '../ledger.js';
 import { iceCreamSVG, truckSVG } from '../art.js';
 import { esc, money, openModal, onActs } from './dom.js';
@@ -66,8 +66,7 @@ export function tooExpensiveList(wants) {
     <div class="sold-grid">${rows
       .slice(0, 10)
       .map(([k, w]) => {
-        const [flavor, container, topping] = k.split('-');
-        const it = { flavor, container, topping: topping || null };
+        const it = itemFromKey(k);
         return `<span class="chip" title="${esc(itemName(it))}">${iceCreamSVG(it, 26)} ${w.n}× at ${money(w.price)}</span>`;
       })
       .join('')}</div>

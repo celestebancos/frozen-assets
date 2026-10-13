@@ -2,7 +2,8 @@
 // P&L works out the profit, the profit moves to the player's Share, and the screen becomes the weekly report.
 import { DOC_TYPES, docLines, pennyComparison } from '../documents.js';
 import { ACCOUNTS, ACCOUNT, SECTIONS, pnlRowsFor, share } from '../ledger.js';
-import { CONFIG, TOPPINGS } from '../config.js';
+import { CONFIG, TOPPINGS, itemFromKey } from '../config.js';
+import { itemName } from './scene.js';
 import { iceCreamSVG } from '../art.js';
 import { esc, money, openModal, onActs, toast } from './dom.js';
 import { STAGE_W, buildStage, chooseScale, blocks, makeSep, LEFT, RIGHT } from './statements.js';
@@ -442,12 +443,11 @@ export function openShoebox(app, onDone) {
       </div>
       <h3>What sold</h3>
       <div class="sold-grid">${sold.map(([k, n]) => {
-        const [flavor, container] = k.split('-');
-        return `<span class="chip">${iceCreamSVG({ flavor, container, topping: null }, 26)} ${n}</span>`;
+        return `<span class="chip" title="${esc(itemName(itemFromKey(k)))}">${iceCreamSVG(itemFromKey(k), 26)} ${n}</span>`;
       }).join('')}
       ${TOPPINGS.filter((t) => lw.toppings?.[t.id]).map((t) => `<span class="chip">${iceCreamSVG({ flavor: 'vanilla', container: 'cake', topping: t.id }, 26)} +${lw.toppings[t.id]}</span>`).join('')}
       </div>
-      <div class="row tiny muted" style="margin-top:4px">🚶 ${(lw.customers || 0).toLocaleString()} people · 😤 ${lw.tooExpensive || 0} said “too expensive” · 😠 ${lw.outOfStock || 0} found something sold out</div>
+      <div class="row tiny muted" style="margin-top:4px">🚶 ${(lw.customers || 0).toLocaleString()} people · 😤 ${lw.tooExpensive || 0} said “too expensive” · 😠 ${lw.outOfStock || 0} found something sold out${lw.broke ? ` · 🪙 ${lw.broke} kids only had pocket money` : ''}</div>
       ${tooExpensiveList(lw.tooExpensiveWants)}
       <h3>Profit this summer</h3>
       ${profitChart(g)}
