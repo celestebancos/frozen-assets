@@ -430,16 +430,50 @@ export class Game {
     const wrong = picked.filter(([acct, d]) => answer.get(acct) !== d).map(([acct]) => acct);
     const missing = res.correct.filter((c) => !picks[c.acct]).length;
     this.logAction('file', { docId, doc: doc.type, week: doc.week, attempt, ok: res.ok, picks: { ...picks }, answer: res.correct.map((c) => `${c.acct}:${c.dir}`) });
-    if (attempt === 1) doc.firstTry = res.ok;
+    let learned = false;
+    if (attempt === 1) {
+      doc.firstTry = res.ok;
+      // a first-try right adds to this kind of paper's streak; a miss starts it over
+      const k = this.known(doc.type);
+      k.streak = res.ok ? k.streak + 1 : 0;
+      learned = res.ok && k.streak === C.filing.streak;
+    }
     if (res.ok) this.commitDoc(doc);
     this.sync();
-    return { ...res, attempt, wrong, missing };
+    return { ...res, attempt, wrong, missing, learned };
+  }
+
+  // How well the kid knows a kind of paper: { streak, seen } (seen counts papers since it was learned).
+  known(type) {
+    const m = (this.state.known ||= {});
+    return (m[type] ||= { streak: 0, seen: 0 });
+  }
+  knowsByHeart(type) {
+    return this.known(type).streak >= C.filing.streak;
+  }
+
+  // Penny files the papers the kid already knows by heart, except every few, which still come to the kid.
+  autoFileKnown() {
+    const done = [];
+    for (const doc of this.docsToFile()) {
+      if (!this.knowsByHeart(doc.type)) continue;
+      const k = this.known(doc.type);
+      k.seen++;
+      if (k.seen % C.filing.checkEvery === 0) continue;
+      doc.autoFiled = true;
+      this.logAction('file', { docId: doc.id, doc: doc.type, week: doc.week, attempt: 0, ok: true, auto: true });
+      this.commitDoc(doc);
+      done.push(doc);
+    }
+    if (done.length) this.sync();
+    return done;
   }
 
   // Penny files it for you after you've tried.
   pennyFiles(docId) {
     const doc = this.state.docs.find((d) => d.id === docId);
     if (!doc || doc.filed) return false;
+    this.known(doc.type).streak = 0;
     doc.byPenny = true;
     this.logAction('file', { docId, doc: doc.type, week: doc.week, attempt: (doc.attempts || 0) + 1, ok: true, byPenny: true });
     this.commitDoc(doc);

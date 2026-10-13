@@ -4,7 +4,7 @@ import { DOC_TYPES, docLines, pennyComparison } from '../documents.js';
 import { ACCOUNTS, ACCOUNT, SECTIONS, pnlRowsFor, share } from '../ledger.js';
 import { CONFIG, TOPPINGS } from '../config.js';
 import { iceCreamSVG } from '../art.js';
-import { esc, money, openModal, onActs } from './dom.js';
+import { esc, money, openModal, onActs, toast } from './dom.js';
 import { STAGE_W, buildStage, chooseScale, blocks, makeSep, LEFT, RIGHT } from './statements.js';
 import { profitChart, tooExpensiveList } from './reports.js';
 
@@ -55,6 +55,9 @@ export function openShoebox(app, onDone) {
   const g = app.game;
   const s = g.state;
   const player = s.player;
+  // papers the kid already knows by heart: Penny files most of those
+  const autoDocs = g.autoFileKnown();
+  if (autoDocs.length) app.save();
   const docs = g.docsToFile(); // this round's papers, in order
   const roundAccts = new Set(docs.flatMap((d) => docLines(d).map((l) => l.acct)));
   const reportWeek = s.needWeekReport && s.lastWeek ? s.needWeekReport : null;
@@ -242,7 +245,9 @@ export function openShoebox(app, onDone) {
     $('.sb-title').textContent = reportOn() ? `📰 Week ${wk} Report` : '🗃️ Shoebox';
     modalEl.classList.toggle('report', reportOn());
     const left = docs.slice(st.idx + (st.step === 'paper' ? 0 : 1));
-    $('.sb-slips').innerHTML = left.map((d, i) => `<div class="slip ${i === 0 && st.step === 'paper' ? 'cur' : ''}" title="${esc(DOC_TYPES[d.type].title)}">${DOC_TYPES[d.type].icon}</div>`).join('');
+    $('.sb-slips').innerHTML =
+      left.map((d, i) => `<div class="slip ${i === 0 && st.step === 'paper' ? 'cur' : ''}" title="${esc(DOC_TYPES[d.type].title)}">${DOC_TYPES[d.type].icon}</div>`).join('') +
+      (autoDocs.length && !reportOn() ? `<span class="sb-auto" title="${esc(autoDocs.map((d) => DOC_TYPES[d.type].title).join(', '))}">👩‍💼 Penny filed ${autoDocs.map((d) => DOC_TYPES[d.type].icon).join('')}</span>` : '');
     const back = !st.busy && hist.length > 0 && !reportOn();
     $('.sb-btns').innerHTML = `${back ? '<button class="btn" data-act="back">◀ Back</button>' : ''}
       ${st.step === 'review' ? '<span class="tiny muted b">or press any key</span><button class="btn go nudge" data-act="next">📄 Next paper ▶</button>' : ''}`;
@@ -391,7 +396,13 @@ export function openShoebox(app, onDone) {
         ? `<div class="penny-strip soft"><span class="face">👩‍💼</span><span>${st.wrong.size ? 'Fix the red lines.' : ''} ${st.missing ? "Something's missing too." : ''}</span></div>`
         : '';
     const any = Object.values(st.picks).some(Boolean);
+    const k = g.known(doc.type);
+    const need = CONFIG.filing.streak;
+    const streak = g.knowsByHeart(doc.type)
+      ? '<div class="sb-streak">⭐ You know this one by heart. Penny just wants to check!</div>'
+      : `<div class="sb-streak">${'⭐'.repeat(k.streak)}${'☆'.repeat(need - k.streak)} Get ${need} in a row right the first time and Penny will file these for you.</div>`;
     ov.querySelector('.sb-side').innerHTML = `
+      ${streak}
       <div class="tiny muted">Tap each line this paper changes. Income piles ↑ up, expenses dig ↓ down, assets and liabilities move ← left or → right.</div>
       ${strip}
       <div class="board">${board}</div>
@@ -582,7 +593,10 @@ export function openShoebox(app, onDone) {
       if (st.busy || st.step !== 'paper' || !doc) return;
       const filedBefore = { ...s.filed };
       const res = g.fileDoc(doc.id, st.picks);
-      if (res.ok) return fileSuccess(doc, 'FILED ✓');
+      if (res.ok) {
+        if (res.learned) toast(`⭐ You know “${DOC_TYPES[doc.type].title}” by heart! Penny will file most of these for you.`, 4000);
+        return fileSuccess(doc, 'FILED ✓');
+      }
       app.music.sfx('oops');
       app.changed();
       const markUp = () => setState({ wrong: new Set(res.wrong), missing: res.missing, strip: res.attempt >= 2 });
