@@ -12,27 +12,17 @@ export function freq(n) {
 // or chords ("startBeat:note:beats", notes can overlap). Songs loop with no gap at the end.
 const SONG_LIST = {
   entertainer: { name: 'The Entertainer', bpm: 105, voice: 'musicbox', melody: MIDI_SONGS.entertainer.melody },
-  greensleeves: {
-    name: 'Greensleeves',
-    bpm: 250,
-    voice: 'musicbox',
-    melody: `A4:1 C5:2 D5:1 E5:1.5 F5:0.5 E5:1 D5:2 B4:1 G4:1.5 A4:0.5 B4:1 C5:2 A4:1 A4:1.5 G#4:0.5 A4:1 B4:2 G#4:1 E4:2
-      A4:1 C5:2 D5:1 E5:1.5 F5:0.5 E5:1 D5:2 B4:1 G4:1.5 A4:0.5 B4:1 C5:1.5 B4:0.5 A4:1 G#4:1.5 F#4:0.5 G#4:1 A4:3
-      G5:3 G5:1.5 F#5:0.5 E5:1 D5:2 B4:1 G4:1.5 A4:0.5 B4:1 C5:2 A4:1 A4:1.5 G#4:0.5 A4:1 B4:2 G#4:1 E4:2
-      G5:3 G5:1.5 F#5:0.5 E5:1 D5:2 B4:1 G4:1.5 A4:0.5 B4:1 C5:1.5 B4:0.5 A4:1 G#4:1.5 F#4:0.5 G#4:1 A4:2`,
-  },
   weasel: {
     name: 'Pop Goes the Weasel',
     bpm: 230,
     voice: 'musicbox',
-    // "All around the mulberry bush…", then the higher "A penny for a spool of thread…" (notes from the MIDI file)
+    // "All around the mulberry bush…", then the higher "A penny for a spool of thread…"
     melody: `G3:0.5 C4:1 C4:0.5 D4:1 D4:0.5 E4:0.5 G4:0.5 E4:0.5 C4:1 G3:0.5 C4:1 C4:0.5 D4:1 F4:0.5 E4:1.5 C4:1 G3:0.5
       C4:1 C4:0.5 D4:1 D4:0.5 E4:0.5 G4:0.5 E4:0.5 C4:1.5 A4:1.5 D4:1 F4:0.5 E4:1.5 C4:1 G4:0.5
-      C5:1 C5:0.5 A4:1 C5:0.5 B4:1 D5:0.5 G4:1 G4:0.5 C5:1 C5:0.5 A4:1 C5:0.5 B4:1 G4:0.5 F4:1 E4:0.5
-      F4:1 G4:0.5 A4:1 B4:0.5 C5:1.5 A4:1.5 D4:1 F4:0.5 E4:1.5 C4:2.5`,
+      C5:1 C5:0.5 A4:1 C5:0.5 B4:0.5 D5:0.5 B4:0.5 G4:1 G4:0.5 C5:1 C5:0.5 A4:1 C5:0.5 B4:1.5 G4:1.5
+      F4:1 E4:0.5 F4:1 G4:0.5 A4:1 B4:0.5 C5:1.5 A4:1.5 D4:1 F4:0.5 E4:1.5 C4:1`,
   },
-  // The ice cream truck waltz (3/4), from the family's memory. First part twice, then the second part twice,
-  // with a bass note on each measure.
+  // The ice cream truck waltz (3/4), from the family's memory. First part twice, then the second part twice.
   waltz: {
     name: 'Ice Cream Waltz',
     bpm: 260,
@@ -41,12 +31,9 @@ const SONG_LIST = {
       G5:1 A5:1 G5:1 E5:1 D5:1 C5:1 D5:2 C5:1 A4:2 C5:1 B4:2 C5:1 D5:2 G5:1 E5:3 C5:3
       B4:2 C5:1 D5:2 B4:1 C5:2 D5:1 E5:2 C5:1 B4:2 C5:1 D5:2 G5:1 E5:3 C5:3
       B4:2 C5:1 D5:2 B4:1 C5:2 D5:1 E5:2 C5:1 B4:2 C5:1 D5:2 G5:1 E5:3 C5:3`,
-    bass: `C3:3 A2:3 G2:3 F2:3 G2:3 B2:3 E3:3 C3:3  C3:3 A2:3 G2:3 F2:3 G2:3 B2:3 E3:3 C3:3
-      G2:3 B2:3 C3:3 A2:3 G2:3 B2:3 E3:3 C3:3  G2:3 B2:3 C3:3 A2:3 G2:3 B2:3 E3:3 C3:3`,
   },
-  turkey: { name: 'Turkey in the Straw', bpm: 120, voice: 'truck', ...MIDI_SONGS.turkey },
+  turkey: { name: 'Turkey in the Straw', bpm: 120, voice: 'truck', melody: MIDI_SONGS.turkey.melody },
   hello: { name: 'Hello Song', bpm: 160, voice: 'xylophone', melody: MIDI_SONGS.hello.melody },
-  lullaby: { name: 'Music Box Lullaby', bpm: 240, voice: 'musicbox', ...MIDI_SONGS.lullaby },
 };
 
 // Turn a song into timed notes: [startBeat, frequency, beats, volume], plus its loop length in beats.

@@ -76,7 +76,7 @@ export class Game {
     this.rng = makeRng(state.rngState);
     state.log ||= { actions: [], days: [] }; // older saves had no log
     // songs that were removed or renamed
-    state.tune = { medley: 'entertainer', musicBox: 'entertainer', truckSong: 'turkey' }[state.tune] || state.tune;
+    state.tune = { medley: 'entertainer', musicBox: 'entertainer', truckSong: 'turkey', lullaby: 'entertainer', greensleeves: 'entertainer' }[state.tune] || state.tune;
     // older saves didn't track which profit has moved to the player's Share: count it all as moved,
     // except a week whose report hasn't been seen yet
     if (!state.closeTracked) {
