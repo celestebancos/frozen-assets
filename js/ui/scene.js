@@ -130,7 +130,11 @@ export class Scene {
         if (m.mood === 'noTopping') return bad('No sprinkles? 😕');
         if (m.mood === 'noNapkin') return bad('No napkins? Sticky hands! 🧻', '🧻');
         if (m.mood === 'cardExact') return good('🎫 Gift card, perfect!', '🎫');
-        if (m.mood === 'cardForfeit') return bad('🎫 I lost some of my card money.', '😕');
+        if (m.mood === 'cardForfeit') {
+          const face = CONFIG.giftCard.face;
+          const dollars = (c) => money(c).replace('.00', '');
+          return bad(`🎫 I had a ${dollars(face)} gift card, but all I got was a ${dollars(face - (m.forfeit || 0))} ${itemName(m.item).replace(/^a /, '')}.`, '😕');
+        }
         if (m.mood === 'discountOk') return good('OK, deal!', '🤝');
         if (m.gotCard) return good('🎉 A free gift card!', '🎉');
         if (m.withCard) return good('🎫 Thanks!', '🎫');
