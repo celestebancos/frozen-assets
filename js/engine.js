@@ -1231,18 +1231,15 @@ export class Game {
     }
     const want = this.wants(m);
     const scored = items.map((it) => {
-      const price = this.itemPrice(it);
       let score = 0;
       if (it.flavor === want.flavor) score += 2;
       if (it.container === want.container) score += 1;
       if (it.topping === want.topping) score += 0.5;
-      if (price >= face && price <= face + 150) score += 3;
-      else if (price < face) score -= (face - price) / 100;
-      else score -= (price - face) / 80;
-      return { it, price, score };
+      return { it, score };
     });
+    // a gift card is good for one free ice cream, so they just pick what they like best
     scored.sort((a, b) => b.score - a.score);
-    const { it, price } = scored[0];
+    const { it } = scored[0];
     this.makeItem(it, m.kind === 'adult' ? 1 : this.rng.int(1, 3));
     m.item = it;
     m.result = 'bought';
@@ -1260,20 +1257,8 @@ export class Game {
     ], { key: 'day' + s.day, label: `${this.dayName} (day ${s.day})`, amt: face, count: 1 });
     s.cards = s.cards.filter((c) => c.id !== party.cardIds[idx]);
     s.today.cardsRedeemed++;
-    if (price > face) {
-      party.bill = (party.bill || 0) + (price - face);
-      if (price <= face + 150) {
-        m.mood = 'cardExact';
-        this.nudge('giftCardExact');
-      }
-    } else if (price === face) {
-      m.mood = 'cardExact';
-      this.nudge('giftCardExact');
-    } else {
-      m.mood = 'cardForfeit';
-      m.forfeit = face - price;
-      this.nudge('giftCardForfeit');
-    }
+    m.mood = 'cardFree';
+    this.nudge('giftCardFree');
   }
 
   finishParty(party) {
