@@ -198,6 +198,7 @@ export class Scene {
     const moving = step > 0.01;
     while (this.tiles.length > 2 && this.tiles[0].x + 1000 < this.camX - 50) this.tiles.shift().el.remove();
     this.world.setAttribute('transform', `translate(${(-this.camX).toFixed(1)} 0)`);
+    this.pinCrowd();
     this.root.classList.toggle('driving', moving);
     this.root.classList.toggle('stopped', open && !moving);
 
@@ -293,6 +294,18 @@ export class Scene {
     return [parent, { t: `Sorry ${who}, we already got ice cream today, remember?`, c: 'hint', e: '🙅' }];
   }
 
+  // Customers stand on the street, not on the screen: shift each party by how far the street has
+  // scrolled since it showed up, so they're left behind when the truck pulls away.
+  pinCrowd() {
+    const r = this.sceneEl.getBoundingClientRect();
+    if (!r.width) return;
+    const k = Math.max(r.width / 1000, r.height / 500); // the scene's viewBox is scaled to cover ("slice")
+    for (const el of this.crowd.children) {
+      if (el.dataset.cam == null) continue;
+      el.style.transform = `translateX(${(-(this.camX - Number(el.dataset.cam)) * k).toFixed(1)}px)`;
+    }
+  }
+
   // Left edge (%) for a party so it stops in front of the serving window.
   windowSlot(el) {
     const cr = this.crowd.getBoundingClientRect();
@@ -332,6 +345,7 @@ export class Scene {
     const wait = speed === 1 ? 1800 : 800;
     const el = document.createElement('div');
     el.className = 'party walking' + (p.curb ? ' curb' : '');
+    el.dataset.cam = this.camX;
     // curb customers stand on the sidewalk ahead of the truck and wave it down
     el.style.left = p.curb ? '78%' : '-15%';
     el.style.transitionDuration = dur + 'ms';
@@ -358,10 +372,10 @@ export class Scene {
       if (p.boughtCard) this.blip('🎁 +card', slot + 12, 38, 'good');
     }, dur);
     setTimeout(() => {
+      // walk off home; if the truck pulls away first, they stay behind on the street
       el.classList.add('walking');
       el.style.transitionDuration = dur * 1.4 + 'ms';
-      // the truck pulls away from curb customers, so they slide off behind it
-      el.style.left = p.curb ? '-25%' : '115%';
+      el.style.left = '115%';
     }, dur + wait);
     setTimeout(() => {
       el.remove();
