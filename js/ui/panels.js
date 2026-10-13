@@ -18,15 +18,31 @@ function modal(app, opts) {
   return openModal({ ...opts, onClose: () => app.panelClosed() });
 }
 
+// The order being put together in the shop, kept while the game is open: { "id:pack": count }
+const carts = new WeakMap();
+
 export function shopPanel(app) {
   const g = app.game;
   let payLater = false;
+  if (!carts.has(g)) carts.set(g, {});
+  const cart = carts.get(g);
+  const lines = () =>
+    Object.entries(cart)
+      .filter(([, n]) => n > 0)
+      .map(([k, count]) => {
+        const [id, pack] = k.split(':');
+        return { id, pack: Number(pack), count };
+      });
   const m = modal(app, {
     title: '🛒 Supply Shop',
     render(body) {
       const s = g.state;
       const used = g.creditUsed();
       const sale = s.sale && s.day <= s.sale.until ? s.sale : null;
+      const order = lines();
+      const total = g.orderTotal(order, payLater);
+      const canPay = order.length && (payLater ? used + total <= C.credit.limit : g.cash >= total);
+      const short = payLater ? 'Not enough credit left. Take something out.' : 'Not enough cash. Take something out.';
       body.innerHTML = `
         <div class="row" style="justify-content:space-between;margin-bottom:10px">
           <div class="row"><span class="chip">💵 Cash ${money(g.cash)}</span>
@@ -40,26 +56,37 @@ export function shopPanel(app) {
         ${SUPPLIES.map((sup) => {
           const have = g.stock(sup.id);
           const onSale = sale && sale.supply === sup.id;
+          const coming = order.filter((l) => l.id === sup.id).reduce((a, l) => a + l.count * sup.packs[l.pack].size, 0);
           return `<div class="card2">
             ${onSale ? `<div class="sale-tag">SALE ${Math.round(sale.off * 100)}% OFF</div>` : ''}
             <div class="hd"><span class="e">${supplyIcon(sup)}</span>${esc(sup.name)}</div>
-            <div class="muted tiny">Have: <b>${have.toLocaleString()}</b> ${sup.unit}</div>
+            <div class="muted tiny">Have: <b>${have.toLocaleString()}</b> ${sup.unit}${coming ? ` <b class="pos">+${coming.toLocaleString()} in your order</b>` : ''}</div>
             ${sup.use ? `<div class="use-note">ℹ️ ${esc(sup.use)}</div>` : ''}
             <div class="packs">
             ${sup.packs
               .map((p, i) => {
                 const price = g.priceFor(sup.id, i, payLater);
                 const each = price / p.size;
-                const can = payLater ? used + price <= C.credit.limit : g.cash >= price;
-                return `<div class="pack"><span>${p.size.toLocaleString()} ${sup.unit}<br><span class="tiny muted">${each < 1 ? each.toFixed(2) : each.toFixed(1)}¢ each</span></span>
+                const n = cart[`${sup.id}:${i}`] || 0;
+                return `<div class="pack ${n ? 'in' : ''}"><span>${p.size.toLocaleString()} ${sup.unit}<br><span class="tiny muted">${each < 1 ? each.toFixed(2) : each.toFixed(1)}¢ each</span></span>
                   <span class="p">${price !== p.price ? `<s class="tiny muted">${money(p.price)}</s> ` : ''}${money(price)}</span>
-                  <button class="btn small ${can ? 'go' : ''}" data-act="buy" data-id="${sup.id}" data-i="${i}" ${can ? '' : 'disabled'}>Buy</button></div>`;
+                  ${n ? stepper(n, 'qty', `${sup.id}:${i}`, `× ${n}`) : `<button class="btn small go" data-act="qty" data-id="${sup.id}:${i}" data-d="1">➕ Add</button>`}</div>`;
               })
               .join('')}
             </div>
             ${!sup.shelfLife && have > 0 ? `<div style="margin-top:6px"><button class="btn small" data-act="sell" data-id="${sup.id}">🔁 Sell back all for ${money(g.sellBackValue(sup.id))}</button></div>` : ''}
           </div>`;
         }).join('')}
+        </div>
+        <div class="cart-bar">
+          ${order.length
+            ? `<div class="cart-lines">${order.map((l) => `<span class="chip">${esc(SUPPLY[l.id].short)} (${SUPPLY[l.id].packs[l.pack].size.toLocaleString()})${l.count > 1 ? ` × ${l.count}` : ''}</span>`).join('')}</div>
+              <div class="row" style="justify-content:flex-end">
+                ${canPay ? '' : `<span class="neg" style="font-weight:800;margin-right:auto">${short}</span>`}
+                <button class="btn" data-act="clearCart">↩️ Clear</button>
+                <button class="btn big go" data-act="checkout" ${canPay ? '' : 'disabled'}>${payLater ? '📄 Buy, pay later' : '💵 Pay'} ${money(total)}</button>
+              </div>`
+            : '<div class="muted" style="text-align:center">🧺 Add what you need, then pay for it all at once.</div>'}
         </div>`;
     },
   });
@@ -68,10 +95,23 @@ export function shopPanel(app) {
       payLater = t.dataset.v === 'later';
       m.refresh();
     },
-    buy: (t) => {
-      const r = g.buy(t.dataset.id, Number(t.dataset.i), 1, payLater);
-      if (r.ok) app.music.sfx('ching');
-      else toast(r.reason === 'limit' ? 'Not enough credit left' : 'Not enough cash');
+    qty: (t) => {
+      const k = t.dataset.id;
+      cart[k] = Math.max(0, (cart[k] || 0) + Math.sign(Number(t.dataset.d)));
+      if (!cart[k]) delete cart[k];
+      m.refresh();
+    },
+    clearCart: () => {
+      for (const k of Object.keys(cart)) delete cart[k];
+      m.refresh();
+    },
+    checkout: () => {
+      const r = g.buyOrder(lines(), payLater);
+      if (r.ok) {
+        app.music.sfx('ching');
+        toast(`🛒 Bought it all for ${money(r.total)}`);
+        for (const k of Object.keys(cart)) delete cart[k];
+      } else toast(r.reason === 'limit' ? 'Not enough credit left' : 'Not enough cash');
       app.changed();
       m.refresh();
     },
