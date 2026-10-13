@@ -31,45 +31,45 @@ const SONG_LIST = {
       C5:1 C5:0.5 A4:1 C5:0.5 B4:1 D5:0.5 G4:1 G4:0.5 C5:1 C5:0.5 A4:1 C5:0.5 B4:1 G4:0.5 F4:1 E4:0.5
       F4:1 G4:0.5 A4:1 B4:0.5 C5:1.5 A4:1.5 D4:1 F4:0.5 E4:1.5 C4:2.5`,
   },
-  turkey: {
-    name: 'Turkey in the Straw',
-    bpm: 150,
-    voice: 'musicbox',
-    melody: `D5:0.5 C5:0.5 B4:0.5 A4:0.5 G4:0.5 G4:0.5 G4:0.5 A4:0.25 B4:0.25 G4:0.5 E4:0.5 D4:0.5 D4:0.5 D4:0.5 E4:0.25 F#4:0.25 G4:0.5 A4:0.5 B4:0.5 B4:0.5 B4:0.5 A4:0.5 B4:0.5 G4:1.5
-      D5:0.5 C5:0.5 B4:0.5 A4:0.5 G4:0.5 G4:0.5 G4:0.5 A4:0.25 B4:0.25 G4:0.5 E4:0.5 D4:0.5 D4:0.5 D4:0.5 E4:0.25 F#4:0.25 G4:0.5 A4:0.5 B4:0.5 A4:0.5 G4:0.5 F#4:0.5 G4:1.5`,
-  },
-  // The ice cream truck waltz (3/4), from the family's memory. First part twice, then the second part twice.
+  // The ice cream truck waltz (3/4), from the family's memory. First part twice, then the second part twice,
+  // with a bass note on each measure.
   waltz: {
     name: 'Ice Cream Waltz',
-    bpm: 200,
+    bpm: 260,
     voice: 'musicbox',
     melody: `G5:1 A5:1 G5:1 E5:1 D5:1 C5:1 D5:2 C5:1 A4:2 C5:1 B4:2 C5:1 D5:2 G5:1 E5:3 C5:3
       G5:1 A5:1 G5:1 E5:1 D5:1 C5:1 D5:2 C5:1 A4:2 C5:1 B4:2 C5:1 D5:2 G5:1 E5:3 C5:3
       B4:2 C5:1 D5:2 B4:1 C5:2 D5:1 E5:2 C5:1 B4:2 C5:1 D5:2 G5:1 E5:3 C5:3
       B4:2 C5:1 D5:2 B4:1 C5:2 D5:1 E5:2 C5:1 B4:2 C5:1 D5:2 G5:1 E5:3 C5:3`,
+    bass: `C3:3 A2:3 G2:3 F2:3 G2:3 B2:3 E3:3 C3:3  C3:3 A2:3 G2:3 F2:3 G2:3 B2:3 E3:3 C3:3
+      G2:3 B2:3 C3:3 A2:3 G2:3 B2:3 E3:3 C3:3  G2:3 B2:3 C3:3 A2:3 G2:3 B2:3 E3:3 C3:3`,
   },
-  hello: { name: 'Hello Song', bpm: 120, voice: 'xylophone', melody: MIDI_SONGS.hello.melody },
-  truckSong: { name: 'Ice Cream Truck Song', bpm: 120, voice: 'truck', ...MIDI_SONGS.truckSong },
-  musicBox: { name: 'Music Box', bpm: 90, voice: 'musicbox', ...MIDI_SONGS.musicBox },
-  lullaby: { name: 'Music Box Lullaby', bpm: 160, voice: 'musicbox', ...MIDI_SONGS.lullaby },
+  turkey: { name: 'Turkey in the Straw', bpm: 120, voice: 'truck', ...MIDI_SONGS.turkey },
+  hello: { name: 'Hello Song', bpm: 160, voice: 'xylophone', melody: MIDI_SONGS.hello.melody },
+  lullaby: { name: 'Music Box Lullaby', bpm: 240, voice: 'musicbox', ...MIDI_SONGS.lullaby },
 };
 
-// Turn a song into timed notes: [startBeat, frequency, beats], plus its loop length in beats.
+// Turn a song into timed notes: [startBeat, frequency, beats, volume], plus its loop length in beats.
+function line(str, vol, events) {
+  let t = 0;
+  for (const tok of str.trim().split(/\s+/)) {
+    const [n, b] = tok.split(':');
+    if (n !== 'R') events.push([t, freq(n), Number(b), vol]);
+    t += Number(b);
+  }
+  return t;
+}
 function build(song) {
   const events = [];
   let length = song.length;
   if (song.melody) {
-    let t = 0;
-    for (const tok of song.melody.trim().split(/\s+/)) {
-      const [n, b] = tok.split(':');
-      if (n !== 'R') events.push([t, freq(n), Number(b)]);
-      t += Number(b);
-    }
-    length = t;
+    length = line(song.melody, 1, events);
+    if (song.bass) line(song.bass, 0.55, events);
+    events.sort((a, b) => a[0] - b[0]);
   } else {
     for (const tok of song.chords.trim().split(/\s+/)) {
       const [t, n, b] = tok.split(':');
-      events.push([Number(t), freq(n), Number(b)]);
+      events.push([Number(t), freq(n), Number(b), 1]);
     }
     events.sort((a, b) => a[0] - b[0]);
   }
@@ -88,7 +88,7 @@ export class Music {
   constructor() {
     this.ctx = null;
     this.tune = 'entertainer';
-    this.voice = 'own';
+    this.voice = 'truck';
     this.rate = 1;
     this.volume = 0.5;
     this.muted = false;
@@ -182,8 +182,8 @@ export class Music {
     const ev = song.events;
     while (this.next < now + 0.4) {
       if (this.i >= ev.length) this.i = 0;
-      const [t, f, b] = ev[this.i];
-      this.note(voice, f, this.next, b * beat, song.chordy ? (voice === 'truck' ? 0.35 : 0.6) : 1);
+      const [t, f, b, v] = ev[this.i];
+      this.note(voice, f, this.next, b * beat, v * (song.chordy ? (voice === 'truck' ? 0.35 : 0.6) : 1));
       // time to the next note; after the last one, straight back to the first (no gap)
       const nextT = this.i + 1 < ev.length ? ev[this.i + 1][0] : song.length + ev[0][0];
       this.next += (nextT - t) * beat;

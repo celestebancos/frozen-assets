@@ -23,7 +23,7 @@ class App {
     this.music = new Music();
     this.music.setVolume(this.settings.musicVolume);
     this.music.setMuted(this.settings.muted);
-    this.music.setVoice(this.settings.musicVoice || 'own');
+    this.music.setVoice(this.settings.musicVoice || 'truck');
     this.game = null;
     this.speed = 1;
     this.lastFrame = 0;
