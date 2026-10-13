@@ -484,9 +484,13 @@ export function openShoebox(app, onDone) {
     later(t, () => setState({ busy: false, stamp: '', caption: DOC_TYPES[doc.type].caption || '', step: last ? 'end' : 'review', idx: last ? docs.length : idx }));
   }
 
+  // A new paper starts at the top of its card (on a phone the board is below the paper).
+  const toTop = () => (ov.querySelector('.sb-pcard').scrollTop = 0);
+
   function nextPaper() {
     if (st.step !== 'review') return;
     setState({ idx: st.idx + 1, picks: {}, stamp: '', shown: {}, caption: '', card: 'right', cardTr: false, step: 'paper' });
+    toTop();
     later(60, () => setState({ card: 'center', cardTr: true }));
   }
 
@@ -501,7 +505,10 @@ export function openShoebox(app, onDone) {
     const paper = p.step === 'paper';
     const { undo, ...rest } = p;
     setState({ ...rest, picks: {}, stamp: '', busy: false, wrong: new Set(), missing: 0, strip: false, card: 'left', cardTr: false });
-    if (paper) later(60, () => setState({ card: 'center', cardTr: true }));
+    if (paper) {
+      toTop();
+      later(60, () => setState({ card: 'center', cardTr: true }));
+    }
   }
 
   function calc() {

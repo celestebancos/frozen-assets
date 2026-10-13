@@ -28,7 +28,7 @@ export const DOC_TYPES = {
     penny: "You paid a bill you owed. Cash went down, and you don't owe it anymore, so Bills to pay went down. Nothing new was bought, so no expense here." },
   supplierLateFee: { title: 'Supplier late notice', look: 'notice', icon: '⚠️',
     penny: "You paid a bill late, so the supplier charged a fee. A late fee is an expense, and since you haven't paid it yet, Bills to pay went up." },
-  countSheet: { title: 'Supply count sheet', look: 'count', icon: '📋',
+  countSheet: { title: 'Supplies used up: count & cost', look: 'count', icon: '📋',
     penny: "These supplies got used up making ice cream. They're gone, so Supplies on hand (asset) went down, and using them up is an expense: Supplies used up." },
   spoilSlip: { title: 'Spoiled mix slip', look: 'notice', icon: '🤢',
     penny: "Mix went bad and got thrown out. You don't have it anymore, so Supplies on hand went down, and losing it is an expense: Spoiled mix thrown out." },
