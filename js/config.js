@@ -56,8 +56,7 @@ export const CONFIG = {
     serviceSaved: 0.001,
     dropReplaced: 0.004,
     dropRefused: -0.006,
-    giftCardExact: 0.003,
-    giftCardForfeit: -0.004,
+    giftCardFree: 0.003,
     promoCard: 0.003,
   },
 
@@ -79,6 +78,9 @@ export const CONFIG = {
 
   sellBackRate: 0.5,
 
+  // Papers a kid keeps filing right: after `streak` first-try rights in a row, Penny files that kind
+  // for them, except every `checkEvery`th one still comes to the kid to keep them sharp.
+  filing: { streak: 3, checkEvery: 3 },
   giftCard: { face: 500, buyChance: 0.025, discountBoost: 4, returnMinDays: 1, returnMaxDays: 14 },
 
   dropChance: 0.02,

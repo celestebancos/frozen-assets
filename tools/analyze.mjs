@@ -68,7 +68,7 @@ console.log('Ads:', acts.filter((a) => a.type === 'ads').map((a) => a.tier[0].to
 
 line('Bookkeeping');
 const F = sum.filing;
-console.log(`Filed ${F.papers} papers: ${F.firstTry} first try (${pct(F.firstTry, F.papers)}), ${F.secondTry} second try, ${F.laterTry} after more tries, ${F.byPenny} filed by Penny.`);
+console.log(`Filed ${F.papers} papers: ${F.firstTry} first try (${pct(F.firstTry, F.papers)}), ${F.secondTry} second try, ${F.laterTry} after more tries, ${F.byPenny} filed by Penny.${F.auto ? ` Penny also filed ${F.auto} papers the player already knew by heart.` : ""}`);
 for (const [doc, b] of Object.entries(F.byDoc).sort((a, b) => a[1].firstTry / a[1].papers - b[1].firstTry / b[1].papers))
   console.log(`  ${pct(b.firstTry, b.papers).padStart(4)} first try  ${DOC_TYPES[doc]?.title || doc} (${b.papers} papers: ${b.firstTry}/${b.secondTry}/${b.laterTry}/${b.byPenny} penny)`);
 const wrong = acts.filter((a) => a.type === 'file' && !a.ok).slice(-10);

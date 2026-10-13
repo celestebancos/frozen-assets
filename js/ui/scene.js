@@ -57,6 +57,7 @@ export class Scene {
     this.active = 0;
     this.curbHold = 0; // the truck stays stopped (on screen) until this time while curb customers are served
     this.lastHint = 0;
+    this.truckSettleAt = 0;
   }
 
   update() {
@@ -80,6 +81,7 @@ export class Scene {
         this.truckEl.classList.add('arriving');
         void this.truckEl.offsetWidth;
         this.truckEl.classList.remove('arriving');
+        this.truckSettleAt = performance.now() + 1300;
       }
     }
     const stopped = driving && (s.driving.stopped > 0 || performance.now() < this.curbHold);
@@ -143,8 +145,7 @@ export class Scene {
         if (m.mood === 'greatDeal') return good('What a great deal!', '🤩');
         if (m.mood === 'noTopping') return bad('No sprinkles? 😕');
         if (m.mood === 'noNapkin') return bad('No napkins? Sticky hands! 🧻', '🧻');
-        if (m.mood === 'cardExact') return good('🎫 Gift card, perfect!', '🎫');
-        if (m.mood === 'cardForfeit') return bad('🎫 I lost some of my card money.', '😕');
+        if (m.mood === 'cardFree') return good('🎫 A free ice cream!', '🎫');
         if (m.mood === 'discountOk') return good('OK, deal!', '🤝');
         if (m.gotCard) return good('🎉 A free gift card!', '🎉');
         if (m.withCard) return good('🎫 Thanks!', '🎫');
@@ -173,6 +174,15 @@ export class Scene {
     const parent = p.members.find((m) => m.kind === 'adult');
     const who = kids.length > 1 ? 'kids' : kids[0]?.look % 2 === 1 ? 'sweetie' : 'bud';
     return [parent, { t: `Sorry ${who}, we already got ice cream today, remember?`, c: 'hint', e: '🙅' }];
+  }
+
+  // Left edge (%) for a party so it stops in front of the serving window.
+  windowSlot(el) {
+    const cr = this.crowd.getBoundingClientRect();
+    const tr = this.truckEl.getBoundingClientRect();
+    const settled = performance.now() > this.truckSettleAt && !this.truckEl.classList.contains('away');
+    if (settled && cr.width && tr.width) this.slotBase = ((tr.left + tr.width * 0.32 - cr.left) / cr.width) * 100;
+    return (this.slotBase ?? 40) - (cr.width ? (el.offsetWidth / 2 / cr.width) * 100 : 6);
   }
 
   party(p, speed) {
@@ -204,7 +214,7 @@ export class Scene {
     const dur = speed === 1 ? 1600 : 700;
     const wait = speed === 1 ? 1800 : 800;
     const el = document.createElement('div');
-    el.className = 'party' + (p.curb ? ' curb' : '');
+    el.className = 'party walking' + (p.curb ? ' curb' : '');
     // curb customers stand on the sidewalk ahead of the truck and wave it down
     el.style.left = p.curb ? '78%' : '-15%';
     el.style.transitionDuration = dur + 'ms';
@@ -218,10 +228,11 @@ export class Scene {
     if (p.curb) el.insertAdjacentHTML('afterbegin', '<div class="wave bubble good">👋</div>');
     this.crowd.appendChild(el);
     this.active++;
-    const slot = 28 + (this.active % 3) * 5;
+    const slot = this.windowSlot(el) + ((this.active % 3) - 1) * 4;
     requestAnimationFrame(() => requestAnimationFrame(() => (el.style.left = slot + '%')));
     setTimeout(() => {
       if (!el.isConnected) return;
+      el.classList.remove('walking');
       el.querySelectorAll('.bubble, .hand').forEach((b) => b.classList.remove('hidden'));
       el.querySelector('.wave')?.remove();
       this.app.partyArrived(p.id);
@@ -230,6 +241,7 @@ export class Scene {
       if (p.boughtCard) this.blip('🎁 +card', slot + 12, 38, 'good');
     }, dur);
     setTimeout(() => {
+      el.classList.add('walking');
       el.style.transitionDuration = dur * 1.4 + 'ms';
       // the truck pulls away from curb customers, so they slide off behind it
       el.style.left = p.curb ? '-25%' : '115%';

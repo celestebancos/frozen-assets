@@ -7,11 +7,11 @@ Play it at **https://celestebancos.github.io/frozen-assets/** once GitHub Pages 
 ## How a game goes
 
 1. Pick a player, then a loan at the 🏦 bank: $10,000, $11,000 or $12,000. Bigger loans cost more interest every day, and the bank explains each one in plain words.
-2. Buy a truck on the lot. Every color costs the same; bling (stickers, chrome and lights, deluxe gold) costs extra up front and is just for looks. Whatever's left of the loan is the cash for supplies. Then name the business.
+2. Pick one of eight trucks on the lot. Each is a different color with its own bling (none, stickers, chrome and lights, or deluxe gold), and every price shows up at least once. Bling costs extra up front and is just for looks. Whatever's left of the loan is the cash for supplies. Then name the business.
 3. File the bank loan papers and the truck bill of sale in the 🗃️ shoebox. That's the first lesson: the loan is cash in *and* a debt.
 4. Buy supplies, set prices, and pick a route on the 🗺️ map. Then open for business. The 📍 Places page compares how many people came to each spot (per hour, and by time of day) so different routes can be tried on different days. Routes can be saved and reused, and the 📅 week plan picks a saved route for each day of the week (or the same one every day).
 5. Each day runs 10am–8pm. Speeds are ⏸ ▶ ▶▶ ▶▶▶ and ⏭ (skip to the end of the day). While the truck drives, the street rolls by, and it stops when people on the sidewalk wave it down.
-6. At the end of each week, file the shoebox. Penny the accountant checks every paper and explains any mistake with a "your books vs correct books" comparison. Then the weekly report and profit graph appear, and you pick the week's advertising.
+6. At the end of each week, file the shoebox. Each paper pops up over two pictures: the profit & loss (income is a pile of base-ten blocks, each expense digs a hole) and the balance sheet (bars on each side of a center line, with totals that tip like a scale). Penny the accountant checks every paper and explains any mistake with a "your books vs correct books" comparison. File a kind of paper right on the first try 3 times in a row and Penny files most of those for you; every third one still comes back as a check-up, and a miss means filing them yourself again. After the last paper, **Calculate Profit** fills the holes with income, and the leftover profit (or loss) moves into the owner's Share. Then the screen turns into the weekly report with the profit graph. Advertising is picked under 📣 Promotion on the 🎁 Gift Cards tab.
 7. After 12 weeks the loan comes due. If there's enough cash to pay the bank, you keep the truck and can play another summer. If not, the truck gets towed.
 
 Games save automatically in the browser and continue on the same device.
@@ -101,5 +101,6 @@ node --test test/*.test.mjs   # engine, accounting and leaderboard tests
 | `js/ledger.js` | Accounts, P&L and balance sheet math |
 | `js/documents.js` | Shoebox papers, their correct filing, and Penny's explanations |
 | `js/config.js` | Every tunable number |
+| `js/ui/statements.js` | Layout math for the P&L blocks and balance sheet bars (no DOM) |
 | `js/ui/*` | Screens and panels |
 | `tools/bots.mjs` | Simulated players used for tuning and tests |
