@@ -18,15 +18,31 @@ function modal(app, opts) {
   return openModal({ ...opts, onClose: () => app.panelClosed() });
 }
 
+// The order being put together in the shop, kept while the game is open: { "id:pack": count }
+const carts = new WeakMap();
+
 export function shopPanel(app) {
   const g = app.game;
   let payLater = false;
+  if (!carts.has(g)) carts.set(g, {});
+  const cart = carts.get(g);
+  const lines = () =>
+    Object.entries(cart)
+      .filter(([, n]) => n > 0)
+      .map(([k, count]) => {
+        const [id, pack] = k.split(':');
+        return { id, pack: Number(pack), count };
+      });
   const m = modal(app, {
     title: '🛒 Supply Shop',
     render(body) {
       const s = g.state;
       const used = g.creditUsed();
       const sale = s.sale && s.day <= s.sale.until ? s.sale : null;
+      const order = lines();
+      const total = g.orderTotal(order, payLater);
+      const canPay = order.length && (payLater ? used + total <= C.credit.limit : g.cash >= total);
+      const short = payLater ? 'Not enough credit left. Take something out.' : 'Not enough cash. Take something out.';
       body.innerHTML = `
         <div class="row" style="justify-content:space-between;margin-bottom:10px">
           <div class="row"><span class="chip">💵 Cash ${money(g.cash)}</span>
@@ -40,26 +56,37 @@ export function shopPanel(app) {
         ${SUPPLIES.map((sup) => {
           const have = g.stock(sup.id);
           const onSale = sale && sale.supply === sup.id;
+          const coming = order.filter((l) => l.id === sup.id).reduce((a, l) => a + l.count * sup.packs[l.pack].size, 0);
           return `<div class="card2">
             ${onSale ? `<div class="sale-tag">SALE ${Math.round(sale.off * 100)}% OFF</div>` : ''}
             <div class="hd"><span class="e">${supplyIcon(sup)}</span>${esc(sup.name)}</div>
-            <div class="muted tiny">Have: <b>${have.toLocaleString()}</b> ${sup.unit}</div>
+            <div class="muted tiny">Have: <b>${have.toLocaleString()}</b> ${sup.unit}${coming ? ` <b class="pos">+${coming.toLocaleString()} in your order</b>` : ''}</div>
             ${sup.use ? `<div class="use-note">ℹ️ ${esc(sup.use)}</div>` : ''}
             <div class="packs">
             ${sup.packs
               .map((p, i) => {
                 const price = g.priceFor(sup.id, i, payLater);
                 const each = price / p.size;
-                const can = payLater ? used + price <= C.credit.limit : g.cash >= price;
-                return `<div class="pack"><span>${p.size.toLocaleString()} ${sup.unit}<br><span class="tiny muted">${each < 1 ? each.toFixed(2) : each.toFixed(1)}¢ each</span></span>
+                const n = cart[`${sup.id}:${i}`] || 0;
+                return `<div class="pack ${n ? 'in' : ''}"><span>${p.size.toLocaleString()} ${sup.unit}<br><span class="tiny muted">${each < 1 ? each.toFixed(2) : each.toFixed(1)}¢ each</span></span>
                   <span class="p">${price !== p.price ? `<s class="tiny muted">${money(p.price)}</s> ` : ''}${money(price)}</span>
-                  <button class="btn small ${can ? 'go' : ''}" data-act="buy" data-id="${sup.id}" data-i="${i}" ${can ? '' : 'disabled'}>Buy</button></div>`;
+                  ${n ? stepper(n, 'qty', `${sup.id}:${i}`, `× ${n}`) : `<button class="btn small go" data-act="qty" data-id="${sup.id}:${i}" data-d="1">➕ Add</button>`}</div>`;
               })
               .join('')}
             </div>
             ${!sup.shelfLife && have > 0 ? `<div style="margin-top:6px"><button class="btn small" data-act="sell" data-id="${sup.id}">🔁 Sell back all for ${money(g.sellBackValue(sup.id))}</button></div>` : ''}
           </div>`;
         }).join('')}
+        </div>
+        <div class="cart-bar">
+          ${order.length
+            ? `<div class="cart-lines">${order.map((l) => `<span class="chip">${esc(SUPPLY[l.id].short)} (${SUPPLY[l.id].packs[l.pack].size.toLocaleString()})${l.count > 1 ? ` × ${l.count}` : ''}</span>`).join('')}</div>
+              <div class="row" style="justify-content:flex-end">
+                ${canPay ? '' : `<span class="neg" style="font-weight:800;margin-right:auto">${short}</span>`}
+                <button class="btn" data-act="clearCart">↩️ Clear</button>
+                <button class="btn big go" data-act="checkout" ${canPay ? '' : 'disabled'}>${payLater ? '📄 Buy, pay later' : '💵 Pay'} ${money(total)}</button>
+              </div>`
+            : '<div class="muted" style="text-align:center">🧺 Add what you need, then pay for it all at once.</div>'}
         </div>`;
     },
   });
@@ -68,10 +95,23 @@ export function shopPanel(app) {
       payLater = t.dataset.v === 'later';
       m.refresh();
     },
-    buy: (t) => {
-      const r = g.buy(t.dataset.id, Number(t.dataset.i), 1, payLater);
-      if (r.ok) app.music.sfx('ching');
-      else toast(r.reason === 'limit' ? 'Not enough credit left' : 'Not enough cash');
+    qty: (t) => {
+      const k = t.dataset.id;
+      cart[k] = Math.max(0, (cart[k] || 0) + Math.sign(Number(t.dataset.d)));
+      if (!cart[k]) delete cart[k];
+      m.refresh();
+    },
+    clearCart: () => {
+      for (const k of Object.keys(cart)) delete cart[k];
+      m.refresh();
+    },
+    checkout: () => {
+      const r = g.buyOrder(lines(), payLater);
+      if (r.ok) {
+        app.music.sfx('ching');
+        toast(`🛒 Bought it all for ${money(r.total)}`);
+        for (const k of Object.keys(cart)) delete cart[k];
+      } else toast(r.reason === 'limit' ? 'Not enough credit left' : 'Not enough cash');
       app.changed();
       m.refresh();
     },
@@ -251,7 +291,7 @@ export function giftPanel(app) {
     render(body) {
       const s = g.state;
       body.innerHTML = `
-        <div class="card2" style="text-align:center"><div style="font-size:40px">🎁</div><b>${money(C.giftCard.face)} gift card</b></div>
+        <div class="card2" style="text-align:center"><div style="font-size:40px">🎁</div><b>Gift card: one free ice cream</b><div class="tiny muted">Any ice cream on the menu. In the books, a card counts as what it sold for. A free card counts as ${money(C.giftCard.face)}.</div></div>
         <h3>Sell cards</h3>
         <div class="row">Price: ${stepper(s.giftSale.price, 'gprice', 'p', money(s.giftSale.price))}</div>
         <div class="row" style="margin-top:6px">For sale: ${stepper(s.giftSale.left, 'gleft', 'n', s.giftSale.left)}</div>
@@ -259,7 +299,9 @@ export function giftPanel(app) {
         <div class="row">${stepper(promoN, 'pn', 'n', promoN)} <button class="btn small pink" data-act="promo">🎉 Hand them out</button></div>
         ${s.promoLeft > 0 ? `<p class="muted">Still handing out: ${s.promoLeft}</p>` : ''}
         <h3>Out there</h3>
-        <p>🎫 ${s.cards.length} cards people still have</p>`;
+        <p>🎫 ${s.cards.length} cards people still have</p>
+        <h3>📣 Promotion</h3>
+        ${promotionHTML(g)}`;
     },
   });
   onActs(m.body, {
@@ -277,6 +319,12 @@ export function giftPanel(app) {
       promoN = Math.max(5, promoN + Math.sign(Number(t.dataset.d)) * 5);
       m.refresh();
     },
+    ad: (t) => {
+      const res = g.setAds(t.dataset.id);
+      if (res.ok && t.dataset.id !== 'none') app.music.sfx('ching');
+      app.changed();
+      m.refresh();
+    },
     promo: () => {
       g.startPromo(promoN);
       toast(`🎉 Handing out ${promoN} free cards`);
@@ -285,6 +333,19 @@ export function giftPanel(app) {
     },
   });
   return m;
+}
+
+// Advertising for this week. It can be bought once a week, before opening.
+function promotionHTML(g) {
+  const s = g.state;
+  const paid = s.adWeekPaid === g.gw;
+  const canPick = s.phase === 'closed' && !paid;
+  const note = paid ? 'Paid for this week.' : s.phase === 'closed' ? 'Ads bring more people this week.' : 'Pick ads in the morning, before you open.';
+  return `<p class="tiny muted" style="margin:0 0 6px">${note}</p>
+    <div class="ad-choices">${C.ads.map((a) => {
+      const e = { none: '🤐', flyers: '📄', radio: '📻', billboard: '🪧' }[a.id];
+      return `<button data-act="ad" data-id="${a.id}" class="${s.adTier === a.id ? 'on' : ''}" ${!canPick || a.cost > g.cash ? 'disabled' : ''}><span class="e">${e}</span>${a.name}<br><span class="muted">${a.cost ? money(a.cost) : 'Free'}</span></button>`;
+    }).join('')}</div>`;
 }
 
 // ---------------- Inventory ----------------
@@ -543,7 +604,11 @@ export function balanceSheet(g, totals) {
   const s = g.state;
   const t = totals || s.filed;
   const line = (id, extra = '') => (t[id] === 0 && !['cash', 'truck', 'supplies', 'loan'].includes(id) ? '' : `<tr><td>${ACCOUNT[id].name}${extra}</td><td>${money(t[id])}</td></tr>`);
-  const cards = Math.round(t.giftCards / C.giftCard.face);
+  // cards on the filed papers: sold and given away, minus used
+  const cardCount = (d) => d.items.reduce((n, i) => n + (i.count || 0), 0);
+  const cards = s.docs
+    .filter((d) => d.filed)
+    .reduce((n, d) => n + (d.type === 'giftSales' || d.type === 'freeCards' ? cardCount(d) : d.type === 'redemptions' ? -cardCount(d) : 0), 0);
   return `<div class="scroll-x" style="max-width:560px"><table class="books">
     <tr class="sec"><td colspan="2">🏠 Assets (what the business has)</td></tr>
     ${line('cash')}${line('truck')}${line('supplies')}

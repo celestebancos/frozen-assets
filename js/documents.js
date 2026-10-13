@@ -3,20 +3,23 @@
 
 import { ACCOUNT, applyEntries, emptyTotals, sectionTotal, share } from './ledger.js';
 
-// look: paper style for the UI. penny: what Penny says when it's filed wrong.
+// look: paper style for the UI. penny: what Penny says when it's filed wrong. caption: a note on the balance sheet after filing.
 export const DOC_TYPES = {
   loanPapers: { title: 'Bank loan papers', look: 'bank', icon: '🏦',
-    penny: "The bank put money in your account, so Cash went up. But that money isn't yours to keep — you have to pay it back. That's a Business loan, and owing it is a liability." },
+    penny: "The bank put money in your account, so Cash went up. But that money isn't yours to keep — you have to pay it back. That's a Business loan, and owing it is a liability.",
+    caption: "The bank's money is in the cash box, and the business owes it back." },
   truckBill: { title: 'Truck bill of sale', look: 'receipt', icon: '🚚',
-    penny: "You paid cash for the truck, so Cash went down. But you didn't lose that money — you traded it for a truck you own. The truck is an asset." },
+    penny: "You paid cash for the truck, so Cash went down. But you didn't lose that money — you traded it for a truck you own. The truck is an asset.",
+    caption: 'Cash turned into a truck. Only the left side moved.' },
   registerTape: { title: 'Cash register tape', look: 'tape', icon: '🧾',
     penny: "Customers paid you for ice cream. That's income — Ice cream sold for money went up. And the money went into the cash box, so Cash went up too." },
   giftSales: { title: 'Gift card sales log', look: 'log', icon: '🎁',
-    penny: "Selling a gift card brings in cash, but you haven't given any ice cream yet. You owe the ice cream later — that's a liability (Gift cards not yet used). If you sold it for less than $5, the difference is a discount, which is an expense." },
+    penny: "Selling a gift card brings in cash, but you haven't given any ice cream yet. You owe the ice cream later — that's a liability (Gift cards not yet used), worth what the card sold for." },
   freeCards: { title: 'Free gift card log', look: 'log', icon: '🎟️',
     penny: "You gave away gift cards. No money came in, but now you owe ice cream to whoever brings the card back — Gift cards not yet used went up. Giving away $5 of value is an expense: Gift card discounts & giveaways." },
   redemptions: { title: 'Gift card redemption slips', look: 'slips', icon: '🎫',
-    penny: "Someone used a gift card. You gave them ice cream, so you don't owe them anymore — Gift cards not yet used went down. And now you've earned it: Ice cream sold for gift cards (income) went up." },
+    penny: "Someone used a gift card. You gave them ice cream, so you don't owe them anymore — Gift cards not yet used went down. And now you've earned it: Ice cream sold for gift cards (income) went up.",
+    caption: '🍦 People got ice cream, but no money came in. Cash didn’t move!' },
   supplyReceipt: { title: 'Supply receipts (paid now)', look: 'receipt', icon: '📦',
     penny: "You paid cash for supplies, so Cash went down. But you still HAVE the supplies — Supplies on hand (an asset) went up. They only become an expense when they get used up." },
   supplyInvoice: { title: 'Supplier invoices (pay later)', look: 'invoice', icon: '📄',
@@ -25,7 +28,7 @@ export const DOC_TYPES = {
     penny: "You paid a bill you owed. Cash went down, and you don't owe it anymore, so Bills to pay went down. Nothing new was bought, so no expense here." },
   supplierLateFee: { title: 'Supplier late notice', look: 'notice', icon: '⚠️',
     penny: "You paid a bill late, so the supplier charged a fee. A late fee is an expense, and since you haven't paid it yet, Bills to pay went up." },
-  countSheet: { title: 'Supply count sheet', look: 'count', icon: '📋',
+  countSheet: { title: 'Inventory of supplies used', look: 'count', icon: '📋',
     penny: "These supplies got used up making ice cream. They're gone, so Supplies on hand (asset) went down, and using them up is an expense: Supplies used up." },
   spoilSlip: { title: 'Spoiled mix slip', look: 'notice', icon: '🤢',
     penny: "Mix went bad and got thrown out. You don't have it anymore, so Supplies on hand went down, and losing it is an expense: Spoiled mix thrown out." },
@@ -36,7 +39,8 @@ export const DOC_TYPES = {
   interestPaid: { title: 'Bank statement: interest paid', look: 'bank', icon: '🏦',
     penny: "The bank charges interest for lending you money. You paid it from Cash, so Cash went down, and interest is an expense: Loan interest." },
   interestUnpaid: { title: 'Bank notice: interest NOT paid', look: 'notice', icon: '🏦',
-    penny: "Interest was due but there wasn't enough cash. It's still an expense (Loan interest), and since you didn't pay it you now owe it — Interest owed to the bank (a liability) went up." },
+    penny: "Interest was due but there wasn't enough cash. It's still an expense (Loan interest), and since you didn't pay it you now owe it — Interest owed to the bank (a liability) went up.",
+    caption: 'Interest is still an expense, and now the business owes it too.' },
   bankLateFee: { title: 'Bank late fee notice', look: 'notice', icon: '⚠️',
     penny: "You owed the bank interest for too long, so they added a late fee. That's an expense (Late fees), and you owe it — Interest owed to the bank went up." },
   interestPayoff: { title: 'Bank receipt: owed interest paid', look: 'bank', icon: '🏦',

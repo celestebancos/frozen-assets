@@ -39,15 +39,25 @@ export function summarize(state) {
   for (const f of state.log.actions.filter((a) => a.type === 'file')) {
     const key = f.docId || `${f.doc}-${f.week}-${f.t}`; // older logs had no docId
     const p = papers.get(key) || { doc: f.doc, tries: 0, done: null };
+    if (p.done) continue; // filed again after the shoebox's Back button
+    if (f.auto) {
+      p.done = 'auto'; // Penny filed a paper the kid already knows by heart
+      papers.set(key, p);
+      continue;
+    }
     if (!f.byPenny) p.tries++;
     if (f.ok) p.done = f.byPenny ? 'byPenny' : p.tries === 1 ? 'firstTry' : p.tries === 2 ? 'secondTry' : 'laterTry';
     papers.set(key, p);
   }
-  const blank = () => ({ papers: 0, firstTry: 0, secondTry: 0, laterTry: 0, byPenny: 0 });
+  const blank = () => ({ papers: 0, firstTry: 0, secondTry: 0, laterTry: 0, byPenny: 0, auto: 0 });
   const filing = blank();
   const byDoc = {};
   for (const p of papers.values()) {
     if (!p.done) continue;
+    if (p.done === 'auto') {
+      filing.auto++; // not counted as a paper the kid filed
+      continue;
+    }
     const b = (byDoc[p.doc] ||= blank());
     for (const x of [filing, b]) {
       x.papers++;

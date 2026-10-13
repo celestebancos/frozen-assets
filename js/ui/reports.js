@@ -1,7 +1,8 @@
-// Weekly report (with profit graph and the advertising choice) and the end-of-summer screens.
+// Pieces of the weekly report (profit graph, "too expensive" list) and the end-of-summer screens.
+// The weekly report itself is the end of the shoebox (filing.js).
 import { itemName } from './scene.js';
-import { CONFIG, FLAVORS, CONTAINERS, TOPPINGS } from '../config.js';
-import { ACCOUNTS, ACCOUNT, pnlRowsFor } from '../ledger.js';
+import { CONFIG } from '../config.js';
+import { pnlRowsFor } from '../ledger.js';
 import { iceCreamSVG, truckSVG } from '../art.js';
 import { esc, money, openModal, onActs } from './dom.js';
 import { pnlTable, balanceSheet } from './panels.js';
@@ -71,76 +72,6 @@ export function tooExpensiveList(wants) {
       })
       .join('')}</div>
     <p class="tiny muted" style="margin:4px 0 0">These people walked away. A lower price might have made a sale, but you'd earn less on each one.</p>`;
-}
-
-export function weeklyReport(app, onDone) {
-  const g = app.game;
-  const s = g.state;
-  const lw = s.lastWeek;
-  const gw = lw.gw;
-  const wk = ((gw - 1) % C.seasonWeeks) + 1;
-  const entries = s.filedByWeek[gw] || [];
-  const p = pnlRowsFor(new Map([[gw, entries]]), [gw]);
-  const delta = Object.fromEntries(ACCOUNTS.map((a) => [a.id, 0]));
-  for (const e of entries) delta[e.acct] += e.amt;
-  const sold = Object.entries(lw.sold).sort((a, b) => b[1] - a[1]);
-  const totalSold = sold.reduce((a, [, n]) => a + n, 0);
-  let adPick = null;
-  const m = openModal({
-    title: `📰 Week ${wk} Report`,
-    closable: false,
-    render(body) {
-      const chg = (sec) =>
-        ACCOUNTS.filter((a) => a.section === sec && delta[a.id] !== 0)
-          .map((a) => `<div class="r row" style="justify-content:space-between"><span>${esc(a.name)}</span><b class="${delta[a.id] < 0 ? 'neg' : 'pos'}">${delta[a.id] > 0 ? '⬆️' : '⬇️'} ${money(Math.abs(delta[a.id]))}</b></div>`)
-          .join('') || '<div class="muted">No change</div>';
-      body.innerHTML = `
-        <div class="stats">
-          <div class="stat"><div class="k">🍦 Ice creams</div><div class="v">${totalSold.toLocaleString()}</div></div>
-          <div class="stat"><div class="k">💰 Income</div><div class="v">${money(p.totalIncome)}</div></div>
-          <div class="stat"><div class="k">💸 Expenses</div><div class="v">${money(p.totalExpense)}</div></div>
-          <div class="stat"><div class="k">⭐ Profit</div><div class="v ${p.totalProfit < 0 ? 'neg' : 'pos'}">${money(p.totalProfit)}</div></div>
-        </div>
-        <h3>What sold</h3>
-        <div class="sold-grid">${sold.map(([k, n]) => {
-          const [flavor, container] = k.split('-');
-          return `<span class="chip">${iceCreamSVG({ flavor, container, topping: null }, 26)} ${n}</span>`;
-        }).join('')}
-        ${TOPPINGS.filter((t) => lw.toppings[t.id]).map((t) => `<span class="chip">${iceCreamSVG({ flavor: 'vanilla', container: 'cake', topping: t.id }, 26)} +${lw.toppings[t.id]}</span>`).join('')}
-        </div>
-        <div class="row tiny muted" style="margin-top:4px">🚶 ${lw.customers.toLocaleString()} people · 😤 ${lw.tooExpensive} said “too expensive” · 😠 ${lw.outOfStock} found something sold out</div>
-        ${tooExpensiveList(lw.tooExpensiveWants)}
-        <div class="compare">
-          <div class="col"><h4>🏠 Assets changed</h4>${chg('asset')}</div>
-          <div class="col"><h4>📝 Liabilities changed</h4>${chg('liability')}</div>
-        </div>
-        <h3>Profit this summer</h3>
-        ${profitChart(g)}
-        ${s.day <= g.seasonDays && s.phase === 'closed' ? `<h3>📣 Advertising this week</h3>
-        <div class="ad-choices">${C.ads.map((a) => {
-          const e = { none: '🤐', flyers: '📄', radio: '📻', billboard: '🪧' }[a.id];
-          return `<button data-act="ad" data-id="${a.id}" class="${adPick === a.id ? 'on' : ''}" ${a.cost > g.cash ? 'disabled' : ''}><span class="e">${e}</span>${a.name}<br><span class="muted">${a.cost ? money(a.cost) : 'Free'}</span></button>`;
-        }).join('')}</div>` : ''}
-        <div class="row" style="justify-content:flex-end;margin-top:12px">
-          <button class="btn" data-act="books">📒 Full books</button>
-          <button class="btn big go" data-act="ok" ${s.phase === 'closed' && !adPick ? 'disabled' : ''}>${s.phase === 'closed' ? 'Next week ▶' : 'OK'}</button>
-        </div>`;
-    },
-  });
-  onActs(m.body, {
-    ad: (t) => {
-      adPick = t.dataset.id;
-      m.refresh();
-    },
-    books: () => app.openBooks(),
-    ok: () => {
-      if (adPick) g.setAds(adPick);
-      s.needWeekReport = null;
-      app.changed();
-      m.close();
-      onDone?.();
-    },
-  });
 }
 
 // ---------- end of summer ----------

@@ -131,8 +131,7 @@ export class Scene {
         if (m.mood === 'greatDeal') return good('What a great deal!', '🤩');
         if (m.mood === 'noTopping') return bad('No sprinkles? 😕');
         if (m.mood === 'noNapkin') return bad('No napkins? Sticky hands! 🧻', '🧻');
-        if (m.mood === 'cardExact') return good('🎫 Gift card, perfect!', '🎫');
-        if (m.mood === 'cardForfeit') return bad('🎫 I lost some of my card money.', '😕');
+        if (m.mood === 'cardFree') return good('🎫 A free ice cream!', '🎫');
         if (m.mood === 'discountOk') return good('OK, deal!', '🤝');
         if (m.gotCard) return good('🎉 A free gift card!', '🎉');
         if (m.withCard) return good('🎫 Thanks!', '🎫');

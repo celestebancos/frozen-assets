@@ -81,17 +81,18 @@ test('pay later costs a bit more and creates a bill', () => {
   assert.equal(g.buy('waffle', 1, 1, true).ok, false, 'over the credit limit');
 });
 
-test('gift cards: discounted sale, giveaway, and redemption', () => {
+test('gift cards: a sold card is booked at what it sold for; a free one at the usual price', () => {
   const g = Game.create({ player: 'N', business: 'T', color: 'pink', seed: 5 });
   fileAllCorrectly(g);
   g.state.giftSale = { price: 300, left: 1 };
   g.issueCard('sale');
-  assert.equal(g.state.truth.giftCards, 500);
-  assert.equal(g.state.truth.giftDiscounts, 200);
+  assert.equal(g.state.truth.giftCards, 300);
+  assert.equal(g.state.truth.giftDiscounts, 0, 'no discount: the card is worth what it sold for');
   assert.equal(g.cash, 10300);
   g.issueCard('promo');
-  assert.equal(g.state.truth.giftCards, 1000);
-  assert.equal(g.state.truth.giftDiscounts, 700);
+  assert.equal(g.state.truth.giftCards, 800);
+  assert.equal(g.state.truth.giftDiscounts, 500);
+  assert.deepEqual(g.state.cards.map((c) => c.value), [300, 500]);
   assert.equal(share(g.state.truth), profit(g.state.truth));
 });
 
@@ -298,4 +299,113 @@ test('second chances: wrong tries stay in the shoebox; Penny can file it', async
   assert.equal(f.secondTry, 1);
   assert.equal(f.byPenny, 1);
   assert.equal(f.firstTry, 0);
+});
+
+test('back un-files the last paper; profit moves to the share once a week', () => {
+  const g = Game.create({ player: 'N', business: 'T', color: 'pink', seed: 5 });
+  fileAllCorrectly(g);
+  g.buy('vanilla', 0, 1);
+  g.buy('cake', 0, 1);
+  g.buy('napkins', 0, 1);
+  g.setRoute([{ spot: 'maple', at: 600 }]);
+  Object.assign(g.state.policies, { outOfStock: 'nothing', drop: 'refuse' });
+  for (let d = 0; d < 7; d++) {
+    fileAllCorrectly(g);
+    g.openDay();
+    g.runDay();
+  }
+  assert.ok(g.state.needWeekReport);
+  assert.equal(g.pendingProfit(), 0, 'nothing filed yet this week');
+  const docs = g.docsToFile();
+  const before = { ...g.state.filed };
+  fileAllCorrectly(g);
+  const t = g.state.filed;
+  assert.equal(g.pendingProfit(), profit(t) - profit(before));
+  // only the most recent paper can be un-filed
+  assert.equal(g.unfileDoc(docs[0].id), false);
+  const last = docs[docs.length - 1];
+  assert.equal(g.unfileDoc(last.id), true);
+  assert.equal(last.filed, false);
+  assert.equal(g.docsToFile().length, 1);
+  fileAllCorrectly(g);
+  assert.deepEqual(g.state.filed, t);
+  const pending = g.pendingProfit();
+  const { amt, ids } = g.moveProfit();
+  assert.equal(amt, pending);
+  assert.equal(g.pendingProfit(), 0);
+  assert.equal(g.unfileDoc(last.id), false, 'closed papers stay filed');
+  g.undoMoveProfit(ids);
+  assert.equal(g.pendingProfit(), pending);
+});
+
+test('older saves count all filed profit as already moved', () => {
+  const g = Game.create({ player: 'N', business: 'T', color: 'pink', seed: 6 });
+  fileAllCorrectly(g);
+  g.buy('vanilla', 0, 1);
+  const s = JSON.parse(JSON.stringify(g.state));
+  delete s.closeTracked;
+  for (const d of s.docs) {
+    delete d.closed;
+    d.filed = true;
+  }
+  const g2 = new Game(s);
+  assert.equal(g2.openProfitDocs().length, 0);
+  assert.equal(s.closeTracked, true);
+});
+
+test('a shopping order is bought all at once, or not at all', () => {
+  const g = Game.create({ player: 'N', business: 'T', color: 'pink', seed: 8 });
+  fileAllCorrectly(g);
+  const cash = g.cash;
+  const order = [{ id: 'vanilla', pack: 0, count: 2 }, { id: 'cake', pack: 0, count: 1 }];
+  const total = g.orderTotal(order);
+  assert.ok(total <= cash);
+  const big = [...order, { id: 'chocolate', pack: 0, count: 50 }];
+  assert.equal(g.buyOrder(big).ok, false);
+  assert.equal(g.cash, cash, 'nothing bought when the whole order is too much');
+  assert.deepEqual(g.buyOrder(order), { ok: true, total });
+  assert.equal(g.cash, cash - total);
+  assert.equal(g.stock('vanilla'), 2 * 50);
+  assert.equal(g.buyOrder([]).ok, false);
+});
+
+
+test('papers filed right 3 times in a row get filed by Penny, except every 3rd', () => {
+  const g = Game.create({ player: 'N', business: 'T', color: 'pink', seed: 10 });
+  fileAllCorrectly(g);
+  const right = (d) => Object.fromEntries(docLines(d).map((l) => [l.acct, l.dir]));
+  const newReceipt = () => {
+    g.buy('napkins', 0, 1);
+    const d = g.state.docs[g.state.docs.length - 1];
+    d.week = 0; // pretend it's due now
+    g.state.phase = 'setup';
+    return d;
+  };
+  // a miss resets the streak
+  let d = newReceipt();
+  g.fileDoc(d.id, { cash: 'up' });
+  g.fileDoc(d.id, right(d));
+  assert.equal(g.known('supplyReceipt').streak, 0);
+  let learned = false;
+  for (let i = 0; i < 3; i++) {
+    d = newReceipt();
+    learned = g.fileDoc(d.id, right(d)).learned;
+  }
+  assert.equal(learned, true);
+  assert.equal(g.knowsByHeart('supplyReceipt'), true);
+  // next ones: filed by Penny twice, then the third comes to the kid
+  const auto = [];
+  for (let i = 0; i < 3; i++) {
+    d = newReceipt();
+    auto.push(g.autoFileKnown().length);
+    if (!d.filed) g.fileDoc(d.id, right(d));
+  }
+  assert.deepEqual(auto, [1, 1, 0]);
+  // missing the check-up paper means the kid files them again
+  for (let i = 0; i < 3; i++) newReceipt();
+  assert.equal(g.autoFileKnown().length, 2);
+  const todo = g.docsToFile();
+  assert.equal(todo.length, 1);
+  g.fileDoc(todo[0].id, { cash: 'up' });
+  assert.equal(g.knowsByHeart('supplyReceipt'), false);
 });

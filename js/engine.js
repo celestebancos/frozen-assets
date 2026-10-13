@@ -3,7 +3,7 @@
 
 import { CONFIG, SUPPLIES, SUPPLY, SPOTS, SPOT, CONTAINERS, FLAVORS, TOPPINGS, CROWDS, DROP_BY_PERSON } from './config.js';
 import { makeRng } from './rng.js';
-import { balanceCheck, applyEntries, emptyTotals, share } from './ledger.js';
+import { ACCOUNT, balanceCheck, applyEntries, emptyTotals, share } from './ledger.js';
 import { addToDoc, docLines, docEntryList, checkFiling, DOC_TYPES } from './documents.js';
 
 const C = CONFIG;
@@ -32,7 +32,8 @@ export function newGameState({ player, business, color, tune = 'entertainer', se
     truth: emptyTotals(),
     filed: emptyTotals(),
     filedByWeek: {},
-    docs: [],
+    docs: [], // filed docs get closed = true once their profit moves to the player's Share
+    closeTracked: true,
     lots: [],
     prices: { cake: 300, sugar: 350, waffle: 450, bowl: 300, chocSprinkles: 50, rainbowSprinkles: 50 },
     menuOn: {},
@@ -76,6 +77,12 @@ export class Game {
     state.log ||= { actions: [], days: [] }; // older saves had no log
     // songs that were removed or renamed
     state.tune = { medley: 'entertainer', musicBox: 'entertainer', truckSong: 'turkey', lullaby: 'entertainer', greensleeves: 'entertainer' }[state.tune] || state.tune;
+    // older saves didn't track which profit has moved to the player's Share: count it all as moved,
+    // except a week whose report hasn't been seen yet
+    if (!state.closeTracked) {
+      for (const d of state.docs) if (d.filed && d.week !== state.needWeekReport) d.closed = true;
+      state.closeTracked = true;
+    }
   }
 
   // ---------- play log (for grown-ups to export and analyze) ----------
@@ -237,6 +244,24 @@ export class Game {
     }
     this.emit({ t: 'buy', id, total, payLater });
     this.logAction('buy', { id, pack: pack.size, count, payLater, total, onSale: !!(s.sale && s.sale.supply === id && s.day <= s.sale.until) });
+    return { ok: true, total };
+  }
+
+  // Price of a whole shopping order: lines are [{ id, pack, count }].
+  orderTotal(lines, payLater = false) {
+    return lines.reduce((t, l) => t + this.priceFor(l.id, l.pack, payLater) * l.count, 0);
+  }
+
+  // Buy a whole order at once, or nothing if the cash (or credit) can't cover all of it.
+  buyOrder(lines, payLater = false) {
+    lines = lines.filter((l) => l.count > 0);
+    if (!lines.length) return { ok: false, reason: 'empty' };
+    const total = this.orderTotal(lines, payLater);
+    if (payLater ? this.creditUsed() + total > C.credit.limit : this.cash < total) {
+      this.logAction('buyFail', { order: lines.length, payLater, total, reason: payLater ? 'limit' : 'cash' });
+      return { ok: false, reason: payLater ? 'limit' : 'cash' };
+    }
+    for (const l of lines) this.buy(l.id, l.pack, l.count, payLater);
     return { ok: true, total };
   }
 
@@ -405,16 +430,50 @@ export class Game {
     const wrong = picked.filter(([acct, d]) => answer.get(acct) !== d).map(([acct]) => acct);
     const missing = res.correct.filter((c) => !picks[c.acct]).length;
     this.logAction('file', { docId, doc: doc.type, week: doc.week, attempt, ok: res.ok, picks: { ...picks }, answer: res.correct.map((c) => `${c.acct}:${c.dir}`) });
-    if (attempt === 1) doc.firstTry = res.ok;
+    let learned = false;
+    if (attempt === 1) {
+      doc.firstTry = res.ok;
+      // a first-try right adds to this kind of paper's streak; a miss starts it over
+      const k = this.known(doc.type);
+      k.streak = res.ok ? k.streak + 1 : 0;
+      learned = res.ok && k.streak === C.filing.streak;
+    }
     if (res.ok) this.commitDoc(doc);
     this.sync();
-    return { ...res, attempt, wrong, missing };
+    return { ...res, attempt, wrong, missing, learned };
+  }
+
+  // How well the kid knows a kind of paper: { streak, seen } (seen counts papers since it was learned).
+  known(type) {
+    const m = (this.state.known ||= {});
+    return (m[type] ||= { streak: 0, seen: 0 });
+  }
+  knowsByHeart(type) {
+    return this.known(type).streak >= C.filing.streak;
+  }
+
+  // Penny files the papers the kid already knows by heart, except every few, which still come to the kid.
+  autoFileKnown() {
+    const done = [];
+    for (const doc of this.docsToFile()) {
+      if (!this.knowsByHeart(doc.type)) continue;
+      const k = this.known(doc.type);
+      k.seen++;
+      if (k.seen % C.filing.checkEvery === 0) continue;
+      doc.autoFiled = true;
+      this.logAction('file', { docId: doc.id, doc: doc.type, week: doc.week, attempt: 0, ok: true, auto: true });
+      this.commitDoc(doc);
+      done.push(doc);
+    }
+    if (done.length) this.sync();
+    return done;
   }
 
   // Penny files it for you after you've tried.
   pennyFiles(docId) {
     const doc = this.state.docs.find((d) => d.id === docId);
     if (!doc || doc.filed) return false;
+    this.known(doc.type).streak = 0;
     doc.byPenny = true;
     this.logAction('file', { docId, doc: doc.type, week: doc.week, attempt: (doc.attempts || 0) + 1, ok: true, byPenny: true });
     this.commitDoc(doc);
@@ -428,6 +487,56 @@ export class Game {
     const entries = docEntryList(doc);
     applyEntries(s.filed, entries);
     (s.filedByWeek[doc.week] ||= []).push(...entries);
+  }
+
+  // Undo the most recent filing (the shoebox's Back button). Only works on the last paper filed.
+  unfileDoc(docId) {
+    const s = this.state;
+    const doc = s.docs.find((d) => d.id === docId);
+    if (!doc || !doc.filed || doc.closed) return false;
+    const entries = docEntryList(doc);
+    const wk = s.filedByWeek[doc.week] || [];
+    const tail = wk.slice(wk.length - entries.length);
+    const same = tail.length === entries.length && tail.every((e, i) => e.acct === entries[i].acct && e.amt === entries[i].amt && e.detail === entries[i].detail);
+    if (!same) return false;
+    wk.splice(wk.length - entries.length);
+    applyEntries(s.filed, entries, -1);
+    doc.filed = false;
+    delete doc.byPenny;
+    this.logAction('unfile', { docId, doc: doc.type, week: doc.week });
+    return true;
+  }
+
+  // Filed papers whose profit hasn't moved to the player's Share yet.
+  openProfitDocs() {
+    return this.state.docs.filter((d) => d.filed && !d.closed);
+  }
+
+  // Income minus expenses on those papers: "Profit this week" on the balance sheet.
+  pendingProfit() {
+    let p = 0;
+    for (const d of this.openProfitDocs()) {
+      for (const e of docEntryList(d)) {
+        const sec = ACCOUNT[e.acct].section;
+        if (sec === 'income') p += e.amt;
+        else if (sec === 'expense') p -= e.amt;
+      }
+    }
+    return p;
+  }
+
+  // Move this week's profit (or loss) into the player's Share.
+  moveProfit() {
+    const amt = this.pendingProfit();
+    const ids = this.openProfitDocs().map((d) => d.id);
+    for (const d of this.openProfitDocs()) d.closed = true;
+    this.logAction('moveProfit', { amt, docs: ids.length });
+    return { amt, ids };
+  }
+
+  undoMoveProfit(ids) {
+    for (const d of this.state.docs) if (ids.includes(d.id)) delete d.closed;
+    this.logAction('undoMoveProfit', { docs: ids.length });
   }
 
   // Remove unfiled empty docs (e.g. everything netted to zero).
@@ -1144,30 +1253,27 @@ export class Game {
 
   serveCardHolder(party, m, idx) {
     const s = this.state;
-    const face = C.giftCard.face;
+    const card = s.cards.find((c) => c.id === party.cardIds[idx]);
+    const value = card?.value ?? C.giftCard.face; // older saves: every card was $5
     const items = this.availableItems();
     if (!items.length) {
       // can't use the card today; they'll try again
       m.result = 'mad';
       this.nudge('outOfStockMad');
-      const card = s.cards.find((c) => c.id === party.cardIds[idx]);
       if (card) card.returnDay = s.day + this.rng.int(1, 5);
       return;
     }
     const want = this.wants(m);
     const scored = items.map((it) => {
-      const price = this.itemPrice(it);
       let score = 0;
       if (it.flavor === want.flavor) score += 2;
       if (it.container === want.container) score += 1;
       if (it.topping === want.topping) score += 0.5;
-      if (price >= face && price <= face + 150) score += 3;
-      else if (price < face) score -= (face - price) / 100;
-      else score -= (price - face) / 80;
-      return { it, price, score };
+      return { it, score };
     });
+    // a gift card is good for one free ice cream, so they just pick what they like best
     scored.sort((a, b) => b.score - a.score);
-    const { it, price } = scored[0];
+    const { it } = scored[0];
     this.makeItem(it, m.kind === 'adult' ? 1 : this.rng.int(1, 3));
     m.item = it;
     m.result = 'bought';
@@ -1180,25 +1286,13 @@ export class Game {
       s.week.toppings[it.topping] = (s.week.toppings[it.topping] || 0) + 1;
     }
     this.post('redemptions', [
-      { acct: 'giftCards', amt: -face },
-      { acct: 'salesGift', amt: face },
-    ], { key: 'day' + s.day, label: `${this.dayName} (day ${s.day})`, amt: face, count: 1 });
+      { acct: 'giftCards', amt: -value },
+      { acct: 'salesGift', amt: value },
+    ], { key: 'day' + s.day, label: `${this.dayName} (day ${s.day})`, amt: value, count: 1 });
     s.cards = s.cards.filter((c) => c.id !== party.cardIds[idx]);
     s.today.cardsRedeemed++;
-    if (price > face) {
-      party.bill = (party.bill || 0) + (price - face);
-      if (price <= face + 150) {
-        m.mood = 'cardExact';
-        this.nudge('giftCardExact');
-      }
-    } else if (price === face) {
-      m.mood = 'cardExact';
-      this.nudge('giftCardExact');
-    } else {
-      m.mood = 'cardForfeit';
-      m.forfeit = face - price;
-      this.nudge('giftCardForfeit');
-    }
+    m.mood = 'cardFree';
+    this.nudge('giftCardFree');
   }
 
   finishParty(party) {
@@ -1261,14 +1355,16 @@ export class Game {
     const s = this.state;
     const face = C.giftCard.face;
     const id = s.nextCardId++;
-    s.cards.push({ id, returnDay: s.day + this.rng.int(C.giftCard.returnMinDays, C.giftCard.returnMaxDays) });
+    // A sold card is booked at what it sold for; a free one at the usual card price, as a giveaway.
+    const paid = how === 'sale' ? s.giftSale.price : 0;
+    const value = paid > 0 ? paid : face;
+    s.cards.push({ id, value, returnDay: s.day + this.rng.int(C.giftCard.returnMinDays, C.giftCard.returnMaxDays) });
     if (how === 'sale') {
-      const paid = s.giftSale.price;
       const entries = [
         { acct: 'cash', amt: paid },
-        { acct: 'giftCards', amt: face },
+        { acct: 'giftCards', amt: value },
       ];
-      if (face - paid) entries.push({ acct: 'giftDiscounts', amt: face - paid });
+      if (!paid) entries.push({ acct: 'giftDiscounts', amt: face });
       this.post('giftSales', entries, { key: 'p' + paid, label: `Cards sold for ${fmt(paid)}`, amt: paid, count: 1 });
       if (s.today) s.today.cardsSold++;
       if (paid > 0) this.payOwedInterest();
