@@ -351,3 +351,19 @@ test('older saves count all filed profit as already moved', () => {
   assert.equal(g2.openProfitDocs().length, 0);
   assert.equal(s.closeTracked, true);
 });
+
+test('a shopping order is bought all at once, or not at all', () => {
+  const g = Game.create({ player: 'N', business: 'T', color: 'pink', seed: 8 });
+  fileAllCorrectly(g);
+  const cash = g.cash;
+  const order = [{ id: 'vanilla', pack: 0, count: 2 }, { id: 'cake', pack: 0, count: 1 }];
+  const total = g.orderTotal(order);
+  assert.ok(total <= cash);
+  const big = [...order, { id: 'chocolate', pack: 0, count: 50 }];
+  assert.equal(g.buyOrder(big).ok, false);
+  assert.equal(g.cash, cash, 'nothing bought when the whole order is too much');
+  assert.deepEqual(g.buyOrder(order), { ok: true, total });
+  assert.equal(g.cash, cash - total);
+  assert.equal(g.stock('vanilla'), 2 * 50);
+  assert.equal(g.buyOrder([]).ok, false);
+});

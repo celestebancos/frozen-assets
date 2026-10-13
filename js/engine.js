@@ -247,6 +247,24 @@ export class Game {
     return { ok: true, total };
   }
 
+  // Price of a whole shopping order: lines are [{ id, pack, count }].
+  orderTotal(lines, payLater = false) {
+    return lines.reduce((t, l) => t + this.priceFor(l.id, l.pack, payLater) * l.count, 0);
+  }
+
+  // Buy a whole order at once, or nothing if the cash (or credit) can't cover all of it.
+  buyOrder(lines, payLater = false) {
+    lines = lines.filter((l) => l.count > 0);
+    if (!lines.length) return { ok: false, reason: 'empty' };
+    const total = this.orderTotal(lines, payLater);
+    if (payLater ? this.creditUsed() + total > C.credit.limit : this.cash < total) {
+      this.logAction('buyFail', { order: lines.length, payLater, total, reason: payLater ? 'limit' : 'cash' });
+      return { ok: false, reason: payLater ? 'limit' : 'cash' };
+    }
+    for (const l of lines) this.buy(l.id, l.pack, l.count, payLater);
+    return { ok: true, total };
+  }
+
   sellBack(id, units) {
     const sup = SUPPLY[id];
     if (sup.shelfLife) return { ok: false, reason: 'perishable' };
