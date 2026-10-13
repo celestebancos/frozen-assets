@@ -9,7 +9,7 @@ import { esc, money, el, openModal, onActs, anyModalOpen, closeAllModals, toast,
 import { Scene } from './ui/scene.js';
 import { shopPanel, menuPanel, mapPanel, giftPanel, inventoryPanel, policyPanel, truckPanel, booksPanel, placesPanel } from './ui/panels.js';
 import { openShoebox } from './ui/filing.js';
-import { weeklyReport, seasonEnd } from './ui/reports.js';
+import { seasonEnd } from './ui/reports.js';
 import { showDecision } from './ui/popups.js';
 import { buildExport, exportFileName } from './export.js';
 
@@ -296,7 +296,8 @@ class App {
       this.showMorning();
       return;
     }
-    if (s.needWeekReport && s.lastWeek) return weeklyReport(this, () => this.afterChange());
+    // the shoebox finishes the week: profit moves to the share and it turns into the weekly report
+    if (s.needWeekReport && s.lastWeek) return this.openShoebox(() => this.afterChange());
     if (s.phase === 'seasonEnd') return seasonEnd(this);
     if (s.phase === 'won' || s.phase === 'lost') return;
     this.showMorning();

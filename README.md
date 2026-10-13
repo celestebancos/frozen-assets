@@ -11,7 +11,7 @@ Play it at **https://celestebancos.github.io/frozen-assets/** once GitHub Pages 
 3. File the bank loan papers and the truck bill of sale in the 🗃️ shoebox. That's the first lesson: the loan is cash in *and* a debt.
 4. Buy supplies, set prices, and pick a route on the 🗺️ map. Then open for business. The 📍 Places page compares how many people came to each spot (per hour, and by time of day) so different routes can be tried on different days.
 5. Each day runs 10am–8pm. Speeds are ⏸ ▶ ▶▶ ▶▶▶ and ⏭ (skip to the end of the day).
-6. At the end of each week, file the shoebox. Penny the accountant checks every paper and explains any mistake with a "your books vs correct books" comparison. Then the weekly report and profit graph appear, and you pick the week's advertising.
+6. At the end of each week, file the shoebox. Each paper pops up over two pictures: the profit & loss (income is a pile of base-ten blocks, each expense digs a hole) and the balance sheet (bars on each side of a center line, with totals that tip like a scale). Penny the accountant checks every paper and explains any mistake with a "your books vs correct books" comparison. After the last paper, **Calculate Profit** fills the holes with income, and the leftover profit (or loss) moves into the owner's Share. Then the screen turns into the weekly report with the profit graph. Advertising is picked under 📣 Promotion on the 🎁 Gift Cards tab.
 7. After 12 weeks the loan comes due. If there's enough cash to pay the bank, you keep the truck and can play another summer. If not, the truck gets towed.
 
 Games save automatically in the browser and continue on the same device.
@@ -84,5 +84,6 @@ node --test test/*.test.mjs   # engine, accounting and leaderboard tests
 | `js/ledger.js` | Accounts, P&L and balance sheet math |
 | `js/documents.js` | Shoebox papers, their correct filing, and Penny's explanations |
 | `js/config.js` | Every tunable number |
+| `js/ui/statements.js` | Layout math for the P&L blocks and balance sheet bars (no DOM) |
 | `js/ui/*` | Screens and panels |
 | `tools/bots.mjs` | Simulated players used for tuning and tests |
