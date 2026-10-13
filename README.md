@@ -88,7 +88,7 @@ node tools/simulate.mjs 50 decent smart  # just some bots
 TRACE=1 node tools/simulate.mjs 1 decent # week-by-week trace
 ```
 
-Tuning targets: a **decent** player (fair prices, keeps stocked, a simple 2-stop route from Maple Street to Riverside after lunch and back, flyers, gift card for upset customers) wins every time. A **smart** player (route follows the crowds) earns clearly more. **Poor** choices carry a real risk of losing: overpricing, overbuying mix that spoils, handing out piles of free gift cards, or parking in one place all day.
+Tuning targets: a **decent** player (fair prices, keeps stocked, a simple 2-stop route from Maple Street to Riverside after lunch and back, flyers, gift card for upset customers) wins every time. A **smart** player (route follows the crowds) earns clearly more. **Poor** choices carry a real risk of losing: overpricing, overbuying mix that spoils, handing out piles of free gift cards, or parking all day in a quiet neighborhood. Staying all day in a dense one (Downtown) can work, but a good route still earns more.
 
 ## Developing
 
