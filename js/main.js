@@ -15,7 +15,6 @@ import { buildExport, exportFileName } from './export.js';
 
 const C = CONFIG;
 const MS_PER_MIN = [0, 150, 50, 12];
-const DEFAULT_PLAYERS = ['Luke', 'Nathan'];
 
 class App {
   constructor() {
@@ -69,7 +68,7 @@ class App {
     closeAllModals();
     this.game = null;
     const saved = storage.players();
-    const names = [...new Set([...DEFAULT_PLAYERS, ...saved])];
+    const names = [...new Set(saved)];
     document.body.innerHTML = '';
     const scr = el(`<div class="screen">
       <h1 class="logo">Frozen Assets<small>🍦 the ice cream truck game 🍦</small></h1>
@@ -83,7 +82,7 @@ class App {
             <button class="btn ${st ? '' : 'pink'}" data-act="new" data-n="${esc(n)}">🚚 New game</button></div></div>`;
         })
         .join('')}
-        <div class="player-card"><div class="name">➕</div><div class="sub">Someone new</div>
+        <div class="player-card"><div class="name">➕</div><div class="sub">${names.length ? 'Someone new' : 'Add a player'}</div>
           <input class="text-in" style="font-size:16px" maxlength="16" placeholder="Name" aria-label="New player name">
           <button class="btn" style="margin-top:6px" data-act="newName">🚚 Start</button></div>
       </div>
