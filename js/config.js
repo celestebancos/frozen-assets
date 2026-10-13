@@ -102,7 +102,7 @@ export const CONFIG = {
   // Driving: people on the sidewalk wave the truck down. Rate = share × the crowd at the nearer stop.
   curb: { share: 0.35, stopMinutes: 2 },
   // Families who already bought from you today come back by. Rate = share × the people a tired spot is missing.
-  alreadyHad: { share: 0.5 },
+  alreadyHad: { share: 0.25 },
 };
 
 // Starting menu prices (cents).
