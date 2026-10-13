@@ -116,6 +116,13 @@ class App {
     let color = null;
     let bling = 0;
     let name = `${player}'s Ice Cream`;
+    // The lot: one truck in each color with random bling, and at least one truck at every price.
+    const levels = [...BLING.map((b) => b.level), ...TRUCK_COLORS.slice(BLING.length).map(() => Math.floor(Math.random() * BLING.length))];
+    for (let i = levels.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [levels[i], levels[j]] = [levels[j], levels[i]];
+    }
+    const lot = TRUCK_COLORS.map((c, i) => ({ color: c.id, bling: levels[i] }));
     const scr = el(`<div class="screen"><h1 class="logo" style="font-size:44px"></h1><div class="setup-card"></div></div>`);
     document.body.appendChild(scr);
     const title = scr.querySelector('h1');
@@ -146,24 +153,24 @@ class App {
       }
       const L = C.loans.find((l) => l.id === loan);
       const maxTruck = L.principal - C.minStartCash;
-      if (TRUCK_PRICE + BLING[bling].price > maxTruck) bling = 0;
+      if (TRUCK_PRICE + BLING[bling].price > maxTruck) color = null;
       const t = color && truckFor(color);
       const price = TRUCK_PRICE + BLING[bling].price;
       if (step === 'truck') {
         title.textContent = '🚚 Truck lot';
-        card.innerHTML = `<p style="margin-top:0">You borrowed <b>${money(L.principal)}</b>. Every truck costs <b>${money(TRUCK_PRICE)}</b>, whatever the color. Bling makes it fancier but costs more up front. It doesn't bring more customers. Whatever is left over is your cash for supplies.</p>
-          <div style="max-width:420px;margin:0 auto">${truckSVG(t ? t.hex : '#ddd', t ? t.name : 'Pick a color', { bling })}</div>
-          <h3>🎨 Color</h3><div class="swatches">${TRUCK_COLORS.map((c) => `<button class="swatch ${color === c.id ? 'on' : ''}" style="background:${c.hex}" data-act="color" data-id="${c.id}" aria-label="${c.name}" title="${c.name}"></button>`).join('')}</div>
-          <h3>✨ Bling</h3>
-          <div class="truck-lot">${BLING.map((b) => {
+        card.innerHTML = `<p style="margin-top:0">You borrowed <b>${money(L.principal)}</b>. A plain truck costs <b>${money(TRUCK_PRICE)}</b>, whatever the color. Bling makes it fancier but costs more up front. It doesn't bring more customers. Whatever is left over is your cash for supplies.</p>
+          <div class="truck-lot">${lot.map((x) => {
+            const c = truckFor(x.color);
+            const b = BLING[x.bling];
             const total = TRUCK_PRICE + b.price;
             const can = total <= maxTruck;
-            return `<button class="lot-truck ${bling === b.level ? 'on' : ''}" data-act="bling" data-l="${b.level}" ${can ? '' : 'disabled'}>
-              <div style="font-size:28px">${b.emoji}</div><b>${b.name}</b><div class="tiny">${b.about}</div>
-              <div class="price">${b.price ? '+' + money(b.price) : 'Free'}</div><div class="tiny">${can ? `${money(L.principal - total)} left over` : 'Too much for this loan'}</div></button>`;
+            return `<button class="lot-truck ${color === x.color ? 'on' : ''}" data-act="pickTruck" data-c="${x.color}" data-l="${x.bling}" ${can ? '' : 'disabled'}>
+              ${truckSVG(c.hex, c.name, { bling: x.bling })}
+              <b>${b.emoji} ${b.name}</b><div class="tiny">${b.about}</div>
+              <div class="price">${money(total)}</div><div class="tiny">${can ? `${money(L.principal - total)} left over` : 'Too much for this loan'}</div></button>`;
           }).join('')}</div>
           <div class="row" style="justify-content:space-between;margin-top:16px"><button class="btn" data-act="toBank">◀ Back to the bank</button>
-            <button class="btn big go" data-act="next" ${t ? '' : 'disabled'}>${t ? `Buy it for ${money(price)} ▶` : 'Pick a color'}</button></div>`;
+            <button class="btn big go" data-act="next" ${t ? '' : 'disabled'}>${t ? `Buy it for ${money(price)} ▶` : 'Pick a truck'}</button></div>`;
         return;
       }
       title.textContent = '🪧 Your sign';
@@ -182,11 +189,8 @@ class App {
         loan = t.dataset.id;
         render();
       },
-      color: (t) => {
-        color = t.dataset.id;
-        render();
-      },
-      bling: (t) => {
+      pickTruck: (t) => {
+        color = t.dataset.c;
         bling = Number(t.dataset.l);
         render();
       },
