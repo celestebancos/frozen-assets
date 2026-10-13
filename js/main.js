@@ -1,5 +1,5 @@
 // Frozen Assets — app controller: title screen, setup, the game loop, HUD, and wiring of panels.
-import { CONFIG, TRUCK_COLORS, TRUCK_PRICE, BLING, SPOT, FLAVORS } from './config.js';
+import { CONFIG, TRUCK_COLORS, TRUCK_PRICE, BLING, SPOT, FLAVORS, SUPPLY } from './config.js';
 import { Game, DAY_NAMES } from './engine.js';
 import { Music } from './music.js';
 import { storage } from './storage.js';
@@ -390,7 +390,9 @@ class App {
     for (let i = 0; i < steps; i++) {
       if (!g.step()) break;
     }
-    for (const ev of g.events.splice(0)) this.scene.handle(ev, this.speed);
+    const evs = g.events.splice(0);
+    for (const ev of evs) this.scene.handle(ev, this.speed);
+    this.slowDownIfOut(evs);
     this.renderHUD();
     this.renderGadget();
     this.scene.update();
@@ -410,6 +412,28 @@ class App {
       return;
     }
     if (now - this.lastSave > 15000) this.save();
+  }
+
+  // Something ran out and a customer got upset: drop back to normal speed so there's time to restock.
+  // Once per missing thing per day, so speeding back up on purpose sticks.
+  slowDownIfOut(evs) {
+    if (this.speed === 1) return;
+    const s = this.game.state;
+    for (const ev of evs) {
+      if (ev.t !== 'served') continue;
+      for (const m of ev.party.members) {
+        let out = m.missing || (m.mood === 'noNapkin' ? 'napkins' : m.mood === 'noTopping' ? 'sprinkles' : null);
+        if (!out) continue;
+        if (out === 'bowl' && this.game.stock('bowl') > 0) out = 'spoons'; // bowls need a spoon
+        const key = `${s.season}-${s.day}-${out}`;
+        if ((this.slowedFor ||= new Set()).has(key)) continue;
+        this.slowedFor.add(key);
+        this.setSpeed(1);
+        const what = out === 'swirl' ? 'swirl mix' : out === 'sprinkles' ? 'sprinkles' : (SUPPLY[out]?.short || out).toLowerCase();
+        toast(`😠 Out of ${what}! Slowed down so you can restock.`, 3500);
+        return;
+      }
+    }
   }
 
   // ---------- HUD ----------

@@ -369,3 +369,43 @@ test('a shopping order is bought all at once, or not at all', () => {
   assert.equal(g.buyOrder([]).ok, false);
 });
 
+
+test('papers filed right 3 times in a row get filed by Penny, except every 3rd', () => {
+  const g = Game.create({ player: 'N', business: 'T', color: 'pink', seed: 10 });
+  fileAllCorrectly(g);
+  const right = (d) => Object.fromEntries(docLines(d).map((l) => [l.acct, l.dir]));
+  const newReceipt = () => {
+    g.buy('napkins', 0, 1);
+    const d = g.state.docs[g.state.docs.length - 1];
+    d.week = 0; // pretend it's due now
+    g.state.phase = 'setup';
+    return d;
+  };
+  // a miss resets the streak
+  let d = newReceipt();
+  g.fileDoc(d.id, { cash: 'up' });
+  g.fileDoc(d.id, right(d));
+  assert.equal(g.known('supplyReceipt').streak, 0);
+  let learned = false;
+  for (let i = 0; i < 3; i++) {
+    d = newReceipt();
+    learned = g.fileDoc(d.id, right(d)).learned;
+  }
+  assert.equal(learned, true);
+  assert.equal(g.knowsByHeart('supplyReceipt'), true);
+  // next ones: filed by Penny twice, then the third comes to the kid
+  const auto = [];
+  for (let i = 0; i < 3; i++) {
+    d = newReceipt();
+    auto.push(g.autoFileKnown().length);
+    if (!d.filed) g.fileDoc(d.id, right(d));
+  }
+  assert.deepEqual(auto, [1, 1, 0]);
+  // missing the check-up paper means the kid files them again
+  for (let i = 0; i < 3; i++) newReceipt();
+  assert.equal(g.autoFileKnown().length, 2);
+  const todo = g.docsToFile();
+  assert.equal(todo.length, 1);
+  g.fileDoc(todo[0].id, { cash: 'up' });
+  assert.equal(g.knowsByHeart('supplyReceipt'), false);
+});

@@ -243,6 +243,8 @@ table.books tr.bottom td { font-weight: 800; font-size: 18px; background: #fff3b
 .sb-slips { display: flex; gap: 4px; flex-wrap: wrap; }
 .sb-slips .slip { font-size: 16px; width: 30px; height: 30px; border: 2px solid var(--ink); border-radius: 7px; background: #fff; display: grid; place-items: center; }
 .sb-slips .slip.cur { background: var(--yellow); }
+.sb-auto { font-size: 13px; font-weight: 800; color: var(--soft); align-self: center; margin-left: 4px; }
+.sb-streak { font-size: 14px; font-weight: 800; background: #fff9db; border: 2px solid var(--line); border-radius: 10px; padding: 2px 8px; }
 .sb-btns { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .sb-btns .b { font-weight: 700; }
 .sb-btns .btn { padding: 4px 14px; font-size: 16px; }
