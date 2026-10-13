@@ -193,7 +193,7 @@ class App {
       go: () => {
         if (!name.trim()) return toast('Your truck needs a name!');
         const L = C.loans.find((l) => l.id === loan);
-        this.game = Game.create({ player, business: name.trim(), color, tune: 'medley', loan: L, truckCost: truckFor(color).price });
+        this.game = Game.create({ player, business: name.trim(), color, tune: 'entertainer', loan: L, truckCost: truckFor(color).price });
         this.save();
         this.startGameView();
       },

@@ -1,7 +1,7 @@
 // Ice cream truck tunes (all public domain), played as a little music-box synth with WebAudio.
 
 const NOTE = { C: 0, 'C#': 1, Db: 1, D: 2, 'D#': 3, Eb: 3, E: 4, F: 5, 'F#': 6, Gb: 6, G: 7, 'G#': 8, Ab: 8, A: 9, 'A#': 10, Bb: 10, B: 11 };
-function freq(n) {
+export function freq(n) {
   const m = /^([A-G][#b]?)(\d)$/.exec(n);
   const midi = 12 * (Number(m[2]) + 1) + NOTE[m[1]];
   return 440 * Math.pow(2, (midi - 69) / 12);
@@ -12,7 +12,7 @@ const seq = (s) => s.trim().split(/\s+/).map((t) => {
 });
 
 // Whole tunes (every phrase), not just the opening.
-const SONGS = {
+export const SONGS = {
   entertainer: {
     bpm: 210,
     notes: seq(`D4:0.5 D#4:0.5
@@ -22,7 +22,7 @@ const SONGS = {
       C5:0.5 D5:0.5 E5:0.5 C5:0.5 D5:0.5 E5:1 C5:0.5 D5:0.5 C5:0.5 E5:0.5 C5:0.5 D5:0.5 E5:1 C5:0.5 D5:0.5 C5:0.5 E5:0.5 C5:0.5 D5:0.5 B4:1 D5:1 C5:3`),
   },
   greensleeves: {
-    bpm: 190,
+    bpm: 250,
     notes: seq(`A4:1 C5:2 D5:1 E5:1.5 F5:0.5 E5:1 D5:2 B4:1 G4:1.5 A4:0.5 B4:1 C5:2 A4:1 A4:1.5 G#4:0.5 A4:1 B4:2 G#4:1 E4:2
       A4:1 C5:2 D5:1 E5:1.5 F5:0.5 E5:1 D5:2 B4:1 G4:1.5 A4:0.5 B4:1 C5:1.5 B4:0.5 A4:1 G#4:1.5 F#4:0.5 G#4:1 A4:3
       G5:3 G5:1.5 F#5:0.5 E5:1 D5:2 B4:1 G4:1.5 A4:0.5 B4:1 C5:2 A4:1 A4:1.5 G#4:0.5 A4:1 B4:2 G#4:1 E4:2
@@ -30,18 +30,24 @@ const SONGS = {
   },
   weasel: {
     bpm: 230,
-    repeat: 2, // short tunes play twice before the medley moves on
+    // "All around the mulberry bush…", then the higher "A penny for a spool of thread…"
     notes: seq(`C4:1 C4:0.5 D4:1 D4:0.5 E4:0.5 G4:0.5 E4:0.5 C4:1.5 C4:1 C4:0.5 D4:1 D4:0.5 E4:1.5 C4:1 G3:0.5
-      C4:1 C4:0.5 D4:1 D4:0.5 E4:0.5 G4:0.5 E4:0.5 C4:1.5 A4:1.5 D4:1 F4:0.5 E4:1.5 C4:1.5`),
+      C4:1 C4:0.5 D4:1 D4:0.5 E4:0.5 G4:0.5 E4:0.5 C4:1.5 A4:1.5 D4:1 F4:0.5 E4:1.5 C4:1.5
+      C5:1 A4:0.5 D5:1 C5:0.5 E5:0.5 D5:0.5 C5:0.5 A4:1.5 C5:1 A4:0.5 D5:1 C5:0.5 E5:1.5 C5:1 G4:0.5
+      C5:1 A4:0.5 D5:1 C5:0.5 E5:0.5 D5:0.5 C5:0.5 A4:1.5 A4:1.5 D4:1 F4:0.5 E4:1.5 C4:1.5`),
+  },
+  // The ice cream truck waltz (3/4), from the family's memory: G A G E D C D - C A - C B - C D - G E - - C - -
+  waltz: {
+    bpm: 200,
+    notes: seq(`G5:1 A5:1 G5:1 E5:1 D5:1 C5:1 D5:2 C5:1 A4:2 C5:1 B4:2 C5:1 D5:2 G5:1 E5:3 C5:3`),
   },
   turkey: {
-    bpm: 240,
-    repeat: 2,
+    bpm: 150,
     notes: seq(`D5:0.5 C5:0.5 B4:0.5 A4:0.5 G4:0.5 G4:0.5 G4:0.5 A4:0.25 B4:0.25 G4:0.5 E4:0.5 D4:0.5 D4:0.5 D4:0.5 E4:0.25 F#4:0.25 G4:0.5 A4:0.5 B4:0.5 B4:0.5 B4:0.5 A4:0.5 B4:0.5 G4:1.5
       D5:0.5 C5:0.5 B4:0.5 A4:0.5 G4:0.5 G4:0.5 G4:0.5 A4:0.25 B4:0.25 G4:0.5 E4:0.5 D4:0.5 D4:0.5 D4:0.5 E4:0.25 F#4:0.25 G4:0.5 A4:0.5 B4:0.5 A4:0.5 G4:0.5 F#4:0.5 G4:1.5 R:0.5`),
   },
 };
-const MEDLEY = ['entertainer', 'turkey', 'weasel', 'greensleeves'];
+
 
 export class Music {
   constructor() {
@@ -77,7 +83,7 @@ export class Music {
   }
 
   setTune(t) {
-    if ((!SONGS[t] && t !== 'medley') || t === this.tune) return;
+    if (!SONGS[t] || t === this.tune) return;
     this.tune = t;
     if (this.playing) {
       this.stop();
@@ -90,8 +96,6 @@ export class Music {
     this.playing = true;
     this.next = this.ctx.currentTime + 0.1;
     this.i = 0;
-    this.rep = 0;
-    this.song = this.tune === 'medley' ? MEDLEY[0] : this.tune;
     this.schedule();
   }
 
@@ -129,7 +133,7 @@ export class Music {
     // after a pause, don't try to play every missed note at once
     if (this.next < now) this.next = now + 0.05;
     while (this.next < now + 0.4) {
-      const song = SONGS[this.song] || SONGS.entertainer;
+      const song = SONGS[this.tune] || SONGS.entertainer;
       const beat = 60 / song.bpm;
       const [n, b] = song.notes[this.i];
       if (n !== 'R') this.blip(freq(n), this.next, b * beat);
@@ -138,11 +142,6 @@ export class Music {
       if (this.i >= song.notes.length) {
         this.i = 0;
         this.next += beat * 3;
-        this.rep = (this.rep || 0) + 1;
-        if (this.tune === 'medley' && this.rep >= (song.repeat || 1)) {
-          this.rep = 0;
-          this.song = MEDLEY[(MEDLEY.indexOf(this.song) + 1) % MEDLEY.length];
-        }
       }
     }
     this.timer = setTimeout(() => this.schedule(), 120);
