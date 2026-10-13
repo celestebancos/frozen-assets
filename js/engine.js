@@ -93,6 +93,8 @@ export class Game {
     if (!SPOT[state.spot]) state.spot = 'maple';
     // songs that were removed or renamed
     state.tune = { medley: 'entertainer', musicBox: 'entertainer', truckSong: 'turkey', lullaby: 'entertainer', greensleeves: 'entertainer' }[state.tune] || state.tune;
+    // accounts added after a game was saved start at zero
+    for (const t of [state.truth, state.filed]) for (const k of Object.keys(emptyTotals())) t[k] ??= 0;
     // older saves didn't track which profit has moved to the player's Share: count it all as moved,
     // except a week whose report hasn't been seen yet
     if (!state.closeTracked) {
@@ -473,7 +475,8 @@ export class Game {
     return { ...res, attempt, wrong, missing, learned };
   }
 
-  // How well the kid knows a kind of paper: { streak, seen } (seen counts papers since it was learned).
+  // How well the kid knows a kind of paper: { streak, seen, delegate }.
+  // seen counts the papers Penny could have filed; delegate means the kid asked her to.
   known(type) {
     const m = (this.state.known ||= {});
     return (m[type] ||= { streak: 0, seen: 0 });
@@ -481,12 +484,23 @@ export class Game {
   knowsByHeart(type) {
     return this.known(type).streak >= C.filing.streak;
   }
+  // Penny only takes over a kind of paper once the kid has shown they can file it.
+  setDelegate(type, on) {
+    if (on && !this.knowsByHeart(type)) return false;
+    this.known(type).delegate = !!on;
+    this.logAction('delegate', { doc: type, on: !!on });
+    return true;
+  }
+  delegated(type) {
+    return !!this.known(type).delegate && this.knowsByHeart(type);
+  }
 
-  // Penny files the papers the kid already knows by heart, except every few, which still come to the kid.
+  // Penny files the kinds of papers handed to her, except every few, which come back to the kid to check.
   autoFileKnown() {
+    const s = this.state;
     const done = [];
     for (const doc of this.docsToFile()) {
-      if (!this.knowsByHeart(doc.type)) continue;
+      if (!this.delegated(doc.type)) continue;
       const k = this.known(doc.type);
       k.seen++;
       if (k.seen % C.filing.checkEvery === 0) continue;
@@ -495,8 +509,29 @@ export class Game {
       this.commitDoc(doc);
       done.push(doc);
     }
+    s.pennyPapers = (s.pennyPapers || 0) + done.length; // on her next bill
     if (done.length) this.sync();
     return done;
+  }
+
+  // Penny's weekly bill, paid like a supplier invoice: a flat fee plus each paper she filed.
+  postPennyBill() {
+    const s = this.state;
+    const n = s.pennyPapers || 0;
+    const total = C.filing.weeklyFee + n * C.filing.perPaper;
+    s.pennyPapers = 0;
+    const label = "Penny's bill";
+    s.bills.push({ id: s.nextBillId++, amt: total, due: s.day + C.credit.termDays, late: false, label });
+    this.post('pennyBill', [
+      { acct: 'bookkeeping', amt: C.filing.weeklyFee },
+      { acct: 'billsToPay', amt: C.filing.weeklyFee },
+    ], { key: 'week', label: 'Keeping the books this week', amt: C.filing.weeklyFee });
+    if (n) {
+      this.post('pennyBill', [
+        { acct: 'bookkeeping', amt: n * C.filing.perPaper },
+        { acct: 'billsToPay', amt: n * C.filing.perPaper },
+      ], { key: 'papers', label: `Filing papers for you × ${n}`, amt: n * C.filing.perPaper });
+    }
   }
 
   // Penny files it for you after you've tried.
@@ -1673,6 +1708,7 @@ export class Game {
     this.emit({ t: 'close', day: s.day });
 
     const endOfWeek = s.day % 7 === 0;
+    if (endOfWeek) this.postPennyBill();
     s.day++;
     s.minute = C.dayStartMin;
     s.phase = 'closed';

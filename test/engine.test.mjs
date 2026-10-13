@@ -370,7 +370,7 @@ test('a shopping order is bought all at once, or not at all', () => {
 });
 
 
-test('papers filed right 3 times in a row get filed by Penny, except every 3rd', () => {
+test('Penny can take over a paper after 3 first-try rights in a row; every 3rd comes back to check', () => {
   const g = Game.create({ player: 'N', business: 'T', color: 'pink', seed: 10 });
   fileAllCorrectly(g);
   const right = (d) => Object.fromEntries(docLines(d).map((l) => [l.acct, l.dir]));
@@ -386,6 +386,7 @@ test('papers filed right 3 times in a row get filed by Penny, except every 3rd',
   g.fileDoc(d.id, { cash: 'up' });
   g.fileDoc(d.id, right(d));
   assert.equal(g.known('supplyReceipt').streak, 0);
+  assert.equal(g.setDelegate('supplyReceipt', true), false, 'not until the streak is earned');
   let learned = false;
   for (let i = 0; i < 3; i++) {
     d = newReceipt();
@@ -393,6 +394,10 @@ test('papers filed right 3 times in a row get filed by Penny, except every 3rd',
   }
   assert.equal(learned, true);
   assert.equal(g.knowsByHeart('supplyReceipt'), true);
+  d = newReceipt();
+  assert.equal(g.autoFileKnown().length, 0, 'only papers handed to Penny');
+  g.fileDoc(d.id, right(d));
+  assert.equal(g.setDelegate('supplyReceipt', true), true);
   // next ones: filed by Penny twice, then the third comes to the kid
   const auto = [];
   for (let i = 0; i < 3; i++) {
@@ -594,4 +599,18 @@ test('in a neighborhood the truck drives around: every customer waves it down, a
   assert.ok(home.curb.length > 0 && home.curb.every(Boolean), 'neighborhood parties all wave the truck down');
   assert.ok(zoo.curb.every((c) => !c), 'at the zoo the truck is parked');
   assert.ok(home.fuel > 3 * zoo.fuel);
+});
+
+test("Penny's weekly bill: a flat fee plus each paper she filed", async () => {
+  const { CONFIG } = await import('../js/config.js');
+  const F = CONFIG.filing;
+  const g = Game.create({ player: 'N', business: 'T', color: 'pink', seed: 11 });
+  fileAllCorrectly(g);
+  g.state.pennyPapers = 4;
+  const owed = g.creditUsed();
+  g.postPennyBill();
+  assert.equal(g.state.truth.bookkeeping, F.weeklyFee + 4 * F.perPaper);
+  assert.equal(g.creditUsed() - owed, F.weeklyFee + 4 * F.perPaper);
+  assert.equal(g.state.pennyPapers, 0);
+  assert.equal(share(g.state.truth), profit(g.state.truth));
 });

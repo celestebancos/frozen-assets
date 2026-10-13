@@ -60,6 +60,8 @@ export function openShoebox(app, onDone) {
   const autoDocs = g.autoFileKnown();
   if (autoDocs.length) app.save();
   const docs = g.docsToFile(); // this round's papers, in order
+  // papers handed to Penny that still came to the kid: these are check-ups on her work
+  const checkUps = new Set(docs.filter((d) => g.delegated(d.type)).map((d) => d.id));
   const roundAccts = new Set(docs.flatMap((d) => docLines(d).map((l) => l.acct)));
   const reportWeek = s.needWeekReport && s.lastWeek ? s.needWeekReport : null;
   const prior = g.openProfitDocs();
@@ -397,11 +399,16 @@ export function openShoebox(app, onDone) {
         ? `<div class="penny-strip soft"><span class="face">👩‍💼</span><span>${st.wrong.size ? 'Fix the red lines.' : ''} ${st.missing ? "Something's missing too." : ''}</span></div>`
         : '';
     const any = Object.values(st.picks).some(Boolean);
-    const k = g.known(doc.type);
     const need = CONFIG.filing.streak;
-    const streak = g.knowsByHeart(doc.type)
-      ? '<div class="sb-streak">⭐ You know this one by heart. Penny just wants to check!</div>'
-      : `<div class="sb-streak">${'⭐'.repeat(k.streak)}${'☆'.repeat(need - k.streak)} Get ${need} in a row right the first time and Penny will file these for you.</div>`;
+    const shown = Math.min(need, g.known(doc.type).streak);
+    // checking Penny's work, or (once the streak is earned) the choice to hand this kind to her
+    const streak = checkUps.has(doc.id)
+      ? `<div class="sb-streak">👩‍💼 Check Penny's work</div>`
+      : g.delegated(doc.type)
+        ? `<div class="sb-streak">👩‍💼 Penny files these from now on</div>`
+      : `<div class="sb-streak" title="Right on the first try, in a row">${'⭐'.repeat(shown)}${'☆'.repeat(need - shown)}${
+          g.knowsByHeart(doc.type) ? ` <button class="btn small" data-act="delegate" data-type="${doc.type}">👩‍💼 Penny files these: ${money(CONFIG.filing.perPaper)} each</button>` : ''
+        }</div>`;
     ov.querySelector('.sb-side').innerHTML = `
       ${streak}
       <div class="tiny muted">Tap each line this paper changes. Income piles ↑ up, expenses dig ↓ down, assets and liabilities move ← left or → right.</div>
@@ -583,6 +590,13 @@ export function openShoebox(app, onDone) {
     },
     clear: () => !st.busy && setState({ picks: {}, wrong: new Set() }),
     retry: () => setState({ strip: false }),
+    delegate: (t) => {
+      if (g.setDelegate(t.dataset.type, true)) {
+        app.save();
+        toast(`👩‍💼 From now on Penny files “${DOC_TYPES[t.dataset.type].title}” for ${money(CONFIG.filing.perPaper)} each.`);
+        render();
+      }
+    },
     pennyFile: () => {
       const doc = docs[st.idx];
       if (st.busy || !g.pennyFiles(doc.id)) return;
@@ -594,7 +608,6 @@ export function openShoebox(app, onDone) {
       const filedBefore = { ...s.filed };
       const res = g.fileDoc(doc.id, st.picks);
       if (res.ok) {
-        if (res.learned) toast(`⭐ You know “${DOC_TYPES[doc.type].title}” by heart! Penny will file most of these for you.`, 4000);
         return fileSuccess(doc, 'FILED ✓');
       }
       app.music.sfx('oops');

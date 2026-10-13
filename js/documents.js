@@ -49,6 +49,8 @@ export const DOC_TYPES = {
     penny: "You sold supplies back. Supplies on hand went down by what you paid for them, Cash went up by what you got back, and since you got back less, the difference is a loss — an expense." },
   rebrandReceipt: { title: 'Paint & sign receipt', look: 'receipt', icon: '🎨',
     penny: "You paid cash to repaint or re-sign the truck. Cash went down. The truck isn't worth more because of it, so it's an expense." },
+  pennyBill: { title: "Penny's bookkeeping bill", look: 'invoice', icon: '👩‍💼',
+    penny: "Penny charges for keeping the books. That's an expense: Bookkeeping. You haven't paid her yet, so Bills to pay (a liability) went up. Cash didn't change yet!" },
   loanRepay: { title: 'Loan payoff receipt', look: 'bank', icon: '🏦',
     penny: "You paid back the loan! Cash went down, and you don't owe the bank anymore — Business loan went down. Paying back a loan isn't an expense: you're just returning the bank's money." },
 };

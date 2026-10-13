@@ -3,6 +3,7 @@ import { CONFIG, SUPPLIES, SUPPLY, CONTAINERS, FLAVORS, TOPPINGS, POPS, POP, SPO
 import { DAY_NAMES } from '../engine.js';
 import { TUNES, VOICES } from '../music.js';
 import { ACCOUNTS, ACCOUNT, pnlRowsFor, sectionTotal, share } from '../ledger.js';
+import { DOC_TYPES } from '../documents.js';
 import { mapSVG, mapIcon, iceCreamSVG, truckSVG } from '../art.js';
 import { esc, money, openModal, onActs, toast, fmtTime, stepper } from './dom.js';
 
@@ -641,13 +642,19 @@ export function booksPanel(app, tab = 'pnl') {
         <button class="btn small ${tab === 'pnl' ? 'on' : ''}" data-act="tab" data-t="pnl">📈 Profit & Loss</button>
         <button class="btn small ${tab === 'bs' ? 'on' : ''}" data-act="tab" data-t="bs">⚖️ Balance Sheet</button>
         <button class="btn small ${tab === 'bills' ? 'on' : ''}" data-act="tab" data-t="bills">📄 Bills</button>
+        <button class="btn small ${tab === 'penny' ? 'on' : ''}" data-act="tab" data-t="penny">👩‍💼 Penny</button>
         <span class="muted" style="align-self:center">📁 ${filedLabel}</span></div>
-        ${tab === 'pnl' ? pnlTable(g) : tab === 'bs' ? balanceSheet(g) : billsList(g)}`;
+        ${tab === 'pnl' ? pnlTable(g) : tab === 'bs' ? balanceSheet(g) : tab === 'bills' ? billsList(g) : pennyList(g)}`;
     },
   });
   onActs(m.body, {
     tab: (t) => {
       tab = t.dataset.t;
+      m.refresh();
+    },
+    penny: (t) => {
+      g.setDelegate(t.dataset.type, !g.delegated(t.dataset.type));
+      app.changed();
       m.refresh();
     },
     paybill: (t) => {
@@ -699,6 +706,25 @@ export function balanceSheet(g, totals) {
     <tr class="tot"><td>Total liabilities</td><td>${money(sectionTotal(t, 'liability'))}</td></tr>
     <tr class="bottom"><td>${esc(s.player)}'s Share (assets minus liabilities)</td><td class="${share(t) < 0 ? 'neg' : ''}">${money(share(t))}</td></tr>
   </table></div>`;
+}
+
+// Penny the bookkeeper: what she charges, and which kinds of papers she files.
+function pennyList(g) {
+  const F = C.filing;
+  const known = Object.entries(g.state.known || {}).filter(([type]) => DOC_TYPES[type]);
+  const rows = known
+    .map(([type, k]) => {
+      const dt = DOC_TYPES[type];
+      const shown = Math.min(F.streak, k.streak);
+      const stars = '⭐'.repeat(shown) + '☆'.repeat(F.streak - shown);
+      const btn = g.knowsByHeart(type)
+        ? `<button class="btn small ${g.delegated(type) ? 'on' : ''}" data-act="penny" data-type="${type}">${g.delegated(type) ? '👩‍💼 Penny files these' : '✋ I file these'}</button>`
+        : '';
+      return `<tr><td>${dt.icon} ${esc(dt.title)}</td><td>${stars}</td><td>${btn}</td></tr>`;
+    })
+    .join('');
+  return `<p style="margin-top:0">👩‍💼 Penny charges <b>${money(F.weeklyFee)} a week</b> to keep the books, plus <b>${money(F.perPaper)}</b> for each paper she files for you.</p>
+    ${rows ? `<table class="books"><tr><th>Paper</th><th>In a row</th><th></th></tr>${rows}</table>` : '<p class="muted">No papers filed yet.</p>'}`;
 }
 
 function billsList(g) {

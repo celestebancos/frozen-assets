@@ -24,6 +24,7 @@ export const ACCOUNTS = [
   { id: 'giftDiscounts', section: 'expense', name: 'Gift card discounts & giveaways' },
   { id: 'sellBackLoss', section: 'expense', name: 'Loss selling supplies back' },
   { id: 'rebrand', section: 'expense', name: 'Paint & signs' },
+  { id: 'bookkeeping', section: 'expense', name: 'Bookkeeping' },
 
   { id: 'cash', section: 'asset', name: 'Cash' },
   { id: 'truck', section: 'asset', name: 'Ice cream truck' },
@@ -73,7 +74,7 @@ export function pnlRowsFor(entriesByWeek, weeks) {
   ];
   const expenseRows = [
     ...SUPPLIES.map((s) => ({ key: 'used:' + s.id, name: s.short })),
-    ...['spoiled', 'gas', 'ads', 'interest', 'lateFees', 'giftDiscounts', 'sellBackLoss', 'rebrand'].map((k) => ({
+    ...['spoiled', 'gas', 'ads', 'interest', 'lateFees', 'giftDiscounts', 'sellBackLoss', 'rebrand', 'bookkeeping'].map((k) => ({
       key: k,
       name: ACCOUNT[k].name,
     })),
