@@ -1177,7 +1177,7 @@ export class Game {
   // A parent and kids who already got ice cream today. They don't buy; the parent says so.
   alreadyHadParty() {
     const s = this.state;
-    const party = this.makeParty(null, { type: this.rng.chance(0.6) ? 'parentKid' : 'family', curb: !this.parkedAt() });
+    const party = this.makeParty(null, { type: this.rng.chance(0.6) ? 'parentKid' : 'family', curb: false }); // they don't wave the truck down
     party.alreadyHad = true;
     for (const m of party.members) {
       m.result = 'alreadyHad';

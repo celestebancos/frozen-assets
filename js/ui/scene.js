@@ -41,7 +41,7 @@ function skyAt(min) {
 }
 
 // How fast the world scrolls past the truck (world units per second) at each game speed.
-const SCROLL = { 0: 0, 1: 240, 2: 480, 3: 1100, 9: 4000 };
+const SCROLL = { 0: 0, 1: 110, 2: 220, 3: 550, 9: 4000 }; // leisurely, like an ice cream truck
 const SVGNS = 'http://www.w3.org/2000/svg';
 
 // The street is one long world made of 1000-wide pieces (a block of houses, a place, a welcome sign,
@@ -183,10 +183,10 @@ export class Scene {
     const speed = this.app.speed;
     const hold = now < this.curbHold;
     let v = open && !hold ? SCROLL[speed] ?? 240 : 0;
-    // catch up to what just happened (a place, the open road, a welcome sign) within about a second
+    // catch up to what just happened (a place, the open road, a welcome sign), but never in a rush
     if (this.goal != null) {
       if (this.camX >= this.goal - 5) this.goal = null;
-      else if (v) v = Math.max(v, (this.goal - this.camX) * 1.4);
+      else if (v) v = Math.max(v, Math.min((this.goal - this.camX) * 1.4, v * 2.5));
     }
     let step = v * dt;
     if (this.target != null) {
@@ -349,7 +349,8 @@ export class Scene {
     // curb customers stand on the sidewalk ahead of the truck and wave it down
     el.style.left = p.curb ? '78%' : '-15%';
     el.style.transitionDuration = dur + 'ms';
-    if (p.curb) this.curbHold = performance.now() + dur * 2 + wait;
+    // the truck waits for anyone walking up to buy, until they've been served
+    if (!p.alreadyHad) this.curbHold = Math.max(this.curbHold, performance.now() + (p.curb ? dur * 2 + wait : dur + wait));
     el.innerHTML = p.members
       .map((m) => {
         const b = comments.find(([x]) => x === m)?.[1];
