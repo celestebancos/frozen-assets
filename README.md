@@ -7,7 +7,7 @@ Play it at **https://celestebancos.github.io/frozen-assets/** once GitHub Pages 
 ## How a game goes
 
 1. Pick a player, then a loan at the 🏦 bank: $10,000, $11,000 or $12,000. Bigger loans cost more interest every day, and the bank explains each one in plain words.
-2. Buy a truck on the lot. Every color costs the same; bling (stickers, chrome and lights, deluxe gold) costs extra up front and is just for looks. Whatever's left of the loan is the cash for supplies. Then name the business.
+2. Pick one of eight trucks on the lot. Each is a different color with its own bling (none, stickers, chrome and lights, or deluxe gold), and every price shows up at least once. Bling costs extra up front and is just for looks. Whatever's left of the loan is the cash for supplies. Then name the business.
 3. File the bank loan papers and the truck bill of sale in the 🗃️ shoebox. That's the first lesson: the loan is cash in *and* a debt.
 4. Buy supplies, set prices, and pick a route on the 🗺️ map. Then open for business. The 📍 Places page compares how many people came to each spot (per hour, and by time of day) so different routes can be tried on different days.
 5. Each day runs 10am–8pm. Speeds are ⏸ ▶ ▶▶ ▶▶▶ and ⏭ (skip to the end of the day).
