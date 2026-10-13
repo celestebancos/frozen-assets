@@ -1,9 +1,9 @@
 // The toolbar panels: shop, menu & prices, map, gift cards, inventory, policies, truck & music, books.
-import { CONFIG, SUPPLIES, SUPPLY, CONTAINERS, FLAVORS, TOPPINGS, POPS, POP, SPOTS, SPOT, AREAS, AREA, TRUCK_COLORS, MARKET_DAYS } from '../config.js';
+import { CONFIG, SUPPLIES, SUPPLY, CONTAINERS, FLAVORS, TOPPINGS, POPS, POP, SPOTS, SPOT, FEATURES, TRUCK_COLORS, MARKET_DAYS, destOf } from '../config.js';
 import { DAY_NAMES } from '../engine.js';
 import { TUNES, VOICES } from '../music.js';
 import { ACCOUNTS, ACCOUNT, pnlRowsFor, sectionTotal, share } from '../ledger.js';
-import { mapSVG, mapIcon, iceCreamSVG, truckSVG } from '../art.js';
+import { mapSVG, mapIcon, iceCreamSVG, truckSVG, ROUTE_COLORS } from '../art.js';
 import { esc, money, openModal, onActs, toast, fmtTime, stepper } from './dom.js';
 
 const C = CONFIG;
@@ -199,23 +199,26 @@ export function menuPanel(app) {
 const TIMES = [];
 for (let t = C.dayStartMin; t < C.dayEndMin; t += 15) TIMES.push(t);
 
-// A <select> of every spot, grouped by area.
+// A <select> of the neighborhoods.
 function spotOptions(selected) {
-  return AREAS.map((a) => `<optgroup label="${esc(a.name)}">${SPOTS.filter((sp) => sp.area === a.id).map((sp) => `<option value="${sp.id}" ${sp.id === selected ? 'selected' : ''}>${mapIcon(sp.kind)} ${esc(sp.name)}</option>`).join('')}</optgroup>`).join('');
+  return SPOTS.map((sp) => `<option value="${sp.id}" ${sp.id === selected ? 'selected' : ''}>${esc(sp.name)}</option>`).join('');
 }
 
-// One line about what makes a place different.
+// A neighborhood's places, and a few words about each that matter for picking a time.
+function placeNote(f) {
+  if (f.kind === 'market') return `open ${MARKET_DAYS.map((d) => DAY_NAMES[d]).join(' & ')}, 10–2`;
+  if (f.kind === 'zoo') return 'closes at 5';
+  if (f.kind === 'library') return 'story time in the morning';
+  if (f.kind === 'office') return f.weekend < 0.3 ? 'busy at lunch, empty on weekends' : 'busy at lunch';
+  if (f.kind === 'fields') return 'games in the evening and on weekends';
+  if (f.kind === 'pool') return 'busy on hot afternoons';
+  if (f.kind === 'school') return 'summer camp at lunch';
+  return '';
+}
 function spotNote(sp) {
-  const a = AREA[sp.area];
-  const notes = [];
-  if (sp.kind === 'market') notes.push(`Open ${MARKET_DAYS.map((d) => DAY_NAMES[d]).join(' & ')}, 10am–2pm`);
-  if (sp.kind === 'zoo') notes.push('Closes at 5pm');
-  if (sp.kind === 'office') notes.push(sp.weekend < 0.3 ? 'Busy at lunch. Empty on weekends.' : 'Busy at lunch');
-  if (sp.kind === 'home') notes.push('🚚 You drive up and down the streets here');
-  const pay = a.pay * (sp.pay ?? 1);
-  if (pay >= 1.1) notes.push('💰 People here tend to have a bit more money to spend');
-  else if (pay < 0.97) notes.push('🪙 People here tend to have a bit less money to spend');
-  return notes.join(' · ');
+  if (sp.pay >= 1.1) return '💰 People here tend to have a bit more money to spend';
+  if (sp.pay < 0.97) return '🪙 People here tend to have a bit less money to spend';
+  return '';
 }
 
 export function mapPanel(app) {
@@ -231,21 +234,22 @@ export function mapPanel(app) {
       const fuelPct = Math.round((s.fuel / C.gas.tankGal) * 100);
       const from = s.driving ? s.driving.to : s.spot;
       const pickedInfo = picked
-        ? `<div class="card2" style="margin-top:8px"><b>${mapIcon(SPOT[picked].kind)} ${esc(SPOT[picked].name)}</b> <span class="tiny muted">${esc(AREA[SPOT[picked].area].name)}</span>
+        ? `<div class="card2" style="margin-top:8px"><b>${esc(SPOT[picked].name)}</b> <span class="tiny muted">${esc(SPOT[picked].about)}</span>
+           <ul class="place-list">${FEATURES.filter((f) => f.area === picked).map((f) => `<li>${mapIcon(f.kind)} ${esc(f.name)}${placeNote(f) ? ` <span class="tiny muted">${placeNote(f)}</span>` : ''}</li>`).join('')}</ul>
            ${spotNote(SPOT[picked]) ? `<div class="tiny">${spotNote(SPOT[picked])}</div>` : ''}
            ${picked !== from ? `<div>🕒 ${g.driveMinutes(from, picked)} min drive · ⛽ ${g.driveFuel(from, picked).toFixed(1)} gal</div>` : '<div class="tiny muted">🚚 You are here</div>'}
            ${open && picked !== from ? `<div style="margin-top:6px"><button class="btn small go" data-act="driveNow">🚚 Drive here now</button></div>` : ''}
            <div style="margin-top:6px"><button class="btn small" data-act="addPicked">➕ Add to my route</button></div></div>`
-        : '<p class="tiny muted">Tap a place on the map to see how far it is.</p>';
+        : '<p class="tiny muted">Tap a neighborhood to see what\'s there. The truck drives around it and stops at busy places.</p>';
       const plan = s.weekPlan;
       const today = g.dayOfWeek;
       const routeOpts = (sel) => `<option value="">↩️ No change</option>${s.routes.map((r) => `<option value="${r.id}" ${r.id === sel ? 'selected' : ''}>${esc(r.name)}</option>`).join('')}`;
       const allSame = plan.every((x) => x === plan[0]) ? plan[0] : undefined;
       body.innerHTML = `<div class="map-wrap">
-        <div><div class="map-scroll">${mapSVG(SPOTS, AREAS, s.driving ? null : s.spot, route)}</div>${pickedInfo}</div>
+        <div><div class="map-scroll">${mapSVG(SPOTS, FEATURES, s.driving ? null : s.spot, route, picked)}</div>${pickedInfo}</div>
         <div>
           <h3 style="margin-top:0">Today's route</h3>
-          ${route.map((r, i) => `${i > 0 && route[i - 1].spot !== r.spot ? `<div class="tiny muted drive-gap">🚚 ${g.driveMinutes(route[i - 1].spot, r.spot)} min</div>` : ''}<div class="route-stop">
+          ${route.map((r, i) => `${i > 0 && route[i - 1].spot !== r.spot ? `<div class="tiny muted drive-gap">🚚 ${g.driveMinutes(route[i - 1].spot, r.spot)} min</div>` : ''} <div class="route-stop"><span class="pin-dot" style="background:${ROUTE_COLORS[i % ROUTE_COLORS.length]}">${i + 1}</span>
             <select data-chg="time" data-i="${i}" aria-label="Time">${TIMES.map((t) => `<option value="${t}" ${t === r.at ? 'selected' : ''}>${fmtTime(t)}</option>`).join('')}</select>
             <select data-chg="spot" data-i="${i}" aria-label="Spot">${spotOptions(r.spot)}</select>
             ${route.length > 1 ? `<button class="btn small" data-act="rm" data-i="${i}" aria-label="Remove">✕</button>` : ''}
@@ -478,7 +482,7 @@ export function policyPanel(app) {
 }
 
 // ---------------- Places: how busy each spot was ----------------
-const placeName = (id) => esc(SPOT[id]?.name || id);
+const placeName = (id) => esc(SPOT[destOf(id)]?.name || id);
 const BLOCKS = [
   { name: 'Morning', sub: '10–1', from: 0, to: 3 },
   { name: 'Afternoon', sub: '1–4', from: 3, to: 6 },
@@ -505,8 +509,9 @@ export function placesPanel(app) {
       if (tab === 'spots') {
         const agg = {};
         for (const d of days)
-          for (const [id, v] of Object.entries(d.bySpot)) {
-            if (!SPOT[id]) continue; // an old "on the road" row
+          for (const [key, v] of Object.entries(d.bySpot)) {
+            const id = destOf(key); // older days counted single places
+            if (!id) continue;
             const a = (agg[id] ||= { days: 0, minutes: 0, customers: 0, revenue: 0, min: Array(10).fill(0), cust: Array(10).fill(0) });
             a.days++;
             a.minutes += v.minutes;

@@ -1,7 +1,7 @@
 // Frozen Assets game engine. Pure logic, no DOM, so it runs in the browser and in Node.
 // All state lives in `game.state` (plain JSON, saved as-is). `game.events` is a transient feed for the UI.
 
-import { CONFIG, SUPPLIES, SUPPLY, SPOTS, SPOT, AREA, CONTAINERS, FLAVORS, TOPPINGS, POPS, CROWDS, DROP_BY_PERSON, START_PRICES, MARKET_DAYS, OFFICE_ADULT_PAY, STREET_CROWD, itemKey } from './config.js';
+import { CONFIG, SUPPLIES, SUPPLY, SPOTS, SPOT, FEATURES, FEATURE, LOCS, destOf, CONTAINERS, FLAVORS, TOPPINGS, POPS, CROWDS, DROP_BY_PERSON, START_PRICES, MARKET_DAYS, OFFICE_ADULT_PAY, STREET_CROWD, itemKey } from './config.js';
 import { makeRng } from './rng.js';
 import { ACCOUNT, balanceCheck, applyEntries, emptyTotals, share } from './ledger.js';
 import { addToDoc, docLines, docEntryList, checkFiling, DOC_TYPES } from './documents.js';
@@ -90,7 +90,17 @@ export class Game {
         state.menuAutoOff.push(p.id);
       }
     }
-    if (!SPOT[state.spot]) state.spot = 'maple';
+    // older saves picked single places; now a route picks neighborhoods
+    state.spot = destOf(state.spot) || 'maple';
+    const fixRoute = (stops) => stops.map((r) => ({ ...r, spot: destOf(r.spot) })).filter((r, i, a) => r.spot && (i === 0 || a[i - 1].spot !== r.spot));
+    state.route = fixRoute(state.route || []);
+    if (!state.route.length) state.route = [{ spot: state.spot, at: C.dayStartMin }];
+    for (const r of state.routes) r.stops = fixRoute(r.stops);
+    if (state.driving) {
+      const to = destOf(state.driving.to);
+      if (to) state.driving = { ...state.driving, from: destOf(state.driving.from) || state.spot, to };
+      else state.driving = null;
+    }
     // songs that were removed or renamed
     state.tune = { medley: 'entertainer', musicBox: 'entertainer', truckSong: 'turkey', lullaby: 'entertainer', greensleeves: 'entertainer' }[state.tune] || state.tune;
     // older saves didn't track which profit has moved to the player's Share: count it all as moved,
@@ -613,6 +623,7 @@ export class Game {
     // first stop
     const first = this.routeStopAt(C.dayStartMin);
     if (first && first !== s.spot) this.teleportMorning(first);
+    s.cruise = this.newCruise();
     // gift card holders who come today
     this.scheduleRedemptions();
     this.emit({ t: 'open' });
@@ -711,17 +722,13 @@ export class Game {
     const B = SPOT[b];
     return Math.hypot(A.x - B.x, A.y - B.y);
   }
-  sameArea(a, b) {
-    return SPOT[a].area === SPOT[b].area;
-  }
   driveMinutes(a, b) {
     if (a === b) return 0;
-    const D = C.drive;
-    return this.sameArea(a, b) ? Math.max(2, Math.round(this.dist(a, b) * D.nearPerUnit)) : Math.round(D.farBase + this.dist(a, b) * D.farPerUnit);
+    return Math.round(C.drive.base + this.dist(a, b) * C.drive.perPx);
   }
   driveFuel(a, b) {
     if (a === b) return 0;
-    return this.sameArea(a, b) ? 0.05 + this.dist(a, b) * 0.008 : 0.3 + this.dist(a, b) * 0.009;
+    return 0.3 + this.dist(a, b) * 0.0009;
   }
 
   fillGas(auto = false) {
@@ -820,7 +827,7 @@ export class Game {
   }
 
   spotProfile(spotId, hour) {
-    const spot = SPOT[spotId];
+    const spot = LOCS[spotId];
     const size = spot.size ?? 1;
     const wk = this.week;
     const weekend = this.isWeekend;
@@ -891,6 +898,14 @@ export class Game {
         v *= size;
         break;
       }
+      case 'library': {
+        // story time in the morning; closes at 6; a good spot on rainy days
+        v = hour < 12 ? 1.0 : hour < 18 ? 0.5 : 0.05;
+        if (this.dayOfWeek === 6) v *= 0.2;
+        if (w.rain) v *= 2;
+        v *= size;
+        break;
+      }
     }
     return v;
   }
@@ -898,35 +913,125 @@ export class Game {
   // How tired a spot's crowd is (1 = fresh). Time at other stops in the same area counts in part.
   saturation(spotId) {
     const s = this.state;
-    const spot = SPOT[spotId];
+    const spot = LOCS[spotId];
     const here = s.minutesHere[spotId] || 0;
     let area = 0;
-    for (const [id, m] of Object.entries(s.minutesHere)) if (id !== spotId && SPOT[id]?.area === spot.area) area += m;
+    for (const [id, m] of Object.entries(s.minutesHere)) if (id !== spotId && LOCS[id]?.area === spot.area) area += m;
     const mins = here + C.saturation.areaShare * area;
     const floor = spot.kind === 'home' ? C.saturation.homeFloor : C.saturation.floor;
     return Math.max(floor, Math.pow(0.5, mins / C.saturation.minutesToHalf));
   }
 
-  // The spot whose people the truck meets: where it's parked, or the nearer end of the drive.
+  // Where the truck is right now (a neighborhood's streets, or a place in it). Driving between
+  // neighborhoods, it's the streets of whichever end of the drive is nearer.
   here() {
     const s = this.state;
     const d = s.driving;
-    if (!d) return SPOT[s.spot];
-    return SPOT[d.total - d.left < d.total / 2 ? d.from : d.to];
+    if (d) return LOCS[d.total - d.left < d.total / 2 ? d.from : d.to];
+    const cr = s.cruise;
+    if (cr && cr.feature && (cr.mode === 'park' || cr.mode === 'pass')) return FEATURE[cr.feature];
+    return LOCS[s.spot];
   }
   crowdKind() {
-    const s = this.state;
-    if (!s.driving) return SPOT[s.spot].kind;
-    return this.here().area === 'downtown' ? STREET_CROWD.downtown : STREET_CROWD.other;
+    const loc = this.here();
+    return loc.kind === 'home' ? STREET_CROWD[loc.area] || 'home' : loc.kind;
   }
-  // Key for the places stats. Time and sales on the way to a stop count for that stop.
+  // Key for the places stats: the neighborhood. Time and sales on the way there count for it.
   statKey() {
     return this.state.driving ? this.state.driving.to : this.state.spot;
   }
-  // In a neighborhood the truck drives up and down the streets the whole time, stopping when people wave.
+  // Driving around the streets (not parked at a place, not crossing town).
   cruising() {
     const s = this.state;
-    return !s.driving && SPOT[s.spot].kind === 'home';
+    return !s.driving && s.cruise?.mode !== 'park';
+  }
+  parkedAt() {
+    const cr = this.state.cruise;
+    return !this.state.driving && cr?.mode === 'park' ? FEATURE[cr.feature] : null;
+  }
+
+  // ---------- driving around a neighborhood ----------
+  // The truck loops past the neighborhood's places with a few minutes of streets between them.
+  // At a place it parks if it's busy, and drives on once customers stop coming.
+  newCruise() {
+    const s = this.state;
+    const places = FEATURES.filter((f) => f.area === s.spot);
+    return { seg: (s.cruise?.seg || 0) + 1, mode: 'street', i: this.rng.int(0, places.length - 1), left: this.rng.int(C.cruise.legMin, C.cruise.legMax), stopped: 0, idle: 0, feature: null };
+  }
+  nextLeg() {
+    const cr = this.state.cruise;
+    const n = FEATURES.filter((f) => f.area === this.state.spot).length;
+    Object.assign(cr, { seg: cr.seg + 1, mode: 'street', i: (cr.i + 1) % n, left: this.rng.int(C.cruise.legMin, C.cruise.legMax), stopped: 0, idle: 0, feature: null });
+    this.emit({ t: 'cruise', mode: 'street' });
+  }
+  reachPlace() {
+    const cr = this.state.cruise;
+    const places = FEATURES.filter((f) => f.area === this.state.spot);
+    const f = places[cr.i % places.length];
+    const perHour = this.arrivalRate(f.id, this.state.minute) * 60;
+    const park = perHour >= C.cruise.parkPerHour;
+    Object.assign(cr, { seg: cr.seg + 1, mode: park ? 'park' : 'pass', feature: f.id, left: C.cruise.passMinutes, idle: 0, stopped: 0 });
+    this.emit({ t: 'cruise', mode: cr.mode, feature: f.id });
+  }
+
+  // Put the truck at a place, parked (for tests and the morning).
+  parkAt(featureId) {
+    const s = this.state;
+    const f = FEATURE[featureId];
+    s.spot = f.area;
+    s.driving = null;
+    s.cruise = { ...this.newCruise(), mode: 'park', feature: f.id, i: FEATURES.filter((x) => x.area === f.area).indexOf(f) };
+  }
+
+  // One minute in a neighborhood.
+  cruiseStep() {
+    const s = this.state;
+    if (!s.cruise || !FEATURE[s.cruise.feature] && s.cruise.mode !== 'street') s.cruise = this.newCruise();
+    const cr = s.cruise;
+    const loc = this.here();
+    s.minutesHere[loc.id] = (s.minutesHere[loc.id] || 0) + 1;
+    this.countMinute(s.spot);
+    const moving = cr.mode !== 'park';
+    if (moving) s.fuel = Math.max(0, s.fuel - C.gas.cruiseGalPerHour / 60);
+    // families who already bought today come by (a hint that it's time to move on)
+    if (CROWDS[this.crowdKind()].hint !== false) {
+      const missing = 1 - this.saturation(loc.id);
+      if (missing > 0 && this.rng.chance(Math.min(1, this.arrivalRate(loc.id, s.minute, true) * missing * C.alreadyHad.share))) this.alreadyHadParty();
+    }
+    let n = this.rng.poisson(this.arrivalRate(loc.id, s.minute));
+    // many gift card holders would have come (and paid) anyway
+    while (n > 0 && s.displace >= 1) {
+      n--;
+      s.displace--;
+    }
+    // driving around, people wave the truck down and it stops for them
+    if (n > 0 && moving) {
+      cr.stopped = C.curb.stopMinutes;
+      s.today.curb++;
+    }
+    if (n > 0) cr.idle = 0;
+    for (let i = 0; i < n && !s.pending; i++) this.arrive(this.makeParty(null, { curb: moving }));
+    const due = s.scheduled.filter((x) => x.minute <= s.minute);
+    for (const r of due) {
+      if (s.pending) break;
+      s.scheduled = s.scheduled.filter((x) => x !== r);
+      s.displace = (s.displace || 0) + 0.6 * r.cards.length;
+      this.arrive(this.makeParty(r.cards, { curb: moving }));
+    }
+    if (cr.mode === 'park') {
+      cr.idle++;
+      const perHour = this.arrivalRate(cr.feature, s.minute) * 60;
+      if (cr.idle >= C.cruise.leaveIdle || perHour < C.cruise.parkPerHour / 2) this.nextLeg();
+      return;
+    }
+    if (cr.stopped > 0) {
+      cr.stopped--;
+      return;
+    }
+    cr.left--;
+    if (cr.left > 0) return;
+    if (cr.mode === 'street') this.reachPlace();
+    else this.nextLeg();
   }
 
   arrivalRate(spotId, minute, fresh = false) {
@@ -960,6 +1065,7 @@ export class Game {
       if (d.left <= 0) {
         s.spot = d.to;
         s.driving = null;
+        s.cruise = this.newCruise();
         this.emit({ t: 'arrive', spot: s.spot });
       } else if (!d.stopped) {
         // people on the sidewalk wave the truck down
@@ -970,32 +1076,7 @@ export class Game {
           this.arrive(this.makeParty(null, { curb: true }));
         }
       }
-    } else {
-      s.minutesHere[s.spot] = (s.minutesHere[s.spot] || 0) + 1;
-      this.countMinute(s.spot);
-      const curb = this.cruising();
-      if (curb) s.fuel = Math.max(0, s.fuel - C.gas.cruiseGalPerHour / 60);
-      // families who already bought today wander by (a hint that it's time to move on)
-      if (CROWDS[SPOT[s.spot].kind].hint !== false) {
-        const missing = 1 - this.saturation(s.spot);
-        if (missing > 0 && this.rng.chance(Math.min(1, this.arrivalRate(s.spot, s.minute, true) * missing * C.alreadyHad.share))) this.alreadyHadParty();
-      }
-      let n = this.rng.poisson(this.arrivalRate(s.spot, s.minute));
-      // many gift card holders would have come (and paid) anyway
-      while (n > 0 && s.displace >= 1) {
-        n--;
-        s.displace--;
-      }
-      for (let i = 0; i < n && !s.pending; i++) this.arrive(this.makeParty(null, { curb }));
-      // gift card holders
-      const due = s.scheduled.filter((x) => x.minute <= s.minute);
-      for (const r of due) {
-        if (s.pending) break;
-        s.scheduled = s.scheduled.filter((x) => x !== r);
-        s.displace = (s.displace || 0) + 0.6 * r.cards.length;
-        this.arrive(this.makeParty(r.cards, { curb }));
-      }
-    }
+    } else this.cruiseStep();
     s.minute++;
     return true;
   }
@@ -1043,7 +1124,7 @@ export class Game {
     else together = r.chance(Math.max(0.15, 1 - 0.22 * (people.length - 1)));
     // kids out on their own sometimes have only pocket money
     if (!cardIds && !hasAdult) {
-      const chance = C.pocket.chance * (AREA[this.here().area]?.pocket ?? 1);
+      const chance = C.pocket.chance * (SPOT[this.here().area]?.pocket ?? 1);
       for (const m of members) if (m.kind === 'kid' && r.chance(chance)) m.cash = r.weighted(C.pocket.amounts);
     }
     return { id: s.nextPartyId++, type, members, together, cardIds, curb };
@@ -1052,7 +1133,7 @@ export class Game {
   // A parent and kids who already got ice cream today. They don't buy; the parent says so.
   alreadyHadParty() {
     const s = this.state;
-    const party = this.makeParty(null, { type: this.rng.chance(0.6) ? 'parentKid' : 'family', curb: this.cruising() });
+    const party = this.makeParty(null, { type: this.rng.chance(0.6) ? 'parentKid' : 'family', curb: !this.parkedAt() });
     party.alreadyHad = true;
     for (const m of party.members) {
       m.result = 'alreadyHad';
@@ -1079,7 +1160,7 @@ export class Game {
     if (m.kind === 'kid') f *= 0.92;
     if (m.kind === 'teen') f *= 0.95;
     const spot = this.here();
-    f *= AREA[spot.area].pay * (spot.pay ?? 1);
+    f *= SPOT[spot.area].pay * (spot.pay ?? 1);
     if (this.crowdKind() === 'office' && m.kind === 'adult') f *= OFFICE_ADULT_PAY;
     f *= 0.96 + (s.weather.temp - 78) / 150;
     return f;
@@ -1706,7 +1787,8 @@ export class Game {
       dow: this.dayName,
       temp: s.weather.temp,
       rain: s.weather.rain,
-      spots: { ...s.minutesHere },
+      spots: Object.fromEntries(Object.entries(t.bySpot || {}).map(([k, v]) => [k, v.minutes || 0])),
+      places: { ...s.minutesHere },
       route: s.route.map((r) => `${r.spot}@${r.at}`),
       prices: { ...s.prices },
       menuOff: Object.keys(s.menuOn).filter((k) => s.menuOn[k] === false),
