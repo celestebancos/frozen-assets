@@ -10,15 +10,72 @@ Recordings the game plays for the cash register and street sounds. `sounds.json`
 }
 ```
 
-`gain` makes one file quieter or louder. A sound with no files listed is made with Web Audio instead (see `js/ambience.js`).
+`gain` makes one file quieter or louder. Every sound is a recording; a sound with no files listed is just silent.
 
-Names: `cash`; one-shots `car`, `horn`, `laugh`, `squeal`, `voices`, `dog`, `bird`, `quack`, `splash`, `whistle`, `bat`, `cheer`, `animal`; loops `traffic`, `murmur`, `rain`.
+Names: `cash` (the cash register), `bell` (the park cart's bell); street one-shots `car`, `horn`, `laugh`, `squeal`, `voices`, `dog`, `bird`, `quack`, `splash`, `whistle`, `bat`, `cheer`, `animal`; loops `traffic`, `murmur`, `rain`.
 
 Keep files short (one-shots under ~4 s, loops 20–60 s), mono, MP3 at about 96 kbps.
 
+How the files here were made (ffmpeg):
+
+- One-shots: cut from the original, silence trimmed, short fades, and evened out so the louder half of each file sits at about −20 dBFS (peaks under −1 dBFS).
+- Loops (`traffic`, `murmur`, `rain`): 30 s, with the last 3 s blended over the start so they loop without a seam, at about −24 dBFS. The rain is compressed so single big drops don't stick out.
+- Far-away sounds (`voices`, `murmur`, `traffic`) are low-passed so you hear people and cars, not words.
+- `cash` is put together from three recordings: a metal drawer sliding out and clunking, a counter bell, and coins. `bell-2` is one bicycle-bell ring played twice: ding ding.
+- The `gain` numbers in `sounds.json` balance the sounds against the music. They were set by playing everything through the game's own volume chain in an OfflineAudioContext and comparing it with The Entertainer at the same volume: street sounds peak about 4 dB or more under the music, and the ka-ching about 2 dB over it (the cart's bell is about level with the music).
+
 ## Credits
 
-Every file here, where it came from, and its license.
+Every file here, where it came from, who made it, and its license. BigSoundBank sounds are CC0 (thanks, Joseph Sardin!). laugh-4.mp3 is CC BY 3.0, so it must keep its credit here.
 
-| File | Source | License |
-| --- | --- | --- |
+| File | Source | Author | License |
+| --- | --- | --- | --- |
+| cash-1.mp3 | [Metal drawer #1](https://bigsoundbank.com/sound-s0792.html)<br>[Counter Bell #5](https://bigsoundbank.com/sound-s2533.html)<br>[Coin in cup #1](https://bigsoundbank.com/sound-s0339.html) | Joseph Sardin (BigSoundBank) | CC0 |
+| cash-2.mp3 | [Metal drawer #1](https://bigsoundbank.com/sound-s0792.html)<br>[Counter Bell #3](https://bigsoundbank.com/sound-s2531.html)<br>[Coin in cup #1](https://bigsoundbank.com/sound-s0339.html) | Joseph Sardin (BigSoundBank) | CC0 |
+| bell-1.mp3 | [Bell Bike #5](https://bigsoundbank.com/sound-s1102.html) | Joseph Sardin (BigSoundBank) | CC0 |
+| bell-2.mp3 | [Bicycle Bell #3](https://bigsoundbank.com/sound-s0974.html) | Joseph Sardin (BigSoundBank) | CC0 |
+| car-1.mp3 | [Car passing 50km/h #3](https://bigsoundbank.com/sound-s2987.html) | Joseph Sardin (BigSoundBank) | CC0 |
+| car-2.mp3 | [Car passing 50km/h #4](https://bigsoundbank.com/sound-s2988.html) | Joseph Sardin (BigSoundBank) | CC0 |
+| car-3.mp3 | [Car Passing 50km/h #12](https://bigsoundbank.com/sound-s2996.html) | Joseph Sardin (BigSoundBank) | CC0 |
+| horn-1.mp3 | [Recent Car Horn #7](https://bigsoundbank.com/sound-s0969.html) | Joseph Sardin (BigSoundBank) | CC0 |
+| horn-2.mp3 | [Recent Car Horn #7](https://bigsoundbank.com/sound-s0969.html) | Joseph Sardin (BigSoundBank) | CC0 |
+| horn-3.mp3 | [Recent Car Horn #2](https://bigsoundbank.com/sound-s0258.html) | Joseph Sardin (BigSoundBank) | CC0 |
+| laugh-1.mp3 | [Laughter of Children](https://bigsoundbank.com/sound-s1660.html) | Joseph Sardin (BigSoundBank) | CC0 |
+| laugh-2.mp3 | [Boy 2-3 years old, tickling #1](https://bigsoundbank.com/sound-s1418.html) | Joseph Sardin (BigSoundBank) | CC0 |
+| laugh-3.mp3 | [Short clip of girl laughing.wav](https://commons.wikimedia.org/wiki/File:Short_clip_of_girl_laughing.wav) | lmbubec | CC0 |
+| laugh-4.mp3 | [Four Years Old child laughing.ogg](https://commons.wikimedia.org/wiki/File:Four_Years_Old_child_laughing.ogg) | morgantj | CC BY 3.0 |
+| squeal-1.mp3 | [Kids Screaming #1](https://bigsoundbank.com/sound-s1148.html) | Joseph Sardin (BigSoundBank) | CC0 |
+| squeal-2.mp3 | [Kids screaming #3](https://bigsoundbank.com/sound-s1150.html) | Joseph Sardin (BigSoundBank) | CC0 |
+| squeal-3.mp3 | [Boy 2-3 years old, tickling #4](https://bigsoundbank.com/sound-s1421.html) | Joseph Sardin (BigSoundBank) | CC0 |
+| squeal-4.mp3 | [Kids Screaming #1](https://bigsoundbank.com/sound-s1148.html) | Joseph Sardin (BigSoundBank) | CC0 |
+| voices-1.mp3 | [Walla Group: Averages Discussions](https://bigsoundbank.com/sound-s0684.html) | Joseph Sardin (BigSoundBank) | CC0 |
+| voices-2.mp3 | [Walla Group: Averages Discussions](https://bigsoundbank.com/sound-s0684.html) | Joseph Sardin (BigSoundBank) | CC0 |
+| voices-3.mp3 | [Outside Talks #2](https://bigsoundbank.com/sound-s2969.html) | Joseph Sardin (BigSoundBank) | CC0 |
+| dog-1.mp3 | [Old dog barking #1](https://bigsoundbank.com/sound-s2352.html) | Joseph Sardin (BigSoundBank) | CC0 |
+| dog-2.mp3 | [Barking of a Spitz](https://bigsoundbank.com/sound-s0682.html) | Joseph Sardin (BigSoundBank) | CC0 |
+| dog-3.mp3 | [Barking Dogs](https://bigsoundbank.com/sound-s0288.html) | Joseph Sardin (BigSoundBank) | CC0 |
+| dog-4.mp3 | [Barking dog #3](https://bigsoundbank.com/sound-s2955.html) | Joseph Sardin (BigSoundBank) | CC0 |
+| bird-1.mp3 | [Common Blackbird #30](https://bigsoundbank.com/sound-s3503.html) | Joseph Sardin (BigSoundBank) | CC0 |
+| bird-2.mp3 | [Common Blackbird #23](https://bigsoundbank.com/sound-s3496.html) | Joseph Sardin (BigSoundBank) | CC0 |
+| bird-3.mp3 | [Eurasian blackcap #1](https://bigsoundbank.com/sound-s3466.html) | Joseph Sardin (BigSoundBank) | CC0 |
+| bird-4.mp3 | [Common Nightingale #2](https://bigsoundbank.com/sound-s3087.html) | Joseph Sardin (BigSoundBank) | CC0 |
+| quack-1.mp3 | [Ducks](https://bigsoundbank.com/sound-s0276.html) | Joseph Sardin (BigSoundBank) | CC0 |
+| quack-2.mp3 | [Ducks](https://bigsoundbank.com/sound-s0276.html) | Joseph Sardin (BigSoundBank) | CC0 |
+| splash-1.mp3 | [Splash, Big #1](https://bigsoundbank.com/sound-s1519.html) | Joseph Sardin (BigSoundBank) | CC0 |
+| splash-2.mp3 | [Splash, Small #1](https://bigsoundbank.com/sound-s1529.html) | Joseph Sardin (BigSoundBank) | CC0 |
+| splash-3.mp3 | [Splash, Big #3](https://bigsoundbank.com/sound-s1521.html) | Joseph Sardin (BigSoundBank) | CC0 |
+| whistle-1.mp3 | [Plastic Whistle #1](https://bigsoundbank.com/sound-s1017.html) | Joseph Sardin (BigSoundBank) | CC0 |
+| whistle-2.mp3 | [Plastic Whistle #1](https://bigsoundbank.com/sound-s1017.html) | Joseph Sardin (BigSoundBank) | CC0 |
+| bat-1.mp3 | [Golf swing, with a wooden club](https://bigsoundbank.com/sound-s0455.html) | Joseph Sardin (BigSoundBank) | CC0 |
+| bat-2.mp3 | [Golf swing, with a wooden club](https://bigsoundbank.com/sound-s0455.html) | Joseph Sardin (BigSoundBank) | CC0 |
+| bat-3.mp3 | [Fake Metal Bat.wav](https://commons.wikimedia.org/wiki/File:Fake_Metal_Bat.wav) | Shawn Eary | CC0 |
+| cheer-1.mp3 | [Shouts and Applauses of Teens #1](https://bigsoundbank.com/sound-s0236.html) | Joseph Sardin (BigSoundBank) | CC0 |
+| cheer-2.mp3 | [Shouts and Applauses of Teens #2](https://bigsoundbank.com/sound-s0237.html) | Joseph Sardin (BigSoundBank) | CC0 |
+| cheer-3.mp3 | [Clapping hurray.ogg](https://commons.wikimedia.org/wiki/File:Clapping_hurray.ogg) | starlite | Public domain |
+| animal-1.mp3 | [Elephant voice - trumpeting.ogg](https://commons.wikimedia.org/wiki/File:Elephant_voice_-_trumpeting.ogg) | தகவலுழவன் (Commons user) | CC0 |
+| animal-2.mp3 | [Donkey, braying #2](https://bigsoundbank.com/sound-s1550.html) | Joseph Sardin (BigSoundBank) | CC0 |
+| animal-3.mp3 | [Bleating Goat #1](https://bigsoundbank.com/sound-s0279.html) | Joseph Sardin (BigSoundBank) | CC0 |
+| animal-4.mp3 | [Screaming Piha](https://bigsoundbank.com/sound-s1762.html) | Joseph Sardin (BigSoundBank) | CC0 |
+| traffic.mp3 | [Street and Roads](https://bigsoundbank.com/sound-s0608.html) | Joseph Sardin (BigSoundBank) | CC0 |
+| murmur.mp3 | [Outside Talks #2](https://bigsoundbank.com/sound-s2969.html) | Joseph Sardin (BigSoundBank) | CC0 |
+| rain.mp3 | [Rain on concrete](https://bigsoundbank.com/sound-s1289.html) | Joseph Sardin (BigSoundBank) | CC0 |

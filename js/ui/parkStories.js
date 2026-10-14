@@ -93,6 +93,10 @@ class Actor {
     this.g.appendChild(cp);
     this.art.setAttribute('clip-path', `url(#${id})`);
   }
+  // A sound from where this actor stands (a bark, a quack, a laugh).
+  sound(name) {
+    this.stage.sound(name, this.x);
+  }
   // A speech bubble with an emoji over its head.
   say(text, ms = 1500) {
     const b = el('say');
@@ -135,6 +139,7 @@ const STORIES = {
     fr.remove();
     await dog.moveTo(x + 290, G - 26, 200, 'ease-out'); // the catch!
     dog.hold(frisbeeSVG(), 22, ...mouth(DOG).map((v, i) => v + [2, 5][i]));
+    dog.sound('dog');
     await dog.moveTo(x + 290, G, 220, 'ease-in');
     dog.face(-1);
     await dog.moveTo(x + 86, G, 1600);
@@ -175,6 +180,7 @@ const STORIES = {
     gift.remove();
     kid.hold(balloonSVG(second), 16, ...kh);
     kid.say('😄', 1800);
+    kid.sound('laugh');
     grownup.say('❤️', 1800);
     await s.t(2000);
     grownup.face(1);
@@ -253,6 +259,7 @@ const STORIES = {
     all.slice(0, 3).forEach((d) => d.walk(false));
     mom.face(-1);
     mom.say('❗', 1500);
+    mom.sound('quack');
     fly.moveTo(x - 10, G - 160, 2600, 'ease-in');
     await s.t(1300);
     babies[2].face(1);
@@ -288,6 +295,7 @@ const STORIES = {
     await s.t(900);
     const dog = s.actor(personSVG('dog', rnd(4)), x + 400, G, DOG);
     dog.face(-1);
+    dog.sound('dog');
     for (const b of bubbles.sort((p, q) => q.x - p.x)) {
       dog.walk();
       await dog.moveTo(b.x + 12, G, 420);
@@ -298,6 +306,7 @@ const STORIES = {
       await dog.moveTo(b.x + 12, G, 170, 'ease-in');
     }
     kid.say('😆', 1600);
+    kid.sound('laugh');
     dog.say('❤️', 1600);
     await dog.hop(10);
     await s.t(1600);
@@ -330,6 +339,7 @@ const STORIES = {
     duck.walk(false);
     duck.setArt(duckSVG(false, true)); // it fits!
     duck.say('😎', 1700);
+    duck.sound('quack');
     await s.t(600);
     who.say('😂', 1600);
     await s.t(1500);
@@ -366,6 +376,7 @@ const STORIES = {
     await kid.moveTo(x + 132, G - 30, 300, 'ease-out');
     await kid.moveTo(spot - 6, G, 300, 'ease-in');
     splash(spot - 6);
+    kid.sound('splash');
     kid.say('😆', 1500);
     await s.t(1300);
     const dog = s.actor(personSVG('dog', rnd(4)), x + 380, G, DOG);
@@ -376,12 +387,14 @@ const STORIES = {
     await dog.moveTo(spot + 22, G - 18, 220, 'ease-out');
     await dog.moveTo(spot + 14, G, 220, 'ease-in');
     splash(spot + 14);
+    dog.sound('splash');
     await s.t(500);
     dog.mood('shake');
     splash(spot + 14, 9);
     await s.t(700);
     dog.mood('shake', false);
     kid.say('😂', 1700);
+    kid.sound('laugh');
     await dog.hop(10);
     await s.t(1600);
   },
@@ -393,7 +406,8 @@ export class ParkStories {
   // host: the element to draw in. rain: today's weather. busy(): true while the stories should wait (a pop-up is open).
   // blockers(): elements drawn in front of the lawn (stands, swings, the cart); stories try to play where they aren't.
   // tall: the phone layout of the park.
-  constructor(host, { rain = false, tall = false, busy = () => false, blockers = () => [] } = {}) {
+  // sound(name, pan): plays a sound (see sounds/sounds.json), pan from -1 (left) to 1 (right).
+  constructor(host, { rain = false, tall = false, busy = () => false, blockers = () => [], sound = () => {} } = {}) {
     const v = tall ? PARK_VIEW.tall : PARK_VIEW.wide;
     this.G = v.ground; // the stories stand here: on the lawn between the pond and the path
     this.k = tall ? 0.85 : 0.92; // story units → park units: a bit smaller than the customers, who are closer
@@ -405,6 +419,7 @@ export class ParkStories {
     this.rain = rain;
     this.busy = busy;
     this.blockers = blockers;
+    this.playSound = sound;
     this.on = false;
     this.bag = [];
   }
@@ -431,6 +446,11 @@ export class ParkStories {
   }
   actor(svg, x, y, w) {
     return new Actor(this, svg, x, y, w);
+  }
+  // A sound from x on the lawn: left or right as it looks on this screen.
+  sound(name, x) {
+    const [a, b] = this.visible();
+    this.playSound(name, Math.max(-0.8, Math.min(0.8, ((x - a) / (b - a)) * 2 - 1)));
   }
   // The part of the park this screen shows, in story units (the backdrop is cropped at the sides).
   visible() {
