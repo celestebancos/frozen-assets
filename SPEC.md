@@ -14,24 +14,26 @@ This is a design spec, not a build plan for one PR. It's meant to be built in pl
 6. [Do it, get good, hand it off](#do-it-get-good-hand-it-off)
 7. [Trucks: buying, aging, upkeep](#trucks-buying-aging-upkeep)
 8. [Supplies, storage and ordering](#supplies-storage-and-ordering)
-9. [Employees](#employees)
-10. [Managers and the boss's day](#managers-and-the-bosss-day)
-11. [Towns and the region map](#towns-and-the-region-map)
-12. [Shops](#shops)
-13. [Factories and farms (vertical integration)](#factories-and-farms-vertical-integration)
-14. [Franchising](#franchising)
-15. [Investors and selling the business](#investors-and-selling-the-business)
-16. [Loans](#loans)
-17. [Accidents and insurance](#accidents-and-insurance)
-18. [Failure and bankruptcy](#failure-and-bankruptcy)
-19. [The books at scale](#the-books-at-scale)
-20. [Economy and balance targets](#economy-and-balance-targets)
-21. [Screens](#screens)
-22. [Engineering](#engineering)
-23. [Leaderboard](#leaderboard)
-24. [Build order](#build-order)
-25. [Out of scope for now](#out-of-scope-for-now)
-26. [Open questions](#open-questions)
+9. [Serving mini-game (just for fun)](#serving-mini-game-just-for-fun)
+10. [Employees](#employees)
+11. [Managers and the boss's day](#managers-and-the-bosss-day)
+12. [Towns and the region map](#towns-and-the-region-map)
+13. [Shops](#shops)
+14. [Factories and farms (vertical integration)](#factories-and-farms-vertical-integration)
+15. [Franchising](#franchising)
+16. [Investors and selling the business](#investors-and-selling-the-business)
+17. [Loans](#loans)
+18. [Accidents and insurance](#accidents-and-insurance)
+19. [Failure and bankruptcy](#failure-and-bankruptcy)
+20. [The books at scale](#the-books-at-scale)
+21. [Economy and balance targets](#economy-and-balance-targets)
+22. [Screens](#screens)
+23. [Engineering](#engineering)
+24. [Leaderboard](#leaderboard)
+25. [Build order](#build-order)
+26. [Out of scope for now](#out-of-scope-for-now)
+27. [Decided](#decided)
+28. [Open questions](#open-questions)
 
 ---
 
@@ -62,7 +64,7 @@ These are rough stages, not hard levels. Nothing is locked except by price (and 
 | **Boss** | Summers 4–6 | $120k → $400k | 6+ trucks, so no more driving. Sets policy, hires managers, opens a second town, maybe a first shop | Delegation, overhead, insurance, fixed costs |
 | **CEO** | Summers 6+ | $400k → $1M and beyond | Many towns, shops, factories, franchises, investors. Plays by summer, with a few decisions along the way | Profit and cost centers, make vs. buy, equity, franchise fees, what a business is worth |
 
-**Rule from the design discussion:** once the business has **many trucks** (proposed: 6 or more), the player can no longer drive. They're the boss now. With fewer, driving one truck is always allowed.
+**Rule from the design discussion:** once the business has **many trucks** (6 or more), the player can no longer drive. They're the boss now. With fewer, driving one truck is always allowed.
 
 ## Zoom levels and time
 
@@ -75,8 +77,7 @@ The game has three speeds of play. Each one opens up as the business grows and s
 | **Region** | A month (or the whole summer) | From the second town | Region map with towns as units, monthly numbers, pop-ups |
 
 - At Town and Region zoom, days still happen. They just run fast and show summaries. Events that need a decision (an employee quits, an accident, a big order) pause and pop up.
-- The player can zoom in to watch any truck for a day, even after they can't drive. They're watching, not driving.
-- **Open:** whether to allow zooming back in to day-by-day play with a big fleet, or always force week steps once there are many trucks.
+- **Zooming in is always allowed.** At any size, the player can pick any truck, shop or factory and watch it minute by minute at Street zoom. After 6 trucks they're watching, not driving. Zooming back out picks up where the fast play left off.
 
 ## Summer and winter
 
@@ -94,7 +95,7 @@ One screen, laid out in this order:
 3. **Decisions:** buy and sell trucks, pick maintenance, renew insurance, hire and re-hire, sign leases, build things, take or repay loans, talk to investors and buyers.
 4. **Start next summer.**
 
-- **Open:** do factories and shops run during winter (with low demand), or does everything pause? Running them makes winter more than a menu, and it sharpens the fixed-cost lesson.
+- **Everything pauses in winter.** Trucks, shops and factories don't sell or make anything. Winter costs still come due: storage, rent, and power for freezers (see [soft serve mix](#soft-serve-mix)).
 
 ## Do it, get good, hand it off
 
@@ -109,6 +110,8 @@ This is the core pattern, generalized from Penny's filing (`CONFIG.filing`: file
 | Job | Done by hand | "Good at it" means (proposed) | Handed to |
 |---|---|---|---|
 | Filing papers | Shoebox (today) | 3 first-try rights per paper type (today) | Penny (today) |
+| Counting supplies | Counting boxes in the truck view | Counts right a few weeks in a row | Penny, later a stock clerk |
+| Thawing and filling the machine | Picking how much mix to thaw each night | A week or two with little waste and no running short | Driver, following the player's rule |
 | Loading trucks | Setting fill-to levels | A week or two with no trucks going out short | Stock clerk |
 | Ordering supplies | Placing supplier orders | A few weeks with no sell-outs from late orders, and low spoilage | Purchasing manager, following the player's reorder rules (IDEAS.md: automatic reordering) |
 | Prices and menu | Price panel | A week of no "too expensive" losses and decent margins | Driver or manager, within a price range the player sets |
@@ -148,9 +151,45 @@ Today, supplies are bought instantly from the store in any amount, and there's n
 | **Warehouse** (owned, later) | Pallets, for a town or the region | Bought (an asset that depreciates), plus power and upkeep |
 | **Shop back room** | The shop's own stock | Part of the shop |
 
-- Space has a hard limit. A delivery bigger than the space is **refused**, or costs an overflow fee for a few days somewhere else. Proposed: the overflow fee, since it's gentler and still teaches the lesson.
-- Mix still spoils (`shelfLife`) wherever it is. Storing more doesn't make it last longer.
-- **Supply counts:** the books say how much should be there. A count says what is. The gap is **shrinkage**: drops, waste, or a skimming employee. This builds on the existing "Inventory of supplies used" paper and gives bad apples another way to be caught.
+- **Space has a hard limit.** When a delivery doesn't all fit, the driver **takes back whatever doesn't fit** (refunded). If it keeps happening, the supplier starts charging a **return fee**.
+- Freezer, fridge and dry shelves are separate spaces (see [soft serve mix](#soft-serve-mix)).
+
+### The restaurant store (starts in summer 1)
+
+Today supplies appear the moment they're bought. Instead, the **restaurant store becomes a place on the town map**, and supplies can only be bought there.
+- Going there takes driving time and gas, more from far away. A trip before opening means opening later. A trip mid-day means the truck is closed while it's away.
+- It can be added to a route like any other stop, or visited from the map when the truck is about to run out.
+- This makes "buy enough so you don't have to go back" vs. "don't buy too much" a real choice, even with one truck. That's a good lead-in to space limits.
+
+### Inside the truck (starts in summer 1)
+
+- A new **inside-the-truck view** shows the supplies as boxes and cartons: a freezer, a fridge, the soft serve machine, and shelves.
+- **Space is limited from summer 1.** Boxes pile up as they're bought. When the shelves are full, boxes go **in front of** other boxes, so it gets harder to see what's there and how much. Opened boxes show how full they are.
+- Buying more than fits isn't allowed. The store won't sell what can't be carried, and later a delivery takes back what doesn't fit.
+- A garage shelf at home base can hold a little extra (rented with parking, or part of a garage). Moving boxes between the shelf and the truck happens on the morning drive out.
+
+### Counting by hand (summer 1)
+
+- The weekly "Inventory of supplies used" paper is **counted by hand** at first: the player opens the truck view, looks through the boxes (moving the ones in front), and writes down how much of each supply is left. Penny checks the count against the books.
+- A tidy truck is easier to count. A crammed one hides things.
+- Counting follows the same rule as everything else: count right a few weeks in a row, then it can be handed off (to Penny at first, later a stock clerk).
+- **Shrinkage:** the books say how much should be there, and the count says what is. The gap is drops, waste, or a skimming employee. This gives bad apples another way to be caught.
+
+### Soft serve mix
+
+Mix spoiling gets closer to real life. It comes **frozen** and goes through three stages:
+
+| Stage | Where | Keeps for (real life) | In the game (proposed) |
+|---|---|---|---|
+| **Frozen** | Freezer | 6 months to 2 years | All summer, and **through winter** if the freezer stays powered |
+| **Thawed** | Fridge | 7–14 days | 10 days |
+| **In the machine** | Soft serve machine | 2–3 days total. Overnight only in night mode | 3 days, then the machine must be cleaned out and what's left is thrown away |
+
+- **Thawing takes planning.** Frozen mix has to thaw in the fridge overnight before it can go in the machine. Each evening the player decides how much to take out for tomorrow. Take out too little and you run short. Take out too much and it waits in the fridge (that's fine for a while).
+- **The machine** holds a set amount. It's filled from thawed mix each morning. At night it's put in **night mode** (costs a little power) or emptied. Every few days it must be cleaned, and whatever is left in it is thrown away.
+- **Freezer space is the tight one.** Dry boxes can go on shelves, but frozen mix needs freezer room. A bigger freezer is an upgrade for the truck, and later a reason to rent freezer space.
+- **Winter:** frozen mix can be kept to next summer, but only if someone pays to keep the freezer on. Otherwise it's thrown out (today's rule).
+- Handing off: once the player thaws and fills well (little waste, no running short), a driver can do it by a rule ("thaw 2 cartons a night, 3 on weekends").
 
 ### Morning load-out
 
@@ -163,7 +202,7 @@ Today, supplies are bought instantly from the store in any amount, and there's n
 
 | Way to buy | Size | Price | Wait | Notes |
 |---|---|---|---|---|
-| **Restaurant store** (today's shop) | A truck's worth | Full price | None | Someone has to go get it. Proposed: about an hour of the boss's or a driver's morning |
+| **Restaurant store** (today's shop) | A truck's worth | Full price | None | Someone has to drive there: time and gas, depending on distance (see [above](#the-restaurant-store-starts-in-summer-1)) |
 | **Supplier delivery** | Cases to pallets | Cheaper per unit, the more you order | 2–7 days; **bigger orders take longer** | Minimum order. Pay extra for a rush |
 | **Standing order** (later) | Same amount every week | Price locked for the summer | Fixed delivery day | IDEAS.md: suppliers raising prices mid-summer, unless you signed earlier |
 | **Your own factory** | Its daily output | Cost to make | Arrives daily | See [Factories](#factories-and-farms-vertical-integration) |
@@ -179,6 +218,13 @@ The same do-it, get-good, hand-off rule applies:
 - **Load-out:** the player sets fill-to levels. It's handed to a **stock clerk** after a week or two with no trucks going out short.
 - **Ordering:** the player places supplier orders. It's handed to a **purchasing manager** after a few weeks with no sell-outs from late orders and low spoilage. They follow the player's rules: "When cake cones drop below 2,000, order 5,000."
 - How well a helper follows the rules depends on who was hired. A sloppy clerk miscounts, and a sloppy buyer orders late.
+
+## Serving mini-game (just for fun)
+
+An optional view **inside the truck at the window**: a customer orders, and the player picks the cone, pulls the soft serve, adds sprinkles, takes the money and **makes change** from the cash drawer.
+- **Not required.** The truck serves on its own as it does today. The player can jump in for a few customers whenever they like.
+- Good practice for making change, which fits the game's audience.
+- Proposed: purely for fun at first. **Open:** whether doing it well should matter a little (a faster line, a tip).
 
 ## Employees
 
@@ -214,7 +260,7 @@ New bots can be added for more variety.
   - **Padded receipts:** gas bills higher than the miles driven.
   
   They're found from per-truck profit and the papers, never announced. Fire them, and things get better.
-- **Firing:** any time. Proposed: no severance at first, to keep it simple.
+- **Firing:** any time, with no severance.
 - **Tip jar** (IDEAS.md): whose money is it? Maybe later.
 
 ## Managers and the boss's day
@@ -272,8 +318,8 @@ How factories work (proposed):
 - Output goes into the supply room or warehouse like any delivery, so a factory needs storage too.
 - **Building takes time:** ordered in winter, it opens partway through the next summer.
 - **Eggs in one basket:** if the only mix plant breaks down, every truck runs short.
-- **What do home-made supplies cost?** Proposed default: the **real cost to make**, so "Supplies used" simply gets cheaper. The per-unit report shows the factory as a cost center with "saved vs. store price". The advanced version, where the factory "sells" to your own trucks and Penny explains why that isn't real income, is **Open**.
-- **How deep do chains go?** Proposed: factories first. Farms are a later, optional deeper step.
+- **What do home-made supplies cost?** The **real cost to make**, so "Supplies used" simply gets cheaper. The per-unit report shows the factory as a cost center with "saved vs. store price". (The version where the factory "sells" to your own trucks is left out.)
+- **How deep do chains go?** Factories first. Farms are a later, optional deeper step.
 
 ## Franchising
 
@@ -287,7 +333,7 @@ How factories work (proposed):
 ### Investors (equity)
 - From time to time a person offers cash for a slice of the company, for example **"Grandma Rose: $50,000 for 10% of the business."** Those IDEAS.md grandparents fit here.
 - Once that happens, the company's owner's share is split between the player and the investors. **The goal counts only the player's part.** Selling slices lets the business grow faster, but each slice is profit given away forever. That's the lesson.
-- **Open:** whether investors get yearly payouts (dividends) or only gain when the business is sold. Proposed: only at the sale, for simplicity. Also open: whether the player can buy slices back.
+- Investors get no yearly payouts. They're paid their slice **when the business is sold**. **Open:** whether the player can buy slices back.
 
 ### Selling the business (retiring)
 - Once the business is big enough, buyers make an offer each winter, based on yearly profit plus what the business owns. The player sees that a business that **earns money** is worth more than its trucks and buildings.
@@ -333,7 +379,8 @@ The shoebox stays the heart of the game, but the papers change as the business g
 | Boss | **Per town, per month** summaries. New papers: insurance, rent, manager wages, equipment |
 | CEO | **Quarterly or yearly** company papers: depreciation, factory costs, franchise fees received, investor shares |
 
-- **Each new kind of paper** goes through the same rule: file it right a few times, then it can be handed to Penny, or later to a bookkeeper or accountant at a higher fee.
+- **Each new kind of paper** goes through the same rule: file it right a few times, then it can be handed to Penny.
+- **Penny grows with the business.** She starts as the one bookkeeper and becomes **head of the accounting department**. As the papers grow, she hires bookkeepers under her (their pay shows up in her bill), and at CEO scale she hands the player yearly statements to review instead of papers to file.
 - **New accounts** (rough list):
   - Expenses: wages, repairs, depreciation, storage/rent, shrinkage, insurance, manager pay, factory costs.
   - Assets: trucks (book value), buildings, equipment, prepaid insurance, supplies on the way, supplies in each place.
@@ -373,7 +420,16 @@ The 10-hour arc needs the business to roughly **double each summer** from about 
 | `soloGrinder` | Never hires | Never loses, but never gets near $1M |
 | `earlyFactory` | Builds a factory with 2 trucks | Visibly slowed down |
 
-- **Real-time check:** measure how long a summer takes at each zoom in playtests, so the stage targets add up to 10 hours or less.
+- **Later summers go faster.** Real time per summer shrinks as play zooms out. Rough targets:
+
+| Stage | Summers | Real time per summer | Total |
+|---|---|---|---|
+| Solo | 1–2 | ~1.5 hours | ~3 hours |
+| Small fleet | 2–4 | ~1 hour | ~3 hours |
+| Boss | 4–6 | ~40 minutes | ~2 hours |
+| CEO | 6+ | ~20–30 minutes | ~2 hours to $1M |
+
+  Measure in playtests and adjust zoom speeds (and how often things pop up) to hit these.
 
 ## Screens
 
@@ -412,9 +468,10 @@ New fields in the Airtable `Scores` table (README setup to be updated):
 
 ## Build order
 
-Each phase is playable and merged on its own. Phases 2 and 3 can go in either order.
+Each phase is playable and merged on its own. Phases 2 and 3 can go in either order. The [serving mini-game](#serving-mini-game-just-for-fun) can go in at any time.
 
-1. **Fleet and crew.** Several trucks in the home town, with crowd splitting. Hire drivers from the bot pool, with wages, green period, call-offs, quits, bad apples and firing. The boss's day. Per-truck weekly papers and payroll. Profit by truck. Parking and storage. A supply room with fill-to levels and morning load-out (supplies still come from the restaurant store). Winter planning screen. Player-chosen end of summer. Town zoom (play by week).
+0. **One truck, more real.** Restaurant store as a place on the map. Inside-the-truck view with space limits and boxes piling up. Counting by hand. Frozen, thawed and in-the-machine mix. Fits today's single-summer game, so it can ship first.
+1. **Fleet and crew.** Several trucks in the home town, with crowd splitting. Hire drivers from the bot pool, with wages, green period, call-offs, quits, bad apples and firing. The boss's day. Per-truck weekly papers and payroll. Profit by truck. Parking and storage. A supply room with fill-to levels and morning load-out (supplies still come from the restaurant store, now with a store run for each truck). Winter planning screen. Player-chosen end of summer. Town zoom (play by week).
 2. **Ordering ahead.** Supplier deliveries with bulk prices and wait times, supplies on the way, supply room rent and space limits, freezer vs. dry space, supply counts and shrinkage, weather forecast.
 3. **Aging fleet.** Depreciation, maintenance, breakdowns, used trucks, selling trucks, garage. Accidents and insurance. Bank offering growth loans. Cash crunch.
 4. **Hand-offs and managers.** Generalize the do-it/get-good/hand-off rule to loading, ordering, prices, routes, payroll and hiring. Owned warehouses. Managers and span of control. Boss-only at 6+ trucks.
@@ -429,16 +486,21 @@ Each phase is playable and merged on its own. Phases 2 and 3 can go in either or
 - Hardcore mode.
 - Overtime, hourly wages, taxes on wages.
 
+## Decided
+
+- Goal: $1M of the player's own owner's share. The game keeps going after that, until they sell.
+- Driving ends at 6 trucks. Zooming in to watch is always allowed.
+- Everything pauses in winter.
+- Factory supplies are booked at the real cost to make. Factories come before farms.
+- Investors are paid only when the business is sold.
+- No severance.
+- Penny becomes head of accounting.
+- Space limits start in summer 1. Deliveries that don't fit go back, with a return fee if it keeps happening.
+
 ## Open questions
 
-1. **Zooming back in:** with a big fleet, can the player still step a single day minute by minute (watching only), or are week steps forced?
-2. **Winter:** do shops and factories run during winter with low demand, or does everything pause?
-3. **"Good at it" tests** for each job: proposed above, to be tuned.
-4. **Factory supplies:** booked at real cost to make (proposed), or "sold" to your own trucks with the "that's not real income" lesson?
-5. **Depth of supply chains:** factories only, or farms too (wheat → flour → cones, cows → milk → mix)?
-6. **Investors:** yearly payouts, or only at sale? Can the player buy slices back?
-7. **Penny at scale:** does she stay the bookkeeper throughout, or does the player hire new bookkeepers and accountants as the business grows?
-8. **Severance** when firing: none (proposed), or a small amount?
-9. **The "many trucks" line** where driving ends: 6 is proposed.
-10. **Space limits in summer 1:** should a solo player's truck and garage shelf have a limit (a small change to today's game, and an early taste of storage), or stay unlimited until there's a fleet?
-11. **A full supply room:** refuse the delivery, or charge an overflow fee (proposed)?
+1. **"Good at it" tests** for each job: proposed above, to be tuned.
+2. **Buying back investors' slices:** allowed or not?
+3. **Serving mini-game:** purely for fun, or should doing it well help a little (faster line, tips)?
+4. **How hands-on mix is for a 7-year-old:** thawing every evening could get tedious. Maybe a simple rule from the start ("thaw what I sold today") that the player can change?
+5. **When the return fee starts:** after how many turned-away deliveries?
