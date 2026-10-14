@@ -3,7 +3,7 @@
 import { CART, CART_ITEMS, CART_ITEM, CART_SHOPS, CART_CROWD, REGULARS } from '../config.js';
 import { Cart, total, pileCount, CART_DAY_NAMES } from '../cart.js';
 import { personSVG, parkSVG, CHARACTER } from '../art.js';
-import { cartSVG, umbrellaSVG, moneySVG, treatSVG, tubSVG, swingSetSVG, swingSeatSVG, squirrelSVG, duckSVG, frisbeeSVG, balloonSVG, hotdogStandSVG, balloonSellerSVG, stickerStandSVG } from '../cartArt.js';
+import { cartSVG, umbrellaSVG, moneySVG, treatSVG, thingSVG, swingSetSVG, swingSeatSVG, squirrelSVG, duckSVG, frisbeeSVG, balloonSVG, hotdogStandSVG, balloonSellerSVG, stickerStandSVG } from '../cartArt.js';
 import { storage } from '../storage.js';
 import { esc, money, el, openModal, onActs, anyModalOpen, closeAllModals, toast, fmtTime } from './dom.js';
 
@@ -39,8 +39,9 @@ function cartSpot(c) {
 }
 // Icons for shop items.
 function itemIcon(it, size = 40) {
-  if (it.kind === 'stock') return CART_ITEM[it.item].kind === 'ice' ? tubSVG(CART_ITEM[it.item].color, 1, size) : treatSVG(it.item, size);
-  if (it.kind === 'cups') return `<span style="font-size:${size * 0.7}px">🥤</span>`;
+  if (it.kind === 'stock') return treatSVG(it.item, size);
+  if (it.kind === 'spoons') return thingSVG('spoon', size);
+  if (it.kind === 'napkins') return thingSVG('napkin', size);
   if (it.kind === 'gear') return `<span style="font-size:${size * 0.7}px">${{ umbrella: '⛱️', fan: '🪭', bell: '🔔' }[it.id]}</span>`;
   if (it.kind === 'balloon') return balloonSVG(it.color).replace('<svg ', `<svg width="${size * 0.5}" height="${size}" `);
   if (it.kind === 'shirt') return `<span class="swatch" style="background:${it.color}">${it.stars ? '⭐' : ''}</span>`;
@@ -223,23 +224,20 @@ export class CartView {
     const w = s.weather;
     const late = s.minute > K.parkOpen;
     const rows = CART_ITEMS.map((it) => {
-      const ice = it.kind === 'ice';
-      const fz = ice ? c.tubs('freezer', it.id).length : c.count('freezer', it.id);
-      const co = ice ? c.tubs('cooler', it.id).length : c.count('cooler', it.id);
-      const unit = ice ? (n) => `${n} tub${n === 1 ? '' : 's'}` : (n) => `${n}`;
-      const scoops = ice && co ? ` <span class="tiny muted">(${c.count('cooler', it.id)} scoops)</span>` : '';
+      const fz = c.count('freezer', it.id);
+      const co = c.count('cooler', it.id);
       return `<div class="pack-row">
         <span class="ic">${treatSVG(it.id, 34)}</span><span class="nm">${esc(it.name)}</span>
-        <span class="tiny muted">🏠 ${unit(fz)}</span>
+        <span class="tiny muted">🏠 ${fz}</span>
         <span class="pk">
-          <button class="btn small" data-act="unpack" data-id="${it.id}" data-n="${ice ? 1 : 6}" ${co ? '' : 'disabled'} aria-label="Take out">◀</button>
-          <b>🧊 ${unit(co)}</b>${scoops}
+          <button class="btn small" data-act="unpack" data-id="${it.id}" data-n="6" ${co ? '' : 'disabled'} aria-label="Take out">◀</button>
+          <b>🧊 ${co}</b>
           <button class="btn small" data-act="pack" data-id="${it.id}" data-n="1" ${fz ? '' : 'disabled'} aria-label="Pack one">+1</button>
-          ${ice ? '' : `<button class="btn small" data-act="pack" data-id="${it.id}" data-n="6" ${fz ? '' : 'disabled'} aria-label="Pack six">+6</button>`}
+          <button class="btn small" data-act="pack" data-id="${it.id}" data-n="6" ${fz ? '' : 'disabled'} aria-label="Pack six">+6</button>
         </span></div>`;
     }).join('');
     const used = c.spaceUsed('cooler');
-    const noStock = !Object.values(s.freezer.pops).some(Boolean) && !Object.values(s.freezer.tubs).some((t) => t.length) && !used;
+    const noStock = !Object.values(s.freezer.pops).some(Boolean) && !used;
     this.homeEl.innerHTML = `
       <div class="home-top">
         <h2 style="margin:0">${w.rain ? '🌧️' : w.temp >= 88 ? '🥵☀️' : '☀️'} ${CART_DAY_NAMES[(s.day - 1) % 7]} · Day ${s.day} · ${w.temp}°F</h2>
@@ -255,7 +253,7 @@ export class CartView {
         <div class="card">
           <h3>🧊 Pack the cooler</h3>
           <div class="space"><span>Cooler</span><span class="bar"><i style="width:${(used / K.coolerSpace) * 100}%"></i></span><b>${used}/${K.coolerSpace}</b></div>
-          <div class="tiny muted">A pop takes 1 space. A tub of Italian ice takes ${K.tubSpace}. 🥤 Cups: <b>${s.cups}</b> (one for each scoop)</div>
+          <div class="tiny muted">Each pop or cup takes 1 space. 🥄 Spoons: <b>${s.spoons}</b> · 🧻 Napkins: <b>${s.napkins}</b></div>
           ${rows}
           ${noStock ? '<p class="hint">👉 Nothing to sell yet! Buy treats at the 🏬 restaurant store.</p>' : ''}
         </div>
@@ -330,7 +328,7 @@ export class CartView {
         m.refresh();
       },
       pay: () => {
-        const forCart = Object.keys(basket).some((k) => ['stock', 'cups', 'gear', 'decal', 'balloon'].includes(ITEM[k].kind));
+        const forCart = Object.keys(basket).some((k) => ['stock', 'spoons', 'napkins', 'gear', 'decal', 'balloon'].includes(ITEM[k].kind));
         this.payFlow(id, basket, forCart ? 'box' : 'wallet', (res) => {
           if (!res) return;
           const got = res.got.map((g) => g.kind);
@@ -771,7 +769,7 @@ export class CartView {
       cls: 'narrow',
       render: (body) => {
         body.innerHTML = `<div class="price-list">${CART_ITEMS.map((it) => `<div class="price-row"><span class="ic">${treatSVG(it.id, 34)}</span><span class="nm">${esc(it.name)}</span><b>${c.count('cooler', it.id)}${it.kind === 'ice' ? ' scoops' : ''}</b></div>`).join('')}</div>
-          <p>🥤 Cups: <b>${c.state.cups}</b></p><p class="tiny muted">More is in the freezer at home. You can pack the cooler in the morning.</p>`;
+          <p>🥄 Spoons: <b>${c.state.spoons}</b> · 🧻 Napkins: <b>${c.state.napkins}</b></p><p class="tiny muted">More is in the freezer at home. You can pack the cooler in the morning.</p>`;
       },
     });
   }
@@ -779,7 +777,7 @@ export class CartView {
   renderHUD(force = false) {
     const c = this.cart;
     const s = this.s;
-    const serving = s.window && ['order', 'change', 'exact'].includes(s.window.stage);
+    const serving = s.window && ['order', 'change'].includes(s.window.stage);
     const key = `${this.speed}|${serving}`;
     if (force || key !== this.hudKey) {
       this.hudKey = key;
@@ -814,7 +812,7 @@ export class CartView {
       }
     }
     if (this.speed === 0) return this.renderHUD();
-    const serving = s.window && ['order', 'change', 'exact'].includes(s.window.stage);
+    const serving = s.window && ['order', 'change'].includes(s.window.stage);
     const pace = serving ? PACE.serve : PACE[this.speed];
     this.acc += dt;
     let steps = Math.min(60, Math.floor(this.acc / pace));
@@ -958,40 +956,36 @@ export class CartView {
     const cust = w.cust;
     const reg = cust.regular ? REG[cust.regular] : null;
     const faces = cust.members.map((m) => `<span class="sface">${personSVG(m.kind, m.look)}</span>`).join('');
-    let words = this.serveMsg?.text || this.orderWords(w);
+    const words = this.serveMsg?.text || this.orderWords(w);
     const msgCls = this.serveMsg?.cls || '';
     let main = '';
     if (w.stage === 'order') {
-      const handed = w.handed.map((id) => treatSVG(id, 40)).join('');
-      main = `<div class="serve-cooler"><div class="tiny">Tap what they want:</div><div class="treats">${CART_ITEMS.map((it) => {
-        const n = c.count('cooler', it.id);
-        const ok = c.canSell(it.id);
-        const noCup = it.kind === 'ice' && n > 0 && !c.state.cups;
-        return `<button class="treat" data-act="hand" data-id="${it.id}" ${ok ? '' : 'disabled'}>${treatSVG(it.id, 40)}<span>${esc(it.name)}</span><b>${noCup ? 'no cups' : n}</b></button>`;
-      }).join('')}</div></div>
-      ${handed ? `<div class="handed"><span class="tiny">Handed over:</span>${handed}</div>` : ''}`;
-    } else if (w.stage === 'change' || w.stage === 'exact') {
+      const btn = (act, id, art, name, n) => `<button class="treat" data-act="${act}" data-id="${id}" ${n > 0 ? '' : 'disabled'}>${art}<span>${esc(name)}</span><b>${n}</b></button>`;
+      const counter = w.handed.map((id, i) => `<button class="piece" data-act="takeBack" data-i="${i}" aria-label="Take back">${thingSVG(id, 38)}</button>`).join('');
+      main = `<div class="serve-cooler"><div class="treats">${CART_ITEMS.map((it) => btn('give', it.id, treatSVG(it.id, 40), it.name, c.count('cooler', it.id))).join('')}
+          ${btn('give', 'spoon', thingSVG('spoon', 40), 'Spoon', s.spoons)}${btn('give', 'napkin', thingSVG('napkin', 40), 'Napkin', s.napkins)}</div></div>
+        <div class="tray"><div class="tiny">On the counter:</div><div class="pieces">${counter || '<span class="muted tiny">Nothing yet</span>'}</div></div>
+        <div class="row serve-btns"><button class="btn big go" data-act="handOver" ${w.handed.length ? '' : 'disabled'}>🤲 Here you go!</button></div>`;
+    } else if (w.stage === 'change') {
       const owed = total(w.paid) - w.due;
-      const priceList = w.order.length > 1 ? ` <span class="tiny muted">(${w.order.map((id) => money(s.prices[id])).join(' + ')})</span>` : '';
+      const bought = w.order.map((id) => `<span class="bought">${treatSVG(id, 30)} ${money(s.prices[id])}</span>`).join('');
+      const sum = w.order.length > 1 ? `${w.order.map((id) => money(s.prices[id])).join(' + ')} = ${money(w.due)}. ` : '';
       main = `<div class="serve-money">
-        <div class="stats"><div class="stat"><div class="k">It costs</div><div class="v">${money(w.due)}${priceList}</div></div>
+        <div class="stats"><div class="stat"><div class="k">They bought</div><div class="v gave">${bought}</div></div>
           <div class="stat"><div class="k">They gave you</div><div class="v gave">${pieces(w.paid, null, 46)}</div></div></div>
-        ${w.stage === 'exact' && !pileCount(this.tray)
-          ? '<p><b>Exact money! No change needed.</b></p>'
-          : `<div class="tiny">🧰 Your cash box. Tap money to give change:</div><div class="chips">${chips(s.money.box, 'tray', 'box', { except: this.tray, size: 50 })}</div>
-            <div class="tray"><div class="tiny">Change to give:</div><div class="pieces">${pieces(this.tray, 'untray', 46)}</div></div>`}
-        ${this.help ? `<div class="help">🤔 ${money(total(w.paid))} − ${money(w.due)} = <b>${money(owed)}</b> change</div>` : ''}
+        <div class="tiny">🧰 Your cash box. Tap money to give change:</div><div class="chips">${chips(s.money.box, 'tray', 'box', { except: this.tray, size: 50 })}</div>
+        <div class="tray"><div class="tiny">Change to give:</div><div class="pieces">${pieces(this.tray, 'untray', 46)}</div></div>
+        ${this.help ? `<div class="help">🤔 ${sum}${money(total(w.paid))} − ${money(w.due)} = <b>${money(owed)}</b> change</div>` : ''}
         <div class="row serve-btns">
-          ${w.stage === 'change' ? '<button class="btn small" data-act="help">🤔 Help</button><button class="btn small" data-act="noChange">😬 No change</button>' : ''}
-          <button class="btn big go" data-act="give">${w.stage === 'exact' && !pileCount(this.tray) ? '👍 Thank you!' : '🤲 Give change'}</button>
+          <button class="btn small" data-act="help">🤔 Help</button><button class="btn small" data-act="noChange">😬 I have no change</button>
+          <button class="btn" data-act="noneNeeded">👌 No change needed</button>
+          <button class="btn big go" data-act="giveChange" ${pileCount(this.tray) ? '' : 'disabled'}>🤲 Give change</button>
         </div></div>`;
-    } else {
-      main = '';
     }
-    const key = JSON.stringify([w.cust.id, w.stage, w.handed, this.tray, this.help, this.serveMsg, s.money.box, s.cups, w.paid]);
+    const key = JSON.stringify([w.cust.id, w.stage, w.handed, this.tray, this.help, this.serveMsg, s.money.box, s.spoons, s.napkins, w.paid, s.cooler]);
     if (key === this.serveKey) return;
     this.serveKey = key;
-    const holding = w.stage !== 'order' && w.handed.length ? `<span class="holding">${w.handed.map((id) => treatSVG(id, 30)).join('')}</span>` : '';
+    const holding = w.stage !== 'order' && w.handed.length ? `<span class="holding">${w.handed.map((id) => thingSVG(id, 30)).join('')}</span>` : '';
     el2.innerHTML = `<div class="serve-top">${faces}${holding}<div class="say-big ${msgCls}">${reg ? `<b>${esc(reg.name)}:</b> ` : ''}${esc(words)}</div></div>${main}`;
   }
   serveClick(e) {
@@ -1002,18 +996,19 @@ export class CartView {
     const w = s.window;
     if (!w) return;
     const act = t.dataset.act;
-    if (act === 'hand') {
-      const r = c.hand(t.dataset.id);
-      if (!r.ok && r.reason === 'notOrdered') {
-        this.serveMsg = { text: "That's not what I asked for!", cls: 'bad' };
-        setTimeout(() => {
-          if (this.serveMsg?.text === "That's not what I asked for!") {
-            this.serveMsg = null;
-            this.renderServe();
-          }
-        }, 1600);
-      } else if (r.ok && r.done) {
-        this.serveMsg = { text: w.stage === 'exact' ? 'Here you go! Exact money.' : 'Here you go!' };
+    if (act === 'give') {
+      c.give(t.dataset.id);
+      this.serveMsg = null;
+    } else if (act === 'takeBack') {
+      c.takeBack(Number(t.dataset.i));
+    } else if (act === 'handOver') {
+      const r = c.handOver();
+      if (!r.ok) {
+        this.app.music.sfx('oops');
+        this.serveMsg = r.reason === 'spoon' ? { text: 'Can I have a spoon, please?', cls: 'hint' } : { text: `Hmm, I asked for ${andList(w.order.map(a))}.`, cls: 'bad' };
+      } else {
+        const got = r.extras.length ? 'A free one? Yay, thank you!' : r.napkins ? 'Ooh, a napkin! Thanks!' : r.noSpoon ? "No spoon? I'll use my fingers..." : 'Here you go!';
+        this.serveMsg = { text: r.extras.length || r.napkins ? `${got} Here you go!` : got, cls: r.happy ? 'good' : r.noSpoon ? 'bad' : '' };
       }
     } else if (act === 'tray') {
       this.tray = addOne(this.tray, t.dataset.d);
@@ -1024,37 +1019,47 @@ export class CartView {
     } else if (act === 'noChange') {
       const r = c.noChange();
       this.tray = {};
-      if (r.result === 'exact') this.serveMsg = { text: 'Oh! I have exact money. Here.' };
+      if (r.reason === 'exactAlready') this.serveMsg = { text: 'But I gave you just the right amount!', cls: 'hint' };
+      else if (r.result === 'exact') this.serveMsg = { text: 'Oh! I have exact money. Here.' };
       else this.serveMsg = { text: "Oh well. I'll come back another time.", cls: 'bad' };
-    } else if (act === 'give') {
-      const fast = (performance.now() - this.serveStart) / 1000 < CART_CROWD.fastSeconds;
-      const owed = total(w.paid) - w.due;
-      const r = c.giveChange(this.tray, { fast });
-      const gave = total(this.tray);
-      if (!r.ok) {
-        this.app.music.sfx('oops');
-        if (r.reason === 'short') this.serveMsg = { text: `That's only ${money(gave)}. I should get ${money(owed)}.`, cls: 'bad' };
-        else if (r.reason === 'tooMuch') {
-          this.serveMsg = { text: "That's too much! Here, try again.", cls: 'hint' };
-          this.tray = {};
-        }
-      } else {
-        this.tray = {};
-        this.app.music.sfx(r.tip ? 'yay' : 'ching');
-        const reg = w.cust.regular ? REG[w.cust.regular] : null;
-        const yum = reg && w.order.includes(reg.fav) ? `Yay, ${CART_ITEM[reg.fav].name.toLowerCase()}! ` : '';
-        if (r.result === 'honest') this.serveMsg = { text: `${yum}You gave me ${money(gave - owed)} too much! Here you go.`, cls: 'hint' };
-        else if (r.result === 'kept') {
-          this.serveMsg = { text: `${yum}Thanks! Bye!`, cls: '' };
-          this.say(w.cust, `😬 Oops! You gave ${money(gave - owed)} too much, and they kept it.`, 'bad');
-        } else this.serveMsg = { text: `${yum}Thank you!`, cls: 'good' };
-        if (r.tip) this.say(w.cust, `🫙 They put ${money(r.tip)} in your tip jar!`, 'good');
-        if (w.goingAway) this.say(w.cust, `${reg?.name || 'They'} might not come back for a while.`, 'bad');
-      }
+    } else if (act === 'giveChange') {
+      this.payBack();
+    } else if (act === 'noneNeeded') {
+      this.tray = {};
+      this.payBack();
     }
     this.save();
     this.renderServe();
     this.renderHUD();
+  }
+  // Give the change in the tray (an empty tray for "No change needed").
+  payBack() {
+    const c = this.cart;
+    const w = this.s.window;
+    const fast = (performance.now() - this.serveStart) / 1000 < CART_CROWD.fastSeconds;
+    const owed = total(w.paid) - w.due;
+    const gave = total(this.tray);
+    const r = c.giveChange(this.tray, { fast });
+    if (!r.ok) {
+      this.app.music.sfx('oops');
+      if (r.reason === 'short') this.serveMsg = { text: gave ? "That's not enough change." : 'Hey, I should get some change!', cls: 'bad' };
+      else if (r.reason === 'tooMuch') {
+        this.serveMsg = { text: "That's too much! Here, try again.", cls: 'hint' };
+        this.tray = {};
+      }
+      return;
+    }
+    this.tray = {};
+    this.app.music.sfx(r.tip ? 'yay' : 'ching');
+    const reg = w.cust.regular ? REG[w.cust.regular] : null;
+    const yum = reg && w.order.includes(reg.fav) ? `Yay, ${CART_ITEM[reg.fav].name.toLowerCase()}! ` : '';
+    if (r.result === 'honest') this.serveMsg = { text: `${yum}You gave me too much change! Here's the extra back.`, cls: 'hint' };
+    else if (r.result === 'kept') {
+      this.serveMsg = { text: `${yum}Thanks! Bye!`, cls: '' };
+      this.say(w.cust, `😬 Oops! You gave ${money(gave - owed)} too much, and they kept it.`, 'bad');
+    } else this.serveMsg = { text: `${yum}Thank you!`, cls: 'good' };
+    if (r.tip) this.say(w.cust, `🫙 They put ${money(r.tip)} in your tip jar!`, 'good');
+    if (w.goingAway) this.say(w.cust, `${reg?.name || 'They'} might not come back for a while.`, 'bad');
   }
 
   // ---------- park life in the background ----------
@@ -1121,6 +1126,8 @@ export class CartView {
             ${sum.tooExpensive ? `<li>😕 ${sum.tooExpensive} said "too much".</li>` : ''}
             ${sum.leftLine ? `<li>😤 ${sum.leftLine} got tired of waiting in line.</li>` : ''}
             ${sum.missedFav ? `<li>😢 ${sum.missedFav} regular${sum.missedFav === 1 ? '' : 's'} didn't find their favorite.</li>` : ''}
+            ${sum.napkins ? `<li>🧻 You handed out ${sum.napkins} napkin${sum.napkins === 1 ? '' : 's'}.</li>` : ''}
+            ${Object.values(sum.given || {}).reduce((x, y) => x + y, 0) ? `<li>🎁 You gave away ${Object.values(sum.given).reduce((x, y) => x + y, 0)} free treat${Object.values(sum.given).reduce((x, y) => x + y, 0) === 1 ? '' : 's'}.</li>` : ''}
             ${sum.noChange ? `<li>🪙 ${sum.noChange} time${sum.noChange === 1 ? '' : 's'} you didn't have change.</li>` : ''}
             ${regs.map((r) => `<li>💔 ${esc(r.name)} hasn't been coming around.</li>`).join('')}
           </ul>

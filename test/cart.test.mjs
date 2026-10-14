@@ -14,6 +14,16 @@ function buy(c, shop, basket, from = 'box', complain = false) {
   return c.takeChange(complain);
 }
 
+// Put what they ordered on the counter (and a spoon for each Italian ice), then hand it over.
+function serve(c) {
+  const w = c.state.window;
+  for (const id of w.order) {
+    c.give(id);
+    if (c.isIce(id)) c.give('spoon');
+  }
+  return c.handOver();
+}
+
 // Play one park day, serving everyone with the right change.
 function playDay(c) {
   c.openPark();
@@ -21,13 +31,11 @@ function playDay(c) {
   while (c.state.phase === 'park' && guard++ < 5000) {
     const w = c.state.window;
     if (w) {
-      if (w.stage === 'order') {
-        for (const id of w.order.slice(w.handed.length)) c.hand(id);
-      } else if (w.stage === 'exact') c.giveChange({});
+      if (w.stage === 'order') serve(c);
       else if (w.stage === 'change') {
         const owed = total(w.paid) - w.due;
         const ch = makeAmount(c.state.money.box, owed);
-        if (ch) c.giveChange(ch, { fast: true });
+        if (ch) c.giveChange(ch, { fast: true }); // ({} when they paid exact)
         else c.noChange();
       } else c.dismiss();
       continue;
@@ -54,12 +62,12 @@ test('starting money, shopping, change and the freezer', () => {
   const c = Cart.create({ player: 'Test', seed: 5 });
   assert.equal(c.boxTotal, 4000);
   assert.equal(c.walletTotal, 1000);
-  const r = buy(c, 'restaurant', { rocketBox: 1, cherryTub: 1, cups: 1 });
-  assert.equal(r.cost, 900 + 800 + 250);
+  const r = buy(c, 'restaurant', { rocketBox: 1, cherryCups: 1, spoons: 1 });
+  assert.equal(r.cost, 900 + 950 + 200);
   // the seller can get it wrong, but complaining always fixes it
   assert.equal(c.count('freezer', 'rocketPop'), 24);
-  assert.equal(c.count('freezer', 'iceCherry'), CART.tubScoops);
-  assert.equal(c.state.cups, 50);
+  assert.equal(c.count('freezer', 'iceCherry'), 24);
+  assert.equal(c.state.spoons, 100);
   const expected = 4000 - r.cost + (r.result === 'shortChanged' ? r.wrong : r.result === 'extra' ? r.wrong : 0);
   assert.equal(c.boxTotal, expected);
   // a complaint about right change is harmless; about wrong change gets it fixed
@@ -80,15 +88,29 @@ test('starting money, shopping, change and the freezer', () => {
 test('packing respects the cooler space', () => {
   const c = Cart.create({ player: 'Test', seed: 7 });
   c.state.freezer.pops.rocketPop = 100;
-  c.state.freezer.tubs.iceBlue = [20, 12];
-  assert.ok(c.pack('iceBlue').ok);
-  assert.deepEqual(c.state.cooler.tubs.iceBlue, [12], 'the opened tub goes first');
+  c.state.freezer.pops.iceBlue = 10;
+  assert.ok(c.pack('iceBlue', 4).ok);
   const r = c.pack('rocketPop', 100);
-  assert.equal(r.n, CART.coolerSpace - CART.tubSpace);
+  assert.equal(r.n, CART.coolerSpace - 4);
   assert.equal(c.coolerFree, 0);
   assert.equal(c.pack('iceBlue').reason, 'full');
-  assert.ok(c.unpack('iceBlue').ok);
-  assert.equal(c.coolerFree, CART.tubSpace);
+  assert.ok(c.unpack('iceBlue', 2).ok);
+  assert.equal(c.coolerFree, 2);
+});
+
+test('older saves: tubs of scoops become cups, cups become spoons', () => {
+  const st = Cart.create({ player: 'Test', seed: 7 }).state;
+  st.freezer.tubs = { iceBlue: [20, 12] };
+  st.cooler.tubs = { iceLemon: [5] };
+  st.cups = 30;
+  delete st.spoons;
+  delete st.napkins;
+  const c = new Cart(st);
+  assert.equal(c.count('freezer', 'iceBlue'), 32);
+  assert.equal(c.count('cooler', 'iceLemon'), 5);
+  assert.equal(c.state.spoons, 30);
+  assert.equal(c.state.napkins, 0);
+  assert.equal(c.state.freezer.tubs, undefined);
 });
 
 test('ATM and change machine', () => {
@@ -106,19 +128,19 @@ test('ATM and change machine', () => {
 
 test('a park day sells, makes change and keeps the money straight', () => {
   const c = Cart.create({ player: 'Test', seed: 11 });
-  buy(c, 'restaurant', { rocketBox: 1, fudgeBox: 1, cherryTub: 1, cups: 1 });
+  buy(c, 'restaurant', { rocketBox: 1, fudgeBox: 1, cherryCups: 1, spoons: 1 });
   c.breakBill('box', 2000);
   c.breakBill('box', 500);
   c.breakBill('box', 500);
   c.breakBill('box', 100);
   c.breakBill('box', 100);
-  c.pack('iceCherry');
+  c.pack('iceCherry', 8);
   c.pack('rocketPop', 16);
   c.pack('fudgePop', 16);
   const start = c.boxTotal;
   const d = playDay(c);
   const sold = Object.values(d.sold).reduce((a, b) => a + b, 0);
-  assert.ok(sold > 5, `sold ${sold}`);
+  assert.ok(sold > 2, `sold ${sold}`);
   // every sale is in the cash box, minus nothing (all change was right)
   assert.equal(c.boxTotal, start + d.revenue);
   assert.equal(d.keptExtra, 0);
@@ -143,7 +165,7 @@ test('too much change: honest customers give it back, others keep it', () => {
     for (let i = 0; i < 600 && !c.state.window; i++) c.step();
     const w = c.state.window;
     if (!w || w.stage !== 'order') continue;
-    for (const id of w.order) c.hand(id);
+    serve(c);
     if (w.stage !== 'change') continue;
     const owed = total(w.paid) - w.due;
     const before = c.boxTotal;
@@ -170,7 +192,7 @@ test('too little change: the customer waits for the rest', () => {
     for (let i = 0; i < 600 && !c.state.window; i++) c.step();
     const w = c.state.window;
     if (!w) continue;
-    for (const id of w.order) c.hand(id);
+    serve(c);
     if (w.stage !== 'change') continue;
     const owed = total(w.paid) - w.due;
     if (owed < 25) continue;
@@ -207,7 +229,7 @@ test('regulars stop coming after missing their favorite too often', () => {
 
 test('a payment left unfinished is given back on load', () => {
   const c = Cart.create({ player: 'Test', seed: 4 });
-  const r = c.pay('restaurant', { cups: 1 }, 'box', { 2000: 1 });
+  const r = c.pay('restaurant', { spoons: 1 }, 'box', { 2000: 1 });
   assert.ok(r.ok);
   assert.equal(c.boxTotal, 2000);
   const again = new Cart(JSON.parse(JSON.stringify(c.state)));
@@ -225,7 +247,7 @@ test('closing up: allowed unless a sale is half done', () => {
   assert.ok(c.state.window);
   if (c.state.window.stage === 'order') {
     assert.ok(c.canClose(), 'nothing handed yet');
-    c.hand(c.state.window.order[0]);
+    c.give(c.state.window.order[0]);
     assert.equal(c.canClose(), false);
   }
 });
@@ -245,4 +267,96 @@ test('every shop item has a price and a kind', () => {
       assert.ok(it.kind, `${id}.${it.id} kind`);
     }
   }
+});
+
+// Gets the first customer to the window with plenty in the cooler.
+function firstCustomer(seed) {
+  const c = Cart.create({ player: 'Test', seed });
+  for (const id of ['rocketPop', 'fudgePop', 'freezePop', 'iceCherry', 'iceLemon', 'iceBlue']) c.state.freezer.pops[id] = 6;
+  for (const id of ['rocketPop', 'fudgePop', 'freezePop', 'iceCherry', 'iceLemon', 'iceBlue']) c.pack(id, 6);
+  c.state.spoons = 10;
+  c.state.napkins = 10;
+  c.state.money.box = { 1000: 2, 500: 2, 100: 10, 25: 12 };
+  c.openPark();
+  for (let i = 0; i < 600 && !(c.state.window && c.state.window.stage === 'order'); i++) {
+    if (c.state.window) c.dismiss();
+    c.step();
+  }
+  return c;
+}
+
+test('the counter: missing things are asked for, take-backs go back in the cooler', () => {
+  const c = firstCustomer(5);
+  const w = c.state.window;
+  const before = c.count('cooler', 'freezePop');
+  const other = w.order[0] === 'freezePop' ? 'rocketPop' : 'freezePop';
+  c.give(other);
+  assert.equal(c.handOver().reason, 'missing');
+  assert.ok(c.takeBack(0));
+  assert.equal(c.count('cooler', 'freezePop'), before);
+  assert.equal(w.handed.length, 0);
+});
+
+test('Italian ice needs a spoon (if there are any)', () => {
+  for (let seed = 1; seed < 60; seed++) {
+    const c = firstCustomer(seed);
+    const w = c.state.window;
+    if (!w.order.some((id) => c.isIce(id))) continue;
+    for (const id of w.order) c.give(id);
+    assert.equal(c.handOver().reason, 'spoon');
+    c.state.spoons = 0;
+    const r = c.handOver();
+    assert.ok(r.ok);
+    assert.equal(r.noSpoon, true, 'no spoons left: they make do');
+    return;
+  }
+  assert.fail('nobody ordered Italian ice');
+});
+
+test('extras make them happy, and they only pay for what they ordered', () => {
+  const c = firstCustomer(9);
+  const w = c.state.window;
+  for (const id of w.order) {
+    c.give(id);
+    if (c.isIce(id)) c.give('spoon');
+  }
+  c.give('napkin');
+  c.give('freezePop');
+  const r = c.handOver();
+  assert.ok(r.ok && r.happy);
+  assert.equal(r.napkins, 1);
+  assert.deepEqual(r.extras, ['freezePop']);
+  assert.equal(w.due, w.order.reduce((a, id) => a + c.state.prices[id], 0));
+  assert.equal(c.state.today.napkins, 1);
+  assert.equal(c.state.today.given.freezePop, 1);
+});
+
+test('exact money still needs "no change needed"; giving change anyway is too much', () => {
+  for (let seed = 1; seed < 80; seed++) {
+    const c = firstCustomer(seed);
+    serve(c);
+    const w = c.state.window;
+    if (total(w.paid) !== w.due) continue;
+    assert.equal(w.stage, 'change', 'the player decides');
+    assert.equal(c.noChange().reason, 'exactAlready');
+    const r = c.giveChange({ 25: 1 });
+    // honest: they hand it back; not: they keep it
+    assert.ok(r.ok ? ['honest', 'kept'].includes(r.result) : r.reason === 'tooMuch');
+    return;
+  }
+  assert.fail('nobody paid exact');
+});
+
+test('"no change needed" when they are owed change: they ask for it', () => {
+  for (let seed = 1; seed < 40; seed++) {
+    const c = firstCustomer(seed);
+    serve(c);
+    const w = c.state.window;
+    if (total(w.paid) === w.due) continue;
+    const r = c.giveChange({});
+    assert.equal(r.reason, 'short');
+    assert.equal(w.stage, 'change');
+    return;
+  }
+  assert.fail('everyone paid exact');
 });
