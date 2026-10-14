@@ -566,7 +566,13 @@ table.books tr.bottom td { font-weight: 800; font-size: 18px; background: #fff3b
 
 .stage.park .scene svg { width: 100%; height: 100%; }
 .park .stands, .park .vig, .park .queue, .park .passers { position: absolute; inset: 0; pointer-events: none; }
-.park .stands { z-index: 1; }
+/* back to front: the park (.scene), the stands behind the lawn and the swings (1), the little stories and then the
+   flowers and path in front of them (2), the balloon seller (3), the cart and the line (3), people walking by (4) */
+.park .stand-btn { z-index: 1; }
+.park .stand-btn.front { z-index: 3; }
+.park .scene-front { position: absolute; inset: 0; pointer-events: none; z-index: 2; }
+.park .scene-front svg { width: 100%; height: 100%; display: block; }
+/* where the stands and swings go is worked out in placeProps (they sit on spots of the park picture) */
 .stand-btn { position: absolute; border: none; background: none; padding: 0; pointer-events: auto; }
 .stand-btn svg { width: 100%; height: auto; display: block; }
 .stand-btn:hover { filter: brightness(1.06); }
@@ -579,7 +585,15 @@ table.books tr.bottom td { font-weight: 800; font-size: 18px; background: #fff3b
 .park .sw-kid > svg { width: 100%; height: auto; display: block; }
 .park .rider { position: absolute; left: -10%; bottom: 0; width: 120%; } .park .rider svg { width: 100%; height: auto; }
 @keyframes swing { from { transform: rotate(-24deg); } to { transform: rotate(24deg); } }
-.park .cart-spot { position: absolute; left: 6%; bottom: 3%; width: clamp(150px, 24%, 300px); z-index: 3; }
+.stage.park { container-type: size; }
+.park .cart-spot { position: absolute; left: 6%; bottom: 3%; width: min(calc(var(--u, 1.3px) * 220), 62cqh); z-index: 3; }
+.park.tall .cart-spot { left: 3%; width: min(calc(var(--u, 1.1px) * 140), 62cqh); }
+/* the customers are sized in park units (--u, set by placeProps) so they match the stands on any screen */
+.park .party .who svg.person { width: calc(var(--u, 1.3px) * 47); }
+.park .party .who svg.person.kid { width: calc(var(--u, 1.3px) * 35); }
+.park .party .who svg.person.teen { width: calc(var(--u, 1.3px) * 42); }
+.park .party .who svg.person.dog { width: calc(var(--u, 1.3px) * 44); }
+.park .party .who .hand svg { width: calc(var(--u, 1.3px) * 26); }
 .park .cart-spot .me { position: absolute; left: 34%; bottom: 46%; width: 26%; z-index: -1; }
 .park .cart-spot svg { width: 100%; height: auto; display: block; }
 .park .queue { z-index: 3; }
@@ -591,7 +605,7 @@ table.books tr.bottom td { font-weight: 800; font-size: 18px; background: #fff3b
 .park .party.flip .who > svg { transform: scaleX(-1); }
 .park .party .bubble.hidden { display: none; }
 .park .away { position: absolute; left: 50%; top: 40%; transform: translateX(-50%); background: #fff; border: 3px solid var(--ink); border-radius: 14px; padding: 6px 14px; font-weight: 800; z-index: 6; }
-.park .vig { z-index: 1; }
+.park .vig { z-index: 2; }
 /* the park backdrop: butterflies wander and flap, birds drift across the sky */
 .park-scene .flutter { animation: flutter 9s ease-in-out infinite alternate; }
 .park-scene .wings, .story-layer .butterfly .wings { transform-box: fill-box; transform-origin: 50% 50%; animation: flap 0.22s ease-in-out infinite alternate; }
@@ -645,7 +659,6 @@ table.books tr.bottom td { font-weight: 800; font-size: 18px; background: #fff3b
   .serve-top .sface { width: 26px; }
   .serve-money .stat .v { font-size: 18px; }
   .cart-game .hud .jar { display: none; }
-  .stand-btn { transform: scale(0.9); }
 }
 .serve-top .holding { display: flex; flex: none; }
 .park .cart-spot .umb { position: absolute; left: 4%; bottom: 62%; width: 92%; z-index: -2; }
