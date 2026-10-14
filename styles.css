@@ -21,7 +21,7 @@
 }
 
 * { box-sizing: border-box; }
-html, body { margin: 0; height: 100%; }
+html, body { margin: 0; height: 100%; overscroll-behavior: none; }
 body {
   background: var(--bg);
   color: var(--ink);
@@ -629,7 +629,8 @@ table.books tr.bottom td { font-weight: 800; font-size: 18px; background: #fff3b
 .serve-btns { justify-content: flex-end; margin-top: 6px; }
 .cart-game .hud .jar { background: #fff3b0; }
 @media (max-width: 600px) {
-  .park .serve { left: 6px; right: 6px; bottom: 6px; width: auto; max-height: 58%; padding: 6px 8px; }
+  /* on a phone the panel can use the whole park, so its buttons never scroll out of reach */
+  .park .serve { left: 6px; right: 6px; bottom: 6px; width: auto; max-height: calc(100% - 12px); padding: 6px 8px; }
   .say-big { font-size: 15px; padding: 4px 8px; }
   .treats { gap: 4px; }
   .treat { font-size: 11px; padding: 2px; }
@@ -668,4 +669,17 @@ table.books tr.bottom td { font-weight: 800; font-size: 18px; background: #fff3b
   .money-btns .btn.go { font-size: 14px; }
   .park .serve .chips { gap: 4px; margin: 4px 0; }
   .park .serve .cash-chip { padding: 2px 4px; }
+}
+/* iPhone Safari: the page itself never scrolls or rubber-bands; screens and modals scroll inside */
+body { position: fixed; inset: 0; }
+@media (max-width: 600px) {
+  .serve-top .holding { display: none; } /* "They bought" shows the same treats */
+  .serve-money .stats { gap: 4px; }
+  .serve-money .stat { padding: 3px 6px; border-radius: 10px; }
+  .serve-money .stat .k { font-size: 12px; }
+  .serve-money .stat .v { font-size: 15px; }
+  .serve-money .bought { display: inline-flex; align-items: center; gap: 1px; margin-right: 4px; }
+  .serve-money .bought svg { width: 22px; height: 22px; }
+  .park .serve .pieces { min-height: 24px; gap: 2px; }
+  .park .serve .tiny { font-size: 12px; }
 }
