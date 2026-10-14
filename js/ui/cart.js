@@ -767,7 +767,7 @@ export class CartView {
       title: '🧊 Cooler',
       cls: 'narrow',
       render: (body) => {
-        body.innerHTML = `<div class="price-list">${CART_ITEMS.map((it) => `<div class="price-row"><span class="ic">${treatSVG(it.id, 34)}</span><span class="nm">${esc(it.name)}</span><b>${c.count('cooler', it.id)}${it.kind === 'ice' ? ' scoops' : ''}</b></div>`).join('')}</div>
+        body.innerHTML = `<div class="price-list">${CART_ITEMS.map((it) => `<div class="price-row"><span class="ic">${treatSVG(it.id, 34)}</span><span class="nm">${esc(it.name)}</span><b>${c.count('cooler', it.id)}</b></div>`).join('')}</div>
           <p>🥄 Spoons: <b>${c.state.spoons}</b> · 🧻 Napkins: <b>${c.state.napkins}</b></p><p class="tiny muted">More is in the freezer at home. You can pack the cooler in the morning.</p>`;
       },
     });
