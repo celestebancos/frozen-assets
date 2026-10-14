@@ -571,7 +571,8 @@ export function truckPanel(app) {
         <div class="row">${TUNES.map((t) => `<button class="btn small ${s.tune === t.id ? 'on' : ''}" data-act="tune" data-id="${t.id}">${t.name}</button>`).join('')}</div>
         <div class="row" style="margin-top:6px"><span class="tiny muted">Sound:</span>${VOICES.map((v) => `<button class="btn small ${app.music.voice === v.id ? 'on' : ''}" data-act="voice" data-id="${v.id}">${v.name}</button>`).join('')}</div>
         <div class="row" style="margin-top:6px"><label class="row">🔈 <input type="range" min="0" max="1" step="0.05" value="${app.music.volume}" data-chg="vol"></label>
-          <button class="btn small ${app.music.muted ? 'on' : ''}" data-act="mute">${app.music.muted ? '🔇 Muted' : '🔊 Sound on'}</button></div>
+          <button class="btn small ${app.music.muted ? 'on' : ''}" data-act="mute">${app.music.muted ? '🔇 Muted' : '🔊 Sound on'}</button>
+          <button class="btn small ${app.ambience.on ? 'on' : ''}" data-act="street">${app.ambience.on ? '🐦 Street sounds on' : '🐦 Street sounds off'}</button></div>
         <h3>🎨 Truck</h3>
         <div style="max-width:360px">${truckSVG(hex, name || s.business, { bling: s.bling || 0 })}</div>
         <div class="swatches">${TRUCK_COLORS.map((c) => `<button class="swatch ${color === c.id ? 'on' : ''}" style="background:${c.hex}" data-act="color" data-id="${c.id}" aria-label="${c.name}"></button>`).join('')}</div>
@@ -594,6 +595,11 @@ export function truckPanel(app) {
       app.music.setVoice(t.dataset.id);
       app.saveSettings();
       app.music.play();
+      m.refresh();
+    },
+    street: () => {
+      app.ambience.setOn(!app.ambience.on);
+      app.saveSettings();
       m.refresh();
     },
     mute: () => {

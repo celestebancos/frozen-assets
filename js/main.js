@@ -2,6 +2,7 @@
 import { CONFIG, TRUCK_COLORS, TRUCK_PRICE, BLING, SPOT, FLAVORS, itemKey, itemFromKey } from './config.js';
 import { Game, DAY_NAMES } from './engine.js';
 import { Music } from './music.js';
+import { Ambience, cashRegister } from './ambience.js';
 import { storage } from './storage.js';
 import { truckSVG, iceCreamSVG } from './art.js';
 import { leaderboardConfig, isConfigured, postScore, fetchScores, flushPending } from './leaderboard.js';
@@ -24,6 +25,9 @@ class App {
     this.music.setVolume(this.settings.musicVolume);
     this.music.setMuted(this.settings.muted);
     this.music.setVoice(this.settings.musicVoice || 'truck');
+    this.ambience = new Ambience(this.music);
+    this.ambience.setOn(this.settings.streetSounds !== false);
+    this.lastCash = 0;
     this.game = null;
     this.speed = 1;
     this.lastFrame = 0;
@@ -42,6 +46,7 @@ class App {
     this.settings.musicVolume = this.music.volume;
     this.settings.muted = this.music.muted;
     this.settings.musicVoice = this.music.voice;
+    this.settings.streetSounds = this.ambience.on;
     storage.saveSettings(this.settings);
   }
   save() {
@@ -64,6 +69,7 @@ class App {
 
   // ---------- title ----------
   showTitle() {
+    this.ambience?.stop();
     this.stopLoop();
     this.music.stop();
     closeAllModals();
@@ -374,6 +380,7 @@ class App {
   frame(now) {
     const g = this.game;
     if (!g) return;
+    this.ambience.update(g, g.state.phase === 'open' ? this.scene?.view() : null);
     const dt = Math.min(250, now - this.lastFrame);
     this.lastFrame = now;
     const s = g.state;
@@ -490,6 +497,13 @@ class App {
       }
     }
     this.walking.set(p.id, { bill: p.bill, sold, people });
+  }
+  // Ca-ching! (not more than a few a second when things move fast)
+  cash() {
+    const now = performance.now();
+    if (now - this.lastCash < 180) return;
+    this.lastCash = now;
+    cashRegister(this.music);
   }
   partyArrived(id) {
     if (this.walking.delete(id)) {
@@ -615,7 +629,8 @@ class App {
           <div class="row">${storage.players().map((n) => `<button class="btn small" data-act="export" data-n="${esc(n)}">📤 ${esc(n)}</button>`).join('') || '<span class="muted">No saved games yet</span>'}</div>
           <h3>🔊 Sound</h3>
           <label class="row">Volume <input type="range" min="0" max="1" step="0.05" value="${this.music.volume}" data-k="vol"></label>
-          <label class="row"><input type="checkbox" data-k="mute" ${this.music.muted ? 'checked' : ''}> Mute</label>`;
+          <label class="row"><input type="checkbox" data-k="mute" ${this.music.muted ? 'checked' : ''}> Mute</label>
+          <label class="row"><input type="checkbox" data-k="street" ${this.ambience.on ? 'checked' : ''}> Street sounds (birds, kids, traffic…)</label>`;
       },
     });
     const read = () => {
@@ -659,6 +674,10 @@ class App {
       }
     });
     m.body.addEventListener('change', (e) => {
+      if (e.target.dataset.k === 'street') {
+        this.ambience.setOn(e.target.checked);
+        this.saveSettings();
+      }
       if (e.target.dataset.k === 'mute') {
         this.music.setMuted(e.target.checked);
         this.saveSettings();
