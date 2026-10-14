@@ -720,7 +720,6 @@ export class CartView {
       cooler: () => this.coolerView(),
       corner: () => {
         if (c.state.window) return toast('Finish with this customer first!');
-        if (!confirm('Go to the corner store? The cart closes and the line goes home.')) return;
         c.errand('corner');
         this.handleEvents();
         this.save();
