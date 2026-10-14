@@ -339,10 +339,8 @@ export const CART = {
   parkClose: 16 * 60,
   // Minutes each errand takes. From the park, the corner store means closing the cart for a bit.
   errand: { restaurant: 45, corner: 15, cornerFromPark: 20 },
-  coolerSpace: 40, // a pop takes 1 space, a tub of Italian ice takes tubSpace
+  coolerSpace: 40, // every pop or cup of Italian ice takes 1 space
   freezerSpace: 300, // the freezer at home, which holds everything that isn't in the cooler
-  tubScoops: 20,
-  tubSpace: 8,
   priceStep: 25,
   vendorMistake: 0.15, // how often a seller gets your change wrong
 };
@@ -357,7 +355,7 @@ export const CART_ITEMS = [
 ];
 export const CART_ITEM = Object.fromEntries(CART_ITEMS.map((i) => [i.id, i]));
 
-// What the shops sell. kind: stock (goes in the freezer), cups, gear (for the cart), decal, balloon,
+// What the shops sell. kind: stock (goes in the freezer), spoons, napkins, gear (for the cart), decal, balloon,
 // hat, glasses, shirt, snack (eaten right away), toy (yours to keep).
 export const CART_SHOPS = {
   restaurant: {
@@ -367,10 +365,11 @@ export const CART_SHOPS = {
       { id: 'rocketBox', name: 'Rocket pops', note: 'box of 24', kind: 'stock', item: 'rocketPop', qty: 24, price: 900 },
       { id: 'fudgeBox', name: 'Fudge pops', note: 'box of 24', kind: 'stock', item: 'fudgePop', qty: 24, price: 1100 },
       { id: 'freezeBox', name: 'Freeze pops', note: 'box of 50', kind: 'stock', item: 'freezePop', qty: 50, price: 450 },
-      { id: 'cherryTub', name: 'Cherry ice', note: 'tub, 20 scoops', kind: 'stock', item: 'iceCherry', tubs: 1, price: 800 },
-      { id: 'lemonTub', name: 'Lemon ice', note: 'tub, 20 scoops', kind: 'stock', item: 'iceLemon', tubs: 1, price: 800 },
-      { id: 'blueTub', name: 'Blue ice', note: 'tub, 20 scoops', kind: 'stock', item: 'iceBlue', tubs: 1, price: 800 },
-      { id: 'cups', name: 'Cups & spoons', note: 'pack of 50', kind: 'cups', qty: 50, price: 250 },
+      { id: 'cherryCups', name: 'Cherry ice', note: 'box of 24 cups', kind: 'stock', item: 'iceCherry', qty: 24, price: 950 },
+      { id: 'lemonCups', name: 'Lemon ice', note: 'box of 24 cups', kind: 'stock', item: 'iceLemon', qty: 24, price: 950 },
+      { id: 'blueCups', name: 'Blue ice', note: 'box of 24 cups', kind: 'stock', item: 'iceBlue', qty: 24, price: 950 },
+      { id: 'spoons', name: 'Spoons', note: 'pack of 100', kind: 'spoons', qty: 100, price: 200 },
+      { id: 'napkins', name: 'Napkins', note: 'pack of 100', kind: 'napkins', qty: 100, price: 200 },
       { id: 'umbrella', name: 'Big umbrella', note: 'shade for the cart', kind: 'gear', price: 1500 },
       { id: 'fan', name: 'Little fan', note: 'whirrr', kind: 'gear', price: 800 },
       { id: 'bell', name: 'Bell', note: 'ding ding!', kind: 'gear', price: 500 },
@@ -450,7 +449,7 @@ export const CART_CROWD = {
   honest: 0.7, // gives back extra change
   exact: 0.3, // pays with exact money when they can
   fastSeconds: 20, // a sale this quick (real seconds) might get a tip
-  tip: { fast: 0.25, slow: 0.06, amounts: [25, 25, 50, 100] },
+  tip: { happy: 0.45, fast: 0.25, slow: 0.06, amounts: [25, 25, 50, 100] },
   regular: { visit: 0.5, wtp: 1.4, missLimit: 3, awayDays: 5, friend: 0.3 },
 };
 

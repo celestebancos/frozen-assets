@@ -646,3 +646,10 @@ table.books tr.bottom td { font-weight: 800; font-size: 18px; background: #fff3b
   .me-pic { width: 64px; }
   .cart-pic { max-width: 170px; }
 }
+/* the customer's words stay in view while the panel scrolls */
+.park .serve .serve-top { position: sticky; top: -10px; z-index: 1; background: var(--paper); padding: 4px 0; }
+@media (max-width: 600px) {
+  .treats { grid-template-columns: repeat(4, 1fr); }
+  .treat span { font-size: 10px; line-height: 1.1; }
+  .park .serve .tray { margin: 4px 0; padding: 4px; }
+}

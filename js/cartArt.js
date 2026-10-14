@@ -62,10 +62,17 @@ export function moneySVG(d, w = 54) {
 export function iceCupSVG(color, size = 34) {
   return `<svg viewBox="0 0 40 40" width="${size}" height="${size}" class="icecream" xmlns="http://www.w3.org/2000/svg"><path d="M9 16 Q9 4 20 4 Q31 4 31 16 Z" fill="${color}" ${thin}/><path d="M13 12 Q14 7 19 6.5" stroke="#fff" stroke-width="2" opacity=".6" fill="none" stroke-linecap="round"/><path d="M27 2 L23 13" stroke="#fff" stroke-width="2.6" stroke-linecap="round"/><path d="M27 2 L23 13" stroke="${INK}" stroke-width="0.8" stroke-linecap="round" fill="none"/><path d="M7 15 H33 L29.5 37 H10.5 Z" fill="#fffaf0" ${thin}/><path d="M9 21 H31 M9.8 27 H30.2" stroke="#ff6f91" stroke-width="2"/></svg>`;
 }
-// A tub of Italian ice, filled to `frac`.
-export function tubSVG(color, frac = 1, size = 44) {
-  const top = 34 - 24 * Math.max(0, Math.min(1, frac));
-  return `<svg viewBox="0 0 44 40" width="${size}" height="${(size * 40) / 44}" class="tub" xmlns="http://www.w3.org/2000/svg"><path d="M5 8 H39 L36 37 H8 Z" fill="#fffaf0" ${thin}/><path d="M6.6 ${top} H37.4 L36 37 H8 Z" fill="${color}"/><path d="M5 8 H39 L36 37 H8 Z" fill="none" ${thin}/><rect x="3" y="4" width="38" height="5" rx="2" fill="#e8f7ff" ${thin}/></svg>`;
+export function spoonSVG(size = 34) {
+  return `<svg viewBox="0 0 40 40" width="${size}" height="${size}" class="thing" xmlns="http://www.w3.org/2000/svg"><g transform="rotate(35 20 20)"><ellipse cx="20" cy="9" rx="6" ry="8" fill="#fffaf0" ${thin}/><path d="M18.4 16 H21.6 V36 Q21.6 38 20 38 Q18.4 38 18.4 36 Z" fill="#fffaf0" ${thin}/></g></svg>`;
+}
+export function napkinSVG(size = 34) {
+  return `<svg viewBox="0 0 40 40" width="${size}" height="${size}" class="thing" xmlns="http://www.w3.org/2000/svg"><path d="M6 10 L30 6 L34 30 L10 34 Z" fill="#fff" ${thin}/><path d="M6 10 L30 6 L22 18 Z" fill="#e8f7ff" ${thin}/><path d="M12 28 L28 25" stroke="#7cc8ff" stroke-width="1.6"/></svg>`;
+}
+// Anything that goes on the counter: a treat, 'spoon' or 'napkin'.
+export function thingSVG(id, size = 34) {
+  if (id === 'spoon') return spoonSVG(size);
+  if (id === 'napkin') return napkinSVG(size);
+  return treatSVG(id, size);
 }
 // Any cart treat by id.
 export function treatSVG(id, size = 34) {

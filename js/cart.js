@@ -91,10 +91,11 @@ export function newCartState({ player, look, seed }) {
     weather: null,
     money: { box: { ...K.start.box }, wallet: { ...K.start.wallet }, jar: {}, bank: 0 },
     prices: Object.fromEntries(CART_ITEMS.map((i) => [i.id, i.fair])),
-    // pops are counts; Italian ice is a list of tubs, each the scoops left in it
-    freezer: { pops: {}, tubs: {} },
-    cooler: { pops: {}, tubs: {} },
-    cups: 0,
+    // how many of each treat (pops and little cups of Italian ice)
+    freezer: { pops: {} },
+    cooler: { pops: {} },
+    spoons: 0, // every Italian ice needs one
+    napkins: 0, // to hand out if you like
     owned: [], // ids of things bought to keep (gear, decals, hats, glasses, shirts, toys)
     wearing: { hat: null, glasses: null, shirt: null },
     balloon: null, // a balloon tied to the cart, today only
@@ -119,6 +120,19 @@ export class Cart {
     this.events = [];
     this.rng = makeRng(state.rngState);
     if (!state.weather) this.rollWeather();
+    // older saves: Italian ice came in tubs of scoops, with cups & spoons as one supply
+    for (const where of ['freezer', 'cooler']) {
+      const p = state[where];
+      for (const [id, tubs] of Object.entries(p.tubs || {})) p.pops[id] = (p.pops[id] || 0) + tubs.reduce((a, b) => a + b, 0);
+      delete p.tubs;
+    }
+    if (state.cups != null) {
+      state.spoons = (state.spoons || 0) + state.cups;
+      delete state.cups;
+    }
+    state.spoons ??= 0;
+    state.napkins ??= 0;
+    if (state.window && state.window.v !== 2) state.window = null; // a sale from an older version: they wander off
     // a payment that was never finished (the page closed): the money goes back where it came from
     if (state.txn) this.cancelPay();
   }
@@ -182,21 +196,12 @@ export class Cart {
   isIce(id) {
     return CART_ITEM[id]?.kind === 'ice';
   }
-  // How many of an item: pops, or scoops of Italian ice.
   count(where, id) {
-    const p = this.state[where];
-    if (this.isIce(id)) return (p.tubs[id] || []).reduce((a, b) => a + b, 0);
-    return p.pops[id] || 0;
+    return this.state[where].pops[id] || 0;
   }
-  tubs(where, id) {
-    return this.state[where].tubs[id] || [];
-  }
+  // Every treat takes one space.
   spaceUsed(where) {
-    const p = this.state[where];
-    let n = 0;
-    for (const c of Object.values(p.pops)) n += c;
-    for (const t of Object.values(p.tubs)) n += t.length * K.tubSpace;
-    return n;
+    return Object.values(this.state[where].pops).reduce((a, b) => a + b, 0);
   }
   get coolerFree() {
     return K.coolerSpace - this.spaceUsed('cooler');
@@ -205,20 +210,12 @@ export class Cart {
   get freezerFree() {
     return K.freezerSpace - this.spaceUsed('freezer') - this.spaceUsed('cooler');
   }
-  // Freezer → cooler: n pops, or one tub (the most-used one first).
+  // Freezer → cooler.
   pack(id, n = 1) {
     const s = this.state;
     if (s.phase !== 'home') return { ok: false, reason: 'notHome' };
-    if (this.isIce(id)) {
-      const tubs = s.freezer.tubs[id] || [];
-      if (!tubs.length) return { ok: false, reason: 'none' };
-      if (this.coolerFree < K.tubSpace) return { ok: false, reason: 'full' };
-      tubs.sort((a, b) => a - b);
-      (s.cooler.tubs[id] ||= []).push(tubs.shift());
-      return { ok: true };
-    }
     n = Math.min(n, s.freezer.pops[id] || 0, this.coolerFree);
-    if (n <= 0) return { ok: false, reason: (s.freezer.pops[id] || 0) ? 'full' : 'none' };
+    if (n <= 0) return { ok: false, reason: s.freezer.pops[id] || 0 ? 'full' : 'none' };
     s.freezer.pops[id] -= n;
     s.cooler.pops[id] = (s.cooler.pops[id] || 0) + n;
     return { ok: true, n };
@@ -226,12 +223,6 @@ export class Cart {
   unpack(id, n = 1) {
     const s = this.state;
     if (s.phase !== 'home') return { ok: false, reason: 'notHome' };
-    if (this.isIce(id)) {
-      const tubs = s.cooler.tubs[id] || [];
-      if (!tubs.length) return { ok: false };
-      (s.freezer.tubs[id] ||= []).push(tubs.pop());
-      return { ok: true };
-    }
     n = Math.min(n, s.cooler.pops[id] || 0);
     if (n <= 0) return { ok: false };
     s.cooler.pops[id] -= n;
@@ -242,12 +233,10 @@ export class Cart {
   unpackAll() {
     const s = this.state;
     for (const [id, n] of Object.entries(s.cooler.pops)) s.freezer.pops[id] = (s.freezer.pops[id] || 0) + n;
-    for (const [id, t] of Object.entries(s.cooler.tubs)) (s.freezer.tubs[id] ||= []).push(...t.filter((x) => x > 0));
-    s.cooler = { pops: {}, tubs: {} };
+    s.cooler = { pops: {} };
   }
-  // Can this be sold right now from the cooler?
+  // Is there one in the cooler?
   canSell(id) {
-    if (this.isIce(id)) return this.count('cooler', id) > 0 && this.state.cups > 0;
     return this.count('cooler', id) > 0;
   }
 
@@ -279,7 +268,7 @@ export class Cart {
     for (const [id, q] of Object.entries(basket)) {
       const it = this.shopItem(shop, id);
       if (!it || q <= 0) continue;
-      if (it.kind === 'stock') space += (it.tubs ? K.tubSpace * it.tubs : it.qty) * q;
+      if (it.kind === 'stock') space += it.qty * q;
       if (['gear', 'decal', 'hat', 'glasses', 'shirt'].includes(it.kind) && this.state.owned.includes(it.id)) return { ok: false, reason: 'owned', item: it };
       if (it.kind === 'balloon' && this.state.phase !== 'park') return { ok: false, reason: 'park', item: it };
     }
@@ -351,11 +340,11 @@ export class Cart {
     const s = this.state;
     switch (it.kind) {
       case 'stock':
-        if (it.tubs) for (let i = 0; i < it.tubs; i++) (s.freezer.tubs[it.item] ||= []).push(K.tubScoops);
-        else s.freezer.pops[it.item] = (s.freezer.pops[it.item] || 0) + it.qty;
+        s.freezer.pops[it.item] = (s.freezer.pops[it.item] || 0) + it.qty;
         break;
-      case 'cups':
-        s.cups += it.qty;
+      case 'spoons':
+      case 'napkins':
+        s[it.kind] += it.qty;
         break;
       case 'balloon':
         s.balloon = it.color;
@@ -429,7 +418,7 @@ export class Cart {
     s.minute = Math.max(s.minute, K.parkOpen);
     s.line = [];
     s.window = null;
-    s.today = { sold: {}, revenue: 0, customers: 0, tooExpensive: 0, leftLine: 0, missedFav: 0, tips: 0, keptExtra: 0, returned: 0, noChange: 0, startBox: this.boxTotal, opened: s.minute };
+    s.today = { sold: {}, revenue: 0, customers: 0, tooExpensive: 0, leftLine: 0, missedFav: 0, tips: 0, keptExtra: 0, returned: 0, noChange: 0, given: {}, napkins: 0, startBox: this.boxTotal, opened: s.minute };
     // regulars who'll come by today
     s.schedule = [];
     for (const r of REGULARS) {
@@ -611,7 +600,8 @@ export class Cart {
     const c = s.line.shift();
     const o = this.orderFor(c);
     const reg = c.regular && s.regulars[c.regular];
-    s.window = { cust: c, order: o.items || [], handed: [], paid: null, stage: o.items ? 'order' : 'leaving', no: o.no || null, missedFav: o.missedFav || null, wrongTry: 0 };
+    // handed: what's on the counter for them so far (treat ids, 'spoon', 'napkin')
+    s.window = { v: 2, cust: c, order: o.items || [], handed: [], paid: null, stage: o.items ? 'order' : 'leaving', no: o.no || null, missedFav: o.missedFav || null };
     s.today.customers++;
     if (o.missedFav && reg) {
       reg.missed++;
@@ -627,41 +617,69 @@ export class Cart {
     this.emit({ t: 'window', cust: c });
   }
 
-  // The player hands over one thing from the cooler. Wrong things come right back.
-  hand(id) {
+  // The player puts something on the counter for this customer: a treat from the cooler, a spoon or a napkin.
+  give(id) {
     const s = this.state;
     const w = s.window;
     if (!w || w.stage !== 'order') return { ok: false };
-    const need = w.order.filter((x) => x === id).length - w.handed.filter((x) => x === id).length;
-    if (need <= 0) {
-      w.wrongTry++;
-      return { ok: false, reason: 'notOrdered' };
+    if (id === 'spoon' || id === 'napkin') {
+      const k = id + 's';
+      if (s[k] <= 0) return { ok: false, reason: 'out' };
+      s[k]--;
+    } else {
+      if (!this.canSell(id)) return { ok: false, reason: 'out' };
+      s.cooler.pops[id]--;
     }
-    if (!this.canSell(id)) return { ok: false, reason: 'out' };
-    if (this.isIce(id)) {
-      const tubs = s.cooler.tubs[id];
-      tubs.sort((a, b) => a - b);
-      const i = tubs.findIndex((x) => x > 0);
-      tubs[i]--;
-      if (tubs[i] === 0) tubs.splice(i, 1);
-      s.cups--;
-    } else s.cooler.pops[id]--;
     w.handed.push(id);
-    if (w.handed.length === w.order.length) {
-      // they pay
-      w.due = w.order.reduce((a, x) => a + s.prices[x], 0);
-      w.paid = choosePayment(w.cust.pocket, w.due, this.rng);
-      takePile(w.cust.pocket, w.paid);
-      addPile(s.money.box, w.paid);
-      w.stage = total(w.paid) === w.due ? 'exact' : 'change';
+    return { ok: true };
+  }
+  // Take something back off the counter.
+  takeBack(i) {
+    const s = this.state;
+    const w = s.window;
+    if (!w || w.stage !== 'order' || !(i in w.handed)) return false;
+    this.putBack(w.handed.splice(i, 1)[0]);
+    return true;
+  }
+  putBack(id) {
+    const s = this.state;
+    if (id === 'spoon' || id === 'napkin') s[id + 's']++;
+    else s.cooler.pops[id] = (s.cooler.pops[id] || 0) + 1;
+  }
+  // "Here you go!" The customer checks what's on the counter. If it's all there, they pay.
+  // Anything extra (a napkin, a free treat) makes them happy.
+  handOver() {
+    const s = this.state;
+    const w = s.window;
+    if (!w || w.stage !== 'order') return { ok: false };
+    const left = [...w.handed];
+    for (const id of w.order) {
+      const i = left.indexOf(id);
+      if (i < 0) return { ok: false, reason: 'missing' };
+      left.splice(i, 1);
     }
-    return { ok: true, done: w.handed.length === w.order.length };
+    const ices = w.order.filter((id) => this.isIce(id)).length;
+    const spoons = left.filter((x) => x === 'spoon').length;
+    if (spoons < ices && s.spoons > 0) return { ok: false, reason: 'spoon' };
+    w.noSpoon = spoons < ices; // none left to give: they make do
+    w.napkins = left.filter((x) => x === 'napkin').length;
+    w.extras = left.filter((x) => x !== 'spoon' && x !== 'napkin');
+    w.happy = !w.noSpoon && (w.napkins > 0 || w.extras.length > 0);
+    s.today.napkins += w.napkins;
+    for (const id of w.extras) s.today.given[id] = (s.today.given[id] || 0) + 1;
+    // they pay for what they asked for
+    w.due = w.order.reduce((a, x) => a + s.prices[x], 0);
+    w.paid = choosePayment(w.cust.pocket, w.due, this.rng);
+    takePile(w.cust.pocket, w.paid);
+    addPile(s.money.box, w.paid);
+    w.stage = 'change';
+    return { ok: true, happy: w.happy, extras: w.extras, napkins: w.napkins, noSpoon: w.noSpoon };
   }
   // The player gives change from the cash box. fast: the sale was quick (for tips).
   giveChange(given, { fast = false } = {}) {
     const s = this.state;
     const w = s.window;
-    if (!w || (w.stage !== 'change' && w.stage !== 'exact')) return { ok: false };
+    if (!w || w.stage !== 'change') return { ok: false };
     const owed = total(w.paid) - w.due;
     const g = total(given);
     if (!hasPile(s.money.box, given)) return { ok: false, reason: 'notThere' };
@@ -700,7 +718,8 @@ export class Cart {
     s.stats.revenue += w.due;
     // a quick, friendly sale sometimes gets a tip
     let tip = 0;
-    if (result !== 'kept' && this.rng.chance(fast ? CR.tip.fast : CR.tip.slow)) {
+    const tipChance = w.noSpoon ? 0 : w.happy ? CR.tip.happy : fast ? CR.tip.fast : CR.tip.slow;
+    if (result !== 'kept' && this.rng.chance(tipChance)) {
       tip = this.rng.pick(CR.tip.amounts);
       addPile(s.money.jar, pileOf(tip));
       s.today.tips += tip;
@@ -708,7 +727,7 @@ export class Cart {
     }
     if (c.regular) {
       const reg = s.regulars[c.regular];
-      if (w.order.includes(REGULARS.find((r) => r.id === c.regular).fav)) {
+      if (w.happy || w.order.includes(REGULARS.find((r) => r.id === c.regular).fav)) {
         reg.happy = Math.min(5, reg.happy + 1);
         reg.missed = 0;
       }
@@ -716,7 +735,7 @@ export class Cart {
     w.stage = 'done';
     w.result = result;
     w.tip = tip;
-    this.logAction('sale', { items: w.order, due: w.due, paid: total(w.paid), result, tip });
+    this.logAction('sale', { items: w.order, extras: w.extras, napkins: w.napkins, due: w.due, paid: total(w.paid), result, tip });
     return { ok: true, result, tip };
   }
   // Not enough change in the cash box: the customer pays some other way, or gives up.
@@ -724,6 +743,7 @@ export class Cart {
     const s = this.state;
     const w = s.window;
     if (!w || w.stage !== 'change') return { ok: false };
+    if (total(w.paid) === w.due) return { ok: false, reason: 'exactAlready' }; // "I gave you just the right amount!"
     s.today.noChange++;
     takePile(s.money.box, w.paid);
     addPile(w.cust.pocket, w.paid);
@@ -732,18 +752,10 @@ export class Cart {
       takePile(w.cust.pocket, exact);
       addPile(s.money.box, exact);
       w.paid = exact;
-      w.stage = 'exact';
       return { ok: true, result: 'exact' };
     }
-    // they give the treats back
-    for (const id of w.handed) {
-      if (this.isIce(id)) {
-        s.cups++;
-        const tubs = (s.cooler.tubs[id] ||= []);
-        if (tubs.length) tubs[0]++;
-        else tubs.push(1);
-      } else s.cooler.pops[id] = (s.cooler.pops[id] || 0) + 1;
-    }
+    // they give everything back
+    for (const id of w.handed) this.putBack(id);
     w.stage = 'leaving';
     w.no = 'noChange';
     return { ok: true, result: 'left' };
@@ -753,7 +765,7 @@ export class Cart {
     const s = this.state;
     if (!s.window) return;
     const w = s.window;
-    if (w.stage === 'order' || w.stage === 'change' || w.stage === 'exact') return; // still being served
+    if (w.stage === 'order' || w.stage === 'change') return; // still being served
     this.emit({ t: 'leave', id: w.cust.id, say: w.stage === 'done' ? 'happy' : w.no });
     s.window = null;
     this.nextToWindow();
