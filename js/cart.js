@@ -377,16 +377,21 @@ export class Cart {
     return this.state.owned.filter((id) => CART_SHOPS.decals.items.some((d) => d.id === id));
   }
   // Stick a sticker you own on the cart. u, v: 0–1 across and down the side of the cart.
+  // Once it's stuck, it stays put.
   placeDecal(id, u, v) {
-    if (!this.decals().includes(id) || !Number.isFinite(u) || !Number.isFinite(v)) return false;
+    if (!this.decals().includes(id) || this.state.decalSpots[id] || !Number.isFinite(u) || !Number.isFinite(v)) return false;
     const clamp = (n) => Math.round(Math.min(1, Math.max(0, n)) * 1000) / 1000;
     this.state.decalSpots[id] = [clamp(u), clamp(v)];
     this.logAction('placeDecal', { id, at: this.state.decalSpots[id] });
     return true;
   }
-  // Each sticker with where it's stuck (null: not moved yet, so it goes in its usual spot).
+  // Each sticker with where it's stuck (null: not stuck yet, so it shows in its usual spot).
   decalsPlaced() {
     return this.decals().map((id) => ({ id, at: this.state.decalSpots[id] || null }));
+  }
+  // Stickers you have that aren't stuck on yet.
+  decalsLoose() {
+    return this.decals().filter((id) => !this.state.decalSpots[id]);
   }
   has(id) {
     return this.state.owned.includes(id);

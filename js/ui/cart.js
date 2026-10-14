@@ -39,9 +39,10 @@ export function meSVG(look, wearing = {}) {
 }
 // park: at the park the umbrella is drawn separately, up over the kid's head.
 // pick: a sticker to circle (while you're sticking it on), shown close up.
-function cartArt(c, park = false, pick = null) {
+function cartArt(c, park = false, pick = null, trying = {}) {
   const s = c.state;
-  return cartSVG({ decals: c.decalsPlaced(), umbrella: !park && c.has('umbrella'), fan: c.has('fan'), bell: c.has('bell'), balloon: pick ? null : s.balloon, pick, tight: !!pick });
+  const decals = c.decalsPlaced().map((d) => (trying[d.id] ? { id: d.id, at: trying[d.id] } : d));
+  return cartSVG({ decals, umbrella: !park && c.has('umbrella'), fan: c.has('fan'), bell: c.has('bell'), balloon: pick ? null : s.balloon, pick, tight: !!pick });
 }
 function cartSpot(c) {
   return `${c.has('umbrella') ? `<div class="umb">${umbrellaSVG()}</div>` : ''}<div class="me">${meSVG(c.state.look, c.state.wearing)}</div><div class="the-cart">${cartArt(c, true)}</div>`;
@@ -257,7 +258,7 @@ export class CartView {
           <div class="me-pic">${meSVG(s.look, s.wearing)}</div>
           <div class="cart-pic">${cartArt(c)}</div>
           <button class="btn small" data-act="closet">👕 Closet</button>
-          ${c.decals().length ? '<button class="btn small" data-act="stickers">🌟 Stickers</button>' : ''}
+          ${c.decalsLoose().length ? '<button class="btn small" data-act="stickers">🌟 Stickers</button>' : ''}
         </div>
         <div class="card">
           <h3>🧊 Pack the cooler</h3>
@@ -599,24 +600,27 @@ export class CartView {
   }
 
   // Stick stickers on the cart: pick one, then tap the cart where it goes. Tap again to move it.
+  // When you tap Done, it's stuck for good.
   placeStickers(pickId, onClose) {
     const c = this.cart;
-    let pick = pickId || c.decals()[0];
+    const loose = c.decalsLoose();
+    let pick = loose.includes(pickId) ? pickId : loose[0];
+    const trying = {}; // where each loose sticker is, until Done
     const m = openModal({
       title: '🌟 Stick it on!',
       cls: 'narrow',
       onClose: () => {
+        for (const [id, [u, v]] of Object.entries(trying)) c.placeDecal(id, u, v);
         this.save();
         this.refreshScene?.();
         onClose?.();
       },
       render: (body) => {
-        body.innerHTML = `<p style="margin-top:0">Pick a sticker, then tap your cart where you want it. Tap again to move it.</p>
-          <div class="sticker-pick">${c
-            .decals()
+        body.innerHTML = `<p style="margin-top:0">${loose.length > 1 ? 'Pick a sticker, then tap' : 'Tap'} your cart to stick it on. You can move it until you tap Done. Then it's stuck!</p>
+          ${loose.length > 1 ? `<div class="sticker-pick">${loose
             .map((id) => `<button class="btn small ${id === pick ? 'on' : ''}" data-act="pick" data-id="${id}" aria-label="${esc(ITEM[id].name)}">${ITEM[id].emoji}</button>`)
-            .join('')}</div>
-          <div class="sticker-cart">${cartArt(c, true, pick)}</div>
+            .join('')}</div>` : ''}
+          <div class="sticker-cart">${cartArt(c, true, pick, trying)}</div>
           <div class="row" style="justify-content:flex-end"><button class="btn big go" data-act="done">Done ✓</button></div>`;
         const svg = body.querySelector('.sticker-cart svg');
         svg.addEventListener('click', (e) => {
@@ -627,7 +631,8 @@ export class CartView {
           // only taps on the side of the cart count (a little slack around the edges)
           const A = STICKER_AREA;
           if (!pick || x < A.x - 20 || x > A.x + A.w + 20 || y < A.y - 20 || y > A.y + A.h + 20) return;
-          c.placeDecal(pick, (x - A.x) / A.w, (y - A.y) / A.h);
+          const clamp = (n) => Math.min(1, Math.max(0, n));
+          trying[pick] = [clamp((x - A.x) / A.w), clamp((y - A.y) / A.h)];
           m.refresh();
         });
       },
