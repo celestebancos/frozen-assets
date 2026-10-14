@@ -658,3 +658,14 @@ table.books tr.bottom td { font-weight: 800; font-size: 18px; background: #fff3b
 .park .cart-spot .me.gone { opacity: 0; }
 .park .tip-coin { position: absolute; left: 70%; bottom: 60%; z-index: 2; animation: tipHop 1.3s ease-out forwards; pointer-events: none; }
 @keyframes tipHop { 0% { transform: translateY(0) scale(0.6); opacity: 0; } 25% { opacity: 1; transform: translateY(-40px) scale(1); } 100% { transform: translateY(-90px) scale(0.8); opacity: 0; } }
+/* the change buttons sit in one row, Give change included */
+.money-btns { display: flex; gap: 6px; align-items: stretch; margin-top: 6px; }
+.money-btns .btn { flex: 1 1 0; min-width: 0; padding: 4px 6px; font-size: 15px; line-height: 1.1; }
+.money-btns .btn.go { font-size: 18px; flex-grow: 1.4; }
+@media (max-width: 600px) {
+  .money-btns { gap: 4px; }
+  .money-btns .btn { font-size: 12px; padding: 2px 3px; min-height: 42px; border-width: 2px; border-radius: 10px; }
+  .money-btns .btn.go { font-size: 14px; }
+  .park .serve .chips { gap: 4px; margin: 4px 0; }
+  .park .serve .cash-chip { padding: 2px 4px; }
+}
