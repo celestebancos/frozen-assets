@@ -811,8 +811,10 @@ export class CartView {
       }
     }
     if (this.speed === 0) return this.renderHUD();
-    const serving = s.window && ['order', 'change'].includes(s.window.stage);
-    const pace = serving ? PACE.serve : PACE[this.speed];
+    // Speeding up is only for when nobody's around: with anyone at the cart or in line, time runs at
+    // the calm serving pace, so people in line don't run out of patience in a flash.
+    const busy = s.window || s.line.length;
+    const pace = busy ? PACE.serve : PACE[this.speed];
     this.acc += dt;
     let steps = Math.min(60, Math.floor(this.acc / pace));
     this.acc -= steps * pace;
