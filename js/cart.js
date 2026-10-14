@@ -461,12 +461,26 @@ export class Cart {
     const s = this.state;
     const rng = this.rng;
     const look = regular ? regular.look : rng.int(0, 47);
-    const members = kind === 'parentKid' ? [{ kind: 'adult', look }, { kind: 'kid', look: rng.int(0, 47) }] : [{ kind, look }];
+    let members = [{ kind, look }];
+    if (kind === 'parentKid') members = [{ kind: 'adult', look }, { kind: 'kid', look: rng.int(0, 47) }];
+    if (kind === 'family') members = [{ kind: 'adult', look }, ...Array.from({ length: rng.int(2, 3) }, () => ({ kind: 'kid', look: rng.int(0, 47) }))];
+    if (kind === 'friends') members = Array.from({ length: rng.int(3, 4) }, (_, i) => ({ kind: 'teen', look: i ? rng.int(0, 47) : look }));
     const payer = members[0].kind;
     // what's in their pocket
     const pocket = {};
     const put = (d, n) => n > 0 && (pocket[d] = (pocket[d] || 0) + n);
-    if (payer === 'kid') {
+    if (kind === 'family') {
+      // a grown-up buying for everyone brings a bigger bill
+      put(rng.chance(0.2) ? 2000 : 1000, 1);
+      put(100, rng.int(0, 3));
+      put(25, rng.int(0, 4));
+    } else if (kind === 'friends') {
+      // friends put their money together
+      put(1000, 1);
+      put(500, rng.int(0, 1));
+      put(100, rng.int(1, 5));
+      put(25, rng.int(0, 6));
+    } else if (payer === 'kid') {
       put(25, rng.int(2, 8));
       put(100, rng.int(0, 3));
       if (rng.chance(0.35)) put(500, 1);
