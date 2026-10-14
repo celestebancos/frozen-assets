@@ -1009,17 +1009,82 @@ function sky() {
   <path d="M0 ${GROUND} V238 Q90 196 210 226 T470 214 T730 206 T1000 226 V${GROUND} Z" fill="var(--grass)" opacity=".45"/>
   <path d="M0 ${GROUND} V262 Q160 236 330 258 T680 250 T1000 256 V${GROUND} Z" fill="var(--grass)" opacity=".75"/>`;
 }
-// The park where the push cart sells: lawn, trees, a path, benches and a pond in the back.
-// Sprites (the cart, people, ducks, the swings...) are drawn on top by the cart screen.
+// The park where the push cart sells: a tree line in the distance, a pond with lily pads, lawn, flower
+// beds, lamps and a path in front. Sprites (the cart, people, stands, the swings, the stories) go on top.
 export function parkSVG() {
-  const bench = (x, y) => `<g ${so(1.8)}><rect x="${x}" y="${y}" width="74" height="6" rx="2" fill="#8b5a2b"/><rect x="${x}" y="${y + 12}" width="74" height="6" rx="2" fill="#8b5a2b"/><path d="M${x + 8} ${y + 18} v10 M${x + 66} ${y + 18} v10" stroke="#4a4a5a" stroke-width="4"/></g>`;
-  return `<svg viewBox="0 0 1000 500" preserveAspectRatio="xMidYMax slice" class="scene-svg" xmlns="http://www.w3.org/2000/svg">${sky()}
-    <rect x="0" y="${GROUND - 2}" width="1000" height="210" fill="var(--grass)"/>
-    ${tree(40, 1.3)}${tree(180, 0.95)}${tree(330, 0.8, 'tall')}${tree(640, 0.85, 'tall')}${tree(830, 1.15)}${tree(975, 1.3, 'pine')}
-    <ellipse cx="520" cy="${GROUND + 18}" rx="120" ry="16" fill="#7ec8e3" ${so(2)}/><path d="M440 ${GROUND + 16} q12 -4 24 0 M560 ${GROUND + 20} q12 -4 24 0" stroke="#fff" stroke-width="2" opacity=".7" fill="none"/>
-    ${bush(260, 70, true, GROUND + 6)}${bush(720, 80, true, GROUND + 6)}${bench(100, GROUND + 12)}${bench(860, GROUND + 14)}
-    <path d="M0 ${GROUND + 120} Q300 ${GROUND + 96} 500 ${GROUND + 110} T1000 ${GROUND + 104} V500 H0 Z" fill="#ead9b8" ${so(2)}/>
-    <path d="M0 ${GROUND + 150} Q300 ${GROUND + 132} 500 ${GROUND + 144} T1000 ${GROUND + 138}" stroke="#d9c49c" stroke-width="3" fill="none" stroke-dasharray="14 18"/>
+  const G = GROUND;
+  const bench = (x, y) => `<g ${so(1.8)}><rect x="${x}" y="${y}" width="74" height="6" rx="2" fill="#a86b3c"/><rect x="${x}" y="${y + 12}" width="74" height="6" rx="2" fill="#a86b3c"/><path d="M${x + 8} ${y + 18} v10 M${x + 66} ${y + 18} v10" stroke="#4a4a5a" stroke-width="4"/></g>`;
+  // a soft row of far-off trees along the horizon
+  const far = Array.from({ length: 17 }, (_, i) => {
+    const x = i * 64 - 10 + ((i * 37) % 22);
+    const r = 26 + ((i * 17) % 18);
+    return `<circle cx="${x}" cy="${G - r * 0.55}" r="${r}"/>`;
+  }).join('');
+  const lily = (x, y, s = 1, flower = false) =>
+    `<g transform="translate(${x} ${y}) scale(${s})"><path d="M0 0 m-11 0 a11 4.5 0 1 0 22 0 a11 4.5 0 1 0 -22 0 M0 0 L9 -2.5" fill="#5fae4b" stroke="#3f7f33" stroke-width="1.4"/>${flower ? '<g fill="#ffb3d1" stroke="#d9799b" stroke-width=".8"><ellipse cx="-3" cy="-3" rx="2.4" ry="4" transform="rotate(-30 -3 -3)"/><ellipse cx="3" cy="-3" rx="2.4" ry="4" transform="rotate(30 3 -3)"/><ellipse cx="0" cy="-4" rx="2.4" ry="4.4"/></g><circle cx="0" cy="-2" r="1.4" fill="#ffd23f"/>' : ''}</g>`;
+  const reeds = (x, flip = 1) =>
+    `<g><path d="M${x} ${G + 32} Q${x - 3 * flip} ${G + 10} ${x - 6 * flip} ${G - 2} M${x + 7 * flip} ${G + 32} Q${x + 8 * flip} ${G + 8} ${x + 11 * flip} ${G - 6} M${x + 14 * flip} ${G + 32} Q${x + 16 * flip} ${G + 18} ${x + 20 * flip} ${G + 8}" stroke="#4e9a3d" stroke-width="2.6" fill="none" stroke-linecap="round"/><rect x="${x - 9 * flip - 3}" y="${G - 4}" width="6" height="14" rx="3" fill="#8b5a2b" ${so(1.2)}/><rect x="${x + 9 * flip - 3}" y="${G - 8}" width="6" height="14" rx="3" fill="#8b5a2b" ${so(1.2)}/></g>`;
+  const tulips = (x1, x2, y) =>
+    Array.from({ length: Math.floor((x2 - x1) / 13) }, (_, i) => {
+      const x = x1 + i * 13 + (i % 2) * 3;
+      const c = ['#e5484d', '#ffd23f', '#ff8fc7', '#7d5ba6', '#ff9f1c'][i % 5];
+      return `<path d="M${x} ${y} V${y - 12 - (i % 3) * 3}" stroke="#4e9a3d" stroke-width="2"/><path d="M${x - 4} ${y - 13 - (i % 3) * 3} q0 -6 4 -6 q4 0 4 6 l-2 -2 l-2 2 l-2 -2 z" fill="${c}" ${so(1)}/>`;
+    }).join('');
+  const bed = (x1, x2, y) => `<path d="M${x1} ${y} Q${(x1 + x2) / 2} ${y - 10} ${x2} ${y} Z" fill="#8b5a2b" opacity=".55"/>${tulips(x1 + 6, x2 - 6, y - 1)}`;
+  const parkLamp = (x, y) =>
+    `<g ${so(2)}><path d="M${x} ${y} V${y - 92}" stroke="${SOFT}" stroke-width="7"/><path d="M${x} ${y} V${y - 92}" stroke="#3d4a5c" stroke-width="4"/><rect x="${x - 8}" y="${y - 4}" width="16" height="6" rx="2" fill="#3d4a5c"/><path d="M${x - 9} ${y - 92} h18 l-3 -16 h-12 z" fill="#fff3b0"/><path d="M${x - 12} ${y - 108} h24 l-12 -9 z" fill="#3d4a5c"/><circle cx="${x}" cy="${y - 120}" r="2.5" fill="#3d4a5c"/></g>`;
+  const blanket = (x, y) =>
+    `<g><path d="M${x} ${y} L${x + 90} ${y} L${x + 74} ${y - 22} L${x + 12} ${y - 22} Z" fill="#fff" ${so(1.8)}/>` +
+    [0, 1, 2, 3, 4].map((i) => `<path d="M${x + 4 + i * 18} ${y} L${x + 14 + i * 13.6} ${y - 22}" stroke="#e5484d" stroke-width="7" opacity=".75"/>`).join('') +
+    `<path d="M${x + 4} ${y - 7} H${x + 86} M${x + 8} ${y - 15} H${x + 81}" stroke="#e5484d" stroke-width="6" opacity=".55"/>` +
+    `<g ${so(1.6)}><path d="M${x + 52} ${y - 14} h26 l-3 14 h-20 z" fill="#c98a4b"/><path d="M${x + 56} ${y - 14} q9 -12 18 0" fill="none" stroke="${SOFT}" stroke-width="2.4"/><circle cx="${x + 30}" cy="${y - 9}" r="5" fill="#e5484d"/><path d="M${x + 30} ${y - 14} l2 -3" stroke="#4e9a3d" stroke-width="2"/></g></g>`;
+  const sign = (x, y) =>
+    `<g ${so(2)}><path d="M${x + 10} ${y} V${y - 30} M${x + 70} ${y} V${y - 30}" stroke="#7a4a2a" stroke-width="5"/><rect x="${x}" y="${y - 62}" width="80" height="34" rx="6" fill="#a86b3c"/><rect x="${x + 4}" y="${y - 58}" width="72" height="26" rx="4" fill="none" stroke="#e8c89a" stroke-width="1.6"/><text x="${x + 40}" y="${y - 40}" text-anchor="middle" font-family="'Baloo 2', system-ui, sans-serif" font-size="15" font-weight="800" fill="#fff3d6" stroke="none">CITY PARK</text></g>`;
+  // the top edge of the path at x: the path is two quadratic curves, (0,420)-(300,396)-(500,410) and (500,410)-(700,424)-(1000,404)
+  const pathTop = (x) => {
+    const [p0, p1, p2] = x <= 500 ? [[0, G + 120], [300, G + 96], [500, G + 110]] : [[500, G + 110], [700, G + 124], [1000, G + 104]];
+    const q = (t, i) => (1 - t) ** 2 * p0[i] + 2 * (1 - t) * t * p1[i] + t * t * p2[i];
+    let lo = 0;
+    let hi = 1;
+    for (let k = 0; k < 20; k++) {
+      const m = (lo + hi) / 2;
+      if (q(m, 0) < x) lo = m;
+      else hi = m;
+    }
+    return q(lo, 1);
+  };
+  const stones = Array.from({ length: 34 }, (_, i) => {
+    const x = i * 30 + 6;
+    return `<ellipse cx="${x}" cy="${(pathTop(x) - 1).toFixed(1)}" rx="9" ry="4" fill="${i % 3 ? '#cfc6b4' : '#bfb5a2'}" ${so(1.2)}/>`;
+  }).join('');
+  const pebbles = Array.from({ length: 40 }, (_, i) => `<circle cx="${(i * 97) % 1000}" cy="${G + 150 + ((i * 29) % 46)}" r="${1.5 + (i % 3)}" fill="#d9c49c"/>`).join('');
+  const tufts = Array.from({ length: 26 }, (_, i) => {
+    const x = (i * 131) % 1000;
+    const y = G + 46 + ((i * 41) % 60);
+    return `<path d="M${x - 4} ${y} l2 -7 M${x} ${y} l0 -9 M${x + 4} ${y} l-2 -7" stroke="#5fae4b" stroke-width="2" stroke-linecap="round"/>`;
+  }).join('');
+  const bird = (x, y, s) => `<path d="M${x - 9 * s} ${y} q${4.5 * s} ${-6 * s} ${9 * s} 0 q${4.5 * s} ${-6 * s} ${9 * s} 0" stroke="${SOFT}" stroke-width="2.2" fill="none" stroke-linecap="round"/>`;
+  const fly = (x, y, c, d) => `<g class="flutter" style="animation-delay:${d}s"><g transform="translate(${x} ${y})"><g class="wings"><path d="M0 0 q-7 -9 -9 -3 q0 5 9 3 q-7 4 -4 8 q3 1 4 -8 z M0 0 q7 -9 9 -3 q0 5 -9 3 q7 4 4 8 q-3 1 -4 -8 z" fill="${c}" ${so(1)}/></g></g></g>`;
+  return `<svg viewBox="0 0 1000 500" preserveAspectRatio="xMidYMax slice" class="scene-svg park-scene" xmlns="http://www.w3.org/2000/svg">${sky()}
+    <g class="birds">${bird(300, 120, 1)}${bird(326, 108, 0.8)}${bird(350, 126, 0.7)}</g>
+    <g fill="var(--grass)" opacity=".55">${far}</g><g fill="#2f6b3f" opacity=".12">${far}</g>
+    <rect x="0" y="${G - 2}" width="1000" height="210" fill="var(--grass)"/>
+    <path d="M0 ${G + 40} Q500 ${G + 30} 1000 ${G + 40} V${G + 70} Q500 ${G + 60} 0 ${G + 70} Z" fill="#fff" opacity=".07"/>
+    ${tree(40, 1.3)}${tree(180, 0.95)}${tree(330, 0.8, 'tall')}${tree(670, 0.85, 'tall')}${tree(830, 1.15)}${tree(975, 1.3, 'pine')}
+    <ellipse cx="520" cy="${G + 16}" rx="150" ry="17" fill="#5fb3d3" ${so(2)}/>
+    <ellipse cx="520" cy="${G + 18}" rx="142" ry="13" fill="#7ec8e3"/>
+    <path d="M420 ${G + 14} q14 -5 28 0 M566 ${G + 22} q14 -5 28 0 M500 ${G + 10} q10 -4 20 0" stroke="#d6f1fb" stroke-width="2.4" fill="none" stroke-linecap="round"/>
+    ${lily(452, G + 22, 1, true)}${lily(600, G + 12, 0.8)}${lily(626, G + 20, 1, true)}${lily(410, G + 16, 0.7)}
+    ${reeds(374)}${reeds(664, -1)}
+    ${bush(250, 70, true, G + 6)}${bush(760, 80, true, G + 6)}${bench(130, G + 12)}${bench(866, G + 14)}
+    ${sign(38, G + 64)}${blanket(160, G + 84)}
+    ${tufts}
+    ${bed(300, 430, pathTop(365) - 6)}${bed(600, 740, pathTop(670) - 6)}
+    ${parkLamp(780, pathTop(780) - 2)}
+    <path d="M0 ${G + 120} Q300 ${G + 96} 500 ${G + 110} T1000 ${G + 104} V500 H0 Z" fill="#ead9b8" ${so(2)}/>
+    ${pebbles}${stones}
+    <path d="M0 ${G + 150} Q300 ${G + 132} 500 ${G + 144} T1000 ${G + 138}" stroke="#d9c49c" stroke-width="3" fill="none" stroke-dasharray="14 18"/>
+    ${fly(240, G + 34, '#ff9fb7', 0)}${fly(720, G + 40, '#ffd23f', -3)}
   </svg>`;
 }
 

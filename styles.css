@@ -591,26 +591,32 @@ table.books tr.bottom td { font-weight: 800; font-size: 18px; background: #fff3b
 .park .party .bubble.hidden { display: none; }
 .park .away { position: absolute; left: 50%; top: 40%; transform: translateX(-50%); background: #fff; border: 3px solid var(--ink); border-radius: 14px; padding: 6px 14px; font-weight: 800; z-index: 6; }
 .park .vig { z-index: 1; }
-.park .vig .v { position: absolute; }
-.park .vig svg { width: 100%; height: auto; display: block; }
-.run-fris { width: 3%; animation: crossFast 5.5s linear forwards; }
-.run-fris .fris { animation: hop 0.7s ease-in-out infinite alternate; }
-.run-dog { width: 5%; animation: crossFast 6s linear 0.4s forwards; left: -10%; }
-.run-dog svg .tail { animation: wag 0.2s infinite alternate; }
-@keyframes crossFast { from { left: -10%; } to { left: 110%; } }
-@keyframes hop { to { transform: translateY(-22px); } }
-.ducks { display: flex; gap: 2px; align-items: flex-end; width: 9%; animation: ducks 14s linear forwards; }
-.ducks svg:not(:first-child) { width: 60%; }
-.ducks svg { animation: waddle 0.4s ease-in-out infinite alternate; }
-@keyframes ducks { from { left: 70%; } to { left: 38%; } }
-@keyframes waddle { from { transform: rotate(-6deg); } to { transform: rotate(6deg); } }
-.ducks svg { transform: scaleX(-1); }
-.squirrel { width: 5%; animation: crossFast 5s linear forwards; }
-.float-away { width: 2.4%; animation: floatAway 9s ease-in forwards; }
-@keyframes floatAway { to { transform: translate(40px, -70vh) rotate(8deg); } }
-.dancer { width: 3.6%; transform-origin: 50% 100%; animation: dance 0.5s ease-in-out infinite alternate; }
-@keyframes dance { from { transform: rotate(-10deg) translateY(0); } to { transform: rotate(10deg) translateY(-6px); } }
-@media (prefers-reduced-motion: reduce) { .park .sw-kid, .dancer, .ducks svg, .prop, .spin, .bob { animation: none; } }
+/* the park backdrop: butterflies wander and flap, birds drift across the sky */
+.park-scene .flutter { animation: flutter 9s ease-in-out infinite alternate; }
+.park-scene .wings, .story-layer .butterfly .wings { transform-box: fill-box; transform-origin: 50% 50%; animation: flap 0.22s ease-in-out infinite alternate; }
+@keyframes flutter { 0% { transform: translate(0, 0); } 25% { transform: translate(40px, -24px); } 50% { transform: translate(90px, 6px); } 75% { transform: translate(60px, -30px); } 100% { transform: translate(130px, -8px); } }
+@keyframes flap { to { transform: scaleX(0.25); } }
+.park-scene .birds { animation: birds 60s linear infinite; }
+@keyframes birds { from { transform: translateX(-420px); } to { transform: translateX(900px); } }
+@media (prefers-reduced-motion: reduce) { .park-scene .flutter, .park-scene .wings, .park-scene .birds { animation: none; } }
+.park .vig > svg.story-layer { position: absolute; inset: 0; width: 100%; height: 100%; transition: opacity 0.6s; }
+.story-layer.fade { opacity: 0; }
+.story-layer .walking { animation: storyStep 0.3s ease-in-out infinite alternate; }
+@keyframes storyStep { from { transform: translateY(0) rotate(-2deg); } to { transform: translateY(-2px) rotate(2deg); } }
+.story-layer .doze { transform: rotate(-6deg); transition: transform 0.8s; }
+.story-layer .body { transition: transform 0.4s; }
+.story-layer .tumble, .story-layer .wobble { transform-box: fill-box; transform-origin: 50% 50%; }
+.story-layer .tumble { animation: storySpin 0.6s linear infinite; }
+.story-layer .wobble { animation: storyWobble 0.2s ease-in-out infinite alternate; }
+.story-layer .sway { animation: storySway 1.2s ease-in-out infinite alternate; }
+.story-layer .shake { animation: storyShake 0.08s linear infinite alternate; }
+@keyframes storySpin { to { transform: rotate(360deg); } }
+@keyframes storyWobble { to { transform: scaleY(0.6); } }
+@keyframes storySway { from { transform: rotate(-5deg); } to { transform: rotate(5deg); } }
+@keyframes storyShake { from { transform: translateX(-1.5px); } to { transform: translateX(1.5px); } }
+.story-layer .say .pop { transform-box: fill-box; transform-origin: 50% 100%; animation: sayPop 0.25s ease-out; }
+@keyframes sayPop { from { transform: scale(0.2); opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .park .sw-kid, .prop, .spin, .bob { animation: none; } }
 
 .park .serve { position: absolute; right: 10px; bottom: 10px; width: min(560px, calc(100% - 20px)); max-height: calc(100% - 20px); overflow: auto; z-index: 7; background: var(--paper); border: 3px solid var(--ink); border-radius: 18px; box-shadow: 0 6px 0 rgba(46, 42, 69, 0.25); padding: 10px 12px; }
 .serve-top { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }

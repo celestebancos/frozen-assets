@@ -82,29 +82,79 @@ export function treatSVG(id, size = 34) {
 }
 
 // ---------- park life ----------
+// The swing set stands on a patch of wood chips.
 export function swingSetSVG() {
-  return `<svg viewBox="0 0 220 170" class="swingset" xmlns="http://www.w3.org/2000/svg"><g fill="none" stroke-linecap="round"><path d="M14 168 L40 14 H180 L206 168" stroke="${INK}" stroke-width="9"/><path d="M14 168 L40 14 H180 L206 168" stroke="#e5484d" stroke-width="5.5"/></g></svg>`;
+  const chips = Array.from({ length: 22 }, (_, i) => `<circle cx="${18 + ((i * 47) % 184)}" cy="${162 + ((i * 13) % 9)}" r="1.6" fill="#a8743f"/>`).join('');
+  return `<svg viewBox="0 0 220 176" class="swingset" xmlns="http://www.w3.org/2000/svg"><ellipse cx="110" cy="165" rx="108" ry="10" fill="#d6a86c" ${thin}/>${chips}<g fill="none" stroke-linecap="round"><path d="M14 168 L40 14 H180 L206 168" stroke="${INK}" stroke-width="9"/><path d="M14 168 L40 14 H180 L206 168" stroke="#e5484d" stroke-width="5.5"/></g><circle cx="40" cy="14" r="5" fill="#ffd23f" ${thin}/><circle cx="180" cy="14" r="5" fill="#ffd23f" ${thin}/></svg>`;
 }
 export function swingSeatSVG(color = '#ffd23f') {
   return `<svg viewBox="0 0 40 120" class="seat" xmlns="http://www.w3.org/2000/svg"><path d="M6 0 V108 M34 0 V108" stroke="${INK}" stroke-width="1.6"/><rect x="2" y="106" width="36" height="8" rx="3" fill="${color}" ${thin}/></svg>`;
 }
-export function squirrelSVG() {
-  return `<svg viewBox="0 0 60 44" class="critter" xmlns="http://www.w3.org/2000/svg"><path d="M14 30 Q-2 28 4 10 Q8 0 18 6 Q10 12 14 22 Z" fill="#b5713f" ${thin}/><ellipse cx="28" cy="30" rx="13" ry="9" fill="#c98a4b" ${thin}/><circle cx="42" cy="22" r="7.5" fill="#c98a4b" ${thin}/><path d="M38 15 L39 9 L43 14 Z" fill="#c98a4b" ${thin}/><circle cx="45" cy="21" r="1.4" fill="${INK}"/><circle cx="49.5" cy="23.5" r="1.2" fill="${INK}"/><path d="M22 38 v4 M33 38 v4" stroke="${INK}" stroke-width="2.4" stroke-linecap="round"/>${emo(52, 32, '🥪', 14)}</svg>`;
+// A squirrel facing right. sandwich: it's holding one in its paws.
+export function squirrelSVG(sandwich = true) {
+  return `<svg viewBox="0 0 60 44" class="critter" xmlns="http://www.w3.org/2000/svg">
+    <path d="M18 36 Q2 36 3 20 Q4 3 19 5 Q27 7 24 14 Q14 11 14 20 Q14 28 24 30 Z" fill="#b5713f" ${thin}/><path d="M9 26 Q7 14 15 10" stroke="#d99a62" stroke-width="2.4" fill="none" stroke-linecap="round"/>
+    <ellipse cx="29" cy="31" rx="12" ry="9" fill="#c98a4b" ${thin}/><ellipse cx="34" cy="33" rx="6" ry="6" fill="#f1d3a8"/>
+    <path d="M23 38 q-1 4 3 4 M33 38 q0 4 4 4" stroke="${INK}" stroke-width="2.2" fill="none" stroke-linecap="round"/>
+    <circle cx="42" cy="21" r="8" fill="#c98a4b" ${thin}/><path d="M37 15 L37.5 7 L42.5 13 Z" fill="#c98a4b" ${thin}/><path d="M38.6 13 L38.8 10" stroke="#f1a3a3" stroke-width="1.4"/>
+    <ellipse cx="46" cy="24" rx="4" ry="3" fill="#f1d3a8"/><circle cx="44.5" cy="19.5" r="1.6" fill="${INK}"/><circle cx="45" cy="19" r=".5" fill="#fff"/><circle cx="49.6" cy="23" r="1.3" fill="${INK}"/><ellipse cx="41" cy="25" rx="1.8" ry="1.1" fill="#ff8fa3" opacity=".6"/>
+    ${sandwich ? `<g transform="translate(44 29) rotate(-12)"><path d="M-6 4 L0 -5 L6 4 Z" fill="#f5d08a" ${thin}/><path d="M-4.6 2 L0 -4 L4.6 2" fill="none" stroke="#8ac926" stroke-width="1.6"/></g>` : ''}
+    <path d="M38 31 q3 -1 5 1" stroke="${INK}" stroke-width="2" fill="none" stroke-linecap="round"/></svg>`;
 }
-export function duckSVG(baby = false) {
+// A duck facing right; baby = a fluffy yellow duckling. hat: it's wearing a sun hat (a story).
+export function duckSVG(baby = false, hat = false) {
   const body = baby ? '#ffe066' : '#fffaf0';
-  return `<svg viewBox="0 0 40 34" class="critter duck" xmlns="http://www.w3.org/2000/svg"><path d="M4 18 Q4 30 18 30 H26 Q34 30 34 22 Q34 18 28 17 L22 18 Q16 10 4 18 Z" fill="${body}" ${thin}/><circle cx="28" cy="10" r="7" fill="${body}" ${thin}/><path d="M34 9 L40 11 L34 13 Z" fill="#ff9f1c" ${thin}/><circle cx="30" cy="8.5" r="1.2" fill="${INK}"/><path d="M14 30 v3 M22 30 v3" stroke="#ff9f1c" stroke-width="2.4" stroke-linecap="round"/></svg>`;
+  const wing = baby ? '#f5cf3a' : '#e9e1d3';
+  return `<svg viewBox="0 0 40 36" class="critter duck" xmlns="http://www.w3.org/2000/svg">
+    <path d="M3 18 L8 21 Q4 32 18 32 H25 Q34 32 34 24 Q34 19 28 18.5 L23 20 Q15 12 3 18 Z" fill="${body}" ${thin}/>
+    <path d="M12 22 Q18 18 24 23 Q19 28 12 22 Z" fill="${wing}" ${thin}/>
+    <circle cx="28" cy="12" r="7" fill="${body}" ${thin}/>${baby ? `<path d="M27 5 q1 -3 3 -2 M29 5 q2 -2 3 0" stroke="${INK}" stroke-width="1" fill="none" stroke-linecap="round"/>` : ''}
+    <path d="M33.5 11 Q40 11 40 13.5 Q37 15 33.5 14.5 Z" fill="#ff9f1c" ${thin}/>
+    <circle cx="30" cy="10.5" r="1.4" fill="${INK}"/><circle cx="30.4" cy="10" r=".45" fill="#fff"/><ellipse cx="28.5" cy="14.5" rx="1.6" ry="1" fill="#ff8fa3" opacity=".6"/>
+    <path d="M15 32 v3 h-2 M23 32 v3 h-2" stroke="#ff9f1c" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    ${hat ? `<g transform="translate(28 5.5) rotate(-8) scale(1.2)"><ellipse cx="0" cy="0" rx="10" ry="2.6" fill="#f7e3b5" ${thin}/><path d="M-5 0 Q-5 -7 0 -7 Q5 -7 5 0 Z" fill="#f7e3b5" ${thin}/><path d="M-5 -1.6 H5" stroke="#e5484d" stroke-width="1.8"/></g>` : ''}</svg>`;
 }
 export function frisbeeSVG() {
-  return `<svg viewBox="0 0 30 12" class="critter" xmlns="http://www.w3.org/2000/svg"><ellipse cx="15" cy="6" rx="13" ry="4.5" fill="#ff6f91" ${thin}/><ellipse cx="15" cy="5" rx="7" ry="2" fill="#ff9fb7"/></svg>`;
+  return `<svg viewBox="0 0 30 12" class="critter" xmlns="http://www.w3.org/2000/svg"><ellipse cx="15" cy="6" rx="13" ry="4.5" fill="#ff6f91" ${thin}/><ellipse cx="15" cy="5" rx="7" ry="2" fill="#ff9fb7"/><path d="M5 6.5 Q15 9.5 25 6.5" stroke="#fff" stroke-width="1" fill="none" opacity=".7"/></svg>`;
 }
 export function balloonSVG(color = '#e5484d') {
-  return `<svg viewBox="0 0 30 70" class="critter" xmlns="http://www.w3.org/2000/svg"><ellipse cx="15" cy="16" rx="12" ry="15" fill="${color}" ${thin}/><path d="M10 8 Q12 4 16 4" stroke="#fff" stroke-width="2" fill="none" opacity=".7" stroke-linecap="round"/><path d="M15 31 Q11 46 17 58 Q20 64 15 70" stroke="${INK}" stroke-width="1.2" fill="none"/></svg>`;
+  return `<svg viewBox="0 0 30 70" class="critter" xmlns="http://www.w3.org/2000/svg"><ellipse cx="15" cy="16" rx="12" ry="15" fill="${color}" ${thin}/><path d="M10 8 Q12 4 16 4" stroke="#fff" stroke-width="2" fill="none" opacity=".7" stroke-linecap="round"/><path d="M13 31 L17 31 L15 34 Z" fill="${color}" ${thin}/><path d="M15 34 Q11 46 17 58 Q20 64 15 70" stroke="${INK}" stroke-width="1.2" fill="none"/></svg>`;
+}
+
+// ---------- props for the park stories ----------
+export function sandwichSVG() {
+  return `<svg viewBox="0 0 30 18" class="critter" xmlns="http://www.w3.org/2000/svg"><path d="M3 15 L15 3 L27 15 Z" fill="#f5d08a" ${thin}/><path d="M5.5 12.5 L15 5.5 L24.5 12.5" fill="none" stroke="#8ac926" stroke-width="2.4" stroke-linejoin="round"/><path d="M7 14 L23 14" stroke="#e5484d" stroke-width="2"/><path d="M3 15 L15 3 L27 15" fill="none" ${thin}/></svg>`;
+}
+// A park bench seen from behind: whoever sits on it shows above the backrest.
+export function benchSVG() {
+  return `<svg viewBox="0 0 100 40" class="critter" xmlns="http://www.w3.org/2000/svg"><path d="M12 22 V40 M88 22 V40" stroke="${INK}" stroke-width="4.5" stroke-linecap="round"/><path d="M12 22 V40 M88 22 V40" stroke="#4a4a5a" stroke-width="2.4" stroke-linecap="round"/><rect x="2" y="4" width="96" height="8" rx="3" fill="#a86b3c" ${thin}/><rect x="2" y="15" width="96" height="8" rx="3" fill="#a86b3c" ${thin}/><path d="M8 7 H40 M56 18 H90" stroke="#c98a55" stroke-width="1.6" stroke-linecap="round"/></svg>`;
+}
+export function sunHatSVG() {
+  return `<svg viewBox="0 0 40 18" class="critter" xmlns="http://www.w3.org/2000/svg"><ellipse cx="20" cy="13" rx="18" ry="4" fill="#f7e3b5" ${thin}/><path d="M11 13 Q11 2 20 2 Q29 2 29 13 Z" fill="#f7e3b5" ${thin}/><path d="M11 10 Q20 12 29 10" stroke="#e5484d" stroke-width="2.6" fill="none"/></svg>`;
+}
+export function butterflySVG(color = '#ff9fb7') {
+  return `<svg viewBox="0 0 24 20" class="critter butterfly" xmlns="http://www.w3.org/2000/svg"><g class="wings"><path d="M12 10 Q4 0 2 6 Q1 11 12 10 Q3 13 6 18 Q9 19 12 10 Z" fill="${color}" ${thin}/><path d="M12 10 Q20 0 22 6 Q23 11 12 10 Q21 13 18 18 Q15 19 12 10 Z" fill="${color}" ${thin}/></g><path d="M12 5 V16" stroke="${INK}" stroke-width="2" stroke-linecap="round"/><path d="M12 5 q-2 -3 -4 -3 M12 5 q2 -3 4 -3" stroke="${INK}" stroke-width=".9" fill="none"/></svg>`;
+}
+export function bubbleWandSVG() {
+  return `<svg viewBox="0 0 16 30" class="critter" xmlns="http://www.w3.org/2000/svg"><path d="M8 13 V29" stroke="${INK}" stroke-width="3.4" stroke-linecap="round"/><path d="M8 13 V29" stroke="#3cc6a0" stroke-width="1.8" stroke-linecap="round"/><circle cx="8" cy="7" r="5.5" fill="none" stroke="${INK}" stroke-width="3.4"/><circle cx="8" cy="7" r="5.5" fill="none" stroke="#3cc6a0" stroke-width="1.8"/></svg>`;
+}
+export function soapBubbleSVG() {
+  return `<svg viewBox="0 0 20 20" class="critter" xmlns="http://www.w3.org/2000/svg"><circle cx="10" cy="10" r="8.5" fill="#e8f7ff" fill-opacity=".35" stroke="#7cc8ff" stroke-width="1.2"/><path d="M5.5 7.5 Q6.5 4.5 9.5 4" stroke="#fff" stroke-width="1.6" fill="none" stroke-linecap="round"/><circle cx="13" cy="13" r="1.2" fill="#ffb3d1" opacity=".7"/></svg>`;
+}
+export function puddleSVG() {
+  return `<svg viewBox="0 0 80 14" class="critter" xmlns="http://www.w3.org/2000/svg"><path d="M4 8 Q2 2 16 3 Q30 0 46 3 Q66 1 76 6 Q80 12 62 12 Q40 14 22 12 Q4 13 4 8 Z" fill="#7cb8e0" ${thin}/><path d="M18 6 q10 -2 20 0 M50 7 q8 -2 14 0" stroke="#d6f1fb" stroke-width="1.6" fill="none" stroke-linecap="round"/></svg>`;
+}
+export function windSVG() {
+  return `<svg viewBox="0 0 50 24" class="critter" xmlns="http://www.w3.org/2000/svg"><path d="M2 8 H34 Q42 8 41 3 Q40 0 36 2 M2 16 H40 Q48 16 47 21 Q46 24 42 22 M10 12 H28" stroke="#fff" stroke-width="2.6" fill="none" stroke-linecap="round" opacity=".9"/></svg>`;
+}
+export function dropSVG() {
+  return `<svg viewBox="0 0 8 10" class="critter" xmlns="http://www.w3.org/2000/svg"><path d="M4 0.5 Q7.5 5 7.5 7 Q7.5 9.5 4 9.5 Q0.5 9.5 0.5 7 Q0.5 5 4 0.5 Z" fill="#9fd3f0" stroke="#5fa6d3" stroke-width="1"/></svg>`;
 }
 
 // ---------- the other sellers ----------
 export function hotdogStandSVG() {
   return `<svg viewBox="0 0 140 150" class="stand" xmlns="http://www.w3.org/2000/svg">
+    <ellipse cx="70" cy="146" rx="62" ry="4" fill="${INK}" opacity=".14"/>
     <path d="M70 70 V18" stroke="${INK}" stroke-width="3"/><path d="M8 36 Q70 -6 132 36 Z" fill="#ffd23f" ${OUT}/><path d="M39 36 Q55 10 70 6 Q85 10 101 36" fill="#e5484d"/><path d="M8 36 Q70 -6 132 36 Z" fill="none" ${OUT}/>
     <rect x="14" y="70" width="112" height="56" rx="8" fill="#fffaf0" ${OUT}/><rect x="14" y="70" width="112" height="14" rx="6" fill="#e5484d" ${OUT}/>
     ${emo(70, 104, '🌭', 26)}<circle cx="36" cy="136" r="11" fill="#4a4a5a" ${OUT}/><circle cx="104" cy="136" r="11" fill="#4a4a5a" ${OUT}/></svg>`;
@@ -112,12 +162,14 @@ export function hotdogStandSVG() {
 export function balloonSellerSVG() {
   const b = (x, y, c) => `<path d="M60 96 L${x} ${y + 14}" stroke="${INK}" stroke-width="1"/><ellipse cx="${x}" cy="${y}" rx="11" ry="14" fill="${c}" ${thin}/>`;
   return `<svg viewBox="0 0 120 150" class="stand" xmlns="http://www.w3.org/2000/svg">
+    <ellipse cx="60" cy="147" rx="26" ry="3" fill="${INK}" opacity=".14"/>
     ${b(40, 22, '#e5484d')}${b(62, 12, '#3a8ee6')}${b(84, 24, '#ffd23f')}${b(50, 46, '#ff6f91')}${b(76, 44, '#3cc6a0')}
     <path d="M44 150 V118 Q44 98 60 98 Q76 98 76 118 V150 Z" fill="#7d5ba6" ${OUT}/><circle cx="60" cy="88" r="12" fill="#f1c27d" ${OUT}/><path d="M48 84 Q50 72 60 72 Q70 72 72 84 Q66 78 60 80 Q54 78 48 84 Z" fill="#2b1b0e"/>
     <circle cx="56" cy="88" r="1.4" fill="${INK}"/><circle cx="64" cy="88" r="1.4" fill="${INK}"/><path d="M56 93 Q60 96 64 93" stroke="${INK}" stroke-width="1.3" fill="none"/></svg>`;
 }
 export function stickerStandSVG() {
   return `<svg viewBox="0 0 130 120" class="stand" xmlns="http://www.w3.org/2000/svg">
+    <ellipse cx="65" cy="116" rx="54" ry="4" fill="${INK}" opacity=".14"/>
     <rect x="10" y="50" width="110" height="12" rx="4" fill="#3cc6a0" ${OUT}/><path d="M22 62 V116 M108 62 V116" stroke="${INK}" stroke-width="5"/>
     <rect x="18" y="20" width="94" height="32" rx="4" fill="#fffaf0" ${OUT}/>${emo(34, 36, '⭐', 16)}${emo(54, 36, '💖', 16)}${emo(74, 36, '🌈', 16)}${emo(94, 36, '🚀', 16)}
     <rect x="30" y="2" width="70" height="16" rx="5" fill="#ff6f91" ${OUT}/><text x="65" y="11" font-size="10" font-weight="800" text-anchor="middle" dominant-baseline="central" fill="#fff" font-family="Baloo 2, sans-serif">STICKERS</text></svg>`;

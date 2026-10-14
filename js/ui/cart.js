@@ -3,7 +3,8 @@
 import { CART, CART_ITEMS, CART_ITEM, CART_SHOPS, CART_CROWD, REGULARS } from '../config.js';
 import { Cart, total, pileCount, CART_DAY_NAMES } from '../cart.js';
 import { personSVG, parkSVG, CHARACTER } from '../art.js';
-import { cartSVG, umbrellaSVG, moneySVG, treatSVG, thingSVG, swingSetSVG, swingSeatSVG, squirrelSVG, duckSVG, frisbeeSVG, balloonSVG, hotdogStandSVG, balloonSellerSVG, stickerStandSVG } from '../cartArt.js';
+import { cartSVG, umbrellaSVG, moneySVG, treatSVG, thingSVG, swingSetSVG, swingSeatSVG, balloonSVG, hotdogStandSVG, balloonSellerSVG, stickerStandSVG } from '../cartArt.js';
+import { ParkStories } from './parkStories.js';
 import { storage } from '../storage.js';
 import { esc, money, el, openModal, onActs, anyModalOpen, closeAllModals, toast, fmtTime } from './dom.js';
 
@@ -176,7 +177,7 @@ export class CartView {
   stop() {
     this.running = false;
     cancelAnimationFrame(this.raf);
-    clearTimeout(this.vigTimer);
+    this.stories?.stop();
   }
 
   // ---------- morning at home ----------
@@ -700,6 +701,7 @@ export class CartView {
     this.passers = this.stage.querySelector('.passers');
     this.serveEl = this.stage.querySelector('.serve');
     this.vig = this.stage.querySelector('.vig');
+    this.stories = new ParkStories(this.vig, { rain: !!c.state.weather.rain, busy: anyModalOpen, blockers: () => this.stage.querySelectorAll('.stand-btn, .swings, .cart-spot') });
     this.custEls = new Map();
     this.serveKey = '';
     this.hudKey = '';
@@ -754,7 +756,7 @@ export class CartView {
       this.raf = requestAnimationFrame(tick);
     };
     this.raf = requestAnimationFrame(tick);
-    this.scheduleVignette(4000);
+    this.stories.start(4000);
   }
   renderToolbar() {
     const b = (act, e, label) => `<button data-act="${act}"><b>${e}</b>${label}</button>`;
@@ -1056,40 +1058,6 @@ export class CartView {
       this.serveMsg = { text: `${yum}Thanks! Bye!`, cls: '' };
     } else this.serveMsg = { text: `${yum}Thank you!`, cls: 'good' };
     if (r.tip) this.tipCoin();
-  }
-
-  // ---------- park life in the background ----------
-  scheduleVignette(ms = 9000 + Math.random() * 12000) {
-    clearTimeout(this.vigTimer);
-    this.vigTimer = setTimeout(() => {
-      if (!this.running) return;
-      if (!anyModalOpen()) this.vignette();
-      this.scheduleVignette();
-    }, ms);
-  }
-  vignette() {
-    const kinds = ['dog', 'ducks', 'squirrel', 'balloon', 'dance'];
-    if (this.s.weather.rain) kinds.splice(kinds.indexOf('balloon'), 1);
-    const k = kinds[Math.floor(Math.random() * kinds.length)];
-    const add = (html, cls, style, life) => {
-      const e = el(`<div class="v ${cls}" style="${style}">${html}</div>`);
-      this.vig.appendChild(e);
-      setTimeout(() => e.remove(), life);
-      return e;
-    };
-    if (k === 'dog') {
-      add(`<div class="fris">${frisbeeSVG()}</div>`, 'run-fris', 'bottom:36%', 6000);
-      add(personSVG('dog', Math.floor(Math.random() * 4)), 'run-dog', 'bottom:30%', 6500);
-    } else if (k === 'ducks') {
-      add(`${duckSVG()}${duckSVG(true)}${duckSVG(true)}${duckSVG(true)}`, 'ducks', 'bottom:33%', 14000);
-    } else if (k === 'squirrel') {
-      add(squirrelSVG(), 'squirrel', 'bottom:14%', 5000);
-    } else if (k === 'balloon') {
-      const colors = ['#e5484d', '#3a8ee6', '#ffd23f', '#3cc6a0'];
-      add(balloonSVG(colors[Math.floor(Math.random() * 4)]), 'float-away', `left:${20 + Math.random() * 50}%;bottom:30%`, 9000);
-    } else if (k === 'dance') {
-      add(personSVG('kid', Math.floor(Math.random() * 48)), 'dancer', `left:${80 + Math.random() * 8}%;bottom:13%`, 9000);
-    }
   }
 
   // ---------- end of the day ----------
