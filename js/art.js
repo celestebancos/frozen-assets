@@ -252,6 +252,7 @@ export const CHARACTER = { skin: SKIN, hair: HAIR, girlStyles: GIRL_STYLES, boyS
 
 // look: a number that picks everything for a customer. me: the player's own character, chosen piece by
 // piece: { girl, skin, hair, style, shirt, pants, hat: 'cap'|'sunhat'|'beanie'|'crown'|null, shades, stars }.
+let shirtN = 0; // each striped shirt gets its own cut-out shape
 export function personSVG(kind, look = 0, me = null) {
   if (kind === 'dog') return dogSVG(look);
   if (!BUILD[kind]) kind = 'adult';
@@ -301,25 +302,21 @@ export function personSVG(kind, look = 0, me = null) {
   // one outline for the shirt: shoulders, short sleeves (unless it's a tank top), sides and hem
   const R = (dx) => 20 + dx;
   const L = (dx) => 20 - dx;
-  const torso = tank
-    ? `<path d="M${R(sw - 4)} ${sh} Q${R(sw)} ${sh} ${R(sw)} ${sh + 4} L${R(hw + 0.4)} ${top} Q20 ${top + 1.6} ${L(hw + 0.4)} ${top} L${L(sw)} ${sh + 4} Q${L(sw)} ${sh} ${L(sw - 4)} ${sh} Z" fill="${shirt}" ${OUT}/>`
-    : `<path d="M${R(sw - 4)} ${sh} Q${R(sw + 0.8)} ${sh - 0.2} ${R(sw + 1.4)} ${sh + 3} L${R(sw + 3.6)} ${sh + 9.6} L${R(sw - 2.2)} ${sh + 10.6} L${R(hw + 0.4)} ${top} Q20 ${top + 1.6} ${L(hw + 0.4)} ${top} L${L(sw - 2.2)} ${sh + 10.6} L${L(sw + 3.6)} ${sh + 9.6} L${L(sw + 1.4)} ${sh + 3} Q${L(sw + 0.8)} ${sh - 0.2} ${L(sw - 4)} ${sh} Z" fill="${shirt}" ${OUT}/>`;
-  // Stripes stay inside the shirt's outline: each one stops where the front of the shirt meets the
-  // sleeve (up top) or the side of the shirt (lower down).
-  const frontHalf = (y) => {
-    const y0 = sh + 10.6;
-    if (y <= y0) return sw - 2.2;
-    return sw - 2.2 + ((hw + 0.4 - (sw - 2.2)) * (y - y0)) / (top - y0);
-  };
-  const stripe = (y) => {
-    const h = frontHalf(y) - 1.8;
-    return `M${(20 - h).toFixed(2)} ${y} H${(20 + h).toFixed(2)}`;
-  };
-  const stripeLines = stripes
-    ? `<path d="${stripe(sh + 8)} ${stripe(sh + 14)} ${stripe(sh + 20)}" stroke="#fff" stroke-width="2.2" opacity=".75"/>`
-    : (me ? me.stars : look % 4 === 2) && !dress
-      ? star(20, sh + 10, 3.4, '#fff', 'none')
-      : '';
+  const torsoD = tank
+    ? `M${R(sw - 4)} ${sh} Q${R(sw)} ${sh} ${R(sw)} ${sh + 4} L${R(hw + 0.4)} ${top} Q20 ${top + 1.6} ${L(hw + 0.4)} ${top} L${L(sw)} ${sh + 4} Q${L(sw)} ${sh} ${L(sw - 4)} ${sh} Z`
+    : `M${R(sw - 4)} ${sh} Q${R(sw + 0.8)} ${sh - 0.2} ${R(sw + 1.4)} ${sh + 3} L${R(sw + 3.6)} ${sh + 9.6} L${R(sw - 2.2)} ${sh + 10.6} L${R(hw + 0.4)} ${top} Q20 ${top + 1.6} ${L(hw + 0.4)} ${top} L${L(sw - 2.2)} ${sh + 10.6} L${L(sw + 3.6)} ${sh + 9.6} L${L(sw + 1.4)} ${sh + 3} Q${L(sw + 0.8)} ${sh - 0.2} ${L(sw - 4)} ${sh} Z`;
+  const torso = `<path d="${torsoD}" fill="${shirt}" ${OUT}/>`;
+  // A striped shirt has bands of thin stripes (two wide lines with a thin one between) running across
+  // the body and the sleeves. They're cut to the shirt's shape, then the outline is drawn again on top.
+  let stripeLines = '';
+  if (stripes) {
+    const id = `shirt${++shirtN}`;
+    const lines = [];
+    for (let y = sh + 4.5; y < top - 2; y += 7.5) {
+      for (const [dy, w] of [[0, 1.1], [1.6, 0.5], [3.1, 1.1]]) lines.push(`<path d="M${20 - sw - 6} ${(y + dy).toFixed(2)} H${20 + sw + 6}" stroke="#fff" stroke-width="${w}" opacity=".9"/>`);
+    }
+    stripeLines = `<clipPath id="${id}"><path d="${torsoD}"/></clipPath><g clip-path="url(#${id})">${lines.join('')}</g><path d="${torsoD}" fill="none" ${OUT}/>`;
+  } else if ((me ? me.stars : look % 4 === 2) && !dress) stripeLines = star(20, sh + 10, 3.4, '#fff', 'none');
   const neckline = tank
     ? `<path d="M${20 - 4} ${sh} Q20 ${sh + 5} ${20 + 4} ${sh}" fill="${skin}" stroke="${INK}" stroke-width="0.9"/>`
     : `<path d="M${20 - 3.2} ${sh} Q20 ${sh + 3} ${20 + 3.2} ${sh}" fill="${skin}" stroke="${INK}" stroke-width="0.9"/>`;
