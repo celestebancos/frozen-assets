@@ -33,7 +33,7 @@ export const CONFIG = {
   drive: { base: 5, perPx: 0.04 },
   // Driving around a neighborhood: a few minutes of streets between places. At a place, the truck parks
   // if parties come at least parkPerHour, and drives on after leaveIdle quiet minutes.
-  cruise: { legMin: 4, legMax: 9, parkPerHour: 4, leaveIdle: 15, passMinutes: 1 },
+  cruise: { legMin: 6, legMax: 12, parkPerHour: 4, leaveIdle: 15, passMinutes: 1 },
 
   weather: {
     baseTemp: [76, 79, 83, 87, 90, 92, 92, 90, 87, 83, 79, 76],

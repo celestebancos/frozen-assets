@@ -43,6 +43,8 @@ function skyAt(min) {
 // How fast the world scrolls past the truck (world units per second) at each game speed.
 const SCROLL = { 0: 0, 1: 110, 2: 220, 3: 550, 9: 4000 }; // leisurely, like an ice cream truck
 const SVGNS = 'http://www.w3.org/2000/svg';
+// Blocks of houses (or shops) shown between two places, so landmarks don't come one right after another.
+const BLOCKS_BETWEEN = 2;
 
 // The street is one long world made of 1000-wide pieces (a block of houses, a place, a welcome sign,
 // open road) that scrolls past the truck. Pieces are added ahead as the truck goes, following the game:
@@ -69,6 +71,7 @@ export class Scene {
     this.camX = 0;
     this.target = null; // world x to stop at (a place the truck parks at)
     this.goal = null; // world x of the newest piece: scroll faster until it's in view
+    this.lastPlaceX = -Infinity; // where the last place piece was put
     this.resetKey = '';
     this.seg = null;
     this.driveKey = '';
@@ -110,9 +113,16 @@ export class Scene {
     const last = this.tiles[this.tiles.length - 1];
     return last ? last.x + 1000 : this.camX;
   }
-  // Forget pieces that haven't come into view yet (the plan changed).
-  dropUnseen() {
-    while (this.tiles.length > 1 && this.tiles[this.tiles.length - 1].x >= this.camX + 1000) this.tiles.pop().el.remove();
+  // Forget pieces that haven't come into view yet (the plan changed). keepPlaces: stop at a place
+  // that's already lined up, so places the truck passed still show.
+  dropUnseen(keepPlaces = false) {
+    while (this.tiles.length > 1) {
+      const last = this.tiles[this.tiles.length - 1];
+      if (last.x < this.camX + 1000 || (keepPlaces && last.spec.type === 'place')) break;
+      this.tiles.pop().el.remove();
+    }
+    const place = [...this.tiles].reverse().find((t) => t.spec.type === 'place');
+    this.lastPlaceX = place ? place.x : -Infinity;
   }
   // Start over with just what's under the truck right now.
   resetWorld() {
@@ -122,10 +132,12 @@ export class Scene {
     this.tiles = [];
     this.camX = 0;
     this.target = null;
+    this.lastPlaceX = -Infinity;
     const parked = s.phase === 'open' ? g.parkedAt() : null;
     if (parked) {
       this.addTile({ type: 'place', feature: parked, marketOpen: this.marketOpen() }, 0);
       this.target = 0;
+      this.lastPlaceX = 0;
     } else this.addTile(s.driving && s.phase === 'open' ? { type: 'transit', to: SPOT[s.driving.to] } : this.street(s.spot), 0);
     this.seg = s.cruise?.seg ?? null;
     this.driveKey = s.driving ? `${s.driving.from}>${s.driving.to}` : '';
@@ -133,10 +145,16 @@ export class Scene {
   }
   // The game reached a place: bring it in next. If the truck parks there, stop in front of it.
   placeAhead(featureId, park) {
-    this.dropUnseen();
+    // keep a place that's lined up but not seen yet, unless the view is falling behind the game:
+    // then the newer place takes its turn
+    const waiting = this.tiles.filter((t) => t.spec.type === 'place' && t.x >= this.camX + 1000).length;
+    this.dropUnseen(waiting === 0);
+    // a stretch of the neighborhood's houses first
+    while (this.end() < this.lastPlaceX + 1000 * (BLOCKS_BETWEEN + 1)) this.addTile(this.nextSpec(), this.end());
     const x = this.end();
     this.addTile({ type: 'place', feature: FEATURE[featureId], marketOpen: this.marketOpen() }, x);
     this.target = park ? x : null;
+    this.lastPlaceX = x;
     this.goal = x;
   }
 
