@@ -334,9 +334,9 @@ export const CART = {
   denoms: [2000, 1000, 500, 100, 25], // $20, $10, $5, $1, quarters (prices go up by quarters)
   // Grandma gives $40 to start the cart (in the cash box); your wallet has $10 of your own.
   start: { box: { 2000: 2 }, wallet: { 500: 1, 100: 5 } },
-  homeStart: 9 * 60, // the day starts at home at 9am
-  parkOpen: 10 * 60,
-  parkClose: 18 * 60,
+  homeStart: 11 * 60, // the day starts at home at 11am
+  parkOpen: 12 * 60, // four hours at the park, noon to 4pm
+  parkClose: 16 * 60,
   // Minutes each errand takes. From the park, the corner store means closing the cart for a bit.
   errand: { restaurant: 45, corner: 15, cornerFromPark: 20 },
   coolerSpace: 40, // a pop takes 1 space, a tub of Italian ice takes tubSpace
@@ -434,8 +434,8 @@ export const CART_LOOKS = { perDecal: 0.02, umbrella: 0.05, bell: 0.04, balloon:
 
 // Who walks by the park and what they do.
 export const CART_CROWD = {
-  // people walking past per hour, 10am to 6pm
-  perHour: [10, 13, 17, 16, 17, 20, 18, 13],
+  // people walking past per hour, noon to 4pm (about a dozen customers on a normal day)
+  perHour: [6, 7, 7, 6],
   weekendBoost: 1.3,
   rain: 0.35,
   hotPerDegree: 0.03, // more people want something cold for every degree over 80°F
@@ -451,7 +451,7 @@ export const CART_CROWD = {
   exact: 0.3, // pays with exact money when they can
   fastSeconds: 20, // a sale this quick (real seconds) might get a tip
   tip: { fast: 0.25, slow: 0.06, amounts: [25, 25, 50, 100] },
-  regular: { visit: 0.65, wtp: 1.4, missLimit: 3, awayDays: 5, friend: 0.3 },
+  regular: { visit: 0.5, wtp: 1.4, missLimit: 3, awayDays: 5, friend: 0.3 },
 };
 
 // Regulars: the same people most days, each with a favorite.
