@@ -9,7 +9,7 @@ Play it at **https://celestebancos.github.io/frozen-assets/** once GitHub Pages 
 New players start small, at the park, with a push cart cooler of popsicles and Italian ice. The main lesson is the sale itself: setting a price, being paid, and making change. It's calm, with kids on the swings, ducks and a dog chasing a frisbee in the background.
 
 1. **Make your character.** Grandma gives you the cart and $40 for the cash box. Your wallet has $10 of your own.
-2. **Buy treats** in bulk at the 🏬 restaurant store (45 minutes there and back): boxes of pops, boxes of little Italian ice cups, spoons and napkins. They go in the freezer at home, which has room for 300.
+2. **Buy treats** in bulk at the 🏬 restaurant store: boxes of pops, boxes of little Italian ice cups, spoons and napkins. They go in the freezer at home, which has room for 300.
 3. **Pack the cooler.** It holds 40 treats. More kinds means less of each. What doesn't sell goes back in the freezer at night.
 4. **Get change.** The 🏪 corner store has an ATM (the cart's bank account) and a change machine that breaks bills into $1s and quarters. It also sells snacks, toys, hats, sunglasses and shirts.
 5. **Set prices** in quarters. Too high and people say "Too much for me" and walk on.

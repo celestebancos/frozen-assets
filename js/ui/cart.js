@@ -193,7 +193,6 @@ export class CartView {
         this.renderHome();
       },
       restaurant: () => {
-        if (!confirm(`The restaurant store is ${K.errand.restaurant} minutes away. Go now?`)) return;
         c.errand('restaurant');
         this.save();
         this.renderHome();
@@ -222,7 +221,6 @@ export class CartView {
     const c = this.cart;
     const s = this.s;
     const w = s.weather;
-    const late = s.minute > K.parkOpen;
     const rows = CART_ITEMS.map((it) => {
       const fz = c.count('freezer', it.id);
       const co = c.count('cooler', it.id);
@@ -241,7 +239,6 @@ export class CartView {
     this.homeEl.innerHTML = `
       <div class="home-top">
         <h2 style="margin:0">${w.rain ? '🌧️' : w.temp >= 88 ? '🥵☀️' : '☀️'} ${CART_DAY_NAMES[(s.day - 1) % 7]} · Day ${s.day} · ${w.temp}°F</h2>
-        <span class="chip">🕘 ${fmtTime(s.minute)}</span>
         <button class="btn small" data-act="quit" style="margin-left:auto">🏠 Save & quit</button>
       </div>
       <div class="home-grid">
@@ -268,13 +265,12 @@ export class CartView {
         </div>
         <div class="card errands">
           <h3>🚶 Before the park</h3>
-          <button class="btn ${noStock ? 'yellow pulse' : ''}" data-act="restaurant">🏬 Restaurant store <span class="tiny">(${K.errand.restaurant} min)</span></button>
-          <button class="btn" data-act="corner">🏪 Corner store <span class="tiny">(${K.errand.corner} min)</span></button>
+          <button class="btn ${noStock ? 'yellow pulse' : ''}" data-act="restaurant">🏬 Restaurant store</button>
+          <button class="btn" data-act="corner">🏪 Corner store</button>
           <button class="btn" data-act="prices">🏷️ Prices</button>
           <button class="btn" data-act="truck">🏦 Get a truck loan</button>
           ${used && total({ 100: s.money.box[100] || 0, 25: s.money.box[25] || 0 }) < 300 ? '<p class="hint">🪙 Your cash box has hardly any small money. How will you give change? The corner store has a change machine.</p>' : ''}
           <button class="btn big go" data-act="park">🛒 Go to the park!</button>
-          ${late ? `<div class="tiny muted">You'll get there at ${fmtTime(s.minute)}.</div>` : `<div class="tiny muted">The park opens at ${fmtTime(K.parkOpen)}.</div>`}
         </div>
       </div>`;
   }
@@ -724,7 +720,7 @@ export class CartView {
       cooler: () => this.coolerView(),
       corner: () => {
         if (c.state.window) return toast('Finish with this customer first!');
-        if (!confirm(`Go to the corner store? The cart closes for ${K.errand.cornerFromPark} minutes and the line goes home.`)) return;
+        if (!confirm('Go to the corner store? The cart closes and the line goes home.')) return;
         c.errand('corner');
         this.handleEvents();
         this.save();
@@ -969,10 +965,10 @@ export class CartView {
         <div class="tiny">🧰 Your cash box. Tap money to give change:</div><div class="chips">${chips(s.money.box, 'tray', 'box', { except: this.tray, size: 50 })}</div>
         <div class="tray"><div class="tiny">Change to give:</div><div class="pieces">${pieces(this.tray, 'untray', 46)}</div></div>
         ${this.help ? `<div class="help">🤔 ${sum}${money(total(w.paid))} − ${money(w.due)} = <b>${money(owed)}</b> change</div>` : ''}
-        <div class="row serve-btns">
+        <div class="serve-btns money-btns">
           <button class="btn small" data-act="help">🤔 Help</button><button class="btn small" data-act="noChange">😬 I have no change</button>
           <button class="btn" data-act="noneNeeded">👌 No change needed</button>
-          <button class="btn big go" data-act="giveChange" ${pileCount(this.tray) ? '' : 'disabled'}>🤲 Give change</button>
+          <button class="btn go" data-act="giveChange" ${pileCount(this.tray) ? '' : 'disabled'}>🤲 Give change</button>
         </div></div>`;
     }
     const key = JSON.stringify([w.cust.id, w.stage, w.handed, this.tray, this.help, this.serveMsg, s.money.box, s.spoons, s.napkins, w.paid, s.cooler]);
