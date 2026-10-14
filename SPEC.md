@@ -9,31 +9,32 @@ This is a design spec, not a build plan for one PR. It's meant to be built in pl
 1. [Goals](#goals)
 2. [Who it's for](#who-its-for)
 3. [The shape of a career](#the-shape-of-a-career)
-4. [Zoom levels and time](#zoom-levels-and-time)
-5. [Summer and winter](#summer-and-winter)
-6. [Do it, get good, hand it off](#do-it-get-good-hand-it-off)
-7. [Trucks: buying, aging, upkeep](#trucks-buying-aging-upkeep)
-8. [Supplies, storage and ordering](#supplies-storage-and-ordering)
-9. [Serving mini-game (just for fun)](#serving-mini-game-just-for-fun)
-10. [Employees](#employees)
-11. [Managers and the boss's day](#managers-and-the-bosss-day)
-12. [Towns and the region map](#towns-and-the-region-map)
-13. [Shops](#shops)
-14. [Factories and farms (vertical integration)](#factories-and-farms-vertical-integration)
-15. [Franchising](#franchising)
-16. [Investors and selling the business](#investors-and-selling-the-business)
-17. [Loans](#loans)
-18. [Accidents and insurance](#accidents-and-insurance)
-19. [Failure and bankruptcy](#failure-and-bankruptcy)
-20. [The books at scale](#the-books-at-scale)
-21. [Economy and balance targets](#economy-and-balance-targets)
-22. [Screens](#screens)
-23. [Engineering](#engineering)
-24. [Leaderboard](#leaderboard)
-25. [Build order](#build-order)
-26. [Out of scope for now](#out-of-scope-for-now)
-27. [Decided](#decided)
-28. [Open questions](#open-questions)
+4. [The park cart (first level)](#the-park-cart-first-level)
+5. [Zoom levels and time](#zoom-levels-and-time)
+6. [Summer and winter](#summer-and-winter)
+7. [Do it, get good, hand it off](#do-it-get-good-hand-it-off)
+8. [Trucks: buying, aging, upkeep](#trucks-buying-aging-upkeep)
+9. [Supplies, storage and ordering](#supplies-storage-and-ordering)
+10. [Serving at the truck window](#serving-at-the-truck-window)
+11. [Employees](#employees)
+12. [Managers and the boss's day](#managers-and-the-bosss-day)
+13. [Towns and the region map](#towns-and-the-region-map)
+14. [Shops](#shops)
+15. [Factories and farms (vertical integration)](#factories-and-farms-vertical-integration)
+16. [Franchising](#franchising)
+17. [Investors and selling the business](#investors-and-selling-the-business)
+18. [Loans](#loans)
+19. [Accidents and insurance](#accidents-and-insurance)
+20. [Failure and bankruptcy](#failure-and-bankruptcy)
+21. [The books at scale](#the-books-at-scale)
+22. [Economy and balance targets](#economy-and-balance-targets)
+23. [Screens](#screens)
+24. [Engineering](#engineering)
+25. [Leaderboard](#leaderboard)
+26. [Build order](#build-order)
+27. [Out of scope for now](#out-of-scope-for-now)
+28. [Decided](#decided)
+29. [Open questions](#open-questions)
 
 ---
 
@@ -59,12 +60,51 @@ These are rough stages, not hard levels. Nothing is locked except by price (and 
 
 | Stage | Roughly | Net worth | What the player does | New ideas |
 |---|---|---|---|---|
+| **Park cart** | A few days to a week | Pocket money | Sells popsicles and Italian ice from a cooler, makes change by hand | Prices, making change, cash vs. wallet |
 | **Solo** | Summers 1–2 | $10k → $30k | Drives the truck, files every paper (today's game) | Income, expenses, assets, liabilities |
 | **Small fleet** | Summers 2–4 | $30k → $120k | 2–5 trucks. Hires drivers, can still drive one, plays by day or by week | Wages, profit per truck, depreciation, maintenance, storage |
 | **Boss** | Summers 4–6 | $120k → $400k | 6+ trucks, so no more driving. Sets policy, hires managers, opens a second town, maybe a first shop | Delegation, overhead, insurance, fixed costs |
 | **CEO** | Summers 6+ | $400k → $1M and beyond | Many towns, shops, factories, franchises, investors. Plays by summer, with a few decisions along the way | Profit and cost centers, make vs. buy, equity, franchise fees, what a business is worth |
 
 **Rule from the design discussion:** once the business has **many trucks** (6 or more), the player can no longer drive. They're the boss now. With fewer, driving one truck is always allowed.
+
+## The park cart (first level)
+
+Before the truck, a new player starts small: **selling popsicles and Italian ice from a push cart cooler at the park.** It's a tutorial and a calm, people-watching level. The main lesson is **the sale itself**: setting a price, being paid, and making change. (IDEAS.md had a push cart as an easier first summer.)
+
+### Getting started
+- **Make your character** at the start of the game: look, hair, clothes. The same character later drives the truck and, eventually, sits in the CEO's office.
+- A small starting amount of money (proposed: a gift or a small loan from a relative, no bank yet). A cart and cooler, and a freezer at home.
+
+### Each day
+1. **Pack the cooler.** The cooler has limited space, and the home freezer holds more. Decide what to bring today and what to leave home. More kinds means less of each. On a hot day even a full cooler may sell out. Proposed: ice packs keep it cold for one day, and what's left goes back in the home freezer at night.
+2. **Fill the cash box.** Start the day with change: $1 bills and coins. With no change, a customer paying with a $5 can't be served unless they have exact money.
+3. **Set prices.** Too high, and people say "No thanks" and walk on. Low prices sell more but earn less on each one.
+4. **Sell at the park.** Time can be sped up while waiting for customers. When someone walks up, time slows to normal, and **filling the order and making change are always done by hand, in real time**:
+   - Pick the popsicle, or scoop the Italian ice into a cup.
+   - Take their money, then count out change from the cash box by tapping bills and coins.
+   - **Give too much change** and an honest customer says "You gave me too much!" and hands it back, but another just walks off with it. **Give too little** and they'll notice and wait for the rest.
+5. **The ATM.** Deposit the day's cash, or take some out for supplies or change. The ATM gives $20s, so getting small bills and coins means a trip to the bank window (proposed) or breaking a bill at another vendor.
+
+### Customers
+- **Regulars:** some customers come back day after day and have a **favorite**. When it's in the cooler, they're happy and sometimes bring a friend. When it isn't, they're sad ("No grape today? Aww."), and if it keeps happening, they stop coming.
+- **The line:** serving quickly keeps the line short. A short line pulls in people walking by. A long line makes them keep walking.
+- **Tip jar:** a quick, friendly sale sometimes gets a tip. (Proposed: tips are the player's own money, since it's their cart.)
+
+### The park
+- **Cute scenes in the background** to watch between customers: kids on the swings, a dog chasing a frisbee, a squirrel stealing a sandwich, ducks marching across the path, a balloon floating away, a toddler dancing.
+- **Other vendors:** a hot dog stand for lunch, a balloon seller, a sticker and decal stand. The player pays from their **wallet**, and the vendor makes change, unless the player gives exact change. Proposed: a vendor sometimes gives the wrong change, so the player can practice checking it from the other side.
+- **Wallet vs. cash box:** the player's own money and the cart's money are kept apart. Paying for lunch from the cash box is taking money out of the business. It's a gentle first look at "the business's money isn't your money."
+
+### Fun stuff to buy
+- **For the cart:** decals, an umbrella, a fan, balloons, a bell.
+- **For your character:** hats, sunglasses, shirts.
+- These are mostly for fun. Spending on them vs. saving for a truck is the player's choice.
+
+### Moving up
+- When the player has saved enough (or anytime they choose), the bank offers the truck loan and the game continues as today's summer 1. Cart savings come along as extra cash.
+- The cart stays available as a **just-for-fun mini-game** from the title screen.
+- Experienced players can skip straight to the truck.
 
 ## Zoom levels and time
 
@@ -111,7 +151,7 @@ This is the core pattern, generalized from Penny's filing (`CONFIG.filing`: file
 |---|---|---|---|
 | Filing papers | Shoebox (today) | 3 first-try rights per paper type (today) | Penny (today) |
 | Counting supplies | Counting boxes in the truck view | Counts right a few weeks in a row | Penny, later a stock clerk |
-| Thawing and filling the machine | Picking how much mix to thaw each night | A week or two with little waste and no running short | Driver, following the player's rule |
+| Thawing and filling the machine | Picking how much mix to thaw each night | A week or two with little waste and no running short | A rule the player sets, which drivers follow later |
 | Loading trucks | Setting fill-to levels | A week or two with no trucks going out short | Stock clerk |
 | Ordering supplies | Placing supplier orders | A few weeks with no sell-outs from late orders, and low spoilage | Purchasing manager, following the player's reorder rules (IDEAS.md: automatic reordering) |
 | Prices and menu | Price panel | A week of no "too expensive" losses and decent margins | Driver or manager, within a price range the player sets |
@@ -189,7 +229,7 @@ Mix spoiling gets closer to real life. It comes **frozen** and goes through thre
 - **The machine** holds a set amount. It's filled from thawed mix each morning. At night it's put in **night mode** (costs a little power) or emptied. Every few days it must be cleaned, and whatever is left in it is thrown away.
 - **Freezer space is the tight one.** Dry boxes can go on shelves, but frozen mix needs freezer room. A bigger freezer is an upgrade for the truck, and later a reason to rent freezer space.
 - **Winter:** frozen mix can be kept to next summer, but only if someone pays to keep the freezer on. Otherwise it's thrown out (today's rule).
-- Handing off: once the player thaws and fills well (little waste, no running short), a driver can do it by a rule ("thaw 2 cartons a night, 3 on weekends").
+- **Manual at first.** The player thaws by hand each evening. Once they do it well (little waste, no running short), they can set a rule instead ("thaw what I sold today", "thaw 2 cartons a night, 3 on weekends"), which a driver follows later.
 
 ### Morning load-out
 
@@ -219,12 +259,13 @@ The same do-it, get-good, hand-off rule applies:
 - **Ordering:** the player places supplier orders. It's handed to a **purchasing manager** after a few weeks with no sell-outs from late orders and low spoilage. They follow the player's rules: "When cake cones drop below 2,000, order 5,000."
 - How well a helper follows the rules depends on who was hired. A sloppy clerk miscounts, and a sloppy buyer orders late.
 
-## Serving mini-game (just for fun)
+## Serving at the truck window
 
-An optional view **inside the truck at the window**: a customer orders, and the player picks the cone, pulls the soft serve, adds sprinkles, takes the money and **makes change** from the cash drawer.
+An optional view **inside the truck at the window**, using the same serving and change-making as the [park cart](#the-park-cart-first-level): a customer orders, and the player picks the cone, pulls the soft serve, adds sprinkles, takes the money and **makes change** from the cash drawer. Always by hand and in real time.
 - **Not required.** The truck serves on its own as it does today. The player can jump in for a few customers whenever they like.
-- Good practice for making change, which fits the game's audience.
-- Proposed: purely for fun at first. **Open:** whether doing it well should matter a little (a faster line, a tip).
+- **The right size cone:** hold the lever to fill. Too small, and the customer is disappointed (a popularity hit). Too big uses extra mix, so each cone earns less. Just right gets a smile.
+- **Doing it well matters a little:** a fast window keeps the line short, which pulls in people who would have walked by, and a tip jar collects tips.
+- The truck needs a cash float too: start the day with change, and deposit at the ATM.
 
 ## Employees
 
@@ -424,6 +465,7 @@ The 10-hour arc needs the business to roughly **double each summer** from about 
 
 | Stage | Summers | Real time per summer | Total |
 |---|---|---|---|
+| Park cart | Before summer 1 | | ~30 minutes |
 | Solo | 1–2 | ~1.5 hours | ~3 hours |
 | Small fleet | 2–4 | ~1 hour | ~3 hours |
 | Boss | 4–6 | ~40 minutes | ~2 hours |
@@ -437,6 +479,7 @@ Laptop first. The phone must work but can be cramped.
 
 | Screen | When it matters | Contents |
 |---|---|---|
+| **Park** | Park cart | The cart, the line, the cash box, and the park behind |
 | **Street** | Solo and small fleet | Today's scene |
 | **Fleet** | Small fleet | One row per truck: driver, today's sales, stock, mood, went out short. Tap a row to watch that truck |
 | **Supply room** | Small fleet on | Stock by place, space used, orders on the way, fill-to levels, reorder rules |
@@ -468,17 +511,18 @@ New fields in the Airtable `Scores` table (README setup to be updated):
 
 ## Build order
 
-Each phase is playable and merged on its own. Phases 2 and 3 can go in either order. The [serving mini-game](#serving-mini-game-just-for-fun) can go in at any time.
+Each phase is playable and merged on its own. Phases 3 and 4 can go in either order. [Serving at the truck window](#serving-at-the-truck-window) reuses the cart's serving and can go in any time after phase 0.
 
-0. **One truck, more real.** Restaurant store as a place on the map. Inside-the-truck view with space limits and boxes piling up. Counting by hand. Frozen, thawed and in-the-machine mix. Fits today's single-summer game, so it can ship first.
-1. **Fleet and crew.** Several trucks in the home town, with crowd splitting. Hire drivers from the bot pool, with wages, green period, call-offs, quits, bad apples and firing. The boss's day. Per-truck weekly papers and payroll. Profit by truck. Parking and storage. A supply room with fill-to levels and morning load-out (supplies still come from the restaurant store, now with a store run for each truck). Winter planning screen. Player-chosen end of summer. Town zoom (play by week).
-2. **Ordering ahead.** Supplier deliveries with bulk prices and wait times, supplies on the way, supply room rent and space limits, freezer vs. dry space, supply counts and shrinkage, weather forecast.
-3. **Aging fleet.** Depreciation, maintenance, breakdowns, used trucks, selling trucks, garage. Accidents and insurance. Bank offering growth loans. Cash crunch.
-4. **Hand-offs and managers.** Generalize the do-it/get-good/hand-off rule to loading, ordering, prices, routes, payroll and hiring. Owned warehouses. Managers and span of control. Boss-only at 6+ trucks.
-5. **More towns.** Region map, region zoom, fast model, town managers, per-town papers.
-6. **Shops.** Rent or buy, equipment, shop staff.
-7. **Factories.** Cone bakery first, then mix plant, candy and maybe farms. Selling extra output.
-8. **Investors, franchising, selling out.** Equity slices, franchise fees and royalties, buyer offers, retirement, bankruptcy and new business. Leaderboard fields.
+0. **The park cart.** Character creation, packing the cooler, cash float and ATM, setting prices, selling and making change by hand, regulars with favorites, the line and tip jar, park scenes, other vendors, decals and clothes. Then on to the truck. Also playable from the title screen.
+1. **One truck, more real.** Restaurant store as a place on the map. Inside-the-truck view with space limits and boxes piling up. Counting by hand. Frozen, thawed and in-the-machine mix. Fits today's single-summer game, so it can ship before any fleet work.
+2. **Fleet and crew.** Several trucks in the home town, with crowd splitting. Hire drivers from the bot pool, with wages, green period, call-offs, quits, bad apples and firing. The boss's day. Per-truck weekly papers and payroll. Profit by truck. Parking and storage. A supply room with fill-to levels and morning load-out (supplies still come from the restaurant store, now with a store run for each truck). Winter planning screen. Player-chosen end of summer. Town zoom (play by week).
+3. **Ordering ahead.** Supplier deliveries with bulk prices and wait times, supplies on the way, supply room rent and space limits, freezer vs. dry space, supply counts and shrinkage, weather forecast.
+4. **Aging fleet.** Depreciation, maintenance, breakdowns, used trucks, selling trucks, garage. Accidents and insurance. Bank offering growth loans. Cash crunch.
+5. **Hand-offs and managers.** Generalize the do-it/get-good/hand-off rule to loading, ordering, prices, routes, payroll and hiring. Owned warehouses. Managers and span of control. Boss-only at 6+ trucks.
+6. **More towns.** Region map, region zoom, fast model, town managers, per-town papers.
+7. **Shops.** Rent or buy, equipment, shop staff.
+8. **Factories.** Cone bakery first, then mix plant, candy and maybe farms. Selling extra output.
+9. **Investors, franchising, selling out.** Equity slices, franchise fees and royalties, buyer offers, retirement, bankruptcy and new business. Leaderboard fields.
 
 ## Out of scope for now
 
@@ -496,11 +540,15 @@ Each phase is playable and merged on its own. Phases 2 and 3 can go in either or
 - No severance.
 - Penny becomes head of accounting.
 - Space limits start in summer 1. Deliveries that don't fit go back, with a return fee if it keeps happening.
+- New players start with the park cart. Serving and making change are always by hand and in real time; waiting can be sped up.
+- Serving well at the truck window helps a little: shorter line, tips, the right size cone.
+- Thawing mix is by hand at first, then a rule once mastered.
 
 ## Open questions
 
 1. **"Good at it" tests** for each job: proposed above, to be tuned.
 2. **Buying back investors' slices:** allowed or not?
-3. **Serving mini-game:** purely for fun, or should doing it well help a little (faster line, tips)?
-4. **How hands-on mix is for a 7-year-old:** thawing every evening could get tedious. Maybe a simple rule from the start ("thaw what I sold today") that the player can change?
-5. **When the return fee starts:** after how many turned-away deliveries?
+3. **When the return fee starts:** after how many turned-away deliveries?
+4. **Park cart length:** a few days, a week, or until a savings goal? Does the bank need to see the cart's results before lending for a truck?
+5. **Cart melting:** do ice packs and melting matter, or is the cooler simply cold all day?
+6. **Getting change:** a bank window for coins and $1s, or can the ATM give small bills?
