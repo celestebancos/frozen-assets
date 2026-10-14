@@ -276,7 +276,7 @@ export class CartView {
           <button class="btn" data-act="truck">🏦 Get a truck loan</button>
           ${used && total({ 100: s.money.box[100] || 0, 25: s.money.box[25] || 0 }) < 300 ? '<p class="hint">🪙 Your cash box has hardly any small money. How will you give change? The corner store has a change machine.</p>' : ''}
           <button class="btn big go" data-act="park">🛒 Go to the park!</button>
-          ${late ? `<div class="tiny muted">You'll get there at ${fmtTime(s.minute)}.</div>` : '<div class="tiny muted">The park opens at 10:00am.</div>'}
+          ${late ? `<div class="tiny muted">You'll get there at ${fmtTime(s.minute)}.</div>` : `<div class="tiny muted">The park opens at ${fmtTime(K.parkOpen)}.</div>`}
         </div>
       </div>`;
   }
