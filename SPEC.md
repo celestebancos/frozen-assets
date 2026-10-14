@@ -60,7 +60,7 @@ These are rough stages, not hard levels. Nothing is locked except by price (and 
 
 | Stage | Roughly | Net worth | What the player does | New ideas |
 |---|---|---|---|---|
-| **Park cart** | A few days to a week | Pocket money | Sells popsicles and Italian ice from a cooler, makes change by hand | Prices, making change, cash vs. wallet |
+| **Park cart** | As long as they like | Pocket money | Sells popsicles and Italian ice from a cooler, makes change by hand | Prices, making change, cash vs. wallet |
 | **Solo** | Summers 1–2 | $10k → $30k | Drives the truck, files every paper (today's game) | Income, expenses, assets, liabilities |
 | **Small fleet** | Summers 2–4 | $30k → $120k | 2–5 trucks. Hires drivers, can still drive one, plays by day or by week | Wages, profit per truck, depreciation, maintenance, storage |
 | **Boss** | Summers 4–6 | $120k → $400k | 6+ trucks, so no more driving. Sets policy, hires managers, opens a second town, maybe a first shop | Delegation, overhead, insurance, fixed costs |
@@ -75,16 +75,17 @@ Before the truck, a new player starts small: **selling popsicles and Italian ice
 ### Getting started
 - **Make your character** at the start of the game: look, hair, clothes. The same character later drives the truck and, eventually, sits in the CEO's office.
 - A small starting amount of money (proposed: a gift or a small loan from a relative, no bank yet). A cart and cooler, and a freezer at home.
+- **Stock** (popsicles and Italian ice) is bought in bulk at the **restaurant store**, the same store the truck uses later, and kept in the home freezer.
 
 ### Each day
-1. **Pack the cooler.** The cooler has limited space, and the home freezer holds more. Decide what to bring today and what to leave home. More kinds means less of each. On a hot day even a full cooler may sell out. Proposed: ice packs keep it cold for one day, and what's left goes back in the home freezer at night.
+1. **Pack the cooler.** The cooler has limited space, and the home freezer holds more. Decide what to bring today and what to leave home. More kinds means less of each. On a hot day even a full cooler may sell out. The cooler has a battery that keeps it cold all day (melting isn't part of the game), and what's left goes back in the home freezer at night.
 2. **Fill the cash box.** Start the day with change: $1 bills and coins. With no change, a customer paying with a $5 can't be served unless they have exact money.
 3. **Set prices.** Too high, and people say "No thanks" and walk on. Low prices sell more but earn less on each one.
 4. **Sell at the park.** Time can be sped up while waiting for customers. When someone walks up, time slows to normal, and **filling the order and making change are always done by hand, in real time**:
    - Pick the popsicle, or scoop the Italian ice into a cup.
    - Take their money, then count out change from the cash box by tapping bills and coins.
    - **Give too much change** and an honest customer says "You gave me too much!" and hands it back, but another just walks off with it. **Give too little** and they'll notice and wait for the rest.
-5. **The ATM.** Deposit the day's cash, or take some out for supplies or change. The ATM gives $20s, so getting small bills and coins means a trip to the bank window (proposed) or breaking a bill at another vendor.
+5. **The corner store.** A little convenience store near the park has an **ATM** (deposit the day's cash, or take some out) and a **change machine** next to it that turns bills into $1s and coins for the cash box. It also sells snacks and toys.
 
 ### Customers
 - **Regulars:** some customers come back day after day and have a **favorite**. When it's in the cooler, they're happy and sometimes bring a friend. When it isn't, they're sad ("No grape today? Aww."), and if it keeps happening, they stop coming.
@@ -99,10 +100,12 @@ Before the truck, a new player starts small: **selling popsicles and Italian ice
 ### Fun stuff to buy
 - **For the cart:** decals, an umbrella, a fan, balloons, a bell.
 - **For your character:** hats, sunglasses, shirts.
+- **Snacks and toys** from the corner store.
 - These are mostly for fun. Spending on them vs. saving for a truck is the player's choice.
 
 ### Moving up
-- When the player has saved enough (or anytime they choose), the bank offers the truck loan and the game continues as today's summer 1. Cart savings come along as extra cash.
+- **Play the cart as long as you like.** At any point, go to the bank for a truck loan, and the game continues as today's summer 1. The bank doesn't look at the cart's results.
+- **Cart cash becomes the owner's share** of the new truck business: the first paper in the shoebox is "Owner put in $___". That's the first look at owner's share as money the owner put in, before any profit.
 - The cart stays available as a **just-for-fun mini-game** from the title screen.
 - Experienced players can skip straight to the truck.
 
@@ -191,7 +194,7 @@ Today, supplies are bought instantly from the store in any amount, and there's n
 | **Warehouse** (owned, later) | Pallets, for a town or the region | Bought (an asset that depreciates), plus power and upkeep |
 | **Shop back room** | The shop's own stock | Part of the shop |
 
-- **Space has a hard limit.** When a delivery doesn't all fit, the driver **takes back whatever doesn't fit** (refunded). If it keeps happening, the supplier starts charging a **return fee**.
+- **Space has a hard limit.** When a delivery doesn't all fit, the driver **takes back whatever doesn't fit** (refunded).
 - Freezer, fridge and dry shelves are separate spaces (see [soft serve mix](#soft-serve-mix)).
 
 ### The restaurant store (starts in summer 1)
@@ -513,7 +516,7 @@ New fields in the Airtable `Scores` table (README setup to be updated):
 
 Each phase is playable and merged on its own. Phases 3 and 4 can go in either order. [Serving at the truck window](#serving-at-the-truck-window) reuses the cart's serving and can go in any time after phase 0.
 
-0. **The park cart.** Character creation, packing the cooler, cash float and ATM, setting prices, selling and making change by hand, regulars with favorites, the line and tip jar, park scenes, other vendors, decals and clothes. Then on to the truck. Also playable from the title screen.
+0. **The park cart.** Character creation, buying stock in bulk at the restaurant store, packing the cooler, the corner store (ATM, change machine, snacks and toys), cash float, setting prices, selling and making change by hand, regulars with favorites, the line and tip jar, park scenes, other vendors, decals and clothes. Then a truck loan whenever the player wants, with cart cash as the owner's share. Also playable from the title screen.
 1. **One truck, more real.** Restaurant store as a place on the map. Inside-the-truck view with space limits and boxes piling up. Counting by hand. Frozen, thawed and in-the-machine mix. Fits today's single-summer game, so it can ship before any fleet work.
 2. **Fleet and crew.** Several trucks in the home town, with crowd splitting. Hire drivers from the bot pool, with wages, green period, call-offs, quits, bad apples and firing. The boss's day. Per-truck weekly papers and payroll. Profit by truck. Parking and storage. A supply room with fill-to levels and morning load-out (supplies still come from the restaurant store, now with a store run for each truck). Winter planning screen. Player-chosen end of summer. Town zoom (play by week).
 3. **Ordering ahead.** Supplier deliveries with bulk prices and wait times, supplies on the way, supply room rent and space limits, freezer vs. dry space, supply counts and shrinkage, weather forecast.
@@ -539,16 +542,16 @@ Each phase is playable and merged on its own. Phases 3 and 4 can go in either or
 - Investors are paid only when the business is sold.
 - No severance.
 - Penny becomes head of accounting.
-- Space limits start in summer 1. Deliveries that don't fit go back, with a return fee if it keeps happening.
+- Space limits start in summer 1. Deliveries that don't fit go back.
 - New players start with the park cart. Serving and making change are always by hand and in real time; waiting can be sped up.
 - Serving well at the truck window helps a little: shorter line, tips, the right size cone.
 - Thawing mix is by hand at first, then a rule once mastered.
+- The park cart can be played as long as the player likes. A truck loan is available at any point, the bank ignores cart results, and cart cash becomes the owner's share of the truck business.
+- The cart's cooler stays cold all day (battery). No melting.
+- Change comes from a change machine next to the ATM at the corner store, which also sells snacks and toys.
+- Cart stock is bought in bulk at the restaurant store.
 
 ## Open questions
 
 1. **"Good at it" tests** for each job: proposed above, to be tuned.
 2. **Buying back investors' slices:** allowed or not?
-3. **When the return fee starts:** after how many turned-away deliveries?
-4. **Park cart length:** a few days, a week, or until a savings goal? Does the bank need to see the cart's results before lending for a truck?
-5. **Cart melting:** do ice packs and melting matter, or is the cooler simply cold all day?
-6. **Getting change:** a bank window for coins and $1s, or can the ATM give small bills?
