@@ -3,7 +3,7 @@
 import { CART, CART_ITEMS, CART_ITEM, CART_SHOPS, CART_CROWD, REGULARS } from '../config.js';
 import { Cart, total, pileCount, CART_DAY_NAMES } from '../cart.js';
 import { personSVG, parkSVG, CHARACTER, PARK_VIEW } from '../art.js';
-import { cartSVG, umbrellaSVG, moneySVG, treatSVG, thingSVG, swingSetSVG, swingSeatSVG, balloonSVG, hotdogStandSVG, balloonSellerSVG, stickerStandSVG } from '../cartArt.js';
+import { cartSVG, STICKER_AREA, umbrellaSVG, moneySVG, treatSVG, thingSVG, swingSetSVG, swingSeatSVG, balloonSVG, hotdogStandSVG, balloonSellerSVG, stickerStandSVG } from '../cartArt.js';
 import { ParkStories } from './parkStories.js';
 import { storage } from '../storage.js';
 import { esc, money, el, openModal, onActs, anyModalOpen, closeAllModals, toast, fmtTime } from './dom.js';
@@ -38,9 +38,10 @@ export function meSVG(look, wearing = {}) {
   });
 }
 // park: at the park the umbrella is drawn separately, up over the kid's head.
-function cartArt(c, park = false) {
+// pick: a sticker to circle (while you're sticking it on), shown close up.
+function cartArt(c, park = false, pick = null) {
   const s = c.state;
-  return cartSVG({ decals: c.decals(), umbrella: !park && c.has('umbrella'), fan: c.has('fan'), bell: c.has('bell'), balloon: s.balloon });
+  return cartSVG({ decals: c.decalsPlaced(), umbrella: !park && c.has('umbrella'), fan: c.has('fan'), bell: c.has('bell'), balloon: pick ? null : s.balloon, pick, tight: !!pick });
 }
 function cartSpot(c) {
   return `${c.has('umbrella') ? `<div class="umb">${umbrellaSVG()}</div>` : ''}<div class="me">${meSVG(c.state.look, c.state.wearing)}</div><div class="the-cart">${cartArt(c, true)}</div>`;
@@ -215,6 +216,7 @@ export class CartView {
       },
       prices: () => this.prices(() => this.renderHome()),
       closet: () => this.closet(() => this.renderHome()),
+      stickers: () => this.placeStickers(null, () => this.renderHome()),
       moveMoney: () => this.moveMoney(() => this.renderHome()),
       truck: () => this.truckLoan(),
       park: () => {
@@ -255,6 +257,7 @@ export class CartView {
           <div class="me-pic">${meSVG(s.look, s.wearing)}</div>
           <div class="cart-pic">${cartArt(c)}</div>
           <button class="btn small" data-act="closet">👕 Closet</button>
+          ${c.decals().length ? '<button class="btn small" data-act="stickers">🌟 Stickers</button>' : ''}
         </div>
         <div class="card">
           <h3>🧊 Pack the cooler</h3>
@@ -337,12 +340,14 @@ export class CartView {
         this.payFlow(id, basket, forCart ? 'box' : 'wallet', (res) => {
           if (!res) return;
           const got = res.got.map((g) => g.kind);
+          const sticker = res.got.find((g) => g.kind === 'decal');
           if (got.includes('snack')) toast('😋 Yum!');
           else if (got.includes('hat') || got.includes('shirt') || got.includes('glasses')) toast('😎 Looking good!');
           basket = {};
           this.save();
           m.refresh();
           this.refreshScene?.();
+          if (sticker) this.placeStickers(sticker.id); // stick it on right away
         });
       },
     });
@@ -591,6 +596,50 @@ export class CartView {
         m.refresh();
       },
     });
+  }
+
+  // Stick stickers on the cart: pick one, then tap the cart where it goes. Tap again to move it.
+  placeStickers(pickId, onClose) {
+    const c = this.cart;
+    let pick = pickId || c.decals()[0];
+    const m = openModal({
+      title: '🌟 Stick it on!',
+      cls: 'narrow',
+      onClose: () => {
+        this.save();
+        this.refreshScene?.();
+        onClose?.();
+      },
+      render: (body) => {
+        body.innerHTML = `<p style="margin-top:0">Pick a sticker, then tap your cart where you want it. Tap again to move it.</p>
+          <div class="sticker-pick">${c
+            .decals()
+            .map((id) => `<button class="btn small ${id === pick ? 'on' : ''}" data-act="pick" data-id="${id}" aria-label="${esc(ITEM[id].name)}">${ITEM[id].emoji}</button>`)
+            .join('')}</div>
+          <div class="sticker-cart">${cartArt(c, true, pick)}</div>
+          <div class="row" style="justify-content:flex-end"><button class="btn big go" data-act="done">Done ✓</button></div>`;
+        const svg = body.querySelector('.sticker-cart svg');
+        svg.addEventListener('click', (e) => {
+          const r = svg.getBoundingClientRect();
+          const vb = svg.viewBox.baseVal;
+          const x = vb.x + ((e.clientX - r.left) / r.width) * vb.width;
+          const y = vb.y + ((e.clientY - r.top) / r.height) * vb.height;
+          // only taps on the side of the cart count (a little slack around the edges)
+          const A = STICKER_AREA;
+          if (!pick || x < A.x - 20 || x > A.x + A.w + 20 || y < A.y - 20 || y > A.y + A.h + 20) return;
+          c.placeDecal(pick, (x - A.x) / A.w, (y - A.y) / A.h);
+          m.refresh();
+        });
+      },
+    });
+    onActs(m.body, {
+      pick: (t) => {
+        pick = t.dataset.id;
+        m.refresh();
+      },
+      done: () => m.close(),
+    });
+    return m;
   }
 
   closet(onClose) {

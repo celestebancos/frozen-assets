@@ -519,6 +519,11 @@ table.books tr.bottom td { font-weight: 800; font-size: 18px; background: #fff3b
 .me-card { display: flex; flex-direction: column; align-items: center; gap: 6px; }
 .me-pic { width: 90px; } .me-pic svg { width: 100%; height: auto; display: block; }
 .cart-pic { width: 100%; max-width: 200px; } .cart-pic svg { width: 100%; height: auto; display: block; }
+/* sticking stickers on the cart */
+.sticker-pick { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 6px; }
+.sticker-pick .btn { font-size: 24px; min-width: 52px; }
+.sticker-cart { max-width: 420px; margin: 0 auto; }
+.sticker-cart svg { width: 100%; height: auto; display: block; cursor: crosshair; touch-action: manipulation; }
 .pack-row { display: grid; grid-template-columns: 38px minmax(70px, 1fr) auto; align-items: center; gap: 2px 8px; padding: 4px 0; border-bottom: 1px dashed var(--line); }
 .pack-row .pk { grid-column: 2 / 4; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .pack-row .ic { grid-row: span 2; }

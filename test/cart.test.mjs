@@ -442,3 +442,19 @@ test('a slow but steady server (about 30 real seconds a customer) keeps the line
   }
   assert.ok(left <= customers * 0.05, `${left} left the line out of ${customers}`);
 });
+
+test('stickers can be stuck anywhere on the cart, and older saves keep their usual spots', () => {
+  const c = Cart.create({ player: 'Sticky', look: { girl: true, skin: 0, hair: 0, style: 'long', shirt: '#ff6f91', pants: '#355070' }, seed: 3 });
+  assert.equal(c.placeDecal('decalStar', 0.5, 0.5), false, "can't stick a sticker you don't have");
+  c.state.owned.push('decalStar', 'decalHeart');
+  assert.equal(c.placeDecal('decalStar', 0.25, 0.75), true);
+  assert.deepEqual(c.decalsPlaced(), [{ id: 'decalStar', at: [0.25, 0.75] }, { id: 'decalHeart', at: null }]);
+  c.placeDecal('decalHeart', 1.7, -2); // off the edge: stays on the cart
+  assert.deepEqual(c.state.decalSpots.decalHeart, [1, 0]);
+  assert.equal(c.placeDecal('decalStar', NaN, 0.5), false);
+  // a save from before stickers could be moved
+  const old = JSON.parse(JSON.stringify(c.state));
+  delete old.decalSpots;
+  const back = new Cart(old);
+  assert.deepEqual(back.decalsPlaced().map((d) => d.at), [null, null]);
+});
