@@ -443,7 +443,9 @@ export const CART_CROWD = {
   rainChance: 0.12,
   join: 0.34, // chance someone walking by wants something
   lineJoin: [1, 0.85, 0.65, 0.45, 0.3, 0.15], // fewer people join a longer line
-  patience: [8, 16], // game minutes someone waits in line before giving up
+  // game minutes someone waits in line before giving up. While anyone is at the cart, a game minute takes
+  // 3 real seconds, so this is 3 to 5 real minutes.
+  patience: [60, 100],
   // family: a grown-up and 2 or 3 kids; friends: 3 or 4 teens. Each person picks a treat, so groups order 3+.
   kinds: { kid: 4, teen: 2, adult: 2.5, parentKid: 1.5, family: 0.5, friends: 0.4 },
   wtp: { kid: [0.9, 1.4], teen: [1, 1.5], adult: [1.05, 1.7] }, // most they'll pay, times the fair price

@@ -412,3 +412,33 @@ test('now and then a group orders 3 or more things, and can pay for them', () =>
   const o = c.orderFor(g);
   assert.ok(o.items.length >= 3, `ordered ${o.items}`);
 });
+
+test('a slow but steady server (about 30 real seconds a customer) keeps the line', () => {
+  let left = 0;
+  let customers = 0;
+  for (let seed = 1; seed <= 10; seed++) {
+    const c = Cart.create({ player: 'Test', seed });
+    for (const id of ['rocketPop', 'fudgePop', 'freezePop', 'iceCherry']) c.state.freezer.pops[id] = 10;
+    for (const id of ['rocketPop', 'fudgePop', 'freezePop', 'iceCherry']) c.pack(id, 10);
+    c.state.spoons = 50;
+    c.state.money.box = { 1000: 3, 500: 4, 100: 20, 25: 20 };
+    c.openPark();
+    let guard = 0;
+    while (c.state.phase === 'park' && guard++ < 5000) {
+      const w = c.state.window;
+      if (w && w.stage === 'order') {
+        for (let i = 0; i < 10; i++) c.step(); // 10 game minutes = 30 real seconds at the serving pace
+        serve(c);
+      } else if (w && w.stage === 'change') {
+        const ch = makeAmount(c.state.money.box, total(w.paid) - w.due);
+        if (ch) c.giveChange(ch);
+        else c.noChange();
+      } else if (w) c.dismiss();
+      else if (!c.step() && !c.state.window) c.closePark();
+    }
+    const d = c.state.days[c.state.days.length - 1];
+    left += d.leftLine;
+    customers += d.customers;
+  }
+  assert.ok(left <= customers * 0.05, `${left} left the line out of ${customers}`);
+});
