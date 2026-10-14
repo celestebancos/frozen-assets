@@ -13,24 +13,25 @@ This is a design spec, not a build plan for one PR. It's meant to be built in pl
 5. [Summer and winter](#summer-and-winter)
 6. [Do it, get good, hand it off](#do-it-get-good-hand-it-off)
 7. [Trucks: buying, aging, upkeep](#trucks-buying-aging-upkeep)
-8. [Employees](#employees)
-9. [Managers and the boss's day](#managers-and-the-bosss-day)
-10. [Towns and the region map](#towns-and-the-region-map)
-11. [Shops](#shops)
-12. [Factories and farms (vertical integration)](#factories-and-farms-vertical-integration)
-13. [Franchising](#franchising)
-14. [Investors and selling the business](#investors-and-selling-the-business)
-15. [Loans](#loans)
-16. [Accidents and insurance](#accidents-and-insurance)
-17. [Failure and bankruptcy](#failure-and-bankruptcy)
-18. [The books at scale](#the-books-at-scale)
-19. [Economy and balance targets](#economy-and-balance-targets)
-20. [Screens](#screens)
-21. [Engineering](#engineering)
-22. [Leaderboard](#leaderboard)
-23. [Build order](#build-order)
-24. [Out of scope for now](#out-of-scope-for-now)
-25. [Open questions](#open-questions)
+8. [Supplies, storage and ordering](#supplies-storage-and-ordering)
+9. [Employees](#employees)
+10. [Managers and the boss's day](#managers-and-the-bosss-day)
+11. [Towns and the region map](#towns-and-the-region-map)
+12. [Shops](#shops)
+13. [Factories and farms (vertical integration)](#factories-and-farms-vertical-integration)
+14. [Franchising](#franchising)
+15. [Investors and selling the business](#investors-and-selling-the-business)
+16. [Loans](#loans)
+17. [Accidents and insurance](#accidents-and-insurance)
+18. [Failure and bankruptcy](#failure-and-bankruptcy)
+19. [The books at scale](#the-books-at-scale)
+20. [Economy and balance targets](#economy-and-balance-targets)
+21. [Screens](#screens)
+22. [Engineering](#engineering)
+23. [Leaderboard](#leaderboard)
+24. [Build order](#build-order)
+25. [Out of scope for now](#out-of-scope-for-now)
+26. [Open questions](#open-questions)
 
 ---
 
@@ -108,7 +109,8 @@ This is the core pattern, generalized from Penny's filing (`CONFIG.filing`: file
 | Job | Done by hand | "Good at it" means (proposed) | Handed to |
 |---|---|---|---|
 | Filing papers | Shoebox (today) | 3 first-try rights per paper type (today) | Penny (today) |
-| Stocking a truck | Buying supplies each morning | A week with no sell-outs and little spoilage | Driver, following the player's restock rules (IDEAS.md: automatic reordering) |
+| Loading trucks | Setting fill-to levels | A week or two with no trucks going out short | Stock clerk |
+| Ordering supplies | Placing supplier orders | A few weeks with no sell-outs from late orders, and low spoilage | Purchasing manager, following the player's reorder rules (IDEAS.md: automatic reordering) |
 | Prices and menu | Price panel | A week of no "too expensive" losses and decent margins | Driver or manager, within a price range the player sets |
 | Routes | Map and week plan (today) | A week near the crowd-following bot's sales | Driver (skill decides how well) |
 | Payroll | A weekly payroll paper per truck | Payroll papers filed right | Bookkeeper |
@@ -131,6 +133,52 @@ This is the core pattern, generalized from Penny's filing (`CONFIG.filing`: file
   
   Cost grows with the truck's age. Skimping shows up as **breakdowns during summer**: a lost day or more, a tow, and a repair bill.
 - **Repair or upgrade** (IDEAS.md): a repair is an expense, but a new freezer is something you own.
+
+## Supplies, storage and ordering
+
+Today, supplies are bought instantly from the store in any amount, and there's no limit on how much can be kept. That's fine for one truck. With a fleet, **getting every truck what it needs every morning** becomes one of the main jobs, and storage and ordering start to cost money and time.
+
+### Where supplies live
+
+| Place | Holds | Cost |
+|---|---|---|
+| **Truck** | One or two days' worth. A small freezer for mix, shelves for cones, bowls, napkins | Comes with the truck |
+| **Garage shelf** | A little extra for a solo player | Comes with parking, or the garage |
+| **Supply room** (rented) | A few days' to weeks' worth for a fleet | Rent per week, by size. **Freezer space costs more than dry shelves** |
+| **Warehouse** (owned, later) | Pallets, for a town or the region | Bought (an asset that depreciates), plus power and upkeep |
+| **Shop back room** | The shop's own stock | Part of the shop |
+
+- Space has a hard limit. A delivery bigger than the space is **refused**, or costs an overflow fee for a few days somewhere else. Proposed: the overflow fee, since it's gentler and still teaches the lesson.
+- Mix still spoils (`shelfLife`) wherever it is. Storing more doesn't make it last longer.
+- **Supply counts:** the books say how much should be there. A count says what is. The gap is **shrinkage**: drops, waste, or a skimming employee. This builds on the existing "Inventory of supplies used" paper and gives bad apples another way to be caught.
+
+### Morning load-out
+
+- Each truck has **fill-to levels** for each supply ("start each day with 150 vanilla, 200 cake cones…"). Each morning, trucks are loaded from the supply room up to those levels.
+- If the supply room runs short, trucks go out short and sell out early. The fleet screen shows which trucks went out short and of what.
+- Loading takes a bit of time per truck, so a crowded supply room means a later start. Proposed: only matters at 6+ trucks, otherwise it's instant.
+- At first the player sets fill-to levels per truck. Later, one rule can be set for all trucks, adjusted for each truck's sales.
+
+### Ordering
+
+| Way to buy | Size | Price | Wait | Notes |
+|---|---|---|---|---|
+| **Restaurant store** (today's shop) | A truck's worth | Full price | None | Someone has to go get it. Proposed: about an hour of the boss's or a driver's morning |
+| **Supplier delivery** | Cases to pallets | Cheaper per unit, the more you order | 2–7 days; **bigger orders take longer** | Minimum order. Pay extra for a rush |
+| **Standing order** (later) | Same amount every week | Price locked for the summer | Fixed delivery day | IDEAS.md: suppliers raising prices mid-summer, unless you signed earlier |
+| **Your own factory** | Its daily output | Cost to make | Arrives daily | See [Factories](#factories-and-farms-vertical-integration) |
+
+- Paid-for orders that haven't arrived are a new asset: **"Supplies on the way"** (IDEAS.md: order ahead). The supplier invoice is a paper to file.
+- **The balance to strike:** bulk orders are cheaper per unit. But they tie up cash, need storage (rent), can spoil, and take longer to arrive, so they must be planned ahead. The restaurant store is expensive but always there. A good player mixes both: big deliveries for cones, bowls and napkins, smaller and more frequent ones for mix.
+- **Weather forecast** (IDEAS.md) helps plan mix orders, sometimes wrongly.
+- Proposed rough sizes: bulk saves **20–35%** against the store, so it matters. Storage rent and spoilage should make big overbuying clearly worse than ordering well (the `overbuyer` bot is the check).
+
+### Handing it off
+
+The same do-it, get-good, hand-off rule applies:
+- **Load-out:** the player sets fill-to levels. It's handed to a **stock clerk** after a week or two with no trucks going out short.
+- **Ordering:** the player places supplier orders. It's handed to a **purchasing manager** after a few weeks with no sell-outs from late orders and low spoilage. They follow the player's rules: "When cake cones drop below 2,000, order 5,000."
+- How well a helper follows the rules depends on who was hired. A sloppy clerk miscounts, and a sloppy buyer orders late.
 
 ## Employees
 
@@ -220,7 +268,8 @@ How factories work (proposed):
 - It **runs on its own**: the player decides whether to build and how big, not daily output. A factory manager can be hired, following the same hand-off rule.
 - **Make or buy:** a factory only beats store prices when the business uses enough of what it makes. One truck can't keep a cone bakery busy, but 30 trucks can. Building too early should *feel* wrong ("The cone bakery lost money: only 2 trucks to feed").
 - **Extra output** goes into storage (mix spoils) or **is sold to other businesses** at wholesale prices: a new income line. Buyers are abstract (grocery stores, other shops), so rival companies aren't needed.
-- **Too little output:** trucks top up from the store at normal prices automatically.
+- **Too little output:** the purchasing manager (or the player) tops up from suppliers or the restaurant store.
+- Output goes into the supply room or warehouse like any delivery, so a factory needs storage too.
 - **Building takes time:** ordered in winter, it opens partway through the next summer.
 - **Eggs in one basket:** if the only mix plant breaks down, every truck runs short.
 - **What do home-made supplies cost?** Proposed default: the **real cost to make**, so "Supplies used" simply gets cheaper. The per-unit report shows the factory as a cost center with "saved vs. store price". The advanced version, where the factory "sells" to your own trucks and Penny explains why that isn't real income, is **Open**.
@@ -280,14 +329,14 @@ The shoebox stays the heart of the game, but the papers change as the business g
 | Stage | Papers |
 |---|---|
 | Solo | One paper per receipt (today) |
-| Small fleet | **Per truck, per week:** sales, supplies used, gas, wages. Plus payroll, storage rent, and repair bills |
+| Small fleet | **Per truck, per week:** sales, supplies used, gas, wages. Plus payroll, storage rent, repair bills, supplier invoices, and supply counts |
 | Boss | **Per town, per month** summaries. New papers: insurance, rent, manager wages, equipment |
 | CEO | **Quarterly or yearly** company papers: depreciation, factory costs, franchise fees received, investor shares |
 
 - **Each new kind of paper** goes through the same rule: file it right a few times, then it can be handed to Penny, or later to a bookkeeper or accountant at a higher fee.
 - **New accounts** (rough list):
-  - Expenses: wages, repairs, depreciation, storage/rent, insurance, manager pay, factory costs.
-  - Assets: trucks (book value), buildings, equipment, prepaid insurance.
+  - Expenses: wages, repairs, depreciation, storage/rent, shrinkage, insurance, manager pay, factory costs.
+  - Assets: trucks (book value), buildings, equipment, prepaid insurance, supplies on the way, supplies in each place.
   - Liabilities: wages owed, mortgage.
   - Income: wholesale supply sales, franchise fees, royalties, gain on sale.
   - Owner's share: split between the player and investors.
@@ -333,7 +382,8 @@ Laptop first. The phone must work but can be cramped.
 | Screen | When it matters | Contents |
 |---|---|---|
 | **Street** | Solo and small fleet | Today's scene |
-| **Fleet** | Small fleet | One row per truck: driver, today's sales, stock, mood. Tap a row to watch that truck |
+| **Fleet** | Small fleet | One row per truck: driver, today's sales, stock, mood, went out short. Tap a row to watch that truck |
+| **Supply room** | Small fleet on | Stock by place, space used, orders on the way, fill-to levels, reorder rules |
 | **Town map** | Small fleet | The existing map with truck icons moving around |
 | **Region map** | Boss and CEO | Towns as tiles: trucks, shops, profit this month |
 | **People** | Small fleet on | Staff list, candidates, hire/fire, call-offs and notices |
@@ -342,7 +392,7 @@ Laptop first. The phone must work but can be cramped.
 
 ## Engineering
 
-- **State shape:** today's single truck becomes `trucks[]` (each with its own stock, cash box, driver, route, age and book value). Shops, towns, factories, staff, investors and franchises get their own lists. **Old saves** load with their truck as `trucks[0]`, an empty staff list, and the home town (per CLAUDE.md: new fields need a fallback).
+- **State shape:** today's single truck becomes `trucks[]` (each with its own stock, cash box, driver, route, age and book value). Supply lots get a location (a truck, the supply room, a warehouse) and orders get an arrival day. Shops, towns, factories, staff, investors and franchises get their own lists. **Old saves** load with their truck as `trucks[0]`, an empty staff list, and the home town (per CLAUDE.md: new fields need a fallback).
 - **Fast model:** at Town and Region zoom, simulating every customer for 50+ trucks is too slow. Add a **fast estimate** of one truck-day (or shop-day, or town-month) from the driver's strategy, weather, crowd size and the number of trucks. Calibrate it against the full engine using the bots, and keep the full engine for anything shown at Street zoom.
 - **Engine stays pure** (no DOM), so bots and tests keep running in Node.
 - **Save size:** many summers of play log won't fit in localStorage (about 5 MB). Roll each finished summer's log into a summary. If saves still get too big, **Airtable** is the backup (already used for the leaderboard).
@@ -362,15 +412,16 @@ New fields in the Airtable `Scores` table (README setup to be updated):
 
 ## Build order
 
-Each phase is playable and merged on its own.
+Each phase is playable and merged on its own. Phases 2 and 3 can go in either order.
 
-1. **Fleet and crew.** Several trucks in the home town, with crowd splitting. Hire drivers from the bot pool, with wages, green period, call-offs, quits, bad apples and firing. The boss's day. Per-truck weekly papers and payroll. Profit by truck. Parking and storage. Winter planning screen. Player-chosen end of summer. Town zoom (play by week).
-2. **Aging fleet.** Depreciation, maintenance, breakdowns, used trucks, selling trucks, garage. Accidents and insurance. Bank offering growth loans. Cash crunch.
-3. **Hand-offs and managers.** Generalize the do-it/get-good/hand-off rule to stocking, prices, routes, payroll and hiring. Managers and span of control. Boss-only at 6+ trucks.
-4. **More towns.** Region map, region zoom, fast model, town managers, per-town papers.
-5. **Shops.** Rent or buy, equipment, shop staff.
-6. **Factories.** Cone bakery first, then mix plant, candy and maybe farms. Selling extra output.
-7. **Investors, franchising, selling out.** Equity slices, franchise fees and royalties, buyer offers, retirement, bankruptcy and new business. Leaderboard fields.
+1. **Fleet and crew.** Several trucks in the home town, with crowd splitting. Hire drivers from the bot pool, with wages, green period, call-offs, quits, bad apples and firing. The boss's day. Per-truck weekly papers and payroll. Profit by truck. Parking and storage. A supply room with fill-to levels and morning load-out (supplies still come from the restaurant store). Winter planning screen. Player-chosen end of summer. Town zoom (play by week).
+2. **Ordering ahead.** Supplier deliveries with bulk prices and wait times, supplies on the way, supply room rent and space limits, freezer vs. dry space, supply counts and shrinkage, weather forecast.
+3. **Aging fleet.** Depreciation, maintenance, breakdowns, used trucks, selling trucks, garage. Accidents and insurance. Bank offering growth loans. Cash crunch.
+4. **Hand-offs and managers.** Generalize the do-it/get-good/hand-off rule to loading, ordering, prices, routes, payroll and hiring. Owned warehouses. Managers and span of control. Boss-only at 6+ trucks.
+5. **More towns.** Region map, region zoom, fast model, town managers, per-town papers.
+6. **Shops.** Rent or buy, equipment, shop staff.
+7. **Factories.** Cone bakery first, then mix plant, candy and maybe farms. Selling extra output.
+8. **Investors, franchising, selling out.** Equity slices, franchise fees and royalties, buyer offers, retirement, bankruptcy and new business. Leaderboard fields.
 
 ## Out of scope for now
 
@@ -389,3 +440,5 @@ Each phase is playable and merged on its own.
 7. **Penny at scale:** does she stay the bookkeeper throughout, or does the player hire new bookkeepers and accountants as the business grows?
 8. **Severance** when firing: none (proposed), or a small amount?
 9. **The "many trucks" line** where driving ends: 6 is proposed.
+10. **Space limits in summer 1:** should a solo player's truck and garage shelf have a limit (a small change to today's game, and an early taste of storage), or stay unlimited until there's a fleet?
+11. **A full supply room:** refuse the delivery, or charge an overflow fee (proposed)?
