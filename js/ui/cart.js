@@ -967,8 +967,7 @@ export class CartView {
         ${this.help ? `<div class="help">🤔 ${sum}${money(total(w.paid))} − ${money(w.due)} = <b>${money(owed)}</b> change</div>` : ''}
         <div class="serve-btns money-btns">
           <button class="btn small" data-act="help">🤔 Help</button><button class="btn small" data-act="noChange">😬 I have no change</button>
-          <button class="btn" data-act="noneNeeded">👌 No change needed</button>
-          <button class="btn go" data-act="giveChange" ${pileCount(this.tray) ? '' : 'disabled'}>🤲 Give change</button>
+          ${pileCount(this.tray) ? '<button class="btn go" data-act="giveChange">🤲 Give change</button>' : '<button class="btn go" data-act="noneNeeded">👌 No change needed</button>'}
         </div></div>`;
     }
     const key = JSON.stringify([w.cust.id, w.stage, w.handed, this.tray, this.help, this.serveMsg, s.money.box, s.spoons, s.napkins, w.paid, s.cooler]);
