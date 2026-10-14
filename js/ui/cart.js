@@ -16,6 +16,13 @@ const SHOP_ITEMS = Object.values(CART_SHOPS).flatMap((s) => s.items);
 const ITEM = Object.fromEntries(SHOP_ITEMS.map((i) => [i.id, i]));
 
 const a = (id) => `a ${CART_ITEM[id].name.toLowerCase()}`;
+const NUM = ['', 'a', 'two', 'three', 'four', 'five'];
+// ['rocketPop', 'iceBlue', 'rocketPop'] → ['two rocket pops', 'a blue ice']
+const counted = (ids) => [...new Set(ids)].map((id) => {
+  const n = ids.filter((x) => x === id).length;
+  const name = CART_ITEM[id].name.toLowerCase();
+  return n === 1 ? `a ${name}` : `${NUM[n] || n} ${name}s`;
+});
 const andList = (xs) => (xs.length < 2 ? xs.join('') : `${xs.slice(0, -1).join(', ')} and ${xs[xs.length - 1]}`);
 
 // What the player looks like today, with whatever they're wearing.
@@ -903,7 +910,7 @@ export class CartView {
         this.queue.appendChild(e);
         this.custEls.set(cust.id, e);
       }
-      const left = 31 + i * 7.5;
+      const left = 31 + order.slice(0, i).reduce((x, p) => x + 3.5 + p.members.length * 4, 0);
       requestAnimationFrame(() => {
         e.style.left = `${left}%`;
       });
@@ -925,7 +932,7 @@ export class CartView {
     const reg = c.regular ? REG[c.regular] : null;
     let out = reg ? 'Hi again! ' : '';
     if (w.missedFav) out += `No ${CART_ITEM[w.missedFav].name.toLowerCase()} today? Aww. `;
-    if (w.order.length) out += w.order.length === 1 ? `Can I have ${a(w.order[0])}, please?` : `${andList(w.order.map(a))}, please!`.replace(/^a/, 'A');
+    if (w.order.length) out += w.order.length === 1 ? `Can I have ${a(w.order[0])}, please?` : `${andList(counted(w.order))}, please!`.replace(/^a/, 'A');
     else if (w.no === 'tooMuch') out += "Hmm, that's too much for me.";
     else if (!w.missedFav) out += 'Oh, never mind.';
     return out;
@@ -992,7 +999,8 @@ export class CartView {
       const r = c.handOver();
       if (!r.ok) {
         this.app.music.sfx('oops');
-        this.serveMsg = r.reason === 'spoon' ? { text: 'Can I have a spoon, please?', cls: 'hint' } : { text: `Hmm, I asked for ${andList(w.order.map(a))}.`, cls: 'bad' };
+        const ices = w.order.filter((id) => CART_ITEM[id].kind === 'ice').length;
+        this.serveMsg = r.reason === 'spoon' ? { text: ices > 1 ? 'Can we have spoons, please?' : 'Can I have a spoon, please?', cls: 'hint' } : { text: `Hmm, I asked for ${andList(counted(w.order))}.`, cls: 'bad' };
       } else {
         const got = r.extras.length ? 'A free one? Yay, thank you!' : r.napkins ? 'Ooh, a napkin! Thanks!' : r.noSpoon ? "No spoon? I'll use my fingers..." : 'Here you go!';
         this.serveMsg = { text: r.extras.length || r.napkins ? `${got} Here you go!` : got, cls: r.happy ? 'good' : r.noSpoon ? 'bad' : '' };
