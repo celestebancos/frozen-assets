@@ -688,8 +688,6 @@ export class CartView {
         <div class="cart-spot">${cartSpot(c)}</div>
         <div class="queue"></div>
         <div class="passers"></div>
-        <div class="feed" aria-live="polite"></div>
-        <div class="away hidden"></div>
         <div class="serve hidden"></div>
       </main>
       <nav class="toolbar"></nav></div>`;
@@ -697,7 +695,6 @@ export class CartView {
     this.stage = document.querySelector('.stage');
     this.queue = this.stage.querySelector('.queue');
     this.passers = this.stage.querySelector('.passers');
-    this.feed = this.stage.querySelector('.feed');
     this.serveEl = this.stage.querySelector('.serve');
     this.vig = this.stage.querySelector('.vig');
     this.custEls = new Map();
@@ -824,7 +821,6 @@ export class CartView {
     this.handleEvents();
     if (s.minute >= K.parkClose && !s.window && !this.closing) {
       this.closing = true;
-      this.say(null, '🌅 Time to close up!', 'hint');
       setTimeout(() => this.endDay(), 1200);
     }
     this.renderHUD();
@@ -859,17 +855,16 @@ export class CartView {
         const e = this.custEls.get(ev.id);
         if (!e) continue;
         this.custEls.delete(ev.id);
-        const words = { tooLong: "Line's too long!", closed: 'Aww, closing time.', gone: 'Oh, they left.', happy: '😋', tooMuch: '😕', nothing: '😕', noChange: '😕' }[ev.say];
-        if (words) this.bubble(e, words, ev.say === 'happy' ? 'good' : 'bad');
+        const face = { tooLong: '😤', closed: '😴', happy: '😋', kept: '😏', tooMuch: '😕', nothing: '😕', noChange: '😕' }[ev.say];
+        if (face) this.bubble(e, face, ev.say === 'happy' ? 'good' : 'bad');
         e.classList.add('walking', 'leaving');
         e.style.left = '110%';
         setTimeout(() => e.remove(), 2600);
-        if (ev.say === 'tooLong') this.say(null, '😤 Someone got tired of waiting in line.', 'bad');
       } else if (ev.t === 'away') {
-        const a = this.stage.querySelector('.away');
-        a.textContent = `🚶 Off to the corner store… back in ${ev.minutes} minutes.`;
-        a.classList.remove('hidden');
-        setTimeout(() => a.classList.add('hidden'), 2500);
+        // the kid walks off to the corner store for a bit
+        const me = this.stage.querySelector('.cart-spot .me');
+        me?.classList.add('gone');
+        setTimeout(() => me?.classList.remove('gone'), 2500);
       }
     }
     if (evs.length) this.renderQueue();
@@ -889,8 +884,8 @@ export class CartView {
         e.style.left = ltr ? '108%' : '-12%';
       }),
     );
-    if (say === 'tooMuch') setTimeout(() => this.bubble(e, 'Too much for me!', 'bad'), dur * 0.35);
-    if (say === 'tooLong') setTimeout(() => this.bubble(e, "Line's too long!", 'bad'), dur * 0.35);
+    if (say === 'tooMuch') setTimeout(() => this.bubble(e, '😮💲', 'bad'), dur * 0.35);
+    if (say === 'tooLong') setTimeout(() => this.bubble(e, '😤', 'bad'), dur * 0.35);
     setTimeout(() => e.remove(), dur + 200);
   }
   bubble(partyEl, text, cls = '') {
@@ -922,13 +917,11 @@ export class CartView {
       e.classList.toggle('at-window', i === 0 && !!s.window);
     });
   }
-  say(cust, text, cls = '') {
-    const face = cust ? `<span class="face">${personSVG(cust.members[0].kind, cust.members[0].look)}</span>` : '';
-    const row = el(`<div class="say ${cls}">${face}<span>${esc(text)}</span></div>`);
-    this.feed.prepend(row);
-    while (this.feed.childElementCount > 4) this.feed.lastChild.remove();
-    setTimeout(() => row.classList.add('gone'), 5000);
-    setTimeout(() => row.remove(), 5500);
+  // A tip: a coin hops up from the cart into the tip jar.
+  tipCoin() {
+    const e = el(`<div class="tip-coin">${moneySVG(25, 44)}</div>`);
+    this.stage.querySelector('.cart-spot').appendChild(e);
+    setTimeout(() => e.remove(), 1400);
   }
 
   // ---------- serving ----------
@@ -1056,10 +1049,8 @@ export class CartView {
     if (r.result === 'honest') this.serveMsg = { text: `${yum}You gave me too much change! Here's the extra back.`, cls: 'hint' };
     else if (r.result === 'kept') {
       this.serveMsg = { text: `${yum}Thanks! Bye!`, cls: '' };
-      this.say(w.cust, `😬 Oops! You gave ${money(gave - owed)} too much, and they kept it.`, 'bad');
     } else this.serveMsg = { text: `${yum}Thank you!`, cls: 'good' };
-    if (r.tip) this.say(w.cust, `🫙 They put ${money(r.tip)} in your tip jar!`, 'good');
-    if (w.goingAway) this.say(w.cust, `${reg?.name || 'They'} might not come back for a while.`, 'bad');
+    if (r.tip) this.tipCoin();
   }
 
   // ---------- park life in the background ----------
@@ -1088,11 +1079,9 @@ export class CartView {
       add(`${duckSVG()}${duckSVG(true)}${duckSVG(true)}${duckSVG(true)}`, 'ducks', 'bottom:33%', 14000);
     } else if (k === 'squirrel') {
       add(squirrelSVG(), 'squirrel', 'bottom:14%', 5000);
-      setTimeout(() => this.say(null, '🐿️ A squirrel stole someone\'s sandwich!', 'hint'), 900);
     } else if (k === 'balloon') {
       const colors = ['#e5484d', '#3a8ee6', '#ffd23f', '#3cc6a0'];
       add(balloonSVG(colors[Math.floor(Math.random() * 4)]), 'float-away', `left:${20 + Math.random() * 50}%;bottom:30%`, 9000);
-      setTimeout(() => this.say(null, '🎈 "My balloon!"', 'hint'), 600);
     } else if (k === 'dance') {
       add(personSVG('kid', Math.floor(Math.random() * 48)), 'dancer', `left:${80 + Math.random() * 8}%;bottom:13%`, 9000);
     }

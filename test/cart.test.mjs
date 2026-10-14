@@ -217,7 +217,9 @@ test('high prices send people away; regulars miss their favorite', () => {
 
 test('regulars stop coming after missing their favorite too often', () => {
   const c = Cart.create({ player: 'Test', seed: 33 });
-  for (let day = 0; day < 8; day++) {
+  // they've all had their favorites before; now there are only freeze pops
+  c.state.stats.soldItems = { rocketPop: 1, fudgePop: 1, freezePop: 1, iceCherry: 1, iceLemon: 1, iceBlue: 1 };
+  for (let day = 0; day < 10; day++) {
     c.state.freezer.pops.freezePop = 40;
     c.pack('freezePop', 40);
     playDay(c);
@@ -359,4 +361,35 @@ test('"no change needed" when they are owed change: they ask for it', () => {
     return;
   }
   assert.fail('everyone paid exact');
+});
+
+test('regulars: none on the first day, and only for favorites that have been sold', () => {
+  const c = Cart.create({ player: 'Test', seed: 12 });
+  c.state.freezer.pops.rocketPop = 40;
+  c.pack('rocketPop', 40);
+  c.openPark();
+  assert.equal(c.state.schedule.length, 0, 'day 1');
+  c.closePark();
+  c.nextDay();
+  c.openPark();
+  assert.equal(c.state.schedule.length, 0, 'nothing sold yet');
+  c.closePark();
+  c.nextDay();
+  c.state.stats.soldItems = { rocketPop: 3 };
+  let seen = new Set();
+  for (let d = 0; d < 10; d++) {
+    c.openPark();
+    for (const x of c.state.schedule) seen.add(x.id);
+    c.closePark();
+    c.nextDay();
+  }
+  assert.deepEqual([...seen], ['jayden'], 'only the rocket pop fan comes by');
+});
+
+test('most grown-ups pay with a $5 or $10; a $20 is rare', () => {
+  const c = Cart.create({ player: 'Test', seed: 2 });
+  let twenties = 0;
+  const n = 400;
+  for (let i = 0; i < n; i++) if (c.makeCustomer('adult').pocket[2000]) twenties++;
+  assert.ok(twenties / n < 0.15, `${twenties} of ${n}`);
 });
