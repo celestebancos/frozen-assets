@@ -304,8 +304,19 @@ export function personSVG(kind, look = 0, me = null) {
   const torso = tank
     ? `<path d="M${R(sw - 4)} ${sh} Q${R(sw)} ${sh} ${R(sw)} ${sh + 4} L${R(hw + 0.4)} ${top} Q20 ${top + 1.6} ${L(hw + 0.4)} ${top} L${L(sw)} ${sh + 4} Q${L(sw)} ${sh} ${L(sw - 4)} ${sh} Z" fill="${shirt}" ${OUT}/>`
     : `<path d="M${R(sw - 4)} ${sh} Q${R(sw + 0.8)} ${sh - 0.2} ${R(sw + 1.4)} ${sh + 3} L${R(sw + 3.6)} ${sh + 9.6} L${R(sw - 2.2)} ${sh + 10.6} L${R(hw + 0.4)} ${top} Q20 ${top + 1.6} ${L(hw + 0.4)} ${top} L${L(sw - 2.2)} ${sh + 10.6} L${L(sw + 3.6)} ${sh + 9.6} L${L(sw + 1.4)} ${sh + 3} Q${L(sw + 0.8)} ${sh - 0.2} ${L(sw - 4)} ${sh} Z" fill="${shirt}" ${OUT}/>`;
+  // Stripes stay inside the shirt's outline: each one stops where the front of the shirt meets the
+  // sleeve (up top) or the side of the shirt (lower down).
+  const frontHalf = (y) => {
+    const y0 = sh + 10.6;
+    if (y <= y0) return sw - 2.2;
+    return sw - 2.2 + ((hw + 0.4 - (sw - 2.2)) * (y - y0)) / (top - y0);
+  };
+  const stripe = (y) => {
+    const h = frontHalf(y) - 1.8;
+    return `M${(20 - h).toFixed(2)} ${y} H${(20 + h).toFixed(2)}`;
+  };
   const stripeLines = stripes
-    ? `<path d="M${20 - sw + 0.6} ${sh + 8} H${20 + sw - 0.6} M${20 - sw + 1} ${sh + 14} H${20 + sw - 1} M${20 - hw - 0.2} ${sh + 20} H${20 + hw + 0.2}" stroke="#fff" stroke-width="2.2" opacity=".75"/>`
+    ? `<path d="${stripe(sh + 8)} ${stripe(sh + 14)} ${stripe(sh + 20)}" stroke="#fff" stroke-width="2.2" opacity=".75"/>`
     : (me ? me.stars : look % 4 === 2) && !dress
       ? star(20, sh + 10, 3.4, '#fff', 'none')
       : '';
