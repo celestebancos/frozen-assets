@@ -653,3 +653,8 @@ table.books tr.bottom td { font-weight: 800; font-size: 18px; background: #fff3b
   .treat span { font-size: 10px; line-height: 1.1; }
   .park .serve .tray { margin: 4px 0; padding: 4px; }
 }
+/* the kid steps away (corner store); a tip coin hops into the jar */
+.park .cart-spot .me { transition: opacity 0.6s; }
+.park .cart-spot .me.gone { opacity: 0; }
+.park .tip-coin { position: absolute; left: 70%; bottom: 60%; z-index: 2; animation: tipHop 1.3s ease-out forwards; pointer-events: none; }
+@keyframes tipHop { 0% { transform: translateY(0) scale(0.6); opacity: 0; } 25% { opacity: 1; transform: translateY(-40px) scale(1); } 100% { transform: translateY(-90px) scale(0.8); opacity: 0; } }

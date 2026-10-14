@@ -107,7 +107,7 @@ export function newCartState({ player, look, seed }) {
     txn: null, // a purchase waiting for its change to be checked
     today: null,
     days: [], // a short summary of each day
-    stats: { sold: 0, revenue: 0, tips: 0, keptExtra: 0, toTruck: 0 },
+    stats: { sold: 0, revenue: 0, tips: 0, keptExtra: 0, toTruck: 0, soldItems: {} }, // soldItems: how many of each, ever
     log: [],
   };
   s.rngState = s.seed;
@@ -131,6 +131,10 @@ export class Cart {
       delete state.cups;
     }
     state.spoons ??= 0;
+    if (!state.stats.soldItems) {
+      state.stats.soldItems = {};
+      for (const d of state.days || []) for (const [id, n] of Object.entries(d.sold || {})) state.stats.soldItems[id] = (state.stats.soldItems[id] || 0) + n;
+    }
     state.napkins ??= 0;
     if (state.window && state.window.v !== 2) state.window = null; // a sale from an older version: they wander off
     // a payment that was never finished (the page closed): the money goes back where it came from
@@ -421,8 +425,11 @@ export class Cart {
     s.today = { sold: {}, revenue: 0, customers: 0, tooExpensive: 0, leftLine: 0, missedFav: 0, tips: 0, keptExtra: 0, returned: 0, noChange: 0, given: {}, napkins: 0, startBox: this.boxTotal, opened: s.minute };
     // regulars who'll come by today
     s.schedule = [];
+    // Regulars are people who liked something you sold: none on the first day, and only ones whose
+    // favorite you've sold before.
     for (const r of REGULARS) {
       const st = s.regulars[r.id];
+      if (s.day === 1 || !s.stats.soldItems[r.fav]) continue;
       if (st.awayUntil > s.day) continue;
       if (!this.rng.chance(CR.regular.visit)) continue;
       const m = this.rng.int(s.minute + 20, K.parkClose - 30);
@@ -468,7 +475,7 @@ export class Cart {
       put(rng.chance(0.5) ? 500 : 1000, 1);
       put(25, rng.int(0, 4));
     } else {
-      put(rng.pick([500, 1000, 2000, 2000]), 1);
+      put(rng.chance(0.08) ? 2000 : rng.pick([500, 500, 1000]), 1); // a $20 is rare
       put(100, rng.int(0, 3));
       put(25, rng.int(0, 4));
     }
@@ -712,7 +719,10 @@ export class Cart {
     const s = this.state;
     const w = s.window;
     const c = w.cust;
-    for (const id of w.order) s.today.sold[id] = (s.today.sold[id] || 0) + 1;
+    for (const id of w.order) {
+      s.today.sold[id] = (s.today.sold[id] || 0) + 1;
+      s.stats.soldItems[id] = (s.stats.soldItems[id] || 0) + 1;
+    }
     s.today.revenue += w.due;
     s.stats.sold += w.order.length;
     s.stats.revenue += w.due;
@@ -766,7 +776,7 @@ export class Cart {
     if (!s.window) return;
     const w = s.window;
     if (w.stage === 'order' || w.stage === 'change') return; // still being served
-    this.emit({ t: 'leave', id: w.cust.id, say: w.stage === 'done' ? 'happy' : w.no });
+    this.emit({ t: 'leave', id: w.cust.id, say: w.stage === 'done' ? (w.result === 'kept' ? 'kept' : 'happy') : w.no });
     s.window = null;
     this.nextToWindow();
   }
