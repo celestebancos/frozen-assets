@@ -13,14 +13,23 @@ export function umbrellaSVG() {
   return `<svg viewBox="0 0 200 150" class="umbrella-svg" xmlns="http://www.w3.org/2000/svg"><path d="M100 30 V150" stroke="${INK}" stroke-width="4"/><path d="M10 40 Q100 -14 190 40 Z" fill="#ff6f91" ${OUT}/><path d="M40 40 Q70 6 100 4 Q130 6 160 40" fill="#fff" opacity=".85"/><path d="M70 40 Q86 10 100 4 Q114 10 130 40" fill="#ff6f91"/><path d="M10 40 Q25 48 40 40 Q55 48 70 40 Q85 48 100 40 Q115 48 130 40 Q145 48 160 40 Q175 48 190 40" fill="none" ${OUT}/></svg>`;
 }
 
-// opts: { decals: [shop item ids], umbrella, fan, bell, balloon: color }
-export function cartSVG({ decals = [], umbrella = false, fan = false, bell = false, balloon = null } = {}) {
-  const spots = [[52, 112], [148, 112], [100, 140], [36, 146], [164, 146], [100, 104]];
+// Where stickers can go: the side of the cart, in its own units (a sticker's middle stays inside this box).
+export const STICKER_AREA = { x: 24, y: 104, w: 160, h: 60 };
+const STICKER_SPOTS = [[52, 112], [148, 112], [100, 140], [36, 146], [164, 146], [100, 104]]; // until you move them
+// Cart units for a sticker at u, v (0–1 across and down the sticker area).
+export const stickerXY = ([u, v]) => [STICKER_AREA.x + u * STICKER_AREA.w, STICKER_AREA.y + v * STICKER_AREA.h];
+
+// opts: { decals: [{ id, at: [u, v] | null }] (or plain ids), umbrella, fan, bell, balloon: color, pick: id to highlight,
+// tight: leave off the empty space above the cart (where the umbrella goes) }
+export function cartSVG({ decals = [], umbrella = false, fan = false, bell = false, balloon = null, pick = null, tight = false } = {}) {
   const dec = decals
-    .slice(0, spots.length)
-    .map((id, i) => {
-      const it = CART_SHOPS.decals.items.find((d) => d.id === id);
-      return it ? emo(spots[i][0], spots[i][1], it.emoji, 20) : '';
+    .map((d, i) => {
+      const { id, at } = typeof d === 'string' ? { id: d, at: null } : d;
+      const it = CART_SHOPS.decals.items.find((x) => x.id === id);
+      if (!it) return '';
+      const [x, y] = at ? stickerXY(at) : STICKER_SPOTS[i % STICKER_SPOTS.length];
+      const ring = pick === id ? `<circle cx="${x}" cy="${y}" r="15" fill="none" stroke="#ff6f91" stroke-width="2.4" stroke-dasharray="5 4"/>` : '';
+      return `${ring}${emo(x, y, it.emoji, 20)}`;
     })
     .join('');
   const shade = umbrella
@@ -33,7 +42,7 @@ export function cartSVG({ decals = [], umbrella = false, fan = false, bell = fal
     ? `<g transform="translate(36 84)"><path d="M0 8 V0" stroke="${INK}" stroke-width="3"/><circle r="11" fill="#e8f7ff" ${thin}/><g class="spin"><path d="M0 0 L-3 -9 Q0 -11 3 -9 Z M0 0 L9 -3 Q11 0 9 3 Z M0 0 L3 9 Q0 11 -3 9 Z M0 0 L-9 3 Q-11 0 -9 -3 Z" fill="#7cc8ff" ${thin}/></g><circle r="2" fill="${INK}"/></g>`
     : '';
   const bellArt = bell ? `<g transform="translate(196 92)"><path d="M-6 6 Q-6 -6 0 -6 Q6 -6 6 6 Z" fill="#ffd23f" ${thin}/><circle cy="7.5" r="1.8" fill="#c98f3e"/></g>` : '';
-  return `<svg viewBox="0 0 230 200" class="cart-svg" xmlns="http://www.w3.org/2000/svg">
+  return `<svg viewBox="${tight ? '0 70 230 130' : '0 0 230 200'}" class="cart-svg" xmlns="http://www.w3.org/2000/svg">
     ${shade}${bal}
     <path d="M190 100 L214 84" stroke="${INK}" stroke-width="7" stroke-linecap="round"/><path d="M190 100 L214 84" stroke="#9aa4b2" stroke-width="4" stroke-linecap="round"/>
     <rect x="12" y="92" width="184" height="80" rx="12" fill="#fffaf0" ${OUT}/>

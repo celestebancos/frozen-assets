@@ -97,6 +97,7 @@ export function newCartState({ player, look, seed }) {
     spoons: 0, // every Italian ice needs one
     napkins: 0, // to hand out if you like
     owned: [], // ids of things bought to keep (gear, decals, hats, glasses, shirts, toys)
+    decalSpots: {}, // where each sticker is stuck on the cart: { id: [u, v] }, 0–1 across and down the cart's side
     wearing: { hat: null, glasses: null, shirt: null },
     balloon: null, // a balloon tied to the cart, today only
     regulars: Object.fromEntries(REGULARS.map((r) => [r.id, { happy: 2, missed: 0, awayUntil: 0 }])),
@@ -136,6 +137,7 @@ export class Cart {
       for (const d of state.days || []) for (const [id, n] of Object.entries(d.sold || {})) state.stats.soldItems[id] = (state.stats.soldItems[id] || 0) + n;
     }
     state.napkins ??= 0;
+    state.decalSpots ??= {}; // older saves: stickers go in their usual spots until they're moved
     if (state.window && state.window.v !== 2) state.window = null; // a sale from an older version: they wander off
     // a payment that was never finished (the page closed): the money goes back where it came from
     if (state.txn) this.cancelPay();
@@ -373,6 +375,18 @@ export class Cart {
   }
   decals() {
     return this.state.owned.filter((id) => CART_SHOPS.decals.items.some((d) => d.id === id));
+  }
+  // Stick a sticker you own on the cart. u, v: 0–1 across and down the side of the cart.
+  placeDecal(id, u, v) {
+    if (!this.decals().includes(id) || !Number.isFinite(u) || !Number.isFinite(v)) return false;
+    const clamp = (n) => Math.round(Math.min(1, Math.max(0, n)) * 1000) / 1000;
+    this.state.decalSpots[id] = [clamp(u), clamp(v)];
+    this.logAction('placeDecal', { id, at: this.state.decalSpots[id] });
+    return true;
+  }
+  // Each sticker with where it's stuck (null: not moved yet, so it goes in its usual spot).
+  decalsPlaced() {
+    return this.decals().map((id) => ({ id, at: this.state.decalSpots[id] || null }));
   }
   has(id) {
     return this.state.owned.includes(id);
