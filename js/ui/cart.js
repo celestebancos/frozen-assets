@@ -1004,8 +1004,9 @@ export class CartView {
         const ices = w.order.filter((id) => CART_ITEM[id].kind === 'ice').length;
         this.serveMsg = r.reason === 'spoon' ? { text: ices > 1 ? 'Can we have spoons, please?' : 'Can I have a spoon, please?', cls: 'hint' } : { text: `Hmm, I asked for ${andList(counted(w.order))}.`, cls: 'bad' };
       } else {
-        const got = r.extras.length ? 'A free one? Yay, thank you!' : r.napkins ? 'Ooh, a napkin! Thanks!' : r.noSpoon ? "No spoon? I'll use my fingers..." : 'Here you go!';
-        this.serveMsg = { text: r.extras.length || r.napkins ? `${got} Here you go!` : got, cls: r.happy ? 'good' : r.noSpoon ? 'bad' : '' };
+        // napkins quietly make people happier; nobody remarks on them
+        const got = r.extras.length ? 'A free one? Yay, thank you! Here you go!' : r.noSpoon ? "No spoon? I'll use my fingers..." : 'Here you go!';
+        this.serveMsg = { text: got, cls: r.extras.length ? 'good' : r.noSpoon ? 'bad' : '' };
       }
     } else if (act === 'tray') {
       this.tray = addOne(this.tray, t.dataset.d);
