@@ -248,11 +248,16 @@ class App {
   startGameView() {
     document.body.innerHTML = `<div id="game">
       <header class="hud"></header>
-      <main class="stage"><div class="scene-root" style="position:absolute;inset:0"></div><div class="gadget"></div></main>
+      <main class="stage"><div class="scene-root" style="position:absolute;inset:0"></div><div class="gadget"></div><button class="sound-tap" hidden>🔈 Tap for sound</button></main>
       <nav class="toolbar"></nav></div>`;
     this.hud = document.querySelector('.hud');
     this.stage = document.querySelector('.stage');
     this.gadget = document.querySelector('.gadget');
+    this.soundTap = document.querySelector('.sound-tap');
+    this.soundTap.addEventListener('click', () => {
+      this.music.wake();
+      this.soundTap.hidden = true;
+    });
     this.toolbar = document.querySelector('.toolbar');
     this.scene = new Scene(document.querySelector('.scene-root'), this);
     this.speed = 1;
@@ -394,6 +399,9 @@ class App {
     const g = this.game;
     if (!g) return;
     this.ambience.update(g, g.state.phase === 'open' ? this.scene?.view() : null);
+    // back from another app: sound waits for a tap
+    const tap = this.music.needsTap() && (g.state.phase === 'open' || this.music.playing);
+    if (this.soundTap && this.soundTap.hidden === tap) this.soundTap.hidden = !tap;
     const dt = Math.min(250, now - this.lastFrame);
     this.lastFrame = now;
     const s = g.state;
