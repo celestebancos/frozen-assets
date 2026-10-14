@@ -42,6 +42,19 @@ export const storage = {
   deleteGame(player) {
     del(slot(player));
   },
+  // The park cart has its own save next to the truck game.
+  saveCart(state) {
+    set('cart:' + state.player.trim().toLowerCase(), state);
+    const list = new Set(get('players', []));
+    list.add(state.player);
+    set('players', [...list]);
+  },
+  loadCart(player) {
+    return get('cart:' + player.trim().toLowerCase());
+  },
+  deleteCart(player) {
+    del('cart:' + player.trim().toLowerCase());
+  },
   players() {
     return get('players', []);
   },

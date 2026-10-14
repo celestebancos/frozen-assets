@@ -41,6 +41,7 @@ function split(doc) {
     const sec = SEC_OF(acct);
     if (sec === 'asset') L[acct] = amt;
     else if (sec === 'liability') R[acct] = amt;
+    else if (sec === 'owner') R.share = (R.share || 0) + amt;
     else R.pending = (R.pending || 0) + (sec === 'income' ? amt : -amt);
   }
   return [L, R];
@@ -388,7 +389,7 @@ export function openShoebox(app, onDone) {
                 : sec.id === 'asset'
                   ? btn(a.id, 'up', '←', 'DEBIT', 'Move left (debit)') + btn(a.id, 'down', '→', 'CREDIT', 'Move right (credit)')
                   : btn(a.id, 'down', '←', 'DEBIT', 'Move left (debit)') + btn(a.id, 'up', '→', 'CREDIT', 'Move right (credit)');
-          return `<div class="bline ${st.picks[a.id] ? 'on' : ''} ${st.wrong.has(a.id) ? 'wrong' : ''}"><span class="n">${esc(a.name)}</span>${btns}</div>`;
+          return `<div class="bline ${st.picks[a.id] ? 'on' : ''} ${st.wrong.has(a.id) ? 'wrong' : ''}"><span class="n">${esc(a.id === 'ownerIn' ? shareName : a.name)}</span>${btns}</div>`;
         })
         .join('')}</div>`;
     }).join('');
@@ -670,7 +671,7 @@ function baseShareMinusProfit(t) {
     if (a.section === 'asset') assets += t[a.id];
     else if (a.section === 'liability') liab += t[a.id];
     else if (a.section === 'income') inc += t[a.id];
-    else exp += t[a.id];
+    else if (a.section === 'expense') exp += t[a.id];
   }
   return assets - liab - (inc - exp);
 }

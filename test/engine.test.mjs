@@ -24,6 +24,22 @@ test('starting books: loan and truck, share is zero', () => {
   assert.equal(g.canOpen(), true);
 });
 
+test('cart money comes in as the owner\'s share', () => {
+  const g = Game.create({ player: 'Luke', business: 'Test', color: 'pink', seed: 1, ownerCash: 12345 });
+  assert.equal(g.cash, 10000 + 12345);
+  assert.equal(share(g.state.truth), 12345);
+  const papers = g.docsToFile();
+  assert.equal(papers.length, 3);
+  assert.equal(papers[0].type, 'ownerInvest');
+  assert.deepEqual(docLines(papers[0]).map((l) => [l.acct, l.dir]), [['cash', 'up'], ['ownerIn', 'up']]);
+  // filing it wrong gets Penny's books side by side; filing right balances
+  const cmp = pennyComparison(g.state.filed, papers[0], { cash: 'up' });
+  assert.equal(cmp.right.share, 12345);
+  fileAllCorrectly(g);
+  assert.equal(g.canOpen(), true);
+  assert.equal(share(g.state.filed), 12345);
+});
+
 test('books always balance and share equals profit through a full season', () => {
   for (const bot of ['decent', 'promoSpammer', 'overbuyer', 'cheapskate']) {
     const { game: g } = playSeason(bot, 4242);
