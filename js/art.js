@@ -74,7 +74,7 @@ function wheel(cx, spin, chrome, gold) {
   const hub = chrome
     ? `<circle cx="${cx}" cy="${AXLE}" r="12.5" fill="${gold ? '#ffe27a' : '#f4f7fa'}" stroke="${gold ? '#c99a1a' : '#9aa3b2'}" stroke-width="1.5"/>${Array.from({ length: 6 }, (_, i) => `<path d="M${cx} ${AXLE} l${(11 * Math.cos((i * Math.PI) / 3)).toFixed(1)} ${(11 * Math.sin((i * Math.PI) / 3)).toFixed(1)}" stroke="${gold ? '#e0b100' : '#b9c1cc'}" stroke-width="2.4" stroke-linecap="round"/>`).join('')}<circle cx="${cx}" cy="${AXLE}" r="3.5" fill="${gold ? '#fff3b0' : '#dfe4ea'}" stroke="${gold ? '#c99a1a' : '#9aa3b2'}"/>`
     : `<circle cx="${cx}" cy="${AXLE}" r="10" fill="#dfe3ea" stroke="#9aa3b2" stroke-width="1.5"/>${lugs}<circle cx="${cx}" cy="${AXLE}" r="2.4" fill="#b9c1cc"/>`;
-  return `<g class="wheel${spin ? ' spin' : ''}" style="transform-origin:${cx}px ${AXLE}px">
+  return `<g class="wheel${spin ? ' spin' : ''}">
     <circle cx="${cx}" cy="${AXLE}" r="19.5" fill="#2b2633" stroke="${INK}" stroke-width="2"/>
     <circle cx="${cx}" cy="${AXLE}" r="15" fill="none" stroke="#454052" stroke-width="2"/>
     ${hub}
