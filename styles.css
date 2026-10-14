@@ -585,7 +585,7 @@ table.books tr.bottom td { font-weight: 800; font-size: 18px; background: #fff3b
 .park .queue .party { transition: left 0.9s ease-in-out; bottom: 3%; }
 .park .queue .party.leaving { transition: left 2.4s linear; }
 .park .queue .party .tag { position: absolute; top: 100%; left: 50%; transform: translateX(-50%); background: #fff3b0; border: 2px solid var(--ink); border-radius: 8px; font-size: 12px; font-weight: 800; padding: 0 5px; white-space: nowrap; }
-.park .passers { z-index: 2; }
+.park .passers { z-index: 4; } /* walking by in front of the cart and the line */
 .park .passers .party { bottom: 1%; }
 .park .party.flip .who > svg { transform: scaleX(-1); }
 .park .party .bubble.hidden { display: none; }
