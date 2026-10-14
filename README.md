@@ -31,6 +31,8 @@ Six neighborhoods. A route only says which neighborhood to be in and when; insid
 
 A place is worth stopping at when it's busy: the pool on a hot afternoon, ball fields in the evening, offices at lunch, the library at story time or on a rainy day, the school when camp lets out. The truck parks if parties come at least `cruise.parkPerHour` an hour, and drives on after `cruise.leaveIdle` quiet minutes.
 
+**Sounds.** A ca-ching every time someone pays. Street sounds follow what's on screen: birds, dogs and kids on neighborhood streets; traffic, horns and chatter downtown; splashing and a lifeguard's whistle at the pool; the crack of the bat and cheering at the ball fields; animals at the zoo; ducks in the park; rain on rainy days. They can be turned off in 🚚 Truck & Music or ⚙️ Settings.
+
 Things that teach a lesson without a lecture:
 
 - **Moving on.** A place's crowd thins the longer the truck stays, and time anywhere else in the same neighborhood counts too. When it does, a parent and kids walk up and the parent says *"Sorry bud, we already got ice cream today, remember?"*
@@ -100,6 +102,7 @@ node --test test/*.test.mjs   # engine, accounting and leaderboard tests
 
 | File | What it does |
 | --- | --- |
+| `js/ambience.js` | Street sounds and the cash register, all synthesized (no sound files); each kind of place has its own mix |
 | `js/engine.js` | The whole game simulation: customers, supplies, driving, money (no DOM) |
 | `js/ledger.js` | Accounts, P&L and balance sheet math |
 | `js/documents.js` | Shoebox papers, their correct filing, and Penny's explanations |

@@ -143,6 +143,15 @@ export class Scene {
     this.driveKey = s.driving ? `${s.driving.from}>${s.driving.to}` : '';
     this.welcomed = !s.driving;
   }
+  // What's on screen around the truck, for the street sounds: a place, a neighborhood's streets, or open road.
+  view() {
+    const mid = this.camX + 500;
+    const t = this.tiles.find((x) => x.x <= mid && x.x + 1000 > mid);
+    if (!t) return null;
+    if (t.spec.type === 'place') return { place: t.spec.feature };
+    if (t.spec.type === 'street') return { area: t.spec.spot.id };
+    return { road: true };
+  }
   // The game reached a place: bring it in next. If the truck parks there, stop in front of it.
   placeAhead(featureId, park) {
     // keep a place that's lined up but not seen yet, unless the view is falling behind the game:
@@ -353,7 +362,10 @@ export class Scene {
       // quick blips near the truck window; only the complaints go to the feed
       const x = 30 + Math.random() * 25;
       const y = 40 + Math.random() * 25;
-      if (p.bill > 0) this.blip(`+${money(p.bill)}`, x, y, 'good');
+      if (p.bill > 0) {
+        this.blip(`+${money(p.bill)}`, x, y, 'good');
+        if (speed < 9) this.app.cash();
+      }
       const bad = comments.find(([, b]) => b.c === 'bad');
       if (bad && speed < 9) this.say(...bad);
       return;
@@ -387,7 +399,10 @@ export class Scene {
       el.querySelector('.wave')?.remove();
       this.app.partyArrived(p.id);
       say(comments);
-      if (p.bill > 0) this.blip(`+${money(p.bill)}`, slot + 6, 45, 'good');
+      if (p.bill > 0) {
+        this.blip(`+${money(p.bill)}`, slot + 6, 45, 'good');
+        this.app.cash();
+      }
       if (p.boughtCard) this.blip('🎁 +card', slot + 12, 38, 'good');
     }, dur);
     setTimeout(() => {
