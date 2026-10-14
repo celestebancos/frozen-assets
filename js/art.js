@@ -98,6 +98,7 @@ function seller(x, y, s = 1, wave = false) {
   </g>`;
 }
 
+let clipIds = 0;
 export function truckSVG(color, name, { width = 300, wheelsSpin = false, bling = 0 } = {}) {
   const light = shade(color, 0.1);
   const dark = shade(color, -0.14);
@@ -108,6 +109,7 @@ export function truckSVG(color, name, { width = 300, wheelsSpin = false, bling =
   const label = esc(raw);
   const fs = raw.length > 20 ? 11 : raw.length > 14 ? 13.5 : 16;
   const driving = wheelsSpin;
+  const cabClip = `cab${++clipIds}`; // the driver stays inside the cab window
   const well = (cx) => {
     const dx = Math.sqrt(25 * 25 - (AXLE - 154) ** 2);
     return `<path d="M${(cx - dx).toFixed(1)} 154 A25 25 0 0 1 ${(cx + dx).toFixed(1)} 154 Z" fill="#2b2633"/>`;
@@ -160,7 +162,7 @@ export function truckSVG(color, name, { width = 300, wheelsSpin = false, bling =
   <path d="M176 109 L185 96 h5 L181 109 Z" fill="#fff" opacity=".6"/>
   <rect x="195" y="120" width="4" height="9" rx="2" fill="#f4f7fa" stroke="${INK}" stroke-width="1.5"/>
   <path d="M218 78 H242 Q248 78 252 84 L264 104 H218 Z" fill="#bfe7ff"/>
-  ${driving ? seller(234, 98, 0.85) : `<path d="M250 104 q2 -9 9 -10" stroke="${INK}" stroke-width="2.5" fill="none" stroke-linecap="round"/>`}
+  ${driving ? `<clipPath id="${cabClip}"><path d="M218 78 H242 Q248 78 252 84 L264 104 H218 Z"/></clipPath><g clip-path="url(#${cabClip})">${seller(236, 93, 0.78)}</g>` : `<path d="M250 104 q2 -9 9 -10" stroke="${INK}" stroke-width="2.5" fill="none" stroke-linecap="round"/>`}
   <path d="M225 104 L238 80 h6 L231 104 Z" fill="#fff" opacity=".5"/>
   <path d="M218 78 H242 Q248 78 252 84 L264 104 H218 Z" fill="none" stroke="${INK}" stroke-width="2.2" stroke-linejoin="round"/>
   <path d="M266 106 V141" stroke="${INK}" stroke-width="1.6" opacity=".55"/>
