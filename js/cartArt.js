@@ -1,5 +1,5 @@
 // Cartoon SVG art for the park cart: the cart, bills and coins, Italian ice, the swings, critters and stands.
-import { iceCreamSVG } from './art.js';
+import { iceCreamSVG, personSVG } from './art.js';
 import { CART_ITEM, CART_SHOPS } from './config.js';
 
 const INK = '#2e2a45';
@@ -152,25 +152,54 @@ export function dropSVG() {
 }
 
 // ---------- the other sellers ----------
+// A person drawn inside a stand: w wide, feet at (cx, foot).
+function vendor(kind, me, cx, foot, w) {
+  const svg = personSVG(kind, 0, me);
+  const h = (w * 84) / 40;
+  return svg.replace('<svg ', `<svg x="${cx - w / 2}" y="${(foot - h).toFixed(1)}" width="${w}" height="${h.toFixed(1)}" `);
+}
+// The hot dog cart, with its cook behind the counter.
 export function hotdogStandSVG() {
-  return `<svg viewBox="0 0 140 150" class="stand" xmlns="http://www.w3.org/2000/svg">
-    <ellipse cx="70" cy="146" rx="62" ry="4" fill="${INK}" opacity=".14"/>
-    <path d="M70 70 V18" stroke="${INK}" stroke-width="3"/><path d="M8 36 Q70 -6 132 36 Z" fill="#ffd23f" ${OUT}/><path d="M39 36 Q55 10 70 6 Q85 10 101 36" fill="#e5484d"/><path d="M8 36 Q70 -6 132 36 Z" fill="none" ${OUT}/>
-    <rect x="14" y="70" width="112" height="56" rx="8" fill="#fffaf0" ${OUT}/><rect x="14" y="70" width="112" height="14" rx="6" fill="#e5484d" ${OUT}/>
-    ${emo(70, 104, '🌭', 26)}<circle cx="36" cy="136" r="11" fill="#4a4a5a" ${OUT}/><circle cx="104" cy="136" r="11" fill="#4a4a5a" ${OUT}/></svg>`;
+  const cook = vendor('adult', { girl: false, skin: 2, hair: 0, style: 'short', shirt: '#fffaf0', pants: '#355070', hat: 'cap' }, 75, 140, 46);
+  return `<svg viewBox="0 0 150 172" class="stand" xmlns="http://www.w3.org/2000/svg">
+    <ellipse cx="75" cy="167" rx="66" ry="4" fill="${INK}" opacity=".14"/>
+    <path d="M75 86 V22" stroke="${INK}" stroke-width="3.4"/><path d="M75 86 V22" stroke="#cfd5de" stroke-width="1.6"/>
+    ${cook}
+    <path d="M6 30 Q75 -12 144 30 Z" fill="#ffd23f" ${OUT}/><path d="M40 30 Q57 4 75 -1 Q93 4 110 30" fill="#e5484d"/><path d="M6 30 Q75 -12 144 30" fill="none" ${OUT}/>
+    <path d="M6 30 Q23 37 40 30 Q57 37 75 30 Q93 37 110 30 Q127 37 144 30" fill="none" ${OUT}/><circle cx="75" cy="-1" r="3" fill="#e5484d" ${thin}/>
+    <g ${thin}><path d="M24 84 V70 Q24 66 28 66 H32 Q36 66 36 70 V84 Z" fill="#e5484d"/><path d="M28 66 V61 H32 V66" fill="#fff"/><path d="M114 84 V70 Q114 66 118 66 H122 Q126 66 126 70 V84 Z" fill="#ffd23f"/><path d="M118 66 V61 H122 V66" fill="#fff"/></g>
+    <rect x="10" y="84" width="130" height="58" rx="8" fill="#fffaf0" ${OUT}/><rect x="10" y="84" width="130" height="14" rx="6" fill="#e5484d" ${OUT}/>
+    <g transform="translate(30 120)"><rect x="-14" y="-6" width="28" height="12" rx="6" fill="#e9b26a" ${thin}/><rect x="-17" y="-3" width="34" height="6" rx="3" fill="#c0503a" ${thin}/><path d="M-12 -1 q3 -2 6 0 t6 0 t6 0 t6 0" stroke="#ffd23f" stroke-width="1.6" fill="none"/></g>
+    <text x="96" y="125" font-family="Baloo 2, sans-serif" font-weight="800" font-size="15" text-anchor="middle" fill="#c3423f">HOT DOGS</text>
+    <circle cx="40" cy="150" r="12" fill="#4a4a5a" ${OUT}/><circle cx="40" cy="150" r="4.5" fill="#cfd6df"/><circle cx="110" cy="150" r="12" fill="#4a4a5a" ${OUT}/><circle cx="110" cy="150" r="4.5" fill="#cfd6df"/></svg>`;
 }
+// A balloon wagon: a bunch of balloons tied to a pole, and the balloon seller standing next to it with one more.
 export function balloonSellerSVG() {
-  const b = (x, y, c) => `<path d="M60 96 L${x} ${y + 14}" stroke="${INK}" stroke-width="1"/><ellipse cx="${x}" cy="${y}" rx="11" ry="14" fill="${c}" ${thin}/>`;
-  return `<svg viewBox="0 0 120 150" class="stand" xmlns="http://www.w3.org/2000/svg">
-    <ellipse cx="60" cy="147" rx="26" ry="3" fill="${INK}" opacity=".14"/>
-    ${b(40, 22, '#e5484d')}${b(62, 12, '#3a8ee6')}${b(84, 24, '#ffd23f')}${b(50, 46, '#ff6f91')}${b(76, 44, '#3cc6a0')}
-    <path d="M44 150 V118 Q44 98 60 98 Q76 98 76 118 V150 Z" fill="#7d5ba6" ${OUT}/><circle cx="60" cy="88" r="12" fill="#f1c27d" ${OUT}/><path d="M48 84 Q50 72 60 72 Q70 72 72 84 Q66 78 60 80 Q54 78 48 84 Z" fill="#2b1b0e"/>
-    <circle cx="56" cy="88" r="1.4" fill="${INK}"/><circle cx="64" cy="88" r="1.4" fill="${INK}"/><path d="M56 93 Q60 96 64 93" stroke="${INK}" stroke-width="1.3" fill="none"/></svg>`;
+  const tie = [88, 80];
+  const b = (x, y, c) => `<path d="M${x} ${y + 15} Q${(x + tie[0]) / 2 + 3} ${(y + tie[1]) / 2 + 8} ${tie[0]} ${tie[1]}" stroke="${INK}" stroke-width="1" fill="none"/><ellipse cx="${x}" cy="${y}" rx="11" ry="14" fill="${c}" ${thin}/><path d="M${x - 5} ${y - 7} q2 -4 6 -4" stroke="#fff" stroke-width="2" fill="none" opacity=".7" stroke-linecap="round"/><path d="M${x - 2} ${y + 14} h4 l-2 2.5 z" fill="${c}" ${thin}/>`;
+  const seller = vendor('adult', { girl: true, skin: 4, hair: 3, style: 'bob', shirt: '#7d5ba6', pants: '#355070', hat: 'sunhat' }, 30, 170, 40);
+  return `<svg viewBox="0 0 130 176" class="stand" xmlns="http://www.w3.org/2000/svg">
+    <ellipse cx="66" cy="172" rx="58" ry="4" fill="${INK}" opacity=".14"/>
+    ${b(70, 22, '#e5484d')}${b(96, 17, '#3a8ee6')}${b(115, 34, '#ffd23f')}${b(78, 50, '#ff6f91')}${b(104, 50, '#3cc6a0')}
+    <path d="M88 80 V150" stroke="${INK}" stroke-width="5" stroke-linecap="round"/><path d="M88 80 V150" stroke="#c98a4b" stroke-width="2.6" stroke-linecap="round"/>
+    <rect x="64" y="128" width="50" height="26" rx="4" fill="#fffaf0" ${OUT}/><path d="M76 128 V154 M89 128 V154 M102 128 V154" stroke="#7cc8ff" stroke-width="5"/><rect x="64" y="128" width="50" height="26" rx="4" fill="none" ${OUT}/>
+    <circle cx="74" cy="160" r="8" fill="#4a4a5a" ${OUT}/><circle cx="104" cy="160" r="8" fill="#4a4a5a" ${OUT}/>
+    <path d="M44 135 Q40 100 46 76" stroke="${INK}" stroke-width="1" fill="none"/><ellipse cx="46" cy="62" rx="10" ry="13" fill="#b69cff" ${thin}/><path d="M41 55 q2 -4 6 -4" stroke="#fff" stroke-width="2" fill="none" opacity=".7" stroke-linecap="round"/>
+    ${seller}</svg>`;
 }
+// The sticker table, with its seller behind it.
 export function stickerStandSVG() {
-  return `<svg viewBox="0 0 130 120" class="stand" xmlns="http://www.w3.org/2000/svg">
-    <ellipse cx="65" cy="116" rx="54" ry="4" fill="${INK}" opacity=".14"/>
-    <rect x="10" y="50" width="110" height="12" rx="4" fill="#3cc6a0" ${OUT}/><path d="M22 62 V116 M108 62 V116" stroke="${INK}" stroke-width="5"/>
-    <rect x="18" y="20" width="94" height="32" rx="4" fill="#fffaf0" ${OUT}/>${emo(34, 36, '⭐', 16)}${emo(54, 36, '💖', 16)}${emo(74, 36, '🌈', 16)}${emo(94, 36, '🚀', 16)}
-    <rect x="30" y="2" width="70" height="16" rx="5" fill="#ff6f91" ${OUT}/><text x="65" y="11" font-size="10" font-weight="800" text-anchor="middle" dominant-baseline="central" fill="#fff" font-family="Baloo 2, sans-serif">STICKERS</text></svg>`;
+  const seller = vendor('teen', { girl: true, skin: 0, hair: 2, style: 'pigtails', shirt: '#3cc6a0', pants: '#6d597a', hat: null }, 75, 124, 44);
+  const sheet = (x, c, r) => `<rect x="${x}" y="72" width="16" height="9" rx="1.5" fill="${c}" ${thin} transform="rotate(${r} ${x + 8} 76)"/>`;
+  return `<svg viewBox="0 0 150 150" class="stand" xmlns="http://www.w3.org/2000/svg">
+    <ellipse cx="75" cy="146" rx="66" ry="4" fill="${INK}" opacity=".14"/>
+    <path d="M16 82 V8 M134 82 V8" stroke="${INK}" stroke-width="4.4" stroke-linecap="round"/><path d="M16 82 V8 M134 82 V8" stroke="#c98a4b" stroke-width="2.2" stroke-linecap="round"/>
+    <path d="M16 10 H134 V28 L126 24 L118 28 L110 24 L102 28 L94 24 L86 28 L78 24 L70 28 L62 24 L54 28 L46 24 L38 28 L30 24 L22 28 L16 24 Z" fill="#ff6f91" ${OUT}/>
+    <text x="75" y="19" font-size="12" font-weight="800" text-anchor="middle" dominant-baseline="central" fill="#fff" font-family="Baloo 2, sans-serif">STICKERS</text>
+    ${seller}
+    ${sheet(22, '#fff3b0', -8)}${sheet(42, '#ffd6e7', 6)}${sheet(94, '#d6f1fb', -5)}${sheet(112, '#d8f3dc', 8)}
+    <rect x="8" y="80" width="134" height="9" rx="3" fill="#3cc6a0" ${OUT}/>
+    <path d="M10 89 H140 V126 Q132 132 124 126 Q115 132 107 126 Q98 132 90 126 Q81 132 73 126 Q64 132 56 126 Q47 132 39 126 Q30 132 22 126 Q16 131 10 126 Z" fill="#fffaf0" ${OUT}/>
+    ${emo(28, 108, '⭐', 15)}${emo(56, 108, '💖', 15)}${emo(84, 108, '🌈', 15)}${emo(112, 108, '🚀', 15)}
+    <path d="M20 128 V144 M130 128 V144" stroke="${INK}" stroke-width="4" stroke-linecap="round"/></svg>`;
 }

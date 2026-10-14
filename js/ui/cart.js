@@ -708,8 +708,8 @@ export class CartView {
     const st = this.stage;
     const v = tall ? PARK_VIEW.tall : PARK_VIEW.wide;
     const spots = tall
-      ? { hotdog: [60, 330, 112], decals: [306, 342, 100], balloons: [322, 477, 60], swings: [186, 319, 134] }
-      : { hotdog: [316, 355, 103], decals: [660, 355, 94], balloons: [909, 390, 85], swings: [477, 345, 141] };
+      ? { hotdog: [60, 330, 116], decals: [306, 342, 104], balloons: [318, 477, 76], swings: [186, 319, 134] }
+      : { hotdog: [316, 355, 108], decals: [660, 355, 98], balloons: [905, 392, 96], swings: [477, 345, 141] };
     const W = st.clientWidth;
     const H = st.clientHeight;
     const px = Math.max(W / v.w, H / v.h);
