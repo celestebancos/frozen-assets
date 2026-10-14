@@ -1,6 +1,7 @@
-// Street sounds, all made with Web Audio (no sound files): traffic, kids laughing, people talking in the
-// distance, dogs, birds, splashing at the pool, cheering at the ball fields, animals at the zoo, rain.
-// Each kind of place has its own mix. Plays through the music's volume and mute.
+// Street sounds: traffic, kids laughing, people talking in the distance, dogs, birds, splashing at the
+// pool, cheering at the ball fields, animals at the zoo, rain. Each kind of place has its own mix.
+// Recordings in sounds/ (listed in sounds/sounds.json) are used when there are any for a sound;
+// otherwise a sound is made with Web Audio. Plays through the music's volume and mute.
 
 // How often each sound happens (times per minute of real time) and how loud the steady beds are, by place.
 // Beds: traffic (a low rumble), murmur (a crowd far away), rain.
@@ -29,6 +30,55 @@ const STREET_TWEAKS = {
 import { MARKET_DAYS } from './config.js';
 
 const rand = (a, b) => a + Math.random() * (b - a);
+const BEDS = ['traffic', 'murmur', 'rain'];
+
+// ---------- recordings ----------
+// sounds/sounds.json: { "bird": ["bird-robin.mp3", ...], "traffic": ["traffic-loop.mp3"], "cash": [...], ... }
+// Each file can also be { "file": "x.mp3", "gain": 0.6 } to make it quieter or louder.
+let listing = null;
+const buffers = new Map(); // file → Promise<AudioBuffer|null>
+export function soundFiles() {
+  listing ||= fetch('sounds/sounds.json')
+    .then((r) => (r.ok ? r.json() : {}))
+    .catch(() => ({}));
+  return listing;
+}
+function decode(ctx, file) {
+  if (!buffers.has(file))
+    buffers.set(
+      file,
+      fetch('sounds/' + file)
+        .then((r) => (r.ok ? r.arrayBuffer() : null))
+        .then((b) => (b ? new Promise((ok, bad) => ctx.decodeAudioData(b, ok, bad)) : null))
+        .catch(() => null),
+    );
+  return buffers.get(file);
+}
+// The recordings for one sound that are ready to play (and start loading the rest).
+class Recordings {
+  constructor() {
+    this.list = {};
+    this.ready = {};
+    soundFiles().then((l) => (this.list = l || {}));
+  }
+  has(name) {
+    return !!this.list[name]?.length;
+  }
+  pick(ctx, name) {
+    const entries = (this.list[name] || []).map((e) => (typeof e === 'string' ? { file: e, gain: 1 } : { gain: 1, ...e }));
+    const ready = [];
+    for (const e of entries) {
+      const key = e.file;
+      if (this.ready[key]) ready.push({ ...e, buffer: this.ready[key] });
+      else if (this.ready[key] !== null) {
+        this.ready[key] = null; // loading
+        decode(ctx, key).then((b) => (this.ready[key] = b || undefined));
+      }
+    }
+    return ready.length ? ready[Math.floor(Math.random() * ready.length)] : null;
+  }
+}
+const recordings = typeof fetch === 'function' && typeof window !== 'undefined' ? new Recordings() : null;
 
 export class Ambience {
   constructor(music) {
@@ -38,6 +88,13 @@ export class Ambience {
     this.mix = null;
     this.timer = null;
     this.beds = null;
+    // a fresh audio context (after coming back from another app): start the sounds over in it
+    music.onRebuild?.push(() => {
+      this.bus = null;
+      this.beds = null;
+      this.noise = null;
+      this.mixKey = '';
+    });
   }
 
   setOn(on) {
@@ -169,25 +226,51 @@ export class Ambience {
   // ---------- steady beds ----------
   startBeds() {
     if (this.beds) return;
-    const bed = (filters) => {
+    const bed = (filters, name) => {
+      const rec = recordings?.pick(this.ctx, name);
+      if (rec || recordings?.has(name)) {
+        // a recorded loop (or one still loading: a silent bed for now, tried again on the next mix change)
+        const g = this.voice(0);
+        g.level = rec?.gain ?? 1;
+        if (rec) {
+          const src = this.ctx.createBufferSource();
+          src.buffer = rec.buffer;
+          src.loop = true;
+          src.connect(g);
+          src.start(this.ctx.currentTime, rand(0, rec.buffer.duration));
+          g.src = src;
+        } else g.loading = true;
+        return g;
+      }
       const src = this.noiseSource(true);
       const g = this.voice(0);
       let node = src;
       for (const f of filters) node = node.connect(f);
       node.connect(g);
       src.start();
+      g.src = src;
+      g.level = 0.35;
       return g;
     };
     this.beds = {
-      traffic: bed([this.filter('lowpass', 260, 0.7), this.filter('lowpass', 500, 0.5)]),
-      murmur: bed([this.filter('bandpass', 520, 0.6), this.filter('lowpass', 1400, 0.7)]),
-      rain: bed([this.filter('highpass', 900, 0.5), this.filter('lowpass', 7000, 0.5)]),
+      traffic: bed([this.filter('lowpass', 260, 0.7), this.filter('lowpass', 500, 0.5)], 'traffic'),
+      murmur: bed([this.filter('bandpass', 520, 0.6), this.filter('lowpass', 1400, 0.7)], 'murmur'),
+      rain: bed([this.filter('highpass', 900, 0.5), this.filter('lowpass', 7000, 0.5)], 'rain'),
     };
   }
   setBeds() {
     if (!this.beds) return;
+    // a recorded loop that was loading is ready now: start the beds over with it
+    if (BEDS.some((k) => this.beds[k].loading && recordings?.pick(this.ctx, k))) {
+      for (const g of Object.values(this.beds)) {
+        g.src?.stop();
+        g.disconnect();
+      }
+      this.beds = null;
+      this.startBeds();
+    }
     const t = this.ctx.currentTime;
-    for (const [k, g] of Object.entries(this.beds)) g.gain.setTargetAtTime((this.mix?.[k] || 0) * 0.35, t, 0.8);
+    for (const [k, g] of Object.entries(this.beds)) g.gain.setTargetAtTime((this.mix?.[k] || 0) * g.level, t, 0.8);
   }
 
   tick() {
@@ -196,11 +279,29 @@ export class Ambience {
     this.last = now;
     if (!this.mix || this.ctx.state !== 'running') return;
     // the crowd's murmur rises and falls a little
-    if (this.beds && this.mix.murmur) this.beds.murmur.gain.setTargetAtTime(this.mix.murmur * 0.35 * rand(0.6, 1.3), this.ctx.currentTime, 0.6);
+    if (this.beds && BEDS.some((k) => this.beds[k].loading)) this.setBeds();
+    if (this.beds && this.mix.murmur) this.beds.murmur.gain.setTargetAtTime(this.mix.murmur * this.beds.murmur.level * rand(0.6, 1.3), this.ctx.currentTime, 0.6);
     for (const [k, perMin] of Object.entries(this.mix)) {
-      if (!this[k] || ['traffic', 'murmur', 'rain'].includes(k)) continue;
-      if (Math.random() < (perMin / 60) * dt) this[k](this.ctx.currentTime + rand(0, 0.15));
+      if (BEDS.includes(k) || !(Math.random() < (perMin / 60) * dt)) continue;
+      const t = this.ctx.currentTime + rand(0, 0.15);
+      // a recording if there is one for this sound; made up only if there are no recordings for it
+      if (recordings?.has(k)) this.playRecording(k, t);
+      else this[k]?.(t);
     }
+  }
+
+  // One recording, somewhere left or right, a little louder or softer each time.
+  playRecording(name, t, pan = rand(-0.7, 0.7)) {
+    const rec = recordings.pick(this.ctx, name);
+    if (!rec) return false;
+    const src = this.ctx.createBufferSource();
+    src.buffer = rec.buffer;
+    src.playbackRate.value = rand(0.96, 1.04);
+    const g = this.voice(pan);
+    g.gain.value = rec.gain * rand(0.75, 1) * 0.5;
+    src.connect(g);
+    src.start(t);
+    return true;
   }
 
   // ---------- the sounds ----------
@@ -482,6 +583,17 @@ export function cashRegister(music) {
   if (!music.ensure() || music.muted) return;
   const ctx = music.ctx;
   const t = ctx.currentTime + 0.01;
+  const rec = recordings?.pick(ctx, 'cash');
+  if (rec) {
+    const src = ctx.createBufferSource();
+    src.buffer = rec.buffer;
+    const g = ctx.createGain();
+    g.gain.value = rec.gain * 0.8;
+    src.connect(g).connect(music.master);
+    src.start(t);
+    return;
+  }
+  if (recordings?.has('cash')) return; // still loading
   const out = ctx.createGain();
   out.gain.value = 0.55;
   out.connect(music.master);

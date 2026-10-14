@@ -684,3 +684,5 @@ body { position: fixed; inset: 0; }
   .park .serve .pieces { min-height: 24px; gap: 2px; }
   .park .serve .tiny { font-size: 12px; }
 }
+.sound-tap { position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%); z-index: 6; border: 3px solid var(--ink); border-radius: 999px; background: var(--yellow); font-weight: 800; font-size: 18px; padding: 6px 16px; box-shadow: var(--shadow); }
+.sound-tap[hidden] { display: none; }

@@ -81,6 +81,8 @@ export class Music {
     this.muted = false;
     this.playing = false;
     this.timer = null;
+    this.away = false; // the page was hidden (another app); sound needs a tap to come back
+    this.onRebuild = []; // others using the audio (street sounds) start over when it's rebuilt
   }
 
   ensure() {
@@ -135,27 +137,60 @@ export class Music {
     clearTimeout(this.timer);
   }
 
-  // Phones pause audio when you switch apps. Pause with the page and pick up again on return.
+  // Phones stop audio when you switch apps. Coming back, the old audio often says it's running but stays
+  // silent, and phones only let sound start again from a tap. So: pause with the page, and on the first
+  // tap after coming back, start a fresh audio context and pick the music up where it was.
   watchVisibility() {
     if (this.watching || typeof document === 'undefined') return;
     this.watching = true;
     document.addEventListener('visibilitychange', () => {
       if (!this.ctx) return;
-      if (document.hidden) this.ctx.suspend();
-      else this.wake();
+      if (document.hidden) {
+        this.away = true;
+        this.ctx.suspend().catch(() => {});
+      } else {
+        // desktops come back on their own; phones wait for the tap below
+        this.ctx.resume().catch(() => {});
+      }
     });
-    // iOS only lets audio restart from a tap
     const tap = () => this.wake();
-    document.addEventListener('pointerdown', tap);
-    document.addEventListener('touchend', tap);
+    for (const ev of ['pointerdown', 'touchend', 'keydown']) document.addEventListener(ev, tap, true);
+    // iOS 17+: play like a music app
+    try {
+      if (navigator.audioSession) navigator.audioSession.type = 'playback';
+    } catch {
+      /* not supported */
+    }
+  }
+  // Is sound waiting for a tap to come back?
+  needsTap() {
+    if (!this.ctx || this.muted || (typeof document !== 'undefined' && document.hidden)) return false;
+    return this.away || this.ctx.state !== 'running';
   }
   wake() {
     if (!this.ctx || document.hidden) return;
-    if (this.ctx.state !== 'running') this.ctx.resume();
+    if (this.away || this.ctx.state === 'interrupted' || this.ctx.state === 'closed') this.rebuild();
+    else if (this.ctx.state !== 'running') this.ctx.resume().catch(() => {});
     if (this.playing) {
       clearTimeout(this.timer);
       this.schedule();
     }
+  }
+  // A fresh audio context (must be called from a tap on phones).
+  rebuild() {
+    const old = this.ctx;
+    this.ctx = null;
+    this.master = null;
+    this.away = false;
+    try {
+      old?.close();
+    } catch {
+      /* already closed */
+    }
+    if (!this.ensure()) return false;
+    this.next = this.ctx.currentTime + 0.1;
+    for (const fn of this.onRebuild) fn();
+    return true;
   }
 
   schedule() {

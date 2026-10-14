@@ -47,7 +47,7 @@ Six neighborhoods. A route only says which neighborhood to be in and when; insid
 
 A place is worth stopping at when it's busy: the pool on a hot afternoon, ball fields in the evening, offices at lunch, the library at story time or on a rainy day, the school when camp lets out. The truck parks if parties come at least `cruise.parkPerHour` an hour, and drives on after `cruise.leaveIdle` quiet minutes.
 
-**Sounds.** A ca-ching every time someone pays. Street sounds follow what's on screen: birds, dogs and kids on neighborhood streets; traffic, horns and chatter downtown; splashing and a lifeguard's whistle at the pool; the crack of the bat and cheering at the ball fields; animals at the zoo; ducks in the park; rain on rainy days. They can be turned off in 🚚 Truck & Music or ⚙️ Settings.
+**Sounds.** A ca-ching every time someone pays. Street sounds follow what's on screen: birds, dogs and kids on neighborhood streets; traffic, horns and chatter downtown; splashing and a lifeguard's whistle at the pool; the crack of the bat and cheering at the ball fields; animals at the zoo; ducks in the park; rain on rainy days. They can be turned off in 🚚 Truck & Music or ⚙️ Settings. Recordings dropped into `sounds/` and listed in `sounds/sounds.json` replace the made-up versions one sound at a time (see `sounds/README.md`). After switching to another app on a phone, the first tap brings the sound back (a 🔈 Tap for sound button shows until then).
 
 Things that teach a lesson without a lecture:
 
