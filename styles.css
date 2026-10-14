@@ -594,7 +594,7 @@ table.books tr.bottom td { font-weight: 800; font-size: 18px; background: #fff3b
 .park .party .who svg.person.teen { width: calc(var(--u, 1.3px) * 42); }
 .park .party .who svg.person.dog { width: calc(var(--u, 1.3px) * 44); }
 .park .party .who .hand svg { width: calc(var(--u, 1.3px) * 26); }
-.park .cart-spot .me { position: absolute; left: 34%; bottom: 46%; width: 26%; z-index: -1; }
+.park .cart-spot .me { position: absolute; left: 34%; bottom: 31%; width: 26%; z-index: -1; } /* behind the cooler, which hides you from the waist down */
 .park .cart-spot svg { width: 100%; height: auto; display: block; }
 .park .queue { z-index: 3; }
 .park .queue .party { transition: left 0.9s ease-in-out; bottom: 3%; }
