@@ -5,6 +5,7 @@ import { Cart, total, pileCount, CART_DAY_NAMES } from '../cart.js';
 import { personSVG, parkSVG, CHARACTER, PARK_VIEW } from '../art.js';
 import { cartSVG, STICKER_AREA, umbrellaSVG, moneySVG, treatSVG, thingSVG, swingSetSVG, swingSeatSVG, balloonSVG, hotdogStandSVG, balloonSellerSVG, stickerStandSVG } from '../cartArt.js';
 import { ParkStories } from './parkStories.js';
+import { Ambience, cashRegister, gameSound } from '../ambience.js';
 import { storage } from '../storage.js';
 import { esc, money, el, openModal, onActs, anyModalOpen, closeAllModals, toast, fmtTime } from './dom.js';
 
@@ -181,6 +182,7 @@ export class CartView {
     cancelAnimationFrame(this.raf);
     this.stories?.stop();
     this.resizer?.disconnect();
+    this.app.ambience.stop();
   }
 
   // ---------- morning at home ----------
@@ -752,6 +754,7 @@ export class CartView {
       tall,
       busy: anyModalOpen,
       blockers: () => st.querySelectorAll('.stand-btn.front, .cart-spot'),
+      sound: (name, pan) => this.app.ambience.effect(name, pan),
     });
     if (running) this.stories.start(4000);
     if (this.custEls) this.renderQueue();
@@ -910,6 +913,7 @@ export class CartView {
     const s = this.s;
     const dt = Math.min(250, now - this.lastFrame);
     this.lastFrame = now;
+    this.app.ambience.play(Ambience.cartMix(c)); // the sounds of the park around the cart
     if (s.phase !== 'park' || anyModalOpen()) return;
     const w = s.window;
     if (w && (w.stage === 'done' || w.stage === 'leaving')) {
@@ -966,7 +970,7 @@ export class CartView {
         this.help = false;
         this.serveStart = performance.now();
         this.serveMsg = null;
-        if (this.has('bell')) this.app.music.sfx('ding');
+        if (this.has('bell')) gameSound(this.app.music, 'bell');
       } else if (ev.t === 'leave') {
         const e = this.custEls.get(ev.id);
         if (!e) continue;
@@ -1174,7 +1178,8 @@ export class CartView {
       return;
     }
     this.tray = {};
-    this.app.music.sfx(r.tip ? 'yay' : 'ching');
+    cashRegister(this.app.music);
+    if (r.tip) this.app.music.sfx('yay');
     const reg = w.cust.regular ? REG[w.cust.regular] : null;
     const yum = reg && w.order.includes(reg.fav) ? `Yay, ${CART_ITEM[reg.fav].name.toLowerCase()}! ` : '';
     if (r.result === 'honest') this.serveMsg = { text: `${yum}You gave me too much change! Here's the extra back.`, cls: 'hint' };

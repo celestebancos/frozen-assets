@@ -1,7 +1,6 @@
 // Street sounds: traffic, kids laughing, people talking in the distance, dogs, birds, splashing at the
 // pool, cheering at the ball fields, animals at the zoo, rain. Each kind of place has its own mix.
-// Recordings in sounds/ (listed in sounds/sounds.json) are used when there are any for a sound;
-// otherwise a sound is made with Web Audio. Plays through the music's volume and mute.
+// Every sound is a recording in sounds/, listed in sounds/sounds.json. Plays through the music's volume and mute.
 
 // How often each sound happens (times per minute of real time) and how loud the steady beds are, by place.
 // Beds: traffic (a low rumble), murmur (a crowd far away), rain.
@@ -19,6 +18,8 @@ const MIX = {
   market: { voices: 6, laugh: 2, dog: 1, bird: 3, car: 1, murmur: 0.45 },
   zoo: { animal: 1.5, laugh: 5, squeal: 2, voices: 3, bird: 4, murmur: 0.35 },
   park: { bird: 10, dog: 3, laugh: 3, quack: 1.5, voices: 2, murmur: 0.2 },
+  // the park cart's spot: by the swings and the pond, with the hot dog stand and the balloon seller
+  cartPark: { bird: 8, laugh: 4, squeal: 2.5, voices: 3, dog: 1.5, quack: 1, murmur: 0.25, traffic: 0.04 },
 };
 // Different neighborhoods sound a little different on their streets.
 const STREET_TWEAKS = {
@@ -59,10 +60,20 @@ class Recordings {
   constructor() {
     this.list = {};
     this.ready = {};
-    soundFiles().then((l) => (this.list = l || {}));
+    this.loaded = false;
+    soundFiles().then((l) => {
+      this.list = l || {};
+      this.loaded = true;
+    });
   }
   has(name) {
     return !!this.list[name]?.length;
+  }
+  // start loading every listed recording, so the first ka-ching or bark of the day isn't silent
+  warm(ctx) {
+    if (!this.loaded || this.warmed === ctx) return;
+    this.warmed = ctx;
+    for (const name of Object.keys(this.list)) this.pick(ctx, name);
   }
   pick(ctx, name) {
     const entries = (this.list[name] || []).map((e) => (typeof e === 'string' ? { file: e, gain: 1 } : { gain: 1, ...e }));
@@ -92,7 +103,6 @@ export class Ambience {
     music.onRebuild?.push(() => {
       this.bus = null;
       this.beds = null;
-      this.noise = null;
       this.mixKey = '';
     });
   }
@@ -131,18 +141,34 @@ export class Ambience {
       }
     }
     const hour = s.minute / 60;
-    if (s.weather?.rain) {
-      for (const k of ['bird', 'laugh', 'squeal', 'splash', 'dog', 'quack']) if (mix[k]) mix[k] *= 0.3;
-      mix.rain = 0.2;
-      key += '|rain';
-    }
+    if (s.weather?.rain) ({ key, mix } = Ambience.rainy(key, mix));
     if (hour >= 18.5 && mix.bird) mix.bird *= 0.4; // birds quiet down in the evening
     return { key: key + (hour >= 18.5 ? '|eve' : ''), mix };
+  }
+  // Rain: fewer birds and kids outside, and the patter of rain.
+  static rainy(key, mix) {
+    mix = { ...mix };
+    for (const k of ['bird', 'laugh', 'squeal', 'splash', 'dog', 'quack']) if (mix[k]) mix[k] *= 0.3;
+    mix.rain = 0.2;
+    return { key: key + '|rain', mix };
+  }
+  // The mix at the park cart's spot (null: not at the park).
+  static cartMix(cart) {
+    const s = cart.state;
+    if (s.phase !== 'park') return null;
+    const m = { key: 'cartPark', mix: { ...MIX.cartPark } };
+    return s.weather?.rain ? Ambience.rainy(m.key, m.mix) : m;
   }
 
   // Called every frame: switch the mix when the place changes; quiet when the day isn't on.
   update(game, view = null) {
-    const m = this.on && !this.music.muted && game ? Ambience.mixFor(game, view) : null;
+    this.play(game ? Ambience.mixFor(game, view) : null);
+  }
+
+  // Play a mix ({ key, mix }, or null for quiet). Called every frame; only does something when the mix changes.
+  play(m) {
+    if (this.ctx) recordings?.warm(this.ctx);
+    if (!this.on || this.music.muted) m = null;
     if (!m) {
       if (this.mix) this.stop();
       return;
@@ -157,6 +183,13 @@ export class Ambience {
       this.last = performance.now();
       this.timer = setInterval(() => this.tick(), 200);
     }
+  }
+
+  // One sound right now (a dog in a story on the lawn), when street sounds are on. pan: -1 (left) to 1 (right).
+  effect(name, pan = 0) {
+    if (!this.on || this.music.muted || !this.music.ensure()) return false;
+    recordings?.warm(this.ctx);
+    return this.playRecording(name, this.ctx.currentTime + 0.02, pan);
   }
 
   stop() {
@@ -176,21 +209,6 @@ export class Ambience {
     }
     return this.bus;
   }
-  noiseBuffer() {
-    if (!this.noise) {
-      const len = this.ctx.sampleRate * 2;
-      this.noise = this.ctx.createBuffer(1, len, this.ctx.sampleRate);
-      const d = this.noise.getChannelData(0);
-      for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
-    }
-    return this.noise;
-  }
-  noiseSource(loop = false) {
-    const src = this.ctx.createBufferSource();
-    src.buffer = this.noiseBuffer();
-    src.loop = loop;
-    return src;
-  }
   // gain node → stereo pan → bus
   voice(pan = rand(-0.8, 0.8)) {
     const g = this.ctx.createGain();
@@ -203,60 +221,25 @@ export class Ambience {
     } else g.connect(this.out());
     return g;
   }
-  filter(type, f, q = 1) {
-    const b = this.ctx.createBiquadFilter();
-    b.type = type;
-    b.frequency.value = f;
-    b.Q.value = q;
-    return b;
-  }
-  osc(type, f) {
-    const o = this.ctx.createOscillator();
-    o.type = type;
-    o.frequency.value = f;
-    return o;
-  }
-  // a quick attack, then a fade
-  env(g, t, peak, attack, length) {
-    g.gain.setValueAtTime(0.0001, t);
-    g.gain.exponentialRampToValueAtTime(peak, t + attack);
-    g.gain.exponentialRampToValueAtTime(0.0001, t + length);
-  }
-
   // ---------- steady beds ----------
   startBeds() {
     if (this.beds) return;
-    const bed = (filters, name) => {
+    // a recorded loop (or one still loading: a silent bed for now, started once it's ready)
+    const bed = (name) => {
       const rec = recordings?.pick(this.ctx, name);
-      if (rec || recordings?.has(name)) {
-        // a recorded loop (or one still loading: a silent bed for now, tried again on the next mix change)
-        const g = this.voice(0);
-        g.level = rec?.gain ?? 1;
-        if (rec) {
-          const src = this.ctx.createBufferSource();
-          src.buffer = rec.buffer;
-          src.loop = true;
-          src.connect(g);
-          src.start(this.ctx.currentTime, rand(0, rec.buffer.duration));
-          g.src = src;
-        } else g.loading = true;
-        return g;
-      }
-      const src = this.noiseSource(true);
       const g = this.voice(0);
-      let node = src;
-      for (const f of filters) node = node.connect(f);
-      node.connect(g);
-      src.start();
-      g.src = src;
-      g.level = 0.35;
+      g.level = rec?.gain ?? 1;
+      if (rec) {
+        const src = this.ctx.createBufferSource();
+        src.buffer = rec.buffer;
+        src.loop = true;
+        src.connect(g);
+        src.start(this.ctx.currentTime, rand(0, rec.buffer.duration));
+        g.src = src;
+      } else g.loading = !!recordings && (!recordings.loaded || recordings.has(name));
       return g;
     };
-    this.beds = {
-      traffic: bed([this.filter('lowpass', 260, 0.7), this.filter('lowpass', 500, 0.5)], 'traffic'),
-      murmur: bed([this.filter('bandpass', 520, 0.6), this.filter('lowpass', 1400, 0.7)], 'murmur'),
-      rain: bed([this.filter('highpass', 900, 0.5), this.filter('lowpass', 7000, 0.5)], 'rain'),
-    };
+    this.beds = { traffic: bed('traffic'), murmur: bed('murmur'), rain: bed('rain') };
   }
   setBeds() {
     if (!this.beds) return;
@@ -284,346 +267,48 @@ export class Ambience {
     for (const [k, perMin] of Object.entries(this.mix)) {
       if (BEDS.includes(k) || !(Math.random() < (perMin / 60) * dt)) continue;
       const t = this.ctx.currentTime + rand(0, 0.15);
-      // a recording if there is one for this sound; made up only if there are no recordings for it
-      if (recordings?.has(k)) this.playRecording(k, t);
-      else this[k]?.(t);
+      this.playRecording(k, t);
+      // the crack of the bat, and often a cheer after it
+      if (k === 'bat' && Math.random() < 0.6) this.playRecording('cheer', t + rand(0.3, 0.6), rand(-0.3, 0.3));
     }
   }
 
-  // One recording, somewhere left or right, a little louder or softer each time.
+  // One recording, somewhere left or right, a little louder or softer each time. Cars drive across.
   playRecording(name, t, pan = rand(-0.7, 0.7)) {
-    const rec = recordings.pick(this.ctx, name);
+    const rec = recordings?.pick(this.ctx, name);
     if (!rec) return false;
     const src = this.ctx.createBufferSource();
     src.buffer = rec.buffer;
     src.playbackRate.value = rand(0.96, 1.04);
     const g = this.voice(pan);
     g.gain.value = rec.gain * rand(0.75, 1) * 0.5;
+    if (name === 'car' && g.panner) {
+      const dir = Math.random() < 0.5 ? -1 : 1;
+      g.panner.pan.setValueAtTime(-dir * 0.9, t);
+      g.panner.pan.linearRampToValueAtTime(dir * 0.9, t + rec.buffer.duration);
+    }
     src.connect(g);
     src.start(t);
     return true;
   }
-
-  // ---------- the sounds ----------
-  // A car driving past, left to right or right to left.
-  car(t) {
-    const src = this.noiseSource();
-    const f = this.filter('bandpass', 300, 1.2);
-    const dir = Math.random() < 0.5 ? -1 : 1;
-    const g = this.voice(-dir);
-    const len = rand(2, 3.5);
-    g.panner?.pan.setValueAtTime(-dir * 0.9, t);
-    g.panner?.pan.linearRampToValueAtTime(dir * 0.9, t + len);
-    src.connect(f).connect(g);
-    f.frequency.setValueAtTime(260, t);
-    f.frequency.linearRampToValueAtTime(rand(700, 1000), t + len / 2);
-    f.frequency.linearRampToValueAtTime(240, t + len);
-    g.gain.setValueAtTime(0.0001, t);
-    g.gain.exponentialRampToValueAtTime(rand(0.25, 0.45), t + len / 2);
-    g.gain.exponentialRampToValueAtTime(0.0001, t + len);
-    src.start(t);
-    src.stop(t + len + 0.1);
-  }
-  // A car horn: one or two honks.
-  horn(t) {
-    const n = Math.random() < 0.5 ? 1 : 2;
-    const base = rand(330, 420);
-    for (let i = 0; i < n; i++) {
-      const at = t + i * 0.32;
-      const g = this.voice();
-      const lp = this.filter('lowpass', 1600, 0.7);
-      lp.connect(g);
-      for (const m of [1, 1.26]) {
-        const o = this.osc('square', base * m);
-        o.connect(lp);
-        o.start(at);
-        o.stop(at + 0.25);
-      }
-      g.gain.setValueAtTime(0.0001, at);
-      g.gain.exponentialRampToValueAtTime(0.09, at + 0.02);
-      g.gain.setValueAtTime(0.09, at + 0.2);
-      g.gain.exponentialRampToValueAtTime(0.0001, at + 0.25);
-    }
-  }
-  // A kid laughing: a run of short "ha"s, high and bubbly.
-  laugh(t) {
-    const g = this.voice();
-    const f1 = this.filter('bandpass', rand(900, 1300), 3);
-    const f2 = this.filter('bandpass', rand(2200, 2800), 4);
-    f1.connect(g);
-    f2.connect(g);
-    const n = Math.round(rand(4, 8));
-    let f0 = rand(380, 560);
-    for (let i = 0; i < n; i++) {
-      const at = t + i * rand(0.11, 0.15);
-      const o = this.osc('sawtooth', f0);
-      o.frequency.setValueAtTime(f0 * 1.08, at);
-      o.frequency.exponentialRampToValueAtTime(f0 * 0.92, at + 0.09);
-      const sg = this.ctx.createGain();
-      this.env(sg, at, 0.5, 0.012, 0.1);
-      o.connect(sg);
-      sg.connect(f1);
-      sg.connect(f2);
-      o.start(at);
-      o.stop(at + 0.12);
-      f0 *= rand(0.95, 1.03);
-    }
-    g.gain.value = rand(0.5, 0.75);
-  }
-  // "Wheee!" from the slide or the diving board.
-  squeal(t) {
-    const g = this.voice();
-    const o = this.osc('triangle', 900);
-    const vib = this.osc('sine', 7);
-    const vg = this.ctx.createGain();
-    vg.gain.value = 30;
-    vib.connect(vg).connect(o.frequency);
-    o.frequency.setValueAtTime(rand(800, 1000), t);
-    o.frequency.exponentialRampToValueAtTime(rand(1300, 1600), t + 0.25);
-    o.frequency.exponentialRampToValueAtTime(rand(900, 1100), t + 0.6);
-    o.connect(g);
-    this.env(g, t, 0.3, 0.05, 0.65);
-    o.start(t);
-    vib.start(t);
-    o.stop(t + 0.7);
-    vib.stop(t + 0.7);
-  }
-  // People talking far away: a mumbly voice whose vowels keep changing.
-  voices(t) {
-    const g = this.voice();
-    const lp = this.filter('lowpass', 1300, 0.7);
-    const formant = this.filter('bandpass', 600, 2.5);
-    const o = this.osc('sawtooth', rand(110, 230));
-    o.connect(formant).connect(lp).connect(g);
-    const len = rand(1.2, 2.6);
-    for (let x = 0; x < len; x += 0.14) {
-      formant.frequency.setValueAtTime(rand(350, 1100), t + x);
-      o.frequency.setTargetAtTime(o.frequency.value * rand(0.85, 1.18), t + x, 0.05);
-    }
-    g.gain.setValueAtTime(0.0001, t);
-    g.gain.exponentialRampToValueAtTime(rand(0.18, 0.3), t + 0.1);
-    for (let x = 0.3; x < len - 0.2; x += rand(0.25, 0.5)) g.gain.setTargetAtTime(rand(0.05, 0.3), t + x, 0.05);
-    g.gain.exponentialRampToValueAtTime(0.0001, t + len);
-    o.start(t);
-    o.stop(t + len + 0.05);
-  }
-  // A dog: one to three woofs.
-  dog(t) {
-    const n = Math.round(rand(1, 3));
-    const g = this.voice();
-    const lp = this.filter('lowpass', rand(1400, 2200), 1);
-    lp.connect(g);
-    g.gain.value = rand(0.45, 0.7);
-    const big = Math.random() < 0.4;
-    for (let i = 0; i < n; i++) {
-      const at = t + i * rand(0.28, 0.4);
-      const o = this.osc('sawtooth', big ? 300 : 520);
-      o.frequency.setValueAtTime(big ? 330 : 600, at);
-      o.frequency.exponentialRampToValueAtTime(big ? 170 : 300, at + 0.13);
-      const sg = this.ctx.createGain();
-      this.env(sg, at, 0.6, 0.01, 0.16);
-      o.connect(sg).connect(lp);
-      o.start(at);
-      o.stop(at + 0.18);
-      const nz = this.noiseSource();
-      const bp = this.filter('bandpass', big ? 600 : 900, 2);
-      const ng = this.ctx.createGain();
-      this.env(ng, at, 0.4, 0.005, 0.08);
-      nz.connect(bp).connect(ng).connect(lp);
-      nz.start(at);
-      nz.stop(at + 0.1);
-    }
-  }
-  // A bird: a few chirps, or a quick trill.
-  bird(t) {
-    const g = this.voice();
-    g.gain.value = rand(0.12, 0.2);
-    const trill = Math.random() < 0.35;
-    const n = trill ? Math.round(rand(8, 14)) : Math.round(rand(2, 5));
-    const base = rand(2300, 3600);
-    for (let i = 0; i < n; i++) {
-      const at = t + i * (trill ? 0.045 : rand(0.12, 0.2));
-      const o = this.osc('sine', base);
-      const len = trill ? 0.035 : rand(0.06, 0.1);
-      o.frequency.setValueAtTime(base * (trill ? 1 : rand(0.8, 1)), at);
-      o.frequency.exponentialRampToValueAtTime(base * (trill ? 1.15 : rand(1.2, 1.5)), at + len);
-      const sg = this.ctx.createGain();
-      this.env(sg, at, 0.8, 0.008, len);
-      o.connect(sg).connect(g);
-      o.start(at);
-      o.stop(at + len + 0.02);
-    }
-  }
-  // A duck in the pond: quack quack.
-  quack(t) {
-    const g = this.voice();
-    const bp = this.filter('bandpass', 1100, 1.2);
-    bp.connect(g);
-    g.gain.value = 0.55;
-    for (let i = 0; i < (Math.random() < 0.6 ? 2 : 1); i++) {
-      const at = t + i * 0.22;
-      const o = this.osc('sawtooth', 520);
-      o.frequency.setValueAtTime(560, at);
-      o.frequency.exponentialRampToValueAtTime(420, at + 0.14);
-      const sg = this.ctx.createGain();
-      this.env(sg, at, 0.7, 0.01, 0.15);
-      o.connect(sg).connect(bp);
-      o.start(at);
-      o.stop(at + 0.16);
-    }
-  }
-  // Splashing at the pool, with a few drips.
-  splash(t) {
-    const nz = this.noiseSource();
-    const hp = this.filter('highpass', rand(700, 1200), 0.7);
-    const g = this.voice();
-    this.env(g, t, rand(0.1, 0.2), 0.01, rand(0.35, 0.6));
-    nz.connect(hp).connect(g);
-    nz.start(t);
-    nz.stop(t + 0.7);
-    for (let i = 0; i < 4; i++) {
-      const at = t + rand(0.1, 0.6);
-      const o = this.osc('sine', rand(900, 2200));
-      o.frequency.exponentialRampToValueAtTime(rand(2000, 3200), at + 0.04);
-      const sg = this.voice();
-      this.env(sg, at, 0.05, 0.003, 0.05);
-      o.connect(sg);
-      o.start(at);
-      o.stop(at + 0.06);
-    }
-  }
-  // The lifeguard's whistle.
-  whistle(t) {
-    const g = this.voice(rand(-0.4, 0.4));
-    const o = this.osc('sine', 2900);
-    const trem = this.osc('square', 28);
-    const tg = this.ctx.createGain();
-    tg.gain.value = 120;
-    trem.connect(tg).connect(o.frequency);
-    o.connect(g);
-    g.gain.setValueAtTime(0.0001, t);
-    g.gain.exponentialRampToValueAtTime(0.15, t + 0.03);
-    g.gain.setValueAtTime(0.15, t + 0.45);
-    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.5);
-    o.start(t);
-    trem.start(t);
-    o.stop(t + 0.52);
-    trem.stop(t + 0.52);
-  }
-  // Crack of the bat, sometimes followed by cheering.
-  bat(t) {
-    const nz = this.noiseSource();
-    const bp = this.filter('bandpass', 2200, 1.5);
-    const g = this.voice();
-    this.env(g, t, 0.3, 0.002, 0.07);
-    nz.connect(bp).connect(g);
-    nz.start(t);
-    nz.stop(t + 0.1);
-    const o = this.osc('sine', 1700);
-    const og = this.voice();
-    this.env(og, t, 0.15, 0.002, 0.06);
-    o.connect(og);
-    o.start(t);
-    o.stop(t + 0.08);
-    if (Math.random() < 0.6) this.cheer(t + 0.4);
-  }
-  // A crowd cheering.
-  cheer(t) {
-    const nz = this.noiseSource();
-    const bp = this.filter('bandpass', 1100, 0.8);
-    const g = this.voice(rand(-0.3, 0.3));
-    const len = rand(1.5, 2.5);
-    g.gain.setValueAtTime(0.0001, t);
-    g.gain.exponentialRampToValueAtTime(0.28, t + 0.3);
-    g.gain.exponentialRampToValueAtTime(0.0001, t + len);
-    nz.connect(bp).connect(g);
-    nz.start(t);
-    nz.stop(t + len + 0.1);
-    for (let i = 0; i < 3; i++) this.squeal(t + rand(0, 0.8));
-  }
-  // An animal at the zoo: an elephant's trumpet or a monkey's "ooh-ooh-aah".
-  animal(t) {
-    if (Math.random() < 0.5) {
-      const g = this.voice();
-      const bp = this.filter('bandpass', 900, 1.5);
-      const o = this.osc('sawtooth', 300);
-      const vib = this.osc('sine', 9);
-      const vg = this.ctx.createGain();
-      vg.gain.value = 25;
-      vib.connect(vg).connect(o.frequency);
-      o.frequency.setValueAtTime(320, t);
-      o.frequency.exponentialRampToValueAtTime(640, t + 0.3);
-      o.frequency.exponentialRampToValueAtTime(480, t + 0.9);
-      o.connect(bp).connect(g);
-      this.env(g, t, 0.35, 0.08, 1);
-      o.start(t);
-      vib.start(t);
-      o.stop(t + 1.05);
-      vib.stop(t + 1.05);
-    } else {
-      const g = this.voice();
-      g.gain.value = 0.3;
-      const notes = [[500, 700], [500, 700], [700, 1100]];
-      notes.forEach(([a, b], i) => {
-        const at = t + i * 0.22;
-        const o = this.osc('triangle', a);
-        o.frequency.exponentialRampToValueAtTime(b, at + 0.16);
-        const sg = this.ctx.createGain();
-        this.env(sg, at, 0.8, 0.02, i === 2 ? 0.3 : 0.18);
-        o.connect(sg).connect(g);
-        o.start(at);
-        o.stop(at + 0.32);
-      });
-    }
-  }
 }
 
-// The cash register: a bell and the drawer sliding open. Plays through the music's volume and mute.
-export function cashRegister(music) {
-  if (!music.ensure() || music.muted) return;
+// A game sound that isn't a street sound (the cash register, the cart's bell): it plays even with street
+// sounds off, through the music's volume and mute.
+export function gameSound(music, name) {
+  if (!music.ensure() || music.muted) return false;
   const ctx = music.ctx;
-  const t = ctx.currentTime + 0.01;
-  const rec = recordings?.pick(ctx, 'cash');
-  if (rec) {
-    const src = ctx.createBufferSource();
-    src.buffer = rec.buffer;
-    const g = ctx.createGain();
-    g.gain.value = rec.gain * 0.8;
-    src.connect(g).connect(music.master);
-    src.start(t);
-    return;
-  }
-  if (recordings?.has('cash')) return; // still loading
-  const out = ctx.createGain();
-  out.gain.value = 0.55;
-  out.connect(music.master);
-  // ka-: the key and the drawer
-  const len = ctx.sampleRate * 0.12;
-  const buf = ctx.createBuffer(1, len, ctx.sampleRate);
-  const d = buf.getChannelData(0);
-  for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 3);
-  const nz = ctx.createBufferSource();
-  nz.buffer = buf;
-  const bp = ctx.createBiquadFilter();
-  bp.type = 'bandpass';
-  bp.frequency.value = 1800;
-  bp.Q.value = 1.2;
-  const ng = ctx.createGain();
-  ng.gain.value = 0.7;
-  nz.connect(bp).connect(ng).connect(out);
-  nz.start(t);
-  // -ching: a bright bell with a couple of overtones
-  for (const [f, v, len2] of [[2093, 0.35, 0.9], [2637, 0.22, 0.7], [4186, 0.12, 0.45], [3136, 0.1, 0.6]]) {
-    const o = ctx.createOscillator();
-    o.type = 'sine';
-    o.frequency.value = f;
-    const g = ctx.createGain();
-    const at = t + 0.07;
-    g.gain.setValueAtTime(0.0001, at);
-    g.gain.exponentialRampToValueAtTime(v, at + 0.004);
-    g.gain.exponentialRampToValueAtTime(0.0001, at + len2);
-    o.connect(g).connect(out);
-    o.start(at);
-    o.stop(at + len2 + 0.05);
-  }
+  recordings?.warm(ctx);
+  const rec = recordings?.pick(ctx, name);
+  if (!rec) return false; // still loading
+  const src = ctx.createBufferSource();
+  src.buffer = rec.buffer;
+  const g = ctx.createGain();
+  g.gain.value = rec.gain * 0.8;
+  src.connect(g).connect(music.master);
+  src.start(ctx.currentTime + 0.01);
+  return true;
 }
+
+// The cash register: ka-ching.
+export const cashRegister = (music) => gameSound(music, 'cash');

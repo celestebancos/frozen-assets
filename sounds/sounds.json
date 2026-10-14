@@ -1,1 +1,20 @@
-{}
+{
+  "cash": [{"file": "cash-1.mp3", "gain": 0.82}, {"file": "cash-2.mp3", "gain": 0.82}],
+  "bell": ["bell-1.mp3", {"file": "bell-2.mp3", "gain": 0.7}],
+  "car": [{"file": "car-1.mp3", "gain": 0.48}, {"file": "car-2.mp3", "gain": 0.48}, {"file": "car-3.mp3", "gain": 0.48}],
+  "horn": [{"file": "horn-1.mp3", "gain": 0.39}, {"file": "horn-2.mp3", "gain": 0.35}, {"file": "horn-3.mp3", "gain": 0.39}],
+  "laugh": [{"file": "laugh-1.mp3", "gain": 0.62}, {"file": "laugh-2.mp3", "gain": 0.61}, {"file": "laugh-3.mp3", "gain": 0.61}, {"file": "laugh-4.mp3", "gain": 0.62}],
+  "squeal": [{"file": "squeal-1.mp3", "gain": 0.55}, {"file": "squeal-2.mp3", "gain": 0.55}, {"file": "squeal-3.mp3", "gain": 0.55}, {"file": "squeal-4.mp3", "gain": 0.55}],
+  "voices": [{"file": "voices-1.mp3", "gain": 0.39}, {"file": "voices-2.mp3", "gain": 0.39}, {"file": "voices-3.mp3", "gain": 0.39}],
+  "dog": [{"file": "dog-1.mp3", "gain": 0.55}, {"file": "dog-2.mp3", "gain": 0.54}, {"file": "dog-3.mp3", "gain": 0.55}, {"file": "dog-4.mp3", "gain": 0.55}],
+  "bird": [{"file": "bird-1.mp3", "gain": 0.43}, {"file": "bird-2.mp3", "gain": 0.43}, {"file": "bird-3.mp3", "gain": 0.44}, {"file": "bird-4.mp3", "gain": 0.43}],
+  "quack": [{"file": "quack-1.mp3", "gain": 0.54}, {"file": "quack-2.mp3", "gain": 0.55}],
+  "splash": [{"file": "splash-1.mp3", "gain": 0.62}, {"file": "splash-2.mp3", "gain": 0.6}, {"file": "splash-3.mp3", "gain": 0.58}],
+  "whistle": [{"file": "whistle-1.mp3", "gain": 0.48}, {"file": "whistle-2.mp3", "gain": 0.49}],
+  "bat": [{"file": "bat-1.mp3", "gain": 0.52}, {"file": "bat-2.mp3", "gain": 0.56}, {"file": "bat-3.mp3", "gain": 0.56}],
+  "cheer": [{"file": "cheer-1.mp3", "gain": 0.61}, {"file": "cheer-2.mp3", "gain": 0.61}, {"file": "cheer-3.mp3", "gain": 0.61}],
+  "animal": [{"file": "animal-1.mp3", "gain": 0.62}, {"file": "animal-2.mp3", "gain": 0.61}, {"file": "animal-3.mp3", "gain": 0.58}, {"file": "animal-4.mp3", "gain": 0.62}],
+  "traffic": [{"file": "traffic.mp3", "gain": 0.92}],
+  "murmur": [{"file": "murmur.mp3", "gain": 0.6}],
+  "rain": [{"file": "rain.mp3", "gain": 1.45}]
+}
