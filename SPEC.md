@@ -81,7 +81,7 @@ Before the truck, a new player starts small: **selling popsicles and Italian ice
 2. **Fill the cash box.** Start the day with change: $1 bills and coins. With no change, a customer paying with a $5 can't be served unless they have exact money.
 3. **Set prices.** Too high, and people say "No thanks" and walk on. Low prices sell more but earn less on each one.
 4. **Sell at the park.** Time can be sped up while waiting for customers. When someone walks up, time slows to normal, and **filling the order and making change are always done by hand, in real time**:
-   - Pick the popsicle, or scoop the Italian ice into a cup.
+   - Pick the popsicle or cup of Italian ice (with a spoon).
    - Take their money, then count out change from the cash box by tapping bills and coins.
    - **Give too much change** and an honest customer says "You gave me too much!" and hands it back, but another just walks off with it. **Give too little** and they'll notice and wait for the rest.
 5. **The corner store.** A little convenience store near the park has an **ATM** (deposit the day's cash, or take some out) and a **change machine** next to it that turns bills into $1s and coins for the cash box. It also sells snacks and toys.
