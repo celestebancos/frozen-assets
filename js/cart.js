@@ -1,0 +1,809 @@
+// The park cart: the first level. Pure logic, no DOM, so it runs in the browser and in Node.
+// State is plain JSON (saved as-is). `cart.events` is a transient feed for the UI.
+//
+// Money here is real bills and coins: every pile of money (cash box, wallet, tip jar, a customer's
+// pocket) is a count of each bill and coin, like { 2000: 1, 100: 3, 25: 2 } for $23.50.
+
+import { CART, CART_ITEMS, CART_ITEM, CART_SHOPS, CART_LOOKS, CART_CROWD, REGULARS } from './config.js';
+import { makeRng } from './rng.js';
+
+const K = CART;
+const CR = CART_CROWD;
+export const CART_DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
+// ---------- money piles ----------
+export const total = (pile) => Object.entries(pile || {}).reduce((s, [d, n]) => s + Number(d) * n, 0);
+export const pileCount = (pile) => Object.values(pile || {}).reduce((s, n) => s + n, 0);
+export function addPile(to, from) {
+  for (const [d, n] of Object.entries(from || {})) if (n) to[d] = (to[d] || 0) + n;
+  return to;
+}
+// Takes `what` out of `from`. Returns false (and changes nothing) if it isn't all there.
+export function takePile(from, what) {
+  for (const [d, n] of Object.entries(what || {})) if ((from[d] || 0) < n) return false;
+  for (const [d, n] of Object.entries(what || {})) {
+    from[d] -= n;
+    if (!from[d]) delete from[d];
+  }
+  return true;
+}
+export const hasPile = (from, what) => Object.entries(what || {}).every(([d, n]) => (from[d] || 0) >= n);
+// The fewest bills and coins for an amount, with as many of each as needed.
+export function pileOf(amount) {
+  const out = {};
+  let left = amount;
+  for (const d of K.denoms) {
+    const n = Math.floor(left / d);
+    if (n) out[d] = n;
+    left -= n * d;
+  }
+  return out;
+}
+// Exactly `amount` out of what's in `pool`, using big bills first. null if it can't be done.
+export function makeAmount(pool, amount) {
+  const ds = K.denoms.filter((d) => pool[d]);
+  const pick = {};
+  const go = (i, left) => {
+    if (left === 0) return true;
+    if (i >= ds.length) return false;
+    const d = ds[i];
+    for (let n = Math.min(pool[d], Math.floor(left / d)); n >= 0; n--) {
+      if (n) pick[d] = n;
+      else delete pick[d];
+      if (go(i + 1, left - n * d)) return true;
+    }
+    delete pick[d];
+    return false;
+  };
+  return go(0, amount) ? { ...pick } : null;
+}
+// How a customer pays `due` from their pocket: exact money sometimes, otherwise the smallest
+// single bill that covers it, otherwise big bills until it's enough.
+export function choosePayment(pocket, due, rng) {
+  if (rng.chance(CR.exact)) {
+    const exact = makeAmount(pocket, due);
+    if (exact) return exact;
+  }
+  const single = [...K.denoms].reverse().find((d) => d >= due && pocket[d]);
+  if (single) return { [single]: 1 };
+  const out = {};
+  let paid = 0;
+  for (const d of K.denoms) {
+    while (paid < due && (pocket[d] || 0) > (out[d] || 0)) {
+      out[d] = (out[d] || 0) + 1;
+      paid += d;
+    }
+  }
+  return paid >= due ? out : null;
+}
+
+// ---------- state ----------
+export function newCartState({ player, look, seed }) {
+  const s = {
+    version: 1,
+    seed: seed ?? Math.floor(Math.random() * 2 ** 31),
+    rngState: 0,
+    player,
+    look: look || { girl: false, skin: 0, hair: 0, style: 'short', shirt: '#ff6f91', pants: '#355070' },
+    day: 1,
+    phase: 'home', // home | park | night
+    minute: K.homeStart,
+    weather: null,
+    money: { box: { ...K.start.box }, wallet: { ...K.start.wallet }, jar: {}, bank: 0 },
+    prices: Object.fromEntries(CART_ITEMS.map((i) => [i.id, i.fair])),
+    // pops are counts; Italian ice is a list of tubs, each the scoops left in it
+    freezer: { pops: {}, tubs: {} },
+    cooler: { pops: {}, tubs: {} },
+    cups: 0,
+    owned: [], // ids of things bought to keep (gear, decals, hats, glasses, shirts, toys)
+    wearing: { hat: null, glasses: null, shirt: null },
+    balloon: null, // a balloon tied to the cart, today only
+    regulars: Object.fromEntries(REGULARS.map((r) => [r.id, { happy: 2, missed: 0, awayUntil: 0 }])),
+    line: [], // customers waiting
+    window: null, // the customer being served
+    schedule: [], // regulars coming today: { id, minute }
+    nextId: 1,
+    txn: null, // a purchase waiting for its change to be checked
+    today: null,
+    days: [], // a short summary of each day
+    stats: { sold: 0, revenue: 0, tips: 0, keptExtra: 0, toTruck: 0 },
+    log: [],
+  };
+  s.rngState = s.seed;
+  return s;
+}
+
+export class Cart {
+  constructor(state) {
+    this.state = state;
+    this.events = [];
+    this.rng = makeRng(state.rngState);
+    if (!state.weather) this.rollWeather();
+    // a payment that was never finished (the page closed): the money goes back where it came from
+    if (state.txn) this.cancelPay();
+  }
+  static create(opts) {
+    return new Cart(newCartState(opts));
+  }
+  sync() {
+    this.state.rngState = this.rng.state;
+  }
+  emit(ev) {
+    this.events.push(ev);
+    if (this.events.length > 200) this.events.splice(0, this.events.length - 200);
+  }
+  logAction(type, data = {}) {
+    const s = this.state;
+    s.log.push({ t: Date.now(), day: s.day, minute: s.minute, type, ...data });
+    if (s.log.length > 3000) s.log.splice(0, s.log.length - 3000);
+  }
+
+  get dayName() {
+    return CART_DAY_NAMES[(this.state.day - 1) % 7];
+  }
+  get isWeekend() {
+    return (this.state.day - 1) % 7 >= 5;
+  }
+  rollWeather() {
+    const temp = Math.round(CR.baseTemp + this.rng.range(-CR.tempSwing, CR.tempSwing));
+    const rain = this.rng.chance(CR.rainChance);
+    this.state.weather = { temp: rain ? temp - 8 : temp, rain };
+  }
+
+  // ---------- money ----------
+  pile(where) {
+    return this.state.money[where];
+  }
+  get boxTotal() {
+    return total(this.state.money.box);
+  }
+  get walletTotal() {
+    return total(this.state.money.wallet);
+  }
+  get jarTotal() {
+    return total(this.state.money.jar);
+  }
+  get bank() {
+    return this.state.money.bank;
+  }
+  // The cart business's money: the cash box and the bank account. The wallet and tips are yours.
+  get businessMoney() {
+    return this.boxTotal + this.bank;
+  }
+  move(from, to, what) {
+    if (!['box', 'wallet'].includes(from) || !['box', 'wallet'].includes(to) || from === to) return false;
+    if (!takePile(this.pile(from), what)) return false;
+    addPile(this.pile(to), what);
+    this.logAction('move', { from, to, amt: total(what) });
+    return true;
+  }
+
+  // ---------- stock ----------
+  isIce(id) {
+    return CART_ITEM[id]?.kind === 'ice';
+  }
+  // How many of an item: pops, or scoops of Italian ice.
+  count(where, id) {
+    const p = this.state[where];
+    if (this.isIce(id)) return (p.tubs[id] || []).reduce((a, b) => a + b, 0);
+    return p.pops[id] || 0;
+  }
+  tubs(where, id) {
+    return this.state[where].tubs[id] || [];
+  }
+  spaceUsed(where) {
+    const p = this.state[where];
+    let n = 0;
+    for (const c of Object.values(p.pops)) n += c;
+    for (const t of Object.values(p.tubs)) n += t.length * K.tubSpace;
+    return n;
+  }
+  get coolerFree() {
+    return K.coolerSpace - this.spaceUsed('cooler');
+  }
+  // The freezer at home holds everything, including what's packed in the cooler.
+  get freezerFree() {
+    return K.freezerSpace - this.spaceUsed('freezer') - this.spaceUsed('cooler');
+  }
+  // Freezer → cooler: n pops, or one tub (the most-used one first).
+  pack(id, n = 1) {
+    const s = this.state;
+    if (s.phase !== 'home') return { ok: false, reason: 'notHome' };
+    if (this.isIce(id)) {
+      const tubs = s.freezer.tubs[id] || [];
+      if (!tubs.length) return { ok: false, reason: 'none' };
+      if (this.coolerFree < K.tubSpace) return { ok: false, reason: 'full' };
+      tubs.sort((a, b) => a - b);
+      (s.cooler.tubs[id] ||= []).push(tubs.shift());
+      return { ok: true };
+    }
+    n = Math.min(n, s.freezer.pops[id] || 0, this.coolerFree);
+    if (n <= 0) return { ok: false, reason: (s.freezer.pops[id] || 0) ? 'full' : 'none' };
+    s.freezer.pops[id] -= n;
+    s.cooler.pops[id] = (s.cooler.pops[id] || 0) + n;
+    return { ok: true, n };
+  }
+  unpack(id, n = 1) {
+    const s = this.state;
+    if (s.phase !== 'home') return { ok: false, reason: 'notHome' };
+    if (this.isIce(id)) {
+      const tubs = s.cooler.tubs[id] || [];
+      if (!tubs.length) return { ok: false };
+      (s.freezer.tubs[id] ||= []).push(tubs.pop());
+      return { ok: true };
+    }
+    n = Math.min(n, s.cooler.pops[id] || 0);
+    if (n <= 0) return { ok: false };
+    s.cooler.pops[id] -= n;
+    s.freezer.pops[id] = (s.freezer.pops[id] || 0) + n;
+    return { ok: true, n };
+  }
+  // Everything left in the cooler goes back in the freezer (each night).
+  unpackAll() {
+    const s = this.state;
+    for (const [id, n] of Object.entries(s.cooler.pops)) s.freezer.pops[id] = (s.freezer.pops[id] || 0) + n;
+    for (const [id, t] of Object.entries(s.cooler.tubs)) (s.freezer.tubs[id] ||= []).push(...t.filter((x) => x > 0));
+    s.cooler = { pops: {}, tubs: {} };
+  }
+  // Can this be sold right now from the cooler?
+  canSell(id) {
+    if (this.isIce(id)) return this.count('cooler', id) > 0 && this.state.cups > 0;
+    return this.count('cooler', id) > 0;
+  }
+
+  // ---------- errands ----------
+  // Going to a store takes time. In the morning it pushes back opening; from the park the cart is
+  // closed while you're away and the line goes home.
+  errand(where) {
+    const s = this.state;
+    if (s.phase === 'home') {
+      s.minute += K.errand[where] || 0;
+    } else if (s.phase === 'park' && where === 'corner') {
+      if (s.window) return { ok: false, reason: 'busy' };
+      for (const c of s.line) this.emit({ t: 'leave', id: c.id, say: 'gone' });
+      s.line = [];
+      s.minute = Math.min(K.parkClose, s.minute + K.errand.cornerFromPark);
+      this.emit({ t: 'away', minutes: K.errand.cornerFromPark });
+    } else return { ok: false, reason: 'where' };
+    this.logAction('errand', { where });
+    return { ok: true };
+  }
+
+  // ---------- shopping ----------
+  shopItem(shop, id) {
+    return CART_SHOPS[shop]?.items.find((i) => i.id === id);
+  }
+  // Does a basket fit and make sense? basket: { itemId: qty }
+  checkBasket(shop, basket) {
+    let space = 0;
+    for (const [id, q] of Object.entries(basket)) {
+      const it = this.shopItem(shop, id);
+      if (!it || q <= 0) continue;
+      if (it.kind === 'stock') space += (it.tubs ? K.tubSpace * it.tubs : it.qty) * q;
+      if (['gear', 'decal', 'hat', 'glasses', 'shirt'].includes(it.kind) && this.state.owned.includes(it.id)) return { ok: false, reason: 'owned', item: it };
+      if (it.kind === 'balloon' && this.state.phase !== 'park') return { ok: false, reason: 'park', item: it };
+    }
+    if (space > this.freezerFree) return { ok: false, reason: 'freezer', space };
+    return { ok: true, space };
+  }
+  basketCost(shop, basket) {
+    return Object.entries(basket).reduce((s, [id, q]) => s + (this.shopItem(shop, id)?.price || 0) * q, 0);
+  }
+  // Hand over money for a basket. The seller counts out change, and sometimes gets it wrong.
+  // Nothing is final until takeChange().
+  pay(shop, basket, from, given) {
+    const s = this.state;
+    const cost = this.basketCost(shop, basket);
+    if (cost <= 0) return { ok: false, reason: 'empty' };
+    const chk = this.checkBasket(shop, basket);
+    if (!chk.ok) return chk;
+    if (!['box', 'wallet'].includes(from)) return { ok: false, reason: 'from' };
+    const paid = total(given);
+    if (paid < cost) return { ok: false, reason: 'short' };
+    if (!takePile(this.pile(from), given)) return { ok: false, reason: 'notThere' };
+    const due = paid - cost;
+    const correct = pileOf(due);
+    let change = correct;
+    let wrong = 0;
+    if (due > 0 && this.rng.chance(K.vendorMistake)) {
+      // a dollar or a quarter too few (or, now and then, too many)
+      const d = due >= 100 && this.rng.chance(0.6) ? 100 : 25;
+      wrong = this.rng.chance(0.75) || due < d ? -d : d;
+      if (due + wrong < 0) wrong = d;
+      change = pileOf(due + wrong);
+    }
+    s.txn = { shop, basket: { ...basket }, from, given: { ...given }, cost, due, change, correct, wrong };
+    return { ok: true, txn: s.txn };
+  }
+  // complain: the player says the change is wrong. Returns what happened.
+  takeChange(complain) {
+    const s = this.state;
+    const t = s.txn;
+    if (!t) return null;
+    let result;
+    if (complain && t.wrong) {
+      result = 'fixed'; // "Oops! You're right."
+      addPile(this.pile(t.from), t.correct);
+    } else if (complain) {
+      result = 'wasRight'; // "Let's count again... it's right!"
+      addPile(this.pile(t.from), t.change);
+    } else {
+      result = t.wrong < 0 ? 'shortChanged' : t.wrong > 0 ? 'extra' : 'ok';
+      addPile(this.pile(t.from), t.change);
+    }
+    const got = [];
+    for (const [id, q] of Object.entries(t.basket)) {
+      const it = this.shopItem(t.shop, id);
+      if (!it || q <= 0) continue;
+      for (let i = 0; i < q; i++) got.push(this.receive(it));
+    }
+    s.txn = null;
+    this.logAction('buy', { shop: t.shop, basket: t.basket, cost: t.cost, from: t.from, result, wrong: t.wrong });
+    return { result, cost: t.cost, wrong: t.wrong, got };
+  }
+  cancelPay() {
+    const t = this.state.txn;
+    if (!t) return;
+    addPile(this.pile(t.from), t.given);
+    this.state.txn = null;
+  }
+  receive(it) {
+    const s = this.state;
+    switch (it.kind) {
+      case 'stock':
+        if (it.tubs) for (let i = 0; i < it.tubs; i++) (s.freezer.tubs[it.item] ||= []).push(K.tubScoops);
+        else s.freezer.pops[it.item] = (s.freezer.pops[it.item] || 0) + it.qty;
+        break;
+      case 'cups':
+        s.cups += it.qty;
+        break;
+      case 'balloon':
+        s.balloon = it.color;
+        break;
+      case 'snack':
+        break; // eaten right away
+      case 'toy':
+        s.owned.push(it.id); // toys can be bought again
+        break;
+      default:
+        if (!s.owned.includes(it.id)) s.owned.push(it.id);
+        if (it.kind === 'hat' || it.kind === 'glasses' || it.kind === 'shirt') s.wearing[it.kind] = it.id;
+    }
+    return it;
+  }
+  wear(slot, id) {
+    const s = this.state;
+    if (!['hat', 'glasses', 'shirt'].includes(slot)) return false;
+    if (id && !s.owned.includes(id)) return false;
+    s.wearing[slot] = id || null;
+    return true;
+  }
+  decals() {
+    return this.state.owned.filter((id) => CART_SHOPS.decals.items.some((d) => d.id === id));
+  }
+  has(id) {
+    return this.state.owned.includes(id);
+  }
+
+  // ---------- the corner store: ATM and change machine ----------
+  // The ATM takes bills (not coins) from the cash box or wallet into the cart's bank account.
+  deposit(from, what) {
+    if (!['box', 'wallet'].includes(from)) return false;
+    if (Object.keys(what).some((d) => Number(d) < 100)) return false;
+    if (!total(what) || !takePile(this.pile(from), what)) return false;
+    this.state.money.bank += total(what);
+    this.logAction('deposit', { from, amt: total(what) });
+    return true;
+  }
+  // The ATM gives out $20 bills.
+  withdraw(amount, to) {
+    if (!['box', 'wallet'].includes(to) || amount <= 0 || amount % 2000) return false;
+    if (amount > this.state.money.bank) return false;
+    this.state.money.bank -= amount;
+    addPile(this.pile(to), { 2000: amount / 2000 });
+    this.logAction('withdraw', { to, amt: amount });
+    return true;
+  }
+  // The change machine: one bill in, smaller money out. $20 → 4 × $5, $10 → 10 × $1, $5 → 5 × $1, $1 → 4 quarters.
+  breakBill(where, denom) {
+    const out = { 2000: { 500: 4 }, 1000: { 100: 10 }, 500: { 100: 5 }, 100: { 25: 4 } }[denom];
+    if (!out || !takePile(this.pile(where), { [denom]: 1 })) return false;
+    addPile(this.pile(where), out);
+    this.logAction('breakBill', { where, denom });
+    return out;
+  }
+
+  // ---------- prices ----------
+  setPrice(id, cents) {
+    if (!CART_ITEM[id]) return;
+    const v = Math.max(K.priceStep, Math.min(1000, Math.round(cents / K.priceStep) * K.priceStep));
+    this.state.prices[id] = v;
+    this.logAction('price', { id, price: v });
+  }
+
+  // ---------- the park ----------
+  openPark() {
+    const s = this.state;
+    if (s.phase !== 'home') return false;
+    s.phase = 'park';
+    s.minute = Math.max(s.minute, K.parkOpen);
+    s.line = [];
+    s.window = null;
+    s.today = { sold: {}, revenue: 0, customers: 0, tooExpensive: 0, leftLine: 0, missedFav: 0, tips: 0, keptExtra: 0, returned: 0, noChange: 0, startBox: this.boxTotal, opened: s.minute };
+    // regulars who'll come by today
+    s.schedule = [];
+    for (const r of REGULARS) {
+      const st = s.regulars[r.id];
+      if (st.awayUntil > s.day) continue;
+      if (!this.rng.chance(CR.regular.visit)) continue;
+      const m = this.rng.int(s.minute + 20, K.parkClose - 30);
+      if (m > s.minute) s.schedule.push({ id: r.id, minute: m });
+    }
+    this.logAction('openPark', { minute: s.minute });
+    return true;
+  }
+  looksBoost() {
+    const s = this.state;
+    let b = this.decals().length * CART_LOOKS.perDecal;
+    if (this.has('umbrella')) b += CART_LOOKS.umbrella;
+    if (this.has('bell')) b += CART_LOOKS.bell;
+    if (s.balloon) b += CART_LOOKS.balloon;
+    return 1 + Math.min(CART_LOOKS.max, b);
+  }
+  // People walking past each minute, on average.
+  walkRate() {
+    const s = this.state;
+    const h = Math.min(CR.perHour.length - 1, Math.max(0, Math.floor((s.minute - K.parkOpen) / 60)));
+    let r = CR.perHour[h] / 60;
+    if (this.isWeekend) r *= CR.weekendBoost;
+    if (s.weather.rain) r *= CR.rain;
+    r *= Math.max(0.5, 1 + (s.weather.temp - 80) * CR.hotPerDegree);
+    return r;
+  }
+
+  makeCustomer(kind, regular = null) {
+    const s = this.state;
+    const rng = this.rng;
+    const look = regular ? regular.look : rng.int(0, 47);
+    const members = kind === 'parentKid' ? [{ kind: 'adult', look }, { kind: 'kid', look: rng.int(0, 47) }] : [{ kind, look }];
+    const payer = members[0].kind;
+    // what's in their pocket
+    const pocket = {};
+    const put = (d, n) => n > 0 && (pocket[d] = (pocket[d] || 0) + n);
+    if (payer === 'kid') {
+      put(25, rng.int(2, 8));
+      put(100, rng.int(0, 3));
+      if (rng.chance(0.35)) put(500, 1);
+    } else if (payer === 'teen') {
+      put(100, rng.int(0, 4));
+      put(rng.chance(0.5) ? 500 : 1000, 1);
+      put(25, rng.int(0, 4));
+    } else {
+      put(rng.pick([500, 1000, 2000, 2000]), 1);
+      put(100, rng.int(0, 3));
+      put(25, rng.int(0, 4));
+    }
+    // the most each person would pay for each thing, and what they like best
+    const wantFor = () => {
+      const [a, b] = CR.wtp[payer] || CR.wtp.adult;
+      const f = rng.range(a, b) * (regular ? CR.regular.wtp : 1);
+      const order = CART_ITEMS.map((it) => [it.id, it.want * rng.range(0.4, 1.6)]).sort((x, y) => y[1] - x[1]).map((x) => x[0]);
+      if (regular) order.unshift(...order.splice(order.indexOf(regular.fav), 1));
+      return { f, order };
+    };
+    const wants = members.filter((m) => m.kind !== 'dog').map(wantFor);
+    return {
+      id: s.nextId++,
+      kind,
+      members,
+      pocket,
+      wants,
+      regular: regular?.id || null,
+      patience: rng.int(CR.patience[0], CR.patience[1]),
+      waited: 0,
+      honest: rng.chance(CR.honest),
+    };
+  }
+  // What a customer would order right now: one thing per person, their favorite they can afford.
+  // { items } or { no: 'tooMuch' | 'nothing' | 'fav', fav }.
+  orderFor(c) {
+    const s = this.state;
+    const items = [];
+    let tooMuch = false;
+    let budget = total(c.pocket);
+    let missedFav = null;
+    for (const w of c.wants) {
+      let got = null;
+      for (const id of w.order) {
+        const fair = CART_ITEM[id].fair;
+        const price = s.prices[id];
+        const reserved = items.filter((x) => x === id).length;
+        const avail = this.canSell(id) && this.count('cooler', id) > reserved;
+        if (!avail) {
+          if (c.regular && id === w.order[0]) missedFav = id;
+          continue;
+        }
+        if (price > fair * w.f || price > budget) {
+          tooMuch = true;
+          continue;
+        }
+        got = id;
+        break;
+      }
+      if (got) {
+        items.push(got);
+        budget -= s.prices[got];
+      }
+    }
+    if (items.length) return { items, missedFav };
+    return { no: tooMuch ? 'tooMuch' : 'nothing', missedFav };
+  }
+
+  // One game minute at the park.
+  step() {
+    const s = this.state;
+    if (s.phase !== 'park') return false;
+    if (s.minute >= K.parkClose) {
+      // closing time: the line goes home, the last customer finishes up
+      if (s.line.length) {
+        for (const c of s.line) this.emit({ t: 'leave', id: c.id, say: 'closed' });
+        s.line = [];
+      }
+      if (!s.window) this.emit({ t: 'closing' });
+      return false;
+    }
+    s.minute++;
+    // people walking past
+    const n = this.rng.poisson(this.walkRate());
+    for (let i = 0; i < n; i++) {
+      const kind = this.rng.weighted(Object.entries(CR.kinds));
+      this.arrive(this.makeCustomer(kind));
+    }
+    // regulars due now
+    for (const due of s.schedule.filter((x) => x.minute === s.minute)) {
+      const r = REGULARS.find((x) => x.id === due.id);
+      this.arrive(this.makeCustomer(r.kind, r), true);
+    }
+    // waiting in line
+    for (const c of [...s.line]) {
+      c.waited++;
+      if (c.waited > c.patience) {
+        s.line = s.line.filter((x) => x !== c);
+        s.today.leftLine++;
+        this.emit({ t: 'leave', id: c.id, say: 'tooLong' });
+      }
+    }
+    this.nextToWindow();
+    return true;
+  }
+  // Someone walks up: they look at the prices and the line, then join or keep walking.
+  arrive(c, isRegular = false) {
+    const s = this.state;
+    const o = this.orderFor(c);
+    if (o.no === 'tooMuch') {
+      s.today.tooExpensive++;
+      this.emit({ t: 'pass', cust: c, say: 'tooMuch' });
+      return;
+    }
+    if (o.no && !isRegular) {
+      this.emit({ t: 'pass', cust: c });
+      return;
+    }
+    const L = s.line.length + (s.window ? 1 : 0);
+    const join = isRegular ? L < 5 : this.rng.chance(CR.join * this.looksBoost() * CR.lineJoin[Math.min(L, CR.lineJoin.length - 1)]);
+    if (!join) {
+      this.emit({ t: 'pass', cust: c, say: isRegular ? 'tooLong' : null });
+      return;
+    }
+    s.line.push(c);
+    this.emit({ t: 'join', cust: c });
+    // a happy regular sometimes brings a friend
+    if (isRegular && s.regulars[c.regular].happy >= 3 && this.rng.chance(CR.regular.friend)) {
+      const f = this.makeCustomer(c.members[0].kind === 'adult' ? 'adult' : c.members[0].kind);
+      f.friendOf = c.regular;
+      s.line.push(f);
+      this.emit({ t: 'join', cust: f });
+    }
+  }
+  nextToWindow() {
+    const s = this.state;
+    if (s.window || !s.line.length) return;
+    const c = s.line.shift();
+    const o = this.orderFor(c);
+    const reg = c.regular && s.regulars[c.regular];
+    s.window = { cust: c, order: o.items || [], handed: [], paid: null, stage: o.items ? 'order' : 'leaving', no: o.no || null, missedFav: o.missedFav || null, wrongTry: 0 };
+    s.today.customers++;
+    if (o.missedFav && reg) {
+      reg.missed++;
+      reg.happy = Math.max(0, reg.happy - 1);
+      s.today.missedFav++;
+      if (reg.missed >= CR.regular.missLimit) {
+        reg.awayUntil = s.day + CR.regular.awayDays;
+        reg.missed = 0;
+        s.window.goingAway = true;
+      }
+    }
+    if (o.no === 'tooMuch') s.today.tooExpensive++;
+    this.emit({ t: 'window', cust: c });
+  }
+
+  // The player hands over one thing from the cooler. Wrong things come right back.
+  hand(id) {
+    const s = this.state;
+    const w = s.window;
+    if (!w || w.stage !== 'order') return { ok: false };
+    const need = w.order.filter((x) => x === id).length - w.handed.filter((x) => x === id).length;
+    if (need <= 0) {
+      w.wrongTry++;
+      return { ok: false, reason: 'notOrdered' };
+    }
+    if (!this.canSell(id)) return { ok: false, reason: 'out' };
+    if (this.isIce(id)) {
+      const tubs = s.cooler.tubs[id];
+      tubs.sort((a, b) => a - b);
+      const i = tubs.findIndex((x) => x > 0);
+      tubs[i]--;
+      if (tubs[i] === 0) tubs.splice(i, 1);
+      s.cups--;
+    } else s.cooler.pops[id]--;
+    w.handed.push(id);
+    if (w.handed.length === w.order.length) {
+      // they pay
+      w.due = w.order.reduce((a, x) => a + s.prices[x], 0);
+      w.paid = choosePayment(w.cust.pocket, w.due, this.rng);
+      takePile(w.cust.pocket, w.paid);
+      addPile(s.money.box, w.paid);
+      w.stage = total(w.paid) === w.due ? 'exact' : 'change';
+    }
+    return { ok: true, done: w.handed.length === w.order.length };
+  }
+  // The player gives change from the cash box. fast: the sale was quick (for tips).
+  giveChange(given, { fast = false } = {}) {
+    const s = this.state;
+    const w = s.window;
+    if (!w || (w.stage !== 'change' && w.stage !== 'exact')) return { ok: false };
+    const owed = total(w.paid) - w.due;
+    const g = total(given);
+    if (!hasPile(s.money.box, given)) return { ok: false, reason: 'notThere' };
+    if (g < owed) {
+      w.short = (w.short || 0) + 1;
+      return { ok: false, reason: 'short', owed, given: g };
+    }
+    takePile(s.money.box, given);
+    let result = 'right';
+    if (g > owed) {
+      const extra = g - owed;
+      const back = w.cust.honest ? makeAmount(given, extra) : null;
+      if (back) {
+        addPile(s.money.box, back);
+        s.today.returned += extra;
+        result = 'honest';
+      } else if (w.cust.honest) {
+        // they can't hand back just the extra, so they give it all back to try again
+        addPile(s.money.box, given);
+        return { ok: false, reason: 'tooMuch', owed, given: g };
+      } else {
+        s.today.keptExtra += extra;
+        s.stats.keptExtra += extra;
+        result = 'kept';
+      }
+    }
+    return this.finishSale(result, fast);
+  }
+  finishSale(result, fast) {
+    const s = this.state;
+    const w = s.window;
+    const c = w.cust;
+    for (const id of w.order) s.today.sold[id] = (s.today.sold[id] || 0) + 1;
+    s.today.revenue += w.due;
+    s.stats.sold += w.order.length;
+    s.stats.revenue += w.due;
+    // a quick, friendly sale sometimes gets a tip
+    let tip = 0;
+    if (result !== 'kept' && this.rng.chance(fast ? CR.tip.fast : CR.tip.slow)) {
+      tip = this.rng.pick(CR.tip.amounts);
+      addPile(s.money.jar, pileOf(tip));
+      s.today.tips += tip;
+      s.stats.tips += tip;
+    }
+    if (c.regular) {
+      const reg = s.regulars[c.regular];
+      if (w.order.includes(REGULARS.find((r) => r.id === c.regular).fav)) {
+        reg.happy = Math.min(5, reg.happy + 1);
+        reg.missed = 0;
+      }
+    }
+    w.stage = 'done';
+    w.result = result;
+    w.tip = tip;
+    this.logAction('sale', { items: w.order, due: w.due, paid: total(w.paid), result, tip });
+    return { ok: true, result, tip };
+  }
+  // Not enough change in the cash box: the customer pays some other way, or gives up.
+  noChange() {
+    const s = this.state;
+    const w = s.window;
+    if (!w || w.stage !== 'change') return { ok: false };
+    s.today.noChange++;
+    takePile(s.money.box, w.paid);
+    addPile(w.cust.pocket, w.paid);
+    const exact = makeAmount(w.cust.pocket, w.due);
+    if (exact && total(exact) !== total(w.paid)) {
+      takePile(w.cust.pocket, exact);
+      addPile(s.money.box, exact);
+      w.paid = exact;
+      w.stage = 'exact';
+      return { ok: true, result: 'exact' };
+    }
+    // they give the treats back
+    for (const id of w.handed) {
+      if (this.isIce(id)) {
+        s.cups++;
+        const tubs = (s.cooler.tubs[id] ||= []);
+        if (tubs.length) tubs[0]++;
+        else tubs.push(1);
+      } else s.cooler.pops[id] = (s.cooler.pops[id] || 0) + 1;
+    }
+    w.stage = 'leaving';
+    w.no = 'noChange';
+    return { ok: true, result: 'left' };
+  }
+  // The customer at the window walks away; the next one steps up.
+  dismiss() {
+    const s = this.state;
+    if (!s.window) return;
+    const w = s.window;
+    if (w.stage === 'order' || w.stage === 'change' || w.stage === 'exact') return; // still being served
+    this.emit({ t: 'leave', id: w.cust.id, say: w.stage === 'done' ? 'happy' : w.no });
+    s.window = null;
+    this.nextToWindow();
+  }
+
+  // You can close unless you're in the middle of a sale (treats handed over or money taken).
+  canClose() {
+    const w = this.state.window;
+    return !w || w.stage === 'done' || w.stage === 'leaving' || (w.stage === 'order' && !w.handed.length);
+  }
+  // Close up for the day: back home, the tip jar goes in your wallet, the cooler goes in the freezer.
+  closePark() {
+    const s = this.state;
+    if (s.phase !== 'park') return null;
+    if (!this.canClose()) return null;
+    if (s.window) this.emit({ t: 'leave', id: s.window.cust.id, say: 'closed' });
+    s.window = null;
+    s.line = [];
+    const t = s.today;
+    const tips = this.jarTotal;
+    addPile(s.money.wallet, s.money.jar);
+    s.money.jar = {};
+    this.unpackAll();
+    s.balloon = null;
+    const summary = { day: s.day, weather: s.weather, ...t, endBox: this.boxTotal, tipsToWallet: tips, closed: Math.min(s.minute, K.parkClose) };
+    s.days.push(summary);
+    if (s.days.length > 400) s.days.shift();
+    s.phase = 'night';
+    this.logAction('closePark', { revenue: t.revenue, sold: Object.values(t.sold).reduce((a, b) => a + b, 0) });
+    return summary;
+  }
+  nextDay() {
+    const s = this.state;
+    if (s.phase !== 'night') return;
+    s.day++;
+    s.phase = 'home';
+    s.minute = K.homeStart;
+    s.today = null;
+    this.rollWeather();
+  }
+
+  // ---------- moving up to a truck ----------
+  // The cart business's money (cash box and bank) goes into the new truck business as the owner's share.
+  fundTruck() {
+    const s = this.state;
+    const amt = this.businessMoney;
+    s.money.box = {};
+    s.money.bank = 0;
+    s.stats.toTruck += amt;
+    this.logAction('fundTruck', { amt });
+    return amt;
+  }
+}

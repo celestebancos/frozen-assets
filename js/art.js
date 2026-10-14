@@ -245,27 +245,32 @@ function face(kind, look, skin, hair, girl) {
   return out;
 }
 
-export function personSVG(kind, look = 0) {
+// The choices on the "make your character" screen.
+export const CHARACTER = { skin: SKIN, hair: HAIR, girlStyles: GIRL_STYLES, boyStyles: BOY_STYLES, shirts: SHIRT, pants: PANTS };
+
+// look: a number that picks everything for a customer. me: the player's own character, chosen piece by
+// piece: { girl, skin, hair, style, shirt, pants, hat: 'cap'|'sunhat'|'beanie'|'crown'|null, shades, stars }.
+export function personSVG(kind, look = 0, me = null) {
   if (kind === 'dog') return dogSVG(look);
   if (!BUILD[kind]) kind = 'adult';
   const B = BUILD[kind];
-  const skin = SKIN[look % SKIN.length];
-  let hair = HAIR[(look * 7) % HAIR.length];
+  const skin = me ? SKIN[me.skin % SKIN.length] : SKIN[look % SKIN.length];
+  let hair = me ? HAIR[me.hair % HAIR.length] : HAIR[(look * 7) % HAIR.length];
   if (kind !== 'adult' && hair === '#9a9a9a') hair = '#6b3e1e'; // no gray hair on kids
-  const shirt = SHIRT[(look * 5) % SHIRT.length];
-  const pants = PANTS[look % PANTS.length];
+  const shirt = me ? me.shirt : SHIRT[(look * 5) % SHIRT.length];
+  const pants = me ? me.pants : PANTS[look % PANTS.length];
   const shoes = SHOES[(look * 5 + (kind === 'kid' ? 2 : 0)) % SHOES.length];
-  const girl = look % 2 === 1;
-  const style = (girl ? GIRL_STYLES : BOY_STYLES)[Math.floor(look / 2) % 6];
-  const dress = girl && look % 4 === 1;
+  const girl = me ? !!me.girl : look % 2 === 1;
+  const style = me ? me.style : (girl ? GIRL_STYLES : BOY_STYLES)[Math.floor(look / 2) % 6];
+  const dress = !me && girl && look % 4 === 1;
   const shorts = !dress && (kind === 'kid' || look % 3 !== 0);
-  const tank = kind !== 'kid' && look % 6 === 4;
-  const stripes = !dress && look % 5 === 2;
-  const cap = !girl && kind !== 'adult' && look % 4 === 0;
-  const sunhat = girl && kind === 'adult' && look % 4 === 3;
-  const shades = kind !== 'kid' && !cap && look % 5 === 3;
-  const glasses = kind === 'adult' && !shades && look % 5 === 1;
-  const beard = kind === 'adult' && !girl && (look === 4 || look === 10);
+  const tank = !me && kind !== 'kid' && look % 6 === 4;
+  const stripes = !me && !dress && look % 5 === 2;
+  const cap = me ? me.hat === 'cap' : !girl && kind !== 'adult' && look % 4 === 0;
+  const sunhat = me ? me.hat === 'sunhat' : girl && kind === 'adult' && look % 4 === 3;
+  const shades = me ? !!me.shades : kind !== 'kid' && !cap && look % 5 === 3;
+  const glasses = !me && kind === 'adult' && !shades && look % 5 === 1;
+  const beard = !me && kind === 'adult' && !girl && (look === 4 || look === 10);
   const { hy, hr, sh, hip, sw, hw, aw, lw } = B;
   const s = hr / 10;
   const knee = hip + (FOOT - hip) * 0.42;
@@ -299,7 +304,7 @@ export function personSVG(kind, look = 0) {
     : `<path d="M${R(sw - 4)} ${sh} Q${R(sw + 0.8)} ${sh - 0.2} ${R(sw + 1.4)} ${sh + 3} L${R(sw + 3.6)} ${sh + 9.6} L${R(sw - 2.2)} ${sh + 10.6} L${R(hw + 0.4)} ${top} Q20 ${top + 1.6} ${L(hw + 0.4)} ${top} L${L(sw - 2.2)} ${sh + 10.6} L${L(sw + 3.6)} ${sh + 9.6} L${L(sw + 1.4)} ${sh + 3} Q${L(sw + 0.8)} ${sh - 0.2} ${L(sw - 4)} ${sh} Z" fill="${shirt}" ${OUT}/>`;
   const stripeLines = stripes
     ? `<path d="M${20 - sw + 0.6} ${sh + 8} H${20 + sw - 0.6} M${20 - sw + 1} ${sh + 14} H${20 + sw - 1} M${20 - hw - 0.2} ${sh + 20} H${20 + hw + 0.2}" stroke="#fff" stroke-width="2.2" opacity=".75"/>`
-    : look % 4 === 2 && !dress
+    : (me ? me.stars : look % 4 === 2) && !dress
       ? star(20, sh + 10, 3.4, '#fff', 'none')
       : '';
   const neckline = tank
@@ -314,6 +319,8 @@ export function personSVG(kind, look = 0) {
   if (glasses) extras += `<g fill="#fff" fill-opacity=".3" stroke="${INK}" stroke-width="0.9"><circle cx="-3.7" cy="1.2" r="2.7"/><circle cx="3.7" cy="1.2" r="2.7"/></g><path d="M-1 1 Q0 0.2 1 1" stroke="${INK}" stroke-width="0.9" fill="none"/>`;
   if (shades) extras += `<g fill="${INK}"><rect x="-6.9" y="-1" width="5.6" height="4" rx="1.8"/><rect x="1.3" y="-1" width="5.6" height="4" rx="1.8"/></g><path d="M-1.4 0 H1.4" stroke="${INK}" stroke-width="1"/><path d="M-5.6 -0.1 l1.6 0 M2.6 -0.1 l1.6 0" stroke="#fff" stroke-width="0.8" opacity=".6"/>`;
   if (cap) extras += `<path d="M-10.6 -3 Q-11 -13.4 0 -13.4 Q11 -13.4 10.6 -3 Z" fill="#e5484d" ${OUT}/><path d="M-11.4 -3.6 Q0 -6.4 11.4 -3.6 Q12 -1 10 -0.6 Q0 -2.8 -10 -0.6 Q-12 -1 -11.4 -3.6 Z" fill="#c3423f" ${OUT}/><circle cx="0" cy="-13" r="1.2" fill="#c3423f"/>`;
+  if (me?.hat === 'beanie') extras += `<path d="M-10.4 -2 Q-11 -13 0 -13 Q11 -13 10.4 -2 Z" fill="#3a8ee6" ${OUT}/><path d="M-10.4 -2 Q0 -5 10.4 -2" stroke="#ffd23f" stroke-width="2.4" fill="none"/><path d="M0 -13 V-17" stroke="${INK}" stroke-width="1.4"/><g class="prop" style="transform-origin:0px -17.5px"><path d="M-8 -17.5 Q-4 -20.5 0 -17.5 Q4 -14.5 8 -17.5 Q4 -20.5 0 -17.5 Q-4 -14.5 -8 -17.5 Z" fill="#e5484d" ${OUT}/></g>`;
+  if (me?.hat === 'crown') extras += `<path d="M-9 -6 L-10 -17 L-5 -11 L0 -19 L5 -11 L10 -17 L9 -6 Z" fill="#ffd23f" ${OUT}/><circle cx="0" cy="-9" r="1.6" fill="#e5484d"/><circle cx="-5.6" cy="-8.4" r="1.1" fill="#3a8ee6"/><circle cx="5.6" cy="-8.4" r="1.1" fill="#3a8ee6"/>`;
   if (sunhat) extras += `<ellipse cx="0" cy="-6" rx="16.5" ry="3.6" fill="#f7e3b5" ${OUT}/><path d="M-8 -6 Q-8.4 -15.5 0 -15.5 Q8.4 -15.5 8 -6 Z" fill="#f7e3b5" ${OUT}/><path d="M-8 -7.6 Q0 -6 8 -7.6 L8 -6 Q0 -4.4 -8 -6 Z" fill="${shirt}"/>`;
 
   return `<svg viewBox="0 0 40 84" class="person ${kind}" xmlns="http://www.w3.org/2000/svg">
@@ -1002,6 +1009,20 @@ function sky() {
   <path d="M0 ${GROUND} V238 Q90 196 210 226 T470 214 T730 206 T1000 226 V${GROUND} Z" fill="var(--grass)" opacity=".45"/>
   <path d="M0 ${GROUND} V262 Q160 236 330 258 T680 250 T1000 256 V${GROUND} Z" fill="var(--grass)" opacity=".75"/>`;
 }
+// The park where the push cart sells: lawn, trees, a path, benches and a pond in the back.
+// Sprites (the cart, people, ducks, the swings...) are drawn on top by the cart screen.
+export function parkSVG() {
+  const bench = (x, y) => `<g ${so(1.8)}><rect x="${x}" y="${y}" width="74" height="6" rx="2" fill="#8b5a2b"/><rect x="${x}" y="${y + 12}" width="74" height="6" rx="2" fill="#8b5a2b"/><path d="M${x + 8} ${y + 18} v10 M${x + 66} ${y + 18} v10" stroke="#4a4a5a" stroke-width="4"/></g>`;
+  return `<svg viewBox="0 0 1000 500" preserveAspectRatio="xMidYMax slice" class="scene-svg" xmlns="http://www.w3.org/2000/svg">${sky()}
+    <rect x="0" y="${GROUND - 2}" width="1000" height="210" fill="var(--grass)"/>
+    ${tree(40, 1.3)}${tree(180, 0.95)}${tree(330, 0.8, 'tall')}${tree(640, 0.85, 'tall')}${tree(830, 1.15)}${tree(975, 1.3, 'pine')}
+    <ellipse cx="520" cy="${GROUND + 18}" rx="120" ry="16" fill="#7ec8e3" ${so(2)}/><path d="M440 ${GROUND + 16} q12 -4 24 0 M560 ${GROUND + 20} q12 -4 24 0" stroke="#fff" stroke-width="2" opacity=".7" fill="none"/>
+    ${bush(260, 70, true, GROUND + 6)}${bush(720, 80, true, GROUND + 6)}${bench(100, GROUND + 12)}${bench(860, GROUND + 14)}
+    <path d="M0 ${GROUND + 120} Q300 ${GROUND + 96} 500 ${GROUND + 110} T1000 ${GROUND + 104} V500 H0 Z" fill="#ead9b8" ${so(2)}/>
+    <path d="M0 ${GROUND + 150} Q300 ${GROUND + 132} 500 ${GROUND + 144} T1000 ${GROUND + 138}" stroke="#d9c49c" stroke-width="3" fill="none" stroke-dasharray="14 18"/>
+  </svg>`;
+}
+
 // Just the sky, sun, clouds and hills (the world of tiles scrolls in front of it).
 export function skySVG() {
   return sky();

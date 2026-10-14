@@ -327,6 +327,143 @@ export const BLING = [
   { level: 3, name: 'Deluxe', emoji: '👑', price: 80_000, about: 'Everything, plus gold trim and party flags.' },
 ];
 
+// ---------- The park cart (the first level) ----------
+// Popsicles and Italian ice from a push cart cooler at the park. Money is counted bill by bill here,
+// so every pile of money is a count of each bill and coin: { 2000: 1, 100: 3, 25: 2 } = $23.50.
+export const CART = {
+  denoms: [2000, 1000, 500, 100, 25], // $20, $10, $5, $1, quarters (prices go up by quarters)
+  // Grandma gives $40 to start the cart (in the cash box); your wallet has $10 of your own.
+  start: { box: { 2000: 2 }, wallet: { 500: 1, 100: 5 } },
+  homeStart: 9 * 60, // the day starts at home at 9am
+  parkOpen: 10 * 60,
+  parkClose: 18 * 60,
+  // Minutes each errand takes. From the park, the corner store means closing the cart for a bit.
+  errand: { restaurant: 45, corner: 15, cornerFromPark: 20 },
+  coolerSpace: 40, // a pop takes 1 space, a tub of Italian ice takes tubSpace
+  freezerSpace: 300, // the freezer at home, which holds everything that isn't in the cooler
+  tubScoops: 20,
+  tubSpace: 8,
+  priceStep: 25,
+  vendorMistake: 0.15, // how often a seller gets your change wrong
+};
+
+export const CART_ITEMS = [
+  { id: 'rocketPop', name: 'Rocket pop', kind: 'pop', fair: 150, want: 4 },
+  { id: 'fudgePop', name: 'Fudge pop', kind: 'pop', fair: 175, want: 3 },
+  { id: 'freezePop', name: 'Freeze pop', kind: 'pop', fair: 50, want: 3 },
+  { id: 'iceCherry', name: 'Cherry ice', kind: 'ice', fair: 200, want: 3, color: '#ff4d6d' },
+  { id: 'iceLemon', name: 'Lemon ice', kind: 'ice', fair: 200, want: 2, color: '#ffe066' },
+  { id: 'iceBlue', name: 'Blue ice', kind: 'ice', fair: 200, want: 3, color: '#4cc9f0' },
+];
+export const CART_ITEM = Object.fromEntries(CART_ITEMS.map((i) => [i.id, i]));
+
+// What the shops sell. kind: stock (goes in the freezer), cups, gear (for the cart), decal, balloon,
+// hat, glasses, shirt, snack (eaten right away), toy (yours to keep).
+export const CART_SHOPS = {
+  restaurant: {
+    name: 'Restaurant store',
+    icon: '🏬',
+    items: [
+      { id: 'rocketBox', name: 'Rocket pops', note: 'box of 24', kind: 'stock', item: 'rocketPop', qty: 24, price: 900 },
+      { id: 'fudgeBox', name: 'Fudge pops', note: 'box of 24', kind: 'stock', item: 'fudgePop', qty: 24, price: 1100 },
+      { id: 'freezeBox', name: 'Freeze pops', note: 'box of 50', kind: 'stock', item: 'freezePop', qty: 50, price: 450 },
+      { id: 'cherryTub', name: 'Cherry ice', note: 'tub, 20 scoops', kind: 'stock', item: 'iceCherry', tubs: 1, price: 800 },
+      { id: 'lemonTub', name: 'Lemon ice', note: 'tub, 20 scoops', kind: 'stock', item: 'iceLemon', tubs: 1, price: 800 },
+      { id: 'blueTub', name: 'Blue ice', note: 'tub, 20 scoops', kind: 'stock', item: 'iceBlue', tubs: 1, price: 800 },
+      { id: 'cups', name: 'Cups & spoons', note: 'pack of 50', kind: 'cups', qty: 50, price: 250 },
+      { id: 'umbrella', name: 'Big umbrella', note: 'shade for the cart', kind: 'gear', price: 1500 },
+      { id: 'fan', name: 'Little fan', note: 'whirrr', kind: 'gear', price: 800 },
+      { id: 'bell', name: 'Bell', note: 'ding ding!', kind: 'gear', price: 500 },
+    ],
+  },
+  corner: {
+    name: 'Corner store',
+    icon: '🏪',
+    items: [
+      { id: 'gum', name: 'Bubble gum', kind: 'snack', price: 100, emoji: '🫧' },
+      { id: 'chips', name: 'Chips', kind: 'snack', price: 150, emoji: '🥔' },
+      { id: 'juice', name: 'Juice box', kind: 'snack', price: 125, emoji: '🧃' },
+      { id: 'ball', name: 'Bouncy ball', kind: 'toy', price: 100, emoji: '🔴' },
+      { id: 'car', name: 'Toy car', kind: 'toy', price: 250, emoji: '🏎️' },
+      { id: 'yoyo', name: 'Yo-yo', kind: 'toy', price: 300, emoji: '🪀' },
+      { id: 'kite', name: 'Kite', kind: 'toy', price: 600, emoji: '🪁' },
+      { id: 'shades', name: 'Sunglasses', kind: 'glasses', price: 500, emoji: '🕶️' },
+      { id: 'cap', name: 'Ball cap', kind: 'hat', price: 600, emoji: '🧢' },
+      { id: 'sunhat', name: 'Sun hat', kind: 'hat', price: 800, emoji: '👒' },
+      { id: 'beanie', name: 'Propeller hat', kind: 'hat', price: 700, emoji: '🌀' },
+      { id: 'crown', name: 'Crown', kind: 'hat', price: 1000, emoji: '👑' },
+      { id: 'shirtMint', name: 'Mint shirt', kind: 'shirt', price: 800, color: '#3cc6a0' },
+      { id: 'shirtGrape', name: 'Grape shirt', kind: 'shirt', price: 800, color: '#7d5ba6' },
+      { id: 'shirtSun', name: 'Sunny shirt', kind: 'shirt', price: 800, color: '#ffd23f' },
+      { id: 'shirtStars', name: 'Star shirt', kind: 'shirt', price: 1000, color: '#3a8ee6', stars: true },
+    ],
+  },
+  hotdog: {
+    name: 'Hot dog stand',
+    icon: '🌭',
+    items: [
+      { id: 'hotdog', name: 'Hot dog', kind: 'snack', price: 250, emoji: '🌭' },
+      { id: 'lemonade', name: 'Lemonade', kind: 'snack', price: 150, emoji: '🍋' },
+      { id: 'pretzel', name: 'Pretzel', kind: 'snack', price: 200, emoji: '🥨' },
+    ],
+  },
+  balloons: {
+    name: 'Balloon seller',
+    icon: '🎈',
+    items: [
+      { id: 'balloonRed', name: 'Red balloon', note: 'tied to your cart today', kind: 'balloon', price: 150, color: '#e5484d' },
+      { id: 'balloonBlue', name: 'Blue balloon', note: 'tied to your cart today', kind: 'balloon', price: 150, color: '#3a8ee6' },
+      { id: 'balloonPink', name: 'Pink balloon', note: 'tied to your cart today', kind: 'balloon', price: 150, color: '#ff6f91' },
+    ],
+  },
+  decals: {
+    name: 'Sticker stand',
+    icon: '✨',
+    items: [
+      { id: 'decalStar', name: 'Star sticker', kind: 'decal', price: 200, emoji: '⭐' },
+      { id: 'decalHeart', name: 'Heart sticker', kind: 'decal', price: 200, emoji: '💖' },
+      { id: 'decalFlower', name: 'Flower sticker', kind: 'decal', price: 250, emoji: '🌼' },
+      { id: 'decalRainbow', name: 'Rainbow sticker', kind: 'decal', price: 300, emoji: '🌈' },
+      { id: 'decalRocket', name: 'Rocket sticker', kind: 'decal', price: 300, emoji: '🚀' },
+      { id: 'decalCone', name: 'Ice cream sticker', kind: 'decal', price: 300, emoji: '🍦' },
+    ],
+  },
+};
+// Things that make the cart look nicer bring a few more people over.
+export const CART_LOOKS = { perDecal: 0.02, umbrella: 0.05, bell: 0.04, balloon: 0.08, max: 0.3 };
+
+// Who walks by the park and what they do.
+export const CART_CROWD = {
+  // people walking past per hour, 10am to 6pm
+  perHour: [10, 13, 17, 16, 17, 20, 18, 13],
+  weekendBoost: 1.3,
+  rain: 0.35,
+  hotPerDegree: 0.03, // more people want something cold for every degree over 80°F
+  baseTemp: 82,
+  tempSwing: 9,
+  rainChance: 0.12,
+  join: 0.34, // chance someone walking by wants something
+  lineJoin: [1, 0.85, 0.65, 0.45, 0.3, 0.15], // fewer people join a longer line
+  patience: [8, 16], // game minutes someone waits in line before giving up
+  kinds: { kid: 4, teen: 2, adult: 2.5, parentKid: 1.5 },
+  wtp: { kid: [0.9, 1.4], teen: [1, 1.5], adult: [1.05, 1.7] }, // most they'll pay, times the fair price
+  honest: 0.7, // gives back extra change
+  exact: 0.3, // pays with exact money when they can
+  fastSeconds: 20, // a sale this quick (real seconds) might get a tip
+  tip: { fast: 0.25, slow: 0.06, amounts: [25, 25, 50, 100] },
+  regular: { visit: 0.65, wtp: 1.4, missLimit: 3, awayDays: 5, friend: 0.3 },
+};
+
+// Regulars: the same people most days, each with a favorite.
+export const REGULARS = [
+  { id: 'maya', name: 'Maya', kind: 'kid', look: 1, fav: 'iceCherry' },
+  { id: 'jayden', name: 'Jayden', kind: 'kid', look: 4, fav: 'rocketPop' },
+  { id: 'ortiz', name: 'Mr. Ortiz', kind: 'adult', look: 10, fav: 'fudgePop' },
+  { id: 'lou', name: 'Grandma Lou', kind: 'adult', look: 7, fav: 'iceLemon' },
+  { id: 'priya', name: 'Priya', kind: 'teen', look: 3, fav: 'iceBlue' },
+  { id: 'theo', name: 'Theo', kind: 'kid', look: 6, fav: 'freezePop' },
+];
+
 export const LEADERBOARD = {
   // Not secret: the token (pasted per device in Settings) is what grants access.
   baseId: 'appf6frKyQZNEKBep',

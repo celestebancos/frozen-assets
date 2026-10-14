@@ -1,5 +1,5 @@
 // Everything a grown-up needs to look at how a kid actually played, in one JSON file.
-import { CONFIG, SUPPLIES, SPOTS } from './config.js';
+import { CONFIG, SUPPLIES, SPOTS, CART, CART_CROWD } from './config.js';
 import { share, sectionTotal } from './ledger.js';
 
 export const EXPORT_VERSION = 1;
@@ -82,16 +82,35 @@ export function summarize(state) {
   };
 }
 
-export function buildExport(state) {
-  state.log ||= { actions: [], days: [] };
+// The park cart: how much was sold, and how the change-making went.
+export function summarizeCart(cart) {
+  const pile = (p) => Object.entries(p || {}).reduce((s, [d, n]) => s + Number(d) * n, 0);
+  return {
+    day: cart.day,
+    phase: cart.phase,
+    ...cart.stats,
+    cashBox: pile(cart.money.box),
+    bank: cart.money.bank,
+    wallet: pile(cart.money.wallet),
+    prices: cart.prices,
+    days: (cart.days || []).map((d) => ({ day: d.day, temp: d.weather?.temp, rain: d.weather?.rain, customers: d.customers, sold: d.sold, revenue: d.revenue, tips: d.tips, tooExpensive: d.tooExpensive, leftLine: d.leftLine, keptExtra: d.keptExtra, returned: d.returned, noChange: d.noChange, missedFav: d.missedFav })),
+  };
+}
+
+// state: the truck game (or null); cart: the park cart (or null).
+export function buildExport(state, cart = null) {
+  if (state) state.log ||= { actions: [], days: [] };
   return {
     app: 'frozen-assets',
     version: EXPORT_VERSION,
     exportedAt: new Date().toISOString(),
-    summary: summarize(state),
+    summary: state ? summarize(state) : null,
+    cartSummary: cart ? summarizeCart(cart) : null,
     config: CONFIG,
-    daysCsv: daysCsv(state.log?.days || []),
+    cartConfig: { CART, CART_CROWD },
+    daysCsv: state ? daysCsv(state.log?.days || []) : '',
     state,
+    cart,
   };
 }
 

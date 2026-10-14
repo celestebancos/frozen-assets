@@ -5,6 +5,9 @@ import { ACCOUNT, applyEntries, emptyTotals, sectionTotal, share } from './ledge
 
 // look: paper style for the UI. penny: what Penny says when it's filed wrong. caption: a note on the balance sheet after filing.
 export const DOC_TYPES = {
+  ownerInvest: { title: 'Money you put in', look: 'receipt', icon: '🛒',
+    penny: "You put your own cart money into the business, so Cash went up. The business doesn't owe it to a bank. It's yours, so your Share went up too.",
+    caption: 'Your cart money is in the cash box, and it counts as your Share.' },
   loanPapers: { title: 'Bank loan papers', look: 'bank', icon: '🏦',
     penny: "The bank put money in your account, so Cash went up. But that money isn't yours to keep — you have to pay it back. That's a Business loan, and owing it is a liability.",
     caption: "The bank's money is in the cash box, and the business owes it back." },

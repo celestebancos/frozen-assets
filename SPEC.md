@@ -2,7 +2,7 @@
 
 The next phase of Frozen Assets. The player starts the way the game starts today: one truck, one loan, one summer. Over many summers the business grows into a fleet with employees, then shops, more towns, factories and franchises. The goal is **$1,000,000 of owner's share**. The game keeps going after that, tycoon-style, until the player decides to sell the business and retire.
 
-This is a design spec, not a build plan for one PR. It's meant to be built in playable slices (see [Build order](#build-order)). Decisions marked **Open** still need a call. Ideas in [IDEAS.md](IDEAS.md) that fit here are pulled in and noted.
+This is a design spec, not a build plan for one PR. It's meant to be built in playable slices (see [Build order](#build-order)). Decisions marked **Open** still need a call; most wait until their phase is built. Ideas in [IDEAS.md](IDEAS.md) that fit here are pulled in and noted.
 
 ## Contents
 
@@ -34,7 +34,6 @@ This is a design spec, not a build plan for one PR. It's meant to be built in pl
 26. [Build order](#build-order)
 27. [Out of scope for now](#out-of-scope-for-now)
 28. [Decided](#decided)
-29. [Open questions](#open-questions)
 
 ---
 
@@ -165,7 +164,7 @@ This is the core pattern, generalized from Penny's filing (`CONFIG.filing`: file
 | Maintenance | Picking per truck each winter | A summer with no avoidable breakdowns | Fleet manager |
 
 - The "good at it" checks should be visible but not preachy: a small badge on the job, plus one short line when something becomes available to hand off ("You're good at stocking now. A driver can do it for you.").
-- **Open:** each job's exact "good at it" test. These will need tuning against the bots.
+- **Open (decide when building phase 5):** each job's exact "good at it" test, tuned against the bots.
 
 ## Trucks: buying, aging, upkeep
 
@@ -377,7 +376,7 @@ How factories work (proposed):
 ### Investors (equity)
 - From time to time a person offers cash for a slice of the company, for example **"Grandma Rose: $50,000 for 10% of the business."** Those IDEAS.md grandparents fit here.
 - Once that happens, the company's owner's share is split between the player and the investors. **The goal counts only the player's part.** Selling slices lets the business grow faster, but each slice is profit given away forever. That's the lesson.
-- Investors get no yearly payouts. They're paid their slice **when the business is sold**. **Open:** whether the player can buy slices back.
+- Investors get no yearly payouts. They're paid their slice **when the business is sold**. **Open (decide when building phase 9):** whether the player can buy slices back.
 
 ### Selling the business (retiring)
 - Once the business is big enough, buyers make an offer each winter, based on yearly profit plus what the business owns. The player sees that a business that **earns money** is worth more than its trucks and buildings.
@@ -516,7 +515,7 @@ New fields in the Airtable `Scores` table (README setup to be updated):
 
 Each phase is playable and merged on its own. Phases 3 and 4 can go in either order. [Serving at the truck window](#serving-at-the-truck-window) reuses the cart's serving and can go in any time after phase 0.
 
-0. **The park cart.** Character creation, buying stock in bulk at the restaurant store, packing the cooler, the corner store (ATM, change machine, snacks and toys), cash float, setting prices, selling and making change by hand, regulars with favorites, the line and tip jar, park scenes, other vendors, decals and clothes. Then a truck loan whenever the player wants, with cart cash as the owner's share. Also playable from the title screen.
+0. **The park cart.** *(Built.)* Character creation, buying stock in bulk at the restaurant store, packing the cooler, the corner store (ATM, change machine, snacks and toys), cash float, setting prices, selling and making change by hand, regulars with favorites, the line and tip jar, park scenes, other vendors, decals and clothes. Then a truck loan whenever the player wants, with cart cash as the owner's share. Also playable from the title screen.
 1. **One truck, more real.** Restaurant store as a place on the map. Inside-the-truck view with space limits and boxes piling up. Counting by hand. Frozen, thawed and in-the-machine mix. Fits today's single-summer game, so it can ship before any fleet work.
 2. **Fleet and crew.** Several trucks in the home town, with crowd splitting. Hire drivers from the bot pool, with wages, green period, call-offs, quits, bad apples and firing. The boss's day. Per-truck weekly papers and payroll. Profit by truck. Parking and storage. A supply room with fill-to levels and morning load-out (supplies still come from the restaurant store, now with a store run for each truck). Winter planning screen. Player-chosen end of summer. Town zoom (play by week).
 3. **Ordering ahead.** Supplier deliveries with bulk prices and wait times, supplies on the way, supply room rent and space limits, freezer vs. dry space, supply counts and shrinkage, weather forecast.
@@ -550,8 +549,3 @@ Each phase is playable and merged on its own. Phases 3 and 4 can go in either or
 - The cart's cooler stays cold all day (battery). No melting.
 - Change comes from a change machine next to the ATM at the corner store, which also sells snacks and toys.
 - Cart stock is bought in bulk at the restaurant store.
-
-## Open questions
-
-1. **"Good at it" tests** for each job: proposed above, to be tuned.
-2. **Buying back investors' slices:** allowed or not?

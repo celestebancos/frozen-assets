@@ -12,6 +12,7 @@ import { openShoebox } from './ui/filing.js';
 import { seasonEnd } from './ui/reports.js';
 import { showDecision } from './ui/popups.js';
 import { buildExport, exportFileName } from './export.js';
+import { startCart } from './ui/cart.js';
 
 const C = CONFIG;
 // Real milliseconds per game minute at each speed: ▶ half a second, ▶▶ a bit faster, ▶▶▶ fast.
@@ -77,21 +78,26 @@ class App {
       <div class="player-row">${names
         .map((n) => {
           const st = storage.loadGame(n);
-          const info = st ? (st.phase === 'lost' ? 'Truck was taken 😢' : `Summer ${st.season} · Week ${Math.min(12, Math.ceil(st.day / 7))} · ${DAY_NAMES[(st.day - 1) % 7]}`) : 'No game yet';
-          return `<div class="player-card"><div class="name">${esc(n)}</div><div class="sub">${info}</div>
-            <div class="stack">${st && st.phase !== 'lost' ? `<button class="btn go" data-act="cont" data-n="${esc(n)}">▶ Continue</button>` : ''}
-            <button class="btn ${st ? '' : 'pink'}" data-act="new" data-n="${esc(n)}">🚚 New game</button></div></div>`;
+          const ct = storage.loadCart(n);
+          const truckOn = st && st.phase !== 'lost';
+          const info = st ? (st.phase === 'lost' ? '🚚 Truck was taken 😢' : `🚚 Summer ${st.season} · Week ${Math.min(12, Math.ceil(st.day / 7))} · ${DAY_NAMES[(st.day - 1) % 7]}`) : '';
+          return `<div class="player-card"><div class="name">${esc(n)}</div>
+            ${ct ? `<div class="sub">🛒 Park cart · Day ${ct.day}</div>` : ''}${info ? `<div class="sub">${info}</div>` : ''}${!ct && !st ? '<div class="sub">No game yet</div>' : ''}
+            <div class="stack">${truckOn ? `<button class="btn go" data-act="cont" data-n="${esc(n)}">🚚 Truck</button>` : ''}
+            <button class="btn ${truckOn ? '' : ct ? 'go' : 'pink'}" data-act="cart" data-n="${esc(n)}">🛒 ${ct ? 'Park cart' : 'Start at the park'}</button>
+            ${!truckOn ? `<button class="link tiny" data-act="new" data-n="${esc(n)}">Skip to a truck</button>` : ''}</div></div>`;
         })
         .join('')}
         <div class="player-card"><div class="name">➕</div><div class="sub">${names.length ? 'Someone new' : 'Add a player'}</div>
           <input class="text-in" style="font-size:16px" maxlength="16" placeholder="Name" aria-label="New player name">
-          <button class="btn" style="margin-top:6px" data-act="newName">🚚 Start</button></div>
+          <button class="btn pink" style="margin-top:6px" data-act="newName">🛒 Start</button></div>
       </div>
       <div class="row center"><button class="btn yellow" data-act="lb">🏆 Leaderboard</button><button class="btn" data-act="settings">⚙️ Settings</button></div>
     </div>`);
     document.body.appendChild(scr);
     onActs(scr, {
       cont: (t) => this.loadGame(t.dataset.n),
+      cart: (t) => startCart(this, t.dataset.n),
       new: (t) => {
         const n = t.dataset.n;
         if (storage.loadGame(n) && storage.loadGame(n).phase !== 'lost' && !confirm(`Start over for ${n}? The saved game will be replaced.`)) return;
@@ -99,7 +105,9 @@ class App {
       },
       newName: () => {
         const n = scr.querySelector('input').value.trim();
-        if (n) this.newGame(n);
+        if (!n) return;
+        if (storage.loadCart(n) || storage.loadGame(n)) return toast(`${esc(n)} is already here!`);
+        startCart(this, n);
       },
       lb: () => this.showLeaderboard(),
       settings: () => this.showSettings(),
@@ -107,7 +115,9 @@ class App {
   }
 
   // ---------- setup ----------
-  newGame(player) {
+  // opts.ownerCash: money from the park cart, put in as the owner's share. onBack: where ◀ at the bank goes.
+  // onStart: runs once the truck is bought.
+  newGame(player, { ownerCash = 0, onBack = null, onStart = null } = {}) {
     closeAllModals();
     this.stopLoop();
     document.body.innerHTML = '';
@@ -144,6 +154,7 @@ class App {
               </button>`;
             })
             .join('')}</div>
+          ${ownerCash ? `<p>🛒 Plus your cart money: <b>${money(ownerCash)}</b>. That's yours, not borrowed.</p>` : ''}
           <p class="tiny muted">💡 A bigger loan gives you more cash to spend now, but you pay more interest every day, and you still have to pay all of it back. ${(() => {
             const [a, b, c] = C.loans;
             return `The extra ${money(b.principal - a.principal)} in the middle loan costs ${money((b.dailyInterest - a.dailyInterest) * days)} more interest. The next ${money(c.principal - b.principal)} costs ${money((c.dailyInterest - b.dailyInterest) * days)} more.`;
@@ -152,7 +163,8 @@ class App {
         return;
       }
       const L = C.loans.find((l) => l.id === loan);
-      const maxTruck = L.principal - C.minStartCash;
+      const have = L.principal + ownerCash;
+      const maxTruck = have - C.minStartCash;
       if (TRUCK_PRICE + BLING[bling].price > maxTruck) color = null;
       const t = color && truckFor(color);
       const price = TRUCK_PRICE + BLING[bling].price;
@@ -166,7 +178,7 @@ class App {
             return `<button class="lot-truck ${color === x.color ? 'on' : ''}" data-act="pickTruck" data-c="${x.color}" data-l="${x.bling}" ${can ? '' : 'disabled'}>
               ${truckSVG(c.hex, c.name, { bling: x.bling })}
               <b>${c.name}</b>
-              <div class="price">${money(total)}</div><div class="tiny">${can ? `${money(L.principal - total)} left over` : 'Too much for this loan'}</div></button>`;
+              <div class="price">${money(total)}</div><div class="tiny">${can ? `${money(have - total)} left over` : 'Too much for this loan'}</div></button>`;
           }).join('')}</div>
           <div class="row" style="justify-content:space-between;margin-top:16px"><button class="btn" data-act="toBank">◀ Back to the bank</button>
             <button class="btn big go" data-act="next" ${t ? '' : 'disabled'}>${t ? `Buy it for ${money(price)} ▶` : 'Pick a truck'}</button></div>`;
@@ -174,7 +186,7 @@ class App {
       }
       title.textContent = '🪧 Your sign';
       card.innerHTML = `<div style="max-width:420px;margin:0 auto">${truckSVG(t.hex, name, { bling })}</div>
-        <div class="row center" style="margin:6px 0"><span class="chip">🏦 Loan ${money(L.principal)}</span><span class="chip">🚚 Truck −${money(price)}</span><span class="chip">💵 Cash left ${money(L.principal - price)}</span></div>
+        <div class="row center" style="margin:6px 0">${ownerCash ? `<span class="chip">🛒 Cart money ${money(ownerCash)}</span>` : ''}<span class="chip">🏦 Loan ${money(L.principal)}</span><span class="chip">🚚 Truck −${money(price)}</span><span class="chip">💵 Cash left ${money(have - price)}</span></div>
         <h3>🪧 Business name</h3><input class="text-in" maxlength="28" value="${esc(name)}" aria-label="Business name">
         <div class="row" style="justify-content:space-between;margin-top:16px"><button class="btn" data-act="toTruck">◀ Back</button><button class="btn big go" data-act="go">Let's go! ▶</button></div>`;
       card.querySelector('input').addEventListener('input', (e) => {
@@ -205,12 +217,13 @@ class App {
         step = 'truck';
         render();
       },
-      back: () => this.showTitle(),
+      back: () => (onBack ? onBack() : this.showTitle()),
       go: () => {
         if (!name.trim()) return toast('Your truck needs a name!');
         const L = C.loans.find((l) => l.id === loan);
         const B = BLING[bling];
-        this.game = Game.create({ player, business: name.trim(), color, tune: 'entertainer', loan: L, truckCost: TRUCK_PRICE + B.price, bling, blingName: bling ? B.name : '' });
+        this.game = Game.create({ player, business: name.trim(), color, tune: 'entertainer', loan: L, truckCost: TRUCK_PRICE + B.price, bling, blingName: bling ? B.name : '', ownerCash });
+        onStart?.();
         this.save();
         this.startGameView();
       },
@@ -625,11 +638,12 @@ class App {
     onActs(m.body, {
       export: (t) => {
         const st = storage.loadGame(t.dataset.n);
-        if (!st) return toast('No saved game');
-        const blob = new Blob([JSON.stringify(buildExport(st), null, 1)], { type: 'application/json' });
+        const ct = storage.loadCart(t.dataset.n);
+        if (!st && !ct) return toast('No saved game');
+        const blob = new Blob([JSON.stringify(buildExport(st, ct), null, 1)], { type: 'application/json' });
         const a = document.createElement('a');
         a.href = URL.createObjectURL(blob);
-        a.download = exportFileName(st);
+        a.download = exportFileName(st || ct);
         document.body.appendChild(a);
         a.click();
         a.remove();

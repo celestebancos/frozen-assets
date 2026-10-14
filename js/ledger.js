@@ -9,6 +9,7 @@ export const SECTIONS = [
   { id: 'expense', name: 'Expenses' },
   { id: 'asset', name: 'Assets' },
   { id: 'liability', name: 'Liabilities' },
+  { id: 'owner', name: "Owner's share" },
 ];
 
 export const ACCOUNTS = [
@@ -34,6 +35,9 @@ export const ACCOUNTS = [
   { id: 'giftCards', section: 'liability', name: 'Gift cards not yet used' },
   { id: 'interestOwed', section: 'liability', name: 'Interest owed to the bank' },
   { id: 'billsToPay', section: 'liability', name: 'Bills to pay' },
+
+  // Money the owner put into the business (from the park cart). It's part of the owner's Share.
+  { id: 'ownerIn', section: 'owner', name: "Owner's Share" },
 ];
 export const ACCOUNT = Object.fromEntries(ACCOUNTS.map((a) => [a.id, a]));
 

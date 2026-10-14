@@ -10,7 +10,7 @@ const C = CONFIG;
 const SEASON_DAYS = C.seasonWeeks * C.daysPerWeek;
 const DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
-export function newGameState({ player, business, color, tune = 'entertainer', seed, loan, truckCost, bling = 0, blingName = '' }) {
+export function newGameState({ player, business, color, tune = 'entertainer', seed, loan, truckCost, bling = 0, blingName = '', ownerCash = 0 }) {
   const s = {
     version: 1,
     seed: seed ?? Math.floor(Math.random() * 2 ** 31),
@@ -28,6 +28,7 @@ export function newGameState({ player, business, color, tune = 'entertainer', se
     truckCost: truckCost ?? C.loan.truckCost,
     bling,
     blingName,
+    ownerCash, // money brought from the park cart
     cash: 0,
     truth: emptyTotals(),
     filed: emptyTotals(),
@@ -173,7 +174,7 @@ export class Game {
     if (bad !== 0) throw new Error(`Unbalanced ${type}: ${JSON.stringify(entries)}`);
     applyEntries(this.state.truth, entries);
     this.state.cash = this.state.truth.cash;
-    const docWeek = type === 'loanPapers' || type === 'truckBill' ? 0 : this.gw;
+    const docWeek = type === 'loanPapers' || type === 'truckBill' || type === 'ownerInvest' ? 0 : this.gw;
     addToDoc(this.state.docs, docWeek, type, entries, item);
   }
 
@@ -424,6 +425,12 @@ export class Game {
   startGame() {
     const s = this.state;
     const { principal } = this.loanTerms;
+    if (s.ownerCash > 0) {
+      this.post('ownerInvest', [
+        { acct: 'cash', amt: s.ownerCash },
+        { acct: 'ownerIn', amt: s.ownerCash },
+      ], { label: 'Cart money put into the business', amt: s.ownerCash });
+    }
     this.post('loanPapers', [
       { acct: 'cash', amt: principal },
       { acct: 'loan', amt: principal },
