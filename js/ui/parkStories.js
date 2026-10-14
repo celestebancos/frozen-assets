@@ -1,12 +1,12 @@
 // Little wordless stories that play out on the lawn behind the cart now and then: a squirrel steals a
 // sandwich, the wind blows a hat onto a duck, a dog fetches a frisbee... They're drawn in the same
-// 1000 × 500 space as the park backdrop, and each one picks a spot you can see on this screen.
-import { personSVG } from '../art.js';
+// space as the park backdrop (wide or tall), and each one picks a spot you can see on this screen.
+// On tall screens the stories are drawn smaller (they're farther away than the customers on the path).
+import { personSVG, PARK_VIEW } from '../art.js';
 import { frisbeeSVG, balloonSVG, squirrelSVG, duckSVG, sandwichSVG, benchSVG, sunHatSVG, butterflySVG, bubbleWandSVG, soapBubbleSVG, puddleSVG, windSVG, dropSVG } from '../cartArt.js';
 
 const NS = 'http://www.w3.org/2000/svg';
 const INK = '#2e2a45';
-const G = 364; // the stories stand here: on the lawn between the pond and the path
 const STOP = Symbol('stop');
 const ADULT = 44;
 const KID = 34;
@@ -53,7 +53,7 @@ class Actor {
     this.x = x;
     this.y = y;
     this.g.style.transform = `translate(${x}px, ${y}px)`;
-    stage.layer.appendChild(this.g);
+    stage.root.appendChild(this.g);
   }
   setArt(svg) {
     const p = place(svg, this.w);
@@ -96,7 +96,7 @@ class Actor {
   // A speech bubble with an emoji over its head.
   say(text, ms = 1500) {
     const b = el('say');
-    b.setAttribute('transform', `translate(0 ${(-this.h - 5).toFixed(1)})`);
+    b.setAttribute('transform', `translate(0 ${(-this.h - 5).toFixed(1)}) scale(${(1 / this.stage.k).toFixed(3)})`); // bubbles stay full size
     b.innerHTML = `<g class="pop"><rect x="-15" y="-27" width="30" height="24" rx="9" fill="#fff" stroke="${INK}" stroke-width="1.6"/><path d="M-4 -3.6 L0 2 L4 -3.6" fill="#fff" stroke="${INK}" stroke-width="1.6" stroke-linejoin="round"/><path d="M-3 -4.4 H3" stroke="#fff" stroke-width="2.4"/><text x="0" y="-14.5" font-size="15" text-anchor="middle" dominant-baseline="central">${text}</text></g>`;
     this.g.appendChild(b);
     setTimeout(() => b.remove(), ms);
@@ -118,6 +118,7 @@ class Actor {
 const STORIES = {
   // A dog fetches a frisbee and brings it back.
   async frisbee(s) {
+    const G = s.G;
     const x = s.spot(320);
     const owner = s.actor(personSVG('adult', bareHead()), x + 30, G, ADULT);
     const dog = s.actor(personSVG('dog', rnd(4)), x + 68, G, DOG);
@@ -146,6 +147,7 @@ const STORIES = {
 
   // A kid lets go of a balloon by accident, and a grown-up brings a new one.
   async balloon(s) {
+    const G = s.G;
     const x = s.spot(330);
     const first = pick(BALLOONS);
     const second = pick(BALLOONS.filter((c) => c !== first));
@@ -159,7 +161,7 @@ const STORIES = {
     held.remove(); // oops, the string slips
     const away = s.actor(balloonSVG(first), x + 110 + kh[0], G + kh[1], 16);
     away.mood('sway');
-    away.moveTo(x + 180, -60, 5200, 'ease-in');
+    away.moveTo(x + 180, -420, 5200, 'ease-in');
     kid.say('😮', 1300);
     await s.t(1500);
     kid.say('😢', 2400);
@@ -185,6 +187,7 @@ const STORIES = {
 
   // Someone dozes off on a bench and a squirrel sneaks off with their sandwich.
   async sandwich(s) {
+    const G = s.G;
     const x = s.spot(330);
     const sitter = s.actor(personSVG('adult', rnd(12)), x + 70, G - 5, ADULT);
     sitter.clipBelow(-17); // the bench hides their legs
@@ -228,6 +231,7 @@ const STORIES = {
 
   // A duckling wanders off after a butterfly and has to hurry to catch up with Mom.
   async ducks(s) {
+    const G = s.G;
     const x = s.spot(360);
     const mom = s.actor(duckSVG(), x + 40, G, 30);
     const babies = [0, 1, 2].map((i) => s.actor(duckSVG(true), x + 10 - i * 21, G, 19));
@@ -267,6 +271,7 @@ const STORIES = {
 
   // A kid blows bubbles and a dog jumps to pop every one.
   async bubbles(s) {
+    const G = s.G;
     const x = s.spot(330);
     const kid = s.actor(personSVG('kid', rnd(48)), x + 40, G, KID);
     const kh = hand('kid', KID);
@@ -300,6 +305,7 @@ const STORIES = {
 
   // The wind blows someone's sun hat away... and it lands on a duck.
   async hat(s) {
+    const G = s.G;
     const x = s.spot(340);
     const who = s.actor(personSVG('adult', bareHead()), x - 20, G, ADULT);
     const [, top] = brim(ADULT);
@@ -338,6 +344,7 @@ const STORIES = {
 
   // Rainy days: a kid jumps in a puddle and a dog joins in.
   async puddle(s) {
+    const G = s.G;
     const x = s.spot(300);
     const spot = x + 150;
     s.actor(puddleSVG(), spot, G + 6, 96);
@@ -385,9 +392,16 @@ const RAINY = ['ducks', 'puddle'];
 export class ParkStories {
   // host: the element to draw in. rain: today's weather. busy(): true while the stories should wait (a pop-up is open).
   // blockers(): elements drawn in front of the lawn (stands, swings, the cart); stories try to play where they aren't.
-  constructor(host, { rain = false, busy = () => false, blockers = () => [] } = {}) {
-    host.innerHTML = `<svg class="story-layer" viewBox="0 0 1000 500" preserveAspectRatio="xMidYMax slice" xmlns="${NS}"></svg>`;
+  // tall: the phone layout of the park.
+  constructor(host, { rain = false, tall = false, busy = () => false, blockers = () => [] } = {}) {
+    const v = tall ? PARK_VIEW.tall : PARK_VIEW.wide;
+    this.G = v.ground; // the stories stand here: on the lawn between the pond and the path
+    this.k = tall ? 0.85 : 0.92; // story units → park units: a bit smaller than the customers, who are closer
+    host.innerHTML = `<svg class="story-layer" viewBox="0 0 ${v.w} ${v.h}" preserveAspectRatio="xMidYMax slice" xmlns="${NS}"><g transform="translate(0 ${this.G}) scale(${this.k}) translate(0 ${-this.G})"></g></svg>`;
     this.layer = host.firstElementChild;
+    this.root = this.layer.firstElementChild;
+    this.vw = v.w;
+    this.vh = v.h;
     this.rain = rain;
     this.busy = busy;
     this.blockers = blockers;
@@ -402,7 +416,7 @@ export class ParkStories {
   stop() {
     this.on = false;
     clearTimeout(this.timer);
-    this.layer.replaceChildren();
+    this.root.replaceChildren();
   }
   later(ms) {
     clearTimeout(this.timer);
@@ -418,13 +432,13 @@ export class ParkStories {
   actor(svg, x, y, w) {
     return new Actor(this, svg, x, y, w);
   }
-  // The part of the 1000-wide park this screen shows (the backdrop is cropped at the sides).
+  // The part of the park this screen shows, in story units (the backdrop is cropped at the sides).
   visible() {
     const r = this.layer.getBoundingClientRect();
-    if (!r.width || !r.height) return [0, 1000];
-    const k = Math.max(r.width / 1000, r.height / 500);
-    const x0 = (1000 - r.width / k) / 2;
-    return [x0, x0 + r.width / k];
+    if (!r.width || !r.height) return [0, this.vw / this.k];
+    const px = Math.max(r.width / this.vw, r.height / this.vh); // screen pixels per park unit
+    const x0 = (this.vw - r.width / px) / 2;
+    return [x0 / this.k, (x0 + r.width / px) / this.k];
   }
   // A left edge for a story `span` wide: on screen, and as clear of the stands and swings as it can be.
   spot(span) {
@@ -434,12 +448,13 @@ export class ParkStories {
     if (hi <= lo) return (a + b - span) / 2;
     // what's in front of the story's strip of lawn, in park units
     const r = this.layer.getBoundingClientRect();
-    const k = r.width ? Math.max(r.width / 1000, r.height / 500) : 1;
-    const band = [r.bottom - (500 - G + 10) * k, r.bottom - (500 - G + 90) * k]; // screen y of the feet and of the heads
+    const px = r.width ? Math.max(r.width / this.vw, r.height / this.vh) : 1;
+    const band = [r.bottom - (this.vh - this.G - 10) * px, r.bottom - (this.vh - this.G + 90 * this.k) * px]; // screen y of the feet and of the heads
+    const u = px * this.k; // screen pixels per story unit
     const blocks = [...this.blockers()]
       .map((e) => e.getBoundingClientRect())
       .filter((q) => q.width && q.bottom > band[1] && q.top < band[0])
-      .map((q) => [a + (q.left - r.left) / k, a + (q.right - r.left) / k]);
+      .map((q) => [a + (q.left - r.left) / u, a + (q.right - r.left) / u]);
     const covered = (x) => blocks.reduce((sum, [l, rr]) => sum + Math.max(0, Math.min(rr, x + span) - Math.max(l, x)), 0);
     let best = [];
     let least = Infinity;
@@ -468,7 +483,7 @@ export class ParkStories {
     // whatever is still on the lawn fades away, then a rest before the next story
     this.layer.classList.add('fade');
     await wait(600);
-    this.layer.replaceChildren();
+    this.root.replaceChildren();
     this.layer.classList.remove('fade');
     this.later(12000 + Math.random() * 14000);
   }

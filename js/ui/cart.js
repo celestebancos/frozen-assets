@@ -2,7 +2,7 @@
 // where every sale is served and every bit of change is counted by hand.
 import { CART, CART_ITEMS, CART_ITEM, CART_SHOPS, CART_CROWD, REGULARS } from '../config.js';
 import { Cart, total, pileCount, CART_DAY_NAMES } from '../cart.js';
-import { personSVG, parkSVG, CHARACTER } from '../art.js';
+import { personSVG, parkSVG, CHARACTER, PARK_VIEW } from '../art.js';
 import { cartSVG, umbrellaSVG, moneySVG, treatSVG, thingSVG, swingSetSVG, swingSeatSVG, balloonSVG, hotdogStandSVG, balloonSellerSVG, stickerStandSVG } from '../cartArt.js';
 import { ParkStories } from './parkStories.js';
 import { storage } from '../storage.js';
@@ -178,6 +178,7 @@ export class CartView {
     this.running = false;
     cancelAnimationFrame(this.raf);
     this.stories?.stop();
+    this.resizer?.disconnect();
   }
 
   // ---------- morning at home ----------
@@ -674,6 +675,56 @@ export class CartView {
   }
 
   // ---------- the park ----------
+  // Phones get the tall park (things in different places, sized for a narrow screen); wider screens the wide one.
+  // Back to front: the park, the stands behind the lawn, the little stories, the flowers and path, then the
+  // balloon seller, the cart and the customers.
+  layoutPark() {
+    const st = this.stage;
+    if (!st?.isConnected) return;
+    const tall = st.clientWidth / Math.max(1, st.clientHeight) < 0.9;
+    this.placeProps(tall);
+    if (tall === this.tall && this.stories) {
+      this.renderQueue();
+      return;
+    }
+    this.tall = tall;
+    st.classList.toggle('tall', tall);
+    st.querySelector('.scene').innerHTML = parkSVG({ tall });
+    st.querySelector('.scene-front').innerHTML = parkSVG({ tall, front: true });
+    const running = this.stories?.on;
+    this.stories?.stop();
+    this.stories = new ParkStories(this.vig, {
+      rain: !!this.cart.state.weather.rain,
+      tall,
+      busy: anyModalOpen,
+      blockers: () => st.querySelectorAll('.stand-btn.front, .cart-spot'),
+    });
+    if (running) this.stories.start(4000);
+    if (this.custEls) this.renderQueue();
+  }
+  // The stands and the swings stand on spots of the park picture (in its own units: middle x, where they
+  // touch the ground, width), turned into screen pixels the way the picture is scaled and cropped.
+  placeProps(tall) {
+    const st = this.stage;
+    const v = tall ? PARK_VIEW.tall : PARK_VIEW.wide;
+    const spots = tall
+      ? { hotdog: [60, 330, 112], decals: [306, 342, 100], balloons: [322, 477, 60], swings: [186, 319, 134] }
+      : { hotdog: [316, 355, 103], decals: [660, 355, 94], balloons: [909, 390, 85], swings: [477, 345, 141] };
+    const W = st.clientWidth;
+    const H = st.clientHeight;
+    const px = Math.max(W / v.w, H / v.h);
+    const x0 = (W - v.w * px) / 2;
+    // the cart and the customers are sized in the same units, so everything keeps its size next to each other
+    st.style.setProperty('--u', `${px.toFixed(3)}px`);
+    const put = (e, [x, y, w]) => {
+      if (!e) return;
+      e.style.left = `${(x0 + (x - w / 2) * px).toFixed(1)}px`;
+      e.style.bottom = `${((v.h - y) * px).toFixed(1)}px`;
+      e.style.width = `${(w * px).toFixed(1)}px`;
+    };
+    for (const k of ['hotdog', 'decals', 'balloons']) put(st.querySelector(`.stand-btn[data-v='${k}']`), spots[k]);
+    put(st.querySelector('.swings'), spots.swings);
+  }
   showPark() {
     this.stop();
     closeAllModals();
@@ -681,14 +732,15 @@ export class CartView {
     document.body.innerHTML = `<div id="game" class="cart-game">
       <header class="hud"></header>
       <main class="stage park">
-        <div class="scene">${parkSVG()}</div>
-        <div class="vig"></div>${c.state.weather.rain ? '<div class="rain"></div>' : ''}
+        <div class="scene"></div>
         <div class="stands">
-          <button class="stand-btn" data-act="vendor" data-v="hotdog" style="left:25%;bottom:27%;width:11%" aria-label="Hot dog stand">${hotdogStandSVG()}</button>
-          <button class="stand-btn" data-act="vendor" data-v="decals" style="left:62%;bottom:27%;width:10%" aria-label="Sticker stand">${stickerStandSVG()}</button>
-          <button class="stand-btn" data-act="vendor" data-v="balloons" style="left:89%;bottom:22%;width:9%" aria-label="Balloon seller">${balloonSellerSVG()}</button>
+          <button class="stand-btn" data-act="vendor" data-v="hotdog" aria-label="Hot dog stand">${hotdogStandSVG()}</button>
+          <button class="stand-btn" data-act="vendor" data-v="decals" aria-label="Sticker stand">${stickerStandSVG()}</button>
+          <button class="stand-btn front" data-act="vendor" data-v="balloons" aria-label="Balloon seller">${balloonSellerSVG()}</button>
         </div>
-        <div class="swings" style="left:40%;bottom:31%;width:15%">${swingSetSVG()}<div class="seat-wrap s1"><div class="sw-kid">${swingSeatSVG('#ffd23f')}<div class="rider">${personSVG('kid', 13)}</div></div></div><div class="seat-wrap s2"><div class="sw-kid">${swingSeatSVG('#3a8ee6')}</div></div></div>
+        <div class="vig"></div>
+        <div class="scene-front"></div>${c.state.weather.rain ? '<div class="rain"></div>' : ''}
+        <div class="swings">${swingSetSVG()}<div class="seat-wrap s1"><div class="sw-kid">${swingSeatSVG('#ffd23f')}<div class="rider">${personSVG('kid', 13)}</div></div></div><div class="seat-wrap s2"><div class="sw-kid">${swingSeatSVG('#3a8ee6')}</div></div></div>
         <div class="cart-spot">${cartSpot(c)}</div>
         <div class="queue"></div>
         <div class="passers"></div>
@@ -701,8 +753,12 @@ export class CartView {
     this.passers = this.stage.querySelector('.passers');
     this.serveEl = this.stage.querySelector('.serve');
     this.vig = this.stage.querySelector('.vig');
-    this.stories = new ParkStories(this.vig, { rain: !!c.state.weather.rain, busy: anyModalOpen, blockers: () => this.stage.querySelectorAll('.stand-btn, .swings, .cart-spot') });
     this.custEls = new Map();
+    this.tall = null;
+    this.layoutPark();
+    // the stage settles its size after the HUD and toolbar draw, and changes when a phone turns
+    this.resizer = new ResizeObserver(() => this.layoutPark());
+    this.resizer.observe(this.stage);
     this.serveKey = '';
     this.hudKey = '';
     this.tray = {};
@@ -902,11 +958,12 @@ export class CartView {
     clearTimeout(b._t);
     b._t = setTimeout(() => b.classList.add('hidden'), 2200);
   }
-  // Line positions: the window is right next to the cart, then the line stretches right.
+  // Line positions: the window is right next to the cart, then the line stretches right. When the line is
+  // longer than the screen has room for (phones), people squeeze closer together.
   renderQueue() {
     const s = this.s;
     const order = [...(s.window ? [s.window.cust] : []), ...s.line];
-    order.forEach((cust, i) => {
+    const els = order.map((cust) => {
       let e = this.custEls.get(cust.id);
       if (!e) {
         e = el(`<div class="party walking" data-id="${cust.id}" style="left:104%">${this.custHTML(cust)}</div>`);
@@ -914,10 +971,23 @@ export class CartView {
         this.queue.appendChild(e);
         this.custEls.set(cust.id, e);
       }
-      const left = 31 + order.slice(0, i).reduce((x, p) => x + 3.5 + p.members.length * 4, 0);
+      return e;
+    });
+    const W = this.stage.clientWidth;
+    const cartEl = this.stage.querySelector('.cart-spot');
+    const start = cartEl ? cartEl.offsetLeft + cartEl.offsetWidth + 4 : W * 0.31;
+    const gap = W < 600 ? 4 : 12;
+    const widths = els.map((e) => e.offsetWidth || 50);
+    const need = widths.reduce((a, b) => a + b, 0) + gap * Math.max(0, els.length - 1);
+    const room = W - start - 6;
+    const squeeze = need > room ? Math.max(0.5, (room - gap * (els.length - 1)) / (need - gap * (els.length - 1))) : 1;
+    let left = start;
+    els.forEach((e, i) => {
+      const x = left;
       requestAnimationFrame(() => {
-        e.style.left = `${left}%`;
+        e.style.left = `${x}px`;
       });
+      left += widths[i] * squeeze + gap;
       clearTimeout(e._w);
       e._w = setTimeout(() => e.classList.remove('walking'), 900);
       e.classList.toggle('at-window', i === 0 && !!s.window);
