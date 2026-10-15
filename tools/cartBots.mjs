@@ -68,16 +68,21 @@ function morning(c, bot) {
   // Restock what's running lowest first (under two days' worth in the cooler and freezer), keeping $15 for change.
   const items = menuOf(c, bot);
   const wantSum = items.reduce((a, id) => a + c.wantOf(id), 0);
-  const perDay = (id) => (20 * c.wantOf(id)) / wantSum; // about how many sell in a day
+  // about how many sell in a day: the last week's sales, or a guess on the first days
+  const recent = c.state.days.slice(-7);
+  const perDay = (id) => (recent.length >= 3 ? Math.max(1, recent.reduce((a, d) => a + (d.sold[id] || 0), 0) / recent.length) : (20 * c.wantOf(id)) / wantSum);
   const cover = (id) => (c.count('cooler', id) + c.count('freezer', id)) / perDay(id);
   const basket = {};
   let room = c.freeSlots;
   for (const id of [...items].sort((x, y) => cover(x) - cover(y))) {
     if (cover(id) >= 2 || room <= 0) break;
     const box = BOX_FOR[id];
-    if (c.basketCost('restaurant', { ...basket, [box.id]: 1 }) > c.boxTotal - 1500) continue;
-    basket[box.id] = 1;
-    room--;
+    // three at the 3-for price when they'd sell in under 2 weeks and there's room and money; otherwise one
+    const three = room >= 4 && perDay(id) * 12 >= box.qty * 3 && c.basketCost('restaurant', { ...basket, [box.id]: 3 }) <= c.boxTotal - 1500;
+    const q = three ? 3 : 1;
+    if (c.basketCost('restaurant', { ...basket, [box.id]: q }) > c.boxTotal - 1500) continue;
+    basket[box.id] = q;
+    room -= q;
   }
   if (Object.keys(basket).length) {
     c.errand('restaurant');

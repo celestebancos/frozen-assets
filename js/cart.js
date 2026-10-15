@@ -85,6 +85,10 @@ const TREATS = CART_ITEMS.filter((i) => i.kind !== 'drink');
 const DRINKS = CART_ITEMS.filter((i) => i.kind === 'drink');
 const BOX_SIZE = Object.fromEntries(CART_SHOPS.restaurant.items.filter((i) => i.kind === 'stock').map((i) => [i.item, i.qty]));
 export const boxSize = (id) => BOX_SIZE[id] || 24;
+// What 3 boxes of a kind cost together at the restaurant store (to the quarter).
+export const bulkPrice = (it) => Math.round((it.price * K.bulk.boxes * (1 - K.bulk.off)) / 25) * 25;
+// How many treats a box holds when full: small boxes from the corner store say so.
+export const capOf = (box) => box.size || boxSize(box.item);
 const emptyShelves = () => Array.from({ length: K.freezerShelves }, () => Array(K.shelfSlots).fill(null));
 const emptyTrays = () => Array.from({ length: K.coolerTrays }, () => Array(K.traySpots).fill(null));
 // Freeze pops come in assorted colors, just for looks. Each spot in a box has its own color (from the box's seed),
@@ -376,7 +380,7 @@ export class Cart {
     const i = this.topTray.indexOf(null);
     if (i < 0) return { ok: false, reason: this.coolerFree ? 'trayFull' : 'full' };
     this.topTray[i] = box.item;
-    this.state.cooler.tints[this.state.cooler.top][i] = boxTint(box, boxSize(box.item) - box.n);
+    this.state.cooler.tints[this.state.cooler.top][i] = boxTint(box, capOf(box) - box.n);
     box.n--;
     return { ok: true, i, emptied: box.n <= 0 };
   }
@@ -406,7 +410,7 @@ export class Cart {
     const box = this.boxAt(loc);
     if (!id || !box) return { ok: false };
     if (box.item !== id) return { ok: false, reason: 'kind' };
-    if (box.n >= boxSize(id)) return { ok: false, reason: 'boxFull' };
+    if (box.n >= capOf(box)) return { ok: false, reason: 'boxFull' };
     box.n++;
     this.topTray[i] = null;
     return { ok: true };
@@ -419,7 +423,7 @@ export class Cart {
     while (done < n && this.coolerFree > 0) {
       const from = this.homeBoxes().filter((x) => x.box.item === id && x.box.n > 0).sort((a, b) => a.box.n - b.box.n)[0];
       if (!from) break;
-      this.toCooler(id, null, boxTint(from.box, boxSize(id) - from.box.n));
+      this.toCooler(id, null, boxTint(from.box, capOf(from.box) - from.box.n));
       from.box.n--;
       if (from.box.n <= 0) this.setBox(from.loc, null);
       done++;
@@ -465,8 +469,13 @@ export class Cart {
   shopItem(shop, id) {
     return CART_SHOPS[shop]?.items.find((i) => i.id === id);
   }
-  // Does a basket make sense? basket: { itemId: qty }. (Whether it fits in the freezer is up to you.)
+  // Does a basket make sense? basket: { itemId: qty }. (Whether it fits in the freezer is up to you.) At the park,
+  // treats go right into the cooler, so they have to fit.
   checkBasket(shop, basket) {
+    if (this.state.phase === 'park') {
+      const treats = Object.entries(basket).reduce((a, [id, q]) => a + (this.shopItem(shop, id)?.kind === 'stock' ? this.shopItem(shop, id).qty * q : 0), 0);
+      if (treats > this.coolerFree) return { ok: false, reason: 'cooler', room: this.coolerFree };
+    }
     for (const [id, q] of Object.entries(basket)) {
       const it = this.shopItem(shop, id);
       if (!it || q <= 0) continue;
@@ -486,7 +495,12 @@ export class Cart {
     return boxes <= 2 ? 'room' : 'lots';
   }
   basketCost(shop, basket) {
-    return Object.entries(basket).reduce((s, [id, q]) => s + (this.shopItem(shop, id)?.price || 0) * q, 0);
+    return Object.entries(basket).reduce((s, [id, q]) => {
+      const it = this.shopItem(shop, id);
+      if (!it) return s;
+      const deal = shop === 'restaurant' && it.kind === 'stock' ? Math.floor(q / K.bulk.boxes) : 0;
+      return s + deal * bulkPrice(it) + (q - deal * K.bulk.boxes) * it.price;
+    }, 0);
   }
   // Hand over money for a basket. The seller counts out change, and sometimes gets it wrong.
   // Nothing is final until takeChange().
@@ -549,10 +563,16 @@ export class Cart {
   receive(it) {
     const s = this.state;
     switch (it.kind) {
-      case 'stock':
-        // on the kitchen counter, to put away (a box of freeze pops gets its own mix of colors)
-        s.counter.push(it.item === 'freezePop' ? { item: it.item, n: it.qty, seed: newSeed() } : { item: it.item, n: it.qty });
+      case 'stock': {
+        // on the kitchen counter, to put away (a box of freeze pops gets its own mix of colors). A small box says
+        // how many it holds. At the park, it goes right into the cooler.
+        const box = { item: it.item, n: it.qty };
+        if (it.item === 'freezePop') box.seed = newSeed();
+        if (it.qty !== boxSize(it.item)) box.size = it.qty;
+        if (s.phase === 'park') for (let k = 0; k < it.qty; k++) this.toCooler(it.item, null, boxTint(box, k));
+        else s.counter.push(box);
         break;
+      }
       case 'spoons':
       case 'napkins':
         s.packs[it.kind]++; // on the shelf at home until it's opened onto the cart

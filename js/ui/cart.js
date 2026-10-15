@@ -1,7 +1,7 @@
 // The park cart screens: make your character, the morning at home, shops and errands, and the park day
 // where every sale is served and every bit of change is counted by hand.
 import { CART, CART_ITEMS, CART_ITEM, CART_SHOPS, CART_CROWD, REGULARS } from '../config.js';
-import { Cart, total, pileCount, pileOf, boxSize, boxTint, CART_DAY_NAMES } from '../cart.js';
+import { Cart, total, pileCount, pileOf, capOf, bulkPrice, boxTint, CART_DAY_NAMES } from '../cart.js';
 import { personSVG, parkSVG, CHARACTER, PARK_VIEW } from '../art.js';
 import { cartSVG, toyPlaySVG, STICKER_AREA, umbrellaSVG, moneySVG, treatSVG, thingSVG, boxFrontSVG, boxSideSVG, BOX_LOOK, spoonCupSVG, napkinStackSVG, spoonBoxSVG, napkinPackSVG, recyclingBinSVG, swingSetSVG, swingSeatSVG, balloonSVG, hotdogStandSVG, balloonSellerSVG, stickerStandSVG } from '../cartArt.js';
 import { ParkStories } from './parkStories.js';
@@ -78,7 +78,7 @@ function coolerHTML(tray, { act = 'spot', sel = null, fresh = null, tints = [] }
 }
 // Looking down into an open box: the treats that are left, and the gaps where some are gone.
 function openBoxHTML(box) {
-  const size = boxSize(box.item);
+  const size = capOf(box);
   const cells = Array.from({ length: size }, (_, i) => (i < size - box.n ? '<i class="gone"></i>' : `<button class="bt" data-act="takeOne" aria-label="${esc(CART_ITEM[box.item].name)}">${treatSVG(box.item, 40, boxTint(box, i))}</button>`)).join('');
   return `<div class="open-box ${size > 24 ? 'big' : ''}" data-act="boxIn" style="--c:${BOX_LOOK[box.item].color}">${cells}</div>`;
 }
@@ -438,11 +438,11 @@ export class CartView {
     const name = (b) => esc(BOX_ITEM[b.item]?.name || b.item);
     const slot = (loc, b) => {
       if (!b) return `<button class="slot empty ${sel ? 'target' : ''}" data-act="slot" data-loc="${loc}" aria-label="Empty spot"></button>`;
-      return `<button class="slot ${sel === loc ? 'sel' : ''} ${b.n ? '' : 'spent'}" data-act="slot" data-loc="${loc}" aria-label="${name(b)}">${boxSideSVG(b.item, b.n < boxSize(b.item))}</button>`;
+      return `<button class="slot ${sel === loc ? 'sel' : ''} ${b.n ? '' : 'spent'}" data-act="slot" data-loc="${loc}" aria-label="${name(b)}">${boxSideSVG(b.item, b.n < capOf(b))}</button>`;
     };
     const shelves = s.freezer.shelves.map((shelf, r) => `<div class="fz-shelf">${shelf.map((b, i) => slot(`s${r}-${i}`, b)).join('')}</div>`).join('<div class="fz-rail"></div>');
     const counter = s.counter
-      .map((b, i) => `<button class="cbox ${sel === `c${i}` ? 'sel' : ''} ${!sel && i === 0 && c.freeSlots ? 'nudge' : ''}" data-act="slot" data-loc="c${i}" aria-label="${name(b)}">${boxFrontSVG(b.item, boxSize(b.item))}</button>`)
+      .map((b, i) => `<button class="cbox ${sel === `c${i}` ? 'sel' : ''} ${!sel && i === 0 && c.freeSlots ? 'nudge' : ''}" data-act="slot" data-loc="c${i}" aria-label="${name(b)}">${boxFrontSVG(b.item, capOf(b))}</button>`)
       .join('');
     // unopened packs: tap one to put it on the cart (once the cart is running low)
     const packs = (k, svg) => Array.from({ length: Math.min(3, s.packs[k]) }, () => `<button class="pk" data-act="openPack" data-k="${k}" aria-label="Put ${k} on the cart">${svg}</button>`).join('') + (s.packs[k] > 3 ? `<span class="pk-more">×${s.packs[k]}</span>` : '');
@@ -563,6 +563,7 @@ export class CartView {
           })
           .join('')}</div>
           ${!chk.ok && chk.reason === 'park' ? '<p class="warn">🎈 Balloons are for the cart at the park.</p>' : ''}
+          ${!chk.ok && chk.reason === 'cooler' ? `<p class="warn">🧊 That won't fit in your cooler. It has room for ${chk.room}.</p>` : ''}
           <div class="row" style="justify-content:space-between;margin-top:10px"><b style="font-size:22px">Total: ${money(cost)}</b>
             <button class="btn big go" data-act="pay" ${cost && chk.ok ? '' : 'disabled'}>Pay ▶</button></div>`;
       },
@@ -625,7 +626,7 @@ export class CartView {
           rows[rows.length - 1].push(it);
           used += w;
         }
-        const kind = (it) => `<div class="sf-kind" style="grid-column: span ${c.shelfRoom(it)}">${Array.from({ length: c.shelfRoom(it) }, () => `<button class="sf-box" data-act="take" data-id="${it.id}" aria-label="${esc(it.name)}">${storeArt(it)}</button>`).join('')}<span class="tag">${money(it.price)}</span></div>`;
+        const kind = (it) => `<div class="sf-kind" style="grid-column: span ${c.shelfRoom(it)}">${Array.from({ length: c.shelfRoom(it) }, () => `<button class="sf-box" data-act="take" data-id="${it.id}" aria-label="${esc(it.name)}">${storeArt(it)}</button>`).join('')}<span class="tag">${money(it.price)}<small>3 for ${money(bulkPrice(it))}</small></span></div>`;
         const dry = S.items
           .filter((i) => i.kind !== 'stock')
           .map((it) => {
@@ -693,9 +694,10 @@ export class CartView {
           let top = `<div class="pay-top"><span class="big">${seller}</span><div class="say">That's <b>${money(cost)}</b>, please!</div></div>`;
           if (store) {
             const gave = total(tray);
+            const deal = Object.entries(buying()).some(([id, q]) => ITEM[id].kind === 'stock' && q >= K.bulk.boxes);
             const words = short && gave < cost
               ? `That's <b>${money(cost)}</b>. You gave me <b>${money(gave)}</b>. What should I put back?`
-              : `${hint && !short ? (hint === 'lots' ? "Wow, that's a lot of boxes. You must have a big freezer! " : 'Do you have room in your freezer for that? ') : ''}That's <b>${money(cost)}</b>${short ? '.' : ', please!'}`;
+              : `${hint && !short ? (hint === 'lots' ? "Wow, that's a lot of boxes. You must have a big freezer! " : 'Do you have room in your freezer for that? ') : ''}${deal ? 'You get the 3-for price! ' : ''}That's <b>${money(cost)}</b>${short ? '.' : ', please!'}`;
             const thing = (id, act) => (short ? `<button class="co-item" data-act="${act}" data-id="${id}" aria-label="${esc(ITEM[id].name)}">${storeArt(ITEM[id])}</button>` : `<span class="co-item">${storeArt(ITEM[id])}</span>`);
             const each = (b) => Object.entries(b).flatMap(([id, q]) => Array(q).fill(id));
             const back = each(putBack);
