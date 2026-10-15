@@ -1,6 +1,6 @@
 // Cartoon SVG art for the park cart: the cart, bills and coins, Italian ice, the swings, critters and stands.
 import { iceCreamSVG, personSVG } from './art.js';
-import { CART_ITEM, CART_SHOPS } from './config.js';
+import { CART_ITEM, CART_SHOPS, FREEZE_TINTS } from './config.js';
 
 const INK = '#2e2a45';
 const OUT = `stroke="${INK}" stroke-width="2" stroke-linejoin="round"`;
@@ -117,8 +117,10 @@ export function moneySVG(d, w = 54) {
 }
 
 // ---------- treats ----------
-export function iceCupSVG(color, size = 34) {
-  return `<svg viewBox="0 0 40 40" width="${size}" height="${size}" class="icecream" xmlns="http://www.w3.org/2000/svg"><path d="M9 16 Q9 4 20 4 Q31 4 31 16 Z" fill="${color}" ${thin}/><path d="M13 12 Q14 7 19 6.5" stroke="#fff" stroke-width="2" opacity=".6" fill="none" stroke-linecap="round"/><path d="M7 15 H33 L29.5 37 H10.5 Z" fill="#fffaf0" ${thin}/><path d="M9 21 H31 M9.8 27 H30.2" stroke="#ff6f91" stroke-width="2"/></svg>`;
+// seeds: little flecks of fruit (strawberry).
+export function iceCupSVG(color, size = 34, seeds = false) {
+  const flecks = seeds ? [[14, 13], [18.5, 9], [23, 12.5], [26.5, 9.5], [20, 14], [16, 8.5]].map(([x, y]) => `<ellipse cx="${x}" cy="${y}" rx=".9" ry="1.3" fill="#d6336c"/>`).join('') : '';
+  return `<svg viewBox="0 0 40 40" width="${size}" height="${size}" class="icecream" xmlns="http://www.w3.org/2000/svg"><path d="M9 16 Q9 4 20 4 Q31 4 31 16 Z" fill="${color}" ${thin}/>${flecks}<path d="M13 12 Q14 7 19 6.5" stroke="#fff" stroke-width="2" opacity=".6" fill="none" stroke-linecap="round"/><path d="M7 15 H33 L29.5 37 H10.5 Z" fill="#fffaf0" ${thin}/><path d="M9 21 H31 M9.8 27 H30.2" stroke="#ff6f91" stroke-width="2"/></svg>`;
 }
 // A white plastic spoon lying on the counter.
 export function spoonSVG(size = 34) {
@@ -198,7 +200,13 @@ export const BOX_LOOK = {
   rocketPop: { color: '#3a8ee6', name: 'ROCKET POPS' },
   fudgePop: { color: '#7b4a2e', name: 'FUDGE POPS' },
   freezePop: { color: '#9b6cf0', name: 'FREEZE POPS' },
+  pushOrange: { color: '#f08a00', name: 'PUSH POPS' },
+  pushGrape: { color: '#8a4fd8', name: 'PUSH POPS' },
+  orangeCream: { color: '#ff9f1c', name: 'ORANGE CREAM' },
+  shortcake: { color: '#e0567f', name: 'SHORTCAKE' },
+  sandwich: { color: '#5a3322', name: 'SANDWICHES' },
   iceCherry: { color: '#e5484d', name: 'CHERRY ICE' },
+  iceStrawberry: { color: '#f06595', name: 'STRAWBERRY' },
   iceLemon: { color: '#e9b800', name: 'LEMON ICE' },
   iceBlue: { color: '#1fa6d6', name: 'BLUE ICE' },
 };
@@ -230,16 +238,17 @@ export function boxSideSVG(id, open = false) {
     ${label(w / 2 + 7, h / 2 + 22, b.name, 11, b.color, `transform="rotate(-90 ${w / 2 + 7} ${h / 2 + 22})"`)}</svg>`;
 }
 // Anything that goes on the counter: a treat, 'spoon' or 'napkin'.
-export function thingSVG(id, size = 34) {
+export function thingSVG(id, size = 34, tint = null) {
   if (id === 'spoon') return spoonSVG(size);
   if (id === 'napkin') return napkinSVG(size);
-  return treatSVG(id, size);
+  return treatSVG(id, size, tint);
 }
-// Any cart treat by id.
-export function treatSVG(id, size = 34) {
+// Any cart treat by id. tint: which color a freeze pop is (without one, a freeze pop is drawn as a few colors).
+export function treatSVG(id, size = 34, tint = null) {
   const it = CART_ITEM[id];
   if (!it) return '';
-  return it.kind === 'ice' ? iceCupSVG(it.color, size) : iceCreamSVG({ pop: id }, size);
+  if (it.kind === 'ice') return iceCupSVG(it.color, size, it.seeds);
+  return iceCreamSVG({ pop: id, color: tint != null ? FREEZE_TINTS[tint] : null }, size);
 }
 
 // ---------- park life ----------
