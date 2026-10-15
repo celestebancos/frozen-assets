@@ -1598,7 +1598,7 @@ export class CartView {
     if (c.grandma) {
       const fav = CART_ITEM[this.s.grandma.fav].name.toLowerCase();
       const want = w.order.length === 1 ? `${a(w.order[0])[0].toUpperCase()}${a(w.order[0]).slice(1)}, please.` : `${andList(counted(w.order))}, please.`.replace(/^a/, 'A');
-      return w.missedFav ? `No ${fav}? Oh well. ${want}` : `Hi, sweetie! ${want} And plenty of napkins. I'm a messy eater!`;
+      return w.missedFav ? `No ${fav}? Oh well. ${want}` : `Hi, sweetie! ${want}`;
     }
     const reg = c.regular ? REG[c.regular] : null;
     let out = reg ? 'Hi again! ' : '';

@@ -595,7 +595,9 @@ export const GRANDMA = {
   max: 10,
   // invited some mornings: lunch takes an hour and is a big one (you stay full a while, past 4pm)
   lunch: { chance: 0.3, firstDay: 3, minutes: 60, food: 125 },
-  visit: { chance: 0.2, firstDay: 2, napkins: 2, tip: [200, 300] }, // she tips big with her favorite and napkins
+  // she comes by the cart only after your first lunch together (that's when she tells you her favorite and that
+  // she's a messy eater), and tips big with her favorite and at least 2 napkins
+  visit: { chance: 0.2, napkins: 2, tip: [200, 300] },
   feel: { lunch: 1, followed: 1, ignored: -0.5, fav: 1, noFav: -1, fewNapkins: -0.5, decline2: -1 },
   tip: { far: 0.25 }, // she mentions a price this far off the fair price
   gift: { feel: 8, chance: 0.3, cash: 500 },
