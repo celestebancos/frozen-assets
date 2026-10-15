@@ -3,7 +3,7 @@
 import { CART, CART_ITEMS, CART_ITEM, CART_SHOPS, CART_CROWD, REGULARS } from '../config.js';
 import { Cart, total, pileCount, boxSize, CART_DAY_NAMES } from '../cart.js';
 import { personSVG, parkSVG, CHARACTER, PARK_VIEW } from '../art.js';
-import { cartSVG, STICKER_AREA, umbrellaSVG, moneySVG, treatSVG, thingSVG, boxFrontSVG, boxSideSVG, BOX_LOOK, spoonCupSVG, napkinStackSVG, spoonBoxSVG, napkinPackSVG, coolerSVG, swingSetSVG, swingSeatSVG, balloonSVG, hotdogStandSVG, balloonSellerSVG, stickerStandSVG } from '../cartArt.js';
+import { cartSVG, STICKER_AREA, umbrellaSVG, moneySVG, treatSVG, thingSVG, boxFrontSVG, boxSideSVG, BOX_LOOK, spoonCupSVG, napkinStackSVG, spoonBoxSVG, napkinPackSVG, swingSetSVG, swingSeatSVG, balloonSVG, hotdogStandSVG, balloonSellerSVG, stickerStandSVG } from '../cartArt.js';
 import { ParkStories } from './parkStories.js';
 import { Ambience, cashRegister, gameSound } from '../ambience.js';
 import { storage } from '../storage.js';
@@ -219,14 +219,27 @@ export class CartView {
     const scr = el(`<div class="screen cart-home"></div>`);
     document.body.appendChild(scr);
     this.homeEl = scr;
+    this.sel = null; // the box you've picked up: it's open, next to the cooler
+    this.coolSel = null; // a treat picked up in the cooler
+    this.fresh = null; // the spot a treat just went into
     this.renderHome();
-    this.sel = null; // the box you've picked up
+    const oops = (msg) => {
+      this.app.music.sfx('oops');
+      toast(msg);
+    };
+    // a treat picked up in the cooler goes back in the open box
+    const putBack = () => {
+      const r = c.unpackOne(this.coolSel, this.sel);
+      if (!r.ok) return oops(r.reason === 'boxFull' ? 'This box is full.' : 'That goes in a different box.');
+      this.coolSel = null;
+    };
     onActs(scr, {
       // Tap a box on the counter and it goes in the first open spot in the freezer. Tap a box in the freezer to
-      // pick it up, then another spot to move it there (boxes trade places) or the cooler to pack from it.
+      // open it next to the cooler; then tap another spot to move it there (boxes trade places), or it again to close it.
       slot: (t) => {
         const loc = t.dataset.loc;
         const spot = loc.startsWith('c') && c.emptySlot();
+        this.coolSel = null;
         if (spot) {
           c.moveBox(loc, spot);
           this.sel = null;
@@ -238,11 +251,55 @@ export class CartView {
           this.save();
         } else if (c.boxAt(loc)) {
           this.sel = loc;
-          if (loc.startsWith('c')) toast('The freezer is full! Tap the cooler to pack from this box.');
+          if (loc.startsWith('c')) toast('The freezer is full! Pack the cooler from this box.');
         }
         this.renderHome();
       },
-      cooler: () => this.packView(this.sel),
+      // The open cooler: tap a treat in the open box and it goes in the first empty spot. Tap a treat in the cooler,
+      // then another spot, to swap them (or the box, to put it back).
+      takeOne: () => {
+        if (this.coolSel != null) putBack();
+        else {
+          const r = c.packOne(this.sel);
+          if (!r.ok) oops(r.reason === 'trayFull' ? '🔄 This tray is full. Swap trays!' : '🧊 The cooler is full!');
+          else {
+            this.fresh = r.i;
+            if (r.emptied) {
+              toast('♻️ Empty box recycled');
+              this.sel = null;
+            }
+          }
+        }
+        this.save();
+        this.renderHome();
+      },
+      boxIn: () => {
+        if (this.coolSel == null) return;
+        putBack();
+        this.save();
+        this.renderHome();
+      },
+      spot: (t) => {
+        const i = Number(t.dataset.i);
+        if (this.coolSel === i) this.coolSel = null;
+        else if (this.coolSel != null) {
+          c.moveSpot(this.coolSel, i);
+          this.coolSel = null;
+          this.save();
+        } else if (t.dataset.id) this.coolSel = i;
+        this.renderHome();
+      },
+      swapTrays: () => {
+        c.swapTrays();
+        this.coolSel = null;
+        this.save();
+        this.renderHome();
+      },
+      shut: () => {
+        this.sel = null;
+        this.coolSel = null;
+        this.renderHome();
+      },
       restaurant: () => {
         c.errand('restaurant');
         this.sel = null;
@@ -319,7 +376,7 @@ export class CartView {
       </div>`;
   }
   // The kitchen: the freezer with its shelves of boxes, the shopping on the counter, the spoons and napkins on a
-  // shelf, and the cooler on the floor.
+  // shelf, and the open cooler on the floor below, with the box you're packing from open beside it.
   kitchenHTML() {
     const c = this.cart;
     const s = this.s;
@@ -334,13 +391,22 @@ export class CartView {
       .map((b, i) => `<button class="cbox ${sel === `c${i}` ? 'sel' : ''} ${!sel && i === 0 && c.freeSlots ? 'nudge' : ''}" data-act="slot" data-loc="c${i}" aria-label="${name(b)}">${boxFrontSVG(b.item, boxSize(b.item))}</button>`)
       .join('');
     const packs = (n, svg) => Array.from({ length: Math.min(3, Math.ceil(n / 100)) }, () => `<span class="pk">${svg}</span>`).join('');
-    return `<div class="card kitchen">
-      <div class="fridge"><div class="fz-box"><div class="fz-in">${shelves}</div></div><div class="fz-door"><i class="hinge"></i><i class="hinge low"></i></div></div>
-      <div class="kit-side">
-        <div class="supplies">${packs(s.spoons, spoonBoxSVG())}${packs(s.napkins, napkinPackSVG())}</div>
-        <div class="kit-counter"><div class="kc-boxes">${counter}</div></div>
-        <div class="kit-floor"><button class="cooler-btn ${sel ? 'nudge' : ''}" data-act="cooler" aria-label="Cooler">${coolerSVG()}</button></div>
-      </div></div>`;
+    const box = sel ? c.boxAt(sel) : null;
+    const open = box
+      ? `${openBoxHTML(box)}<button class="btn" data-act="shut">📦 ${sel.startsWith('s') ? 'Back in freezer' : 'Close box'}</button>`
+      : `<p class="pk-hint">${c.spaceUsed('freezer') || s.counter.length ? '👆 Tap a box to open it. Then tap treats to pack the cooler.' : 'Buy treats at the 🏬 restaurant store.'}</p>`;
+    const html = `<div class="card kitchen">
+      <div class="kit-top">
+        <div class="fridge"><div class="fz-door"><i class="hinge"></i><i class="hinge low"></i></div><div class="fz-box"><div class="fz-in">${shelves}</div></div></div>
+        <div class="kit-side">
+          <div class="supplies">${packs(s.spoons, spoonBoxSVG())}${packs(s.napkins, napkinPackSVG())}</div>
+          <div class="kit-counter"><div class="kc-boxes">${counter}</div></div>
+        </div>
+      </div>
+      <div class="kit-pack"><div class="pk-left">${open}</div><div class="pk-right">${coolerHTML(c.topTray, { sel: this.coolSel, fresh: this.fresh })}</div></div>
+    </div>`;
+    this.fresh = null;
+    return html;
   }
   // Pack the cooler from an open box: tap a treat and it goes in the first empty spot. Tap a treat in the cooler,
   // then another spot, to swap them (or tap the box to put it back). With no box (or at the park), just the cooler.
