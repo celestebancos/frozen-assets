@@ -95,9 +95,9 @@ class App {
           const truckOn = st && st.phase !== 'lost';
           const info = st ? (st.phase === 'lost' ? '🚚 Truck was taken 😢' : `🚚 Summer ${st.season} · Week ${Math.min(12, Math.ceil(st.day / 7))} · ${DAY_NAMES[(st.day - 1) % 7]}`) : '';
           return `<div class="player-card"><div class="name">${esc(n)}</div>
-            ${ct ? `<div class="sub">🛒 Park cart · Day ${ct.day}</div>` : ''}${info ? `<div class="sub">${info}</div>` : ''}${!ct && !st ? '<div class="sub">No game yet</div>' : ''}
+            ${ct ? `<div class="sub">🛒 Cooler · Day ${ct.day}</div>` : ''}${info ? `<div class="sub">${info}</div>` : ''}${!ct && !st ? '<div class="sub">No game yet</div>' : ''}
             <div class="stack">${truckOn ? `<button class="btn go" data-act="cont" data-n="${esc(n)}">🚚 Truck</button>` : ''}
-            <button class="btn ${truckOn ? '' : ct ? 'go' : 'pink'}" data-act="cart" data-n="${esc(n)}">🛒 ${ct ? 'Park cart' : 'Start at the park'}</button>
+            <button class="btn ${truckOn ? '' : ct ? 'go' : 'pink'}" data-act="cart" data-n="${esc(n)}">🛒 ${ct ? 'Cooler' : 'Start at the park'}</button>
             ${!truckOn ? `<button class="link tiny" data-act="new" data-n="${esc(n)}">Skip to a truck</button>` : ''}</div></div>`;
         })
         .join('')}
