@@ -10,7 +10,7 @@ const emo = (x, y, e, size = 18) => `<text x="${x}" y="${y}" font-size="${size}"
 // ---------- the cart ----------
 // The big umbrella on its own (at the park it goes up high, over the kid's head).
 export function umbrellaSVG() {
-  return `<svg viewBox="0 0 200 150" class="umbrella-svg" xmlns="http://www.w3.org/2000/svg"><path d="M100 30 V150" stroke="${INK}" stroke-width="4"/><path d="M10 40 Q100 -14 190 40 Z" fill="#ff6f91" ${OUT}/><path d="M40 40 Q70 6 100 4 Q130 6 160 40" fill="#fff" opacity=".85"/><path d="M70 40 Q86 10 100 4 Q114 10 130 40" fill="#ff6f91"/><path d="M10 40 Q25 48 40 40 Q55 48 70 40 Q85 48 100 40 Q115 48 130 40 Q145 48 160 40 Q175 48 190 40" fill="none" ${OUT}/></svg>`;
+  return `<svg viewBox="0 0 200 150" class="umbrella-svg" xmlns="http://www.w3.org/2000/svg"><path d="M100 30 V150" stroke="${INK}" stroke-width="4"/><path d="M10 40 Q100 -14 190 40 Z" fill="#ff6f91" ${OUT}/><path d="M40 40 Q66 17 100 13 Q134 17 160 40" fill="#fff" opacity=".85"/><path d="M70 40 Q88 19 100 13 Q112 19 130 40" fill="#ff6f91"/><path d="M10 40 Q100 -14 190 40" fill="none" ${OUT}/><path d="M10 40 Q25 48 40 40 Q55 48 70 40 Q85 48 100 40 Q115 48 130 40 Q145 48 160 40 Q175 48 190 40" fill="none" ${OUT}/><circle cx="100" cy="10.5" r="3.4" fill="#ff6f91" ${OUT}/></svg>`;
 }
 
 // Where stickers can go: the side of the cart, in its own units (a sticker's middle stays inside this box).
@@ -33,7 +33,7 @@ export function cartSVG({ decals = [], umbrella = false, fan = false, bell = fal
     })
     .join('');
   const shade = umbrella
-    ? `<path d="M104 92 V18" stroke="${INK}" stroke-width="4"/><path d="M14 40 Q104 -14 194 40 Z" fill="#ff6f91" ${OUT}/><path d="M44 40 Q74 6 104 4 Q134 6 164 40" fill="#fff" opacity=".85"/><path d="M74 40 Q90 10 104 4 Q118 10 134 40" fill="#ff6f91"/><path d="M14 40 Q29 48 44 40 Q59 48 74 40 Q89 48 104 40 Q119 48 134 40 Q149 48 164 40 Q179 48 194 40" fill="none" ${OUT}/>`
+    ? `<path d="M104 92 V18" stroke="${INK}" stroke-width="4"/><path d="M14 40 Q104 -14 194 40 Z" fill="#ff6f91" ${OUT}/><path d="M44 40 Q70 17 104 13 Q138 17 164 40" fill="#fff" opacity=".85"/><path d="M74 40 Q92 19 104 13 Q116 19 134 40" fill="#ff6f91"/><path d="M14 40 Q104 -14 194 40" fill="none" ${OUT}/><path d="M14 40 Q29 48 44 40 Q59 48 74 40 Q89 48 104 40 Q119 48 134 40 Q149 48 164 40 Q179 48 194 40" fill="none" ${OUT}/><circle cx="104" cy="10.5" r="3.4" fill="#ff6f91" ${OUT}/>`
     : '';
   const bal = balloon
     ? `<g class="bob"><path d="M196 94 Q206 60 214 30" stroke="${INK}" stroke-width="1.2" fill="none"/><ellipse cx="214" cy="18" rx="13" ry="16" fill="${balloon}" ${OUT}/><path d="M209 10 Q211 6 215 6" stroke="#fff" stroke-width="2.2" fill="none" opacity=".7" stroke-linecap="round"/><path d="M211 34 L217 34 L214 30 Z" fill="${balloon}" ${thin}/></g>`
@@ -42,7 +42,8 @@ export function cartSVG({ decals = [], umbrella = false, fan = false, bell = fal
     ? `<g transform="translate(36 84)"><path d="M0 8 V0" stroke="${INK}" stroke-width="3"/><circle r="11" fill="#e8f7ff" ${thin}/><g class="spin"><path d="M0 0 L-3 -9 Q0 -11 3 -9 Z M0 0 L9 -3 Q11 0 9 3 Z M0 0 L3 9 Q0 11 -3 9 Z M0 0 L-9 3 Q-11 0 -9 -3 Z" fill="#7cc8ff" ${thin}/></g><circle r="2" fill="${INK}"/></g>`
     : '';
   const bellArt = bell ? `<g transform="translate(196 92)"><path d="M-6 6 Q-6 -6 0 -6 Q6 -6 6 6 Z" fill="#ffd23f" ${thin}/><circle cy="7.5" r="1.8" fill="#c98f3e"/></g>` : '';
-  return `<svg viewBox="${tight ? '0 70 230 130' : '0 0 230 200'}" class="cart-svg" xmlns="http://www.w3.org/2000/svg">
+  // overflow: the balloon bobs up past the top of the picture
+  return `<svg viewBox="${tight ? '0 70 230 130' : '0 0 230 200'}" class="cart-svg" overflow="visible" xmlns="http://www.w3.org/2000/svg">
     ${shade}${bal}
     <path d="M190 100 L214 84" stroke="${INK}" stroke-width="7" stroke-linecap="round"/><path d="M190 100 L214 84" stroke="#9aa4b2" stroke-width="4" stroke-linecap="round"/>
     <rect x="12" y="92" width="184" height="80" rx="12" fill="#fffaf0" ${OUT}/>
