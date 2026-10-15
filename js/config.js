@@ -506,8 +506,8 @@ export const CART_LOOKS = { perDecal: 0.02, umbrella: 0.05, bell: 0.04, balloon:
 
 // Who walks by the park and what they do.
 export const CART_CROWD = {
-  // people walking past per hour, noon to 4pm (about 15 customers on a normal day)
-  perHour: [8, 9, 9, 8],
+  // people walking past per hour, noon to 4pm (about 15 customers, many of them groups, on a normal day)
+  perHour: [10, 11, 11, 10],
   weekendBoost: 1.3,
   rain: 0.35,
   hotPerDegree: 0.03, // more people want something cold for every degree over 80°F

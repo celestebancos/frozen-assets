@@ -105,6 +105,8 @@ Before the truck, a new player starts small: **selling popsicles and Italian ice
 
 ### Food and hunger
 - **A hunger bar** goes down slowly through the day. If it runs out, you close up and go home for the day. Snacks finally *do* something.
+- **How much food a day takes:** one snack holds you off for a while, but you'll need a second one later or you go home somewhat early. One bigger lunch item (a hot dog, a packed lunch) lasts the day. Skip lunch altogether and you go home a lot earlier.
+- **The day may get longer** (today noon to 4pm) if that's needed to fit lunch, errands and selling. Tune it together with hunger.
 - **Corner store snacks** can be eaten right away or stashed in the cooler for later, where each one takes a treat spot.
 - **The hot dog stand** is eaten right away.
 - **Planning ahead saves money:** pack a lunch from home before leaving (cheaper than buying, takes a cooler spot).
@@ -126,12 +128,13 @@ Grandma gave you the cart. She's around all through the cart level and becomes a
 - Not everyone taps: some kids still pay with coins.
 
 ### Making the cart earn more
-Target: a *decent* player reaches **$500 (cash box, bank and wallet) in about 3 weeks** (21 days), after paying for food. Measured with `node tools/cartSimulate.mjs`. Today it's about day 40 at roughly $15 a day, so the cart needs about 40–60% more profit a day, mostly from more profit per sale, not just more sales to serve:
-- **More customers**, enough that you can sell out of something on a busy day.
-- **Bigger orders:** families and friends more often, "2 for $3" deals.
-- **Pricier treats** that earn more per sale.
-- **More generous tips**, and now and then a big tip for great service.
-- **Bulk boxes** (above) lower the cost per treat.
+Target: a *decent* player reaches **$500 (cash box, bank and wallet) in about 3 weeks** (21 days), after paying for food. Measured with `node tools/cartSimulate.mjs`, whose bots take about as long to serve as a kid does.
+
+*Built:* more people walking by, more families and groups of friends (bigger orders, more adding up and change-making), bigger tips with a now-and-then $3 or $5 tip for a quick, happy sale, two fancy treats (crunch bars and sundae cones), two drinks (more wanted on hot days), 3 boxes for less at the restaurant store, and small boxes at the corner store. A decent bot now earns about $26 a day and reaches $500 around day 21, before food costs. Hunger will need a re-tune.
+
+*Later:*
+- **"2 for $3" deals.**
+- **Party orders.** A request comes in for the next day ("Can you have 20 rocket pops at the park tomorrow for Maya's birthday?"). You check you have enough, pack them, and the parent picks them up and pays all at once: one big sale, with a deposit or a no-show to think about.
 
 ### Moving up
 - **Play the cart as long as you like.** Earning more first is always an option, and nothing hurries you.
