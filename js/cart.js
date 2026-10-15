@@ -978,7 +978,7 @@ export class Cart {
     let tip = 0;
     const tipChance = w.noSpoon ? 0 : w.happy ? CR.tip.happy : fast ? CR.tip.fast : CR.tip.slow;
     if (result !== 'kept' && this.rng.chance(tipChance)) {
-      tip = this.rng.pick(CR.tip.amounts);
+      tip = w.happy && fast && this.rng.chance(CR.tip.big) ? this.rng.pick(CR.tip.bigAmounts) : this.rng.pick(CR.tip.amounts);
       addPile(s.money.jar, pileOf(tip));
       s.today.tips += tip;
       s.stats.tips += tip;

@@ -489,8 +489,8 @@ export const CART_LOOKS = { perDecal: 0.02, umbrella: 0.05, bell: 0.04, balloon:
 
 // Who walks by the park and what they do.
 export const CART_CROWD = {
-  // people walking past per hour, noon to 4pm (about a dozen customers on a normal day)
-  perHour: [6, 7, 7, 6],
+  // people walking past per hour, noon to 4pm (about 15 customers on a normal day)
+  perHour: [8, 9, 9, 8],
   weekendBoost: 1.3,
   rain: 0.35,
   hotPerDegree: 0.03, // more people want something cold for every degree over 80°F
@@ -503,12 +503,13 @@ export const CART_CROWD = {
   // 3 real seconds, so this is 4 to 7 real minutes (kids counting change take their time).
   patience: [80, 140],
   // family: a grown-up and 2 or 3 kids; friends: 3 or 4 teens. Each person picks a treat, so groups order 3+.
-  kinds: { kid: 4, teen: 2, adult: 2.5, parentKid: 1.5, family: 0.5, friends: 0.4 },
+  kinds: { kid: 4, teen: 2, adult: 2.5, parentKid: 2, family: 1.2, friends: 1 },
   wtp: { kid: [0.9, 1.4], teen: [1, 1.5], adult: [1.05, 1.7] }, // most they'll pay, times the fair price
   honest: 0.7, // gives back extra change
   exact: 0.3, // pays with exact money when they can
   fastSeconds: 20, // a sale this quick (real seconds) might get a tip
-  tip: { happy: 0.45, fast: 0.25, slow: 0.06, amounts: [25, 25, 50, 100] },
+  // big: now and then a happy customer after a quick sale leaves a big tip
+  tip: { happy: 0.5, fast: 0.3, slow: 0.08, amounts: [25, 50, 50, 100, 100], big: 0.06, bigAmounts: [300, 500] },
   regular: { visit: 0.5, wtp: 1.4, missLimit: 3, awayDays: 5, friend: 0.3 },
 };
 

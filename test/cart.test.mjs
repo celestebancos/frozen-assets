@@ -387,6 +387,7 @@ function firstCustomer(seed) {
   c.state.spoons = 10;
   c.state.napkins = 10;
   c.state.money.box = { 1000: 2, 500: 2, 100: 10, 25: 12 };
+  c.state.weather = { temp: 85, rain: false }; // a nice day, so someone always comes by
   c.openPark();
   for (let i = 0; i < 600 && !(c.state.window && c.state.window.stage === 'order'); i++) {
     if (c.state.window) c.dismiss();
@@ -581,6 +582,7 @@ test('serving from a spot in the cooler, and taking it back puts it back there',
   stock(c, 'fudgePop', 20);
   c.pack('rocketPop', CART.traySpots); // fills the top tray
   c.pack('fudgePop', 20); // on the other tray
+  c.state.weather = { temp: 85, rain: false };
   c.openPark();
   for (let i = 0; i < 500 && !c.state.window; i++) c.step();
   const w = c.state.window;
