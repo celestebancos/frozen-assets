@@ -762,11 +762,11 @@ export class Cart {
   makeCustomer(kind, regular = null) {
     const s = this.state;
     const rng = this.rng;
-    const look = regular ? regular.look : rng.int(0, 47);
+    const look = regular ? regular.look : rng.int(0, 9999);
     let members = [{ kind, look }];
-    if (kind === 'parentKid') members = [{ kind: 'adult', look }, { kind: 'kid', look: rng.int(0, 47) }];
-    if (kind === 'family') members = [{ kind: 'adult', look }, ...Array.from({ length: rng.int(2, 3) }, () => ({ kind: 'kid', look: rng.int(0, 47) }))];
-    if (kind === 'friends') members = Array.from({ length: rng.int(3, 4) }, (_, i) => ({ kind: 'teen', look: i ? rng.int(0, 47) : look }));
+    if (kind === 'parentKid') members = [{ kind: 'adult', look }, { kind: 'kid', look: rng.int(0, 9999) }];
+    if (kind === 'family') members = [{ kind: 'adult', look }, ...Array.from({ length: rng.int(2, 3) }, () => ({ kind: 'kid', look: rng.int(0, 9999) }))];
+    if (kind === 'friends') members = Array.from({ length: rng.int(3, 4) }, (_, i) => ({ kind: 'teen', look: i ? rng.int(0, 9999) : look }));
     const payer = members[0].kind;
     // what's in their pocket
     const pocket = {};
