@@ -204,6 +204,9 @@ test('a park day sells, makes change and keeps the money straight', () => {
   assert.equal(c.boxTotal, start + d.revenue);
   assert.equal(d.keptExtra, 0);
   assert.equal(c.state.phase, 'night');
+  // everyone who bought something walks off with it (the screen puts it in their hands)
+  const leaves = c.events.filter((e) => e.t === 'leave' && (e.say === 'happy' || e.say === 'kept'));
+  assert.equal(leaves.reduce((n, e) => n + e.got.length, 0), sold);
   // leftovers stay in the cooler overnight, tips went to the wallet
   assert.equal(c.spaceUsed('cooler'), 40 - sold); // packed 40
   assert.equal(c.jarTotal, 0);

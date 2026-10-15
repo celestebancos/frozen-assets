@@ -961,7 +961,8 @@ export class Cart {
     if (!s.window) return;
     const w = s.window;
     if (w.stage === 'order' || w.stage === 'change') return; // still being served
-    this.emit({ t: 'leave', id: w.cust.id, say: w.stage === 'done' ? (w.result === 'kept' ? 'kept' : 'happy') : w.no });
+    const done = w.stage === 'done';
+    this.emit({ t: 'leave', id: w.cust.id, say: done ? (w.result === 'kept' ? 'kept' : 'happy') : w.no, got: done ? [...w.order] : [] });
     s.window = null;
     this.nextToWindow();
   }

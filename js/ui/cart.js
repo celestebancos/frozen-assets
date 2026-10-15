@@ -931,8 +931,8 @@ export class CartView {
 
   // ---------- the park ----------
   // Phones get the tall park (things in different places, sized for a narrow screen); wider screens the wide one.
-  // Back to front: the park, the stands behind the lawn, the little stories, the flowers and path, then the
-  // balloon seller, the cart and the customers.
+  // Back to front: the park, the stands behind the lawn (on laptops the balloon seller too), the little stories,
+  // the flowers and path, then the balloon seller on phones (it stands on the path), the cart and the customers.
   layoutPark() {
     const st = this.stage;
     if (!st?.isConnected) return;
@@ -964,8 +964,8 @@ export class CartView {
     const st = this.stage;
     const v = tall ? PARK_VIEW.tall : PARK_VIEW.wide;
     const spots = tall
-      ? { hotdog: [60, 330, 116], decals: [306, 342, 104], balloons: [318, 477, 76], swings: [186, 319, 134] }
-      : { hotdog: [316, 355, 108], decals: [660, 355, 98], balloons: [905, 392, 96], swings: [477, 345, 141] };
+      ? { hotdog: [60, 330, 116], decals: [306, 342, 104], balloons: [322, 494, 70], swings: [186, 319, 134] }
+      : { hotdog: [316, 355, 108], decals: [660, 355, 98], balloons: [905, 356, 96], swings: [477, 345, 141] };
     const W = st.clientWidth;
     const H = st.clientHeight;
     const px = Math.max(W / v.w, H / v.h);
@@ -979,6 +979,8 @@ export class CartView {
       e.style.width = `${(w * px).toFixed(1)}px`;
     };
     for (const k of ['hotdog', 'decals', 'balloons']) put(st.querySelector(`.stand-btn[data-v='${k}']`), spots[k]);
+    // stories walk in front of the balloon seller: behind the lawn on laptops, low on the path on phones
+    st.querySelector(".stand-btn[data-v='balloons']")?.classList.toggle('front', tall);
     put(st.querySelector('.swings'), spots.swings);
   }
   showPark() {
@@ -992,7 +994,7 @@ export class CartView {
         <div class="stands">
           <button class="stand-btn" data-act="vendor" data-v="hotdog" aria-label="Hot dog stand">${hotdogStandSVG()}</button>
           <button class="stand-btn" data-act="vendor" data-v="decals" aria-label="Sticker stand">${stickerStandSVG()}</button>
-          <button class="stand-btn front" data-act="vendor" data-v="balloons" aria-label="Balloon seller">${balloonSellerSVG()}</button>
+          <button class="stand-btn" data-act="vendor" data-v="balloons" aria-label="Balloon seller">${balloonSellerSVG()}</button>
         </div>
         <div class="vig"></div>
         <div class="scene-front"></div>${c.state.weather.rain ? '<div class="rain"></div>' : ''}
@@ -1168,6 +1170,12 @@ export class CartView {
         if (!e) continue;
         this.custEls.delete(ev.id);
         const face = { tooLong: '😤', closed: '😴', happy: '😋', kept: '😏', tooMuch: '😕', nothing: '😕', noChange: '😕' }[ev.say];
+        // everyone who bought something walks off holding it
+        const got = [...(ev.got || [])];
+        e.querySelectorAll('.who').forEach((who) => {
+          if (who.querySelector('svg.person.dog') || !got.length) return;
+          who.insertAdjacentHTML('beforeend', `<div class="hand">${treatSVG(got.shift(), 26)}</div>`);
+        });
         if (face) this.bubble(e, face, ev.say === 'happy' ? 'good' : 'bad');
         e.classList.add('walking', 'leaving');
         e.style.left = '110%';

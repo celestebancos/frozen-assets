@@ -208,7 +208,8 @@ export function squirrelSVG(sandwich = true) {
 export function duckSVG(baby = false, hat = false) {
   const body = baby ? '#ffe066' : '#fffaf0';
   const wing = baby ? '#f5cf3a' : '#e9e1d3';
-  return `<svg viewBox="0 0 40 36" class="critter duck" xmlns="http://www.w3.org/2000/svg">
+  // a hat pokes out above the box, so let it show
+  return `<svg viewBox="0 0 40 36" class="critter duck"${hat ? ' style="overflow:visible"' : ''} xmlns="http://www.w3.org/2000/svg">
     <path d="M3 18 L8 21 Q4 32 18 32 H25 Q34 32 34 24 Q34 19 28 18.5 L23 20 Q15 12 3 18 Z" fill="${body}" ${thin}/>
     <path d="M12 22 Q18 18 24 23 Q19 28 12 22 Z" fill="${wing}" ${thin}/>
     <circle cx="28" cy="12" r="7" fill="${body}" ${thin}/>${baby ? `<path d="M27 5 q1 -3 3 -2 M29 5 q2 -2 3 0" stroke="${INK}" stroke-width="1" fill="none" stroke-linecap="round"/>` : ''}
