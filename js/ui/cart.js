@@ -456,7 +456,7 @@ export class CartView {
         <div class="fridge"><div class="fz-door"><i class="hinge"></i><i class="hinge low"></i></div><div class="fz-box"><div class="fz-in">${shelves}</div></div></div>
         <div class="kit-side">
           <div class="supplies">${packs('spoons', spoonBoxSVG())}${packs('napkins', napkinPackSVG())}</div>
-          <div class="tiny muted on-cart">On the cart: 🥄 ${s.spoons} · 🧻 ${s.napkins}</div>
+          <div class="on-cart"><span class="tiny muted">On the cart:</span><span class="oc-cup" aria-label="Spoons on the cart">${spoonCupSVG(cupFill(s.spoons))}</span><span class="oc-stack" aria-label="Napkins on the cart">${napkinStackSVG(stackFill(s.napkins))}</span></div>
           <div class="kit-floor"><div class="kit-counter"><div class="kc-boxes">${counter}</div></div>${bin}</div>
         </div>
       </div>

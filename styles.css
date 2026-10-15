@@ -842,7 +842,10 @@ body { position: fixed; inset: 0; }
 .supplies .pk { width: 54px; border: none; background: none; padding: 0; } .supplies .pk > svg { width: 100%; height: auto; display: block; }
 .supplies .pk:active { transform: translateY(2px); }
 .supplies .pk-more { font-weight: 800; align-self: center; }
-.kit-side .on-cart { margin-top: 2px; }
+.kit-side .on-cart { display: flex; align-items: flex-end; gap: 8px; margin-top: 2px; }
+.on-cart .tiny { align-self: center; }
+.on-cart .oc-cup { width: 38px; } .on-cart .oc-stack { width: 58px; }
+.on-cart svg { width: 100%; height: auto; display: block; }
 .kc-boxes { display: flex; flex-wrap: wrap-reverse; gap: 6px 4px; align-items: flex-end; min-height: 70px; padding: 0 6px; }
 .kit-counter::after { content: ''; display: block; height: 46px; background: #e0b277; border: 3px solid var(--ink); border-top: 12px solid #c98a4b; border-radius: 3px; }
 .cbox { border: none; background: none; padding: 0; width: 80px; }
