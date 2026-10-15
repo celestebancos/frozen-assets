@@ -240,7 +240,8 @@ export class CartView {
     };
     onActs(scr, {
       // Tap a box on the counter and it goes in the first open spot in the freezer. Tap a box in the freezer to
-      // open it next to the cooler; then tap another spot to move it there (boxes trade places), or it again to close it.
+      // open it next to the cooler; then tap an empty spot to move it there, another box to open that one instead
+      // (this one goes back in the freezer), or it again to close it.
       slot: (t) => {
         const loc = t.dataset.loc;
         const spot = loc.startsWith('c') && c.emptySlot();
@@ -250,7 +251,7 @@ export class CartView {
           this.sel = null;
           this.save();
         } else if (this.sel === loc) this.sel = null;
-        else if (this.sel && c.isSlot(loc)) {
+        else if (this.sel && c.isSlot(loc) && !c.boxAt(loc)) {
           c.moveBox(this.sel, loc);
           this.sel = null;
           this.save();
@@ -327,6 +328,12 @@ export class CartView {
         this.save();
         this.renderHome();
       },
+      // tap a toy and it bounces
+      toy: (t) => {
+        t.classList.remove('boing');
+        void t.offsetWidth;
+        t.classList.add('boing');
+      },
       walletToBox: () => {
         const amt = c.walletTotal;
         if (!amt || !c.move('wallet', 'box', { ...s.money.wallet })) return;
@@ -363,6 +370,10 @@ export class CartView {
           <div class="cart-pic">${cartArt(c)}</div>
           <button class="btn small" data-act="closet">👕 Closet</button>
           ${c.decalsLoose().length ? '<button class="btn small" data-act="stickers">🌟 Stickers</button>' : ''}
+          <div class="toys"><h3>🧸 My toys</h3><div class="toy-shelf">${s.owned
+            .filter((id) => ITEM[id]?.kind === 'toy')
+            .map((id) => `<button class="toy" data-act="toy" aria-label="${esc(ITEM[id].name)}">${ITEM[id].emoji}</button>`)
+            .join('')}</div></div>
         </div>
         ${this.kitchenHTML()}
         <div class="card cash-card">
@@ -744,7 +755,7 @@ export class CartView {
   // The corner store: snacks, toys and clothes, the ATM and the change machine.
   cornerStore(onClose) {
     const c = this.cart;
-    let tab = 'atm';
+    let tab = 'change'; // the change machine is the main reason to come here
     let from = 'box';
     let tray = {};
     let to = 'box';
@@ -752,7 +763,7 @@ export class CartView {
       title: '🏪 Corner store',
       onClose,
       render: (body) => {
-        const tabs = `<div class="tabs"><button class="btn small ${tab === 'atm' ? 'on' : ''}" data-act="tab" data-t="atm">🏧 ATM</button><button class="btn small ${tab === 'change' ? 'on' : ''}" data-act="tab" data-t="change">🪙 Change machine</button><button class="btn small" data-act="tab" data-t="shop">🛍️ Snacks, toys & clothes</button></div>`;
+        const tabs = `<div class="tabs"><button class="btn small ${tab === 'change' ? 'on' : ''}" data-act="tab" data-t="change">🪙 Change machine</button><button class="btn small ${tab === 'atm' ? 'on' : ''}" data-act="tab" data-t="atm">🏧 ATM</button><button class="btn small" data-act="tab" data-t="shop">🛍️ Snacks, toys & clothes</button></div>`;
         const fromTabs = `<div class="tabs"><button class="btn small ${from === 'box' ? 'on' : ''}" data-act="from" data-w="box">🧰 Cash box ${money(c.boxTotal)}</button><button class="btn small ${from === 'wallet' ? 'on' : ''}" data-act="from" data-w="wallet">👛 Wallet ${money(c.walletTotal)}</button></div>`;
         if (tab === 'atm') {
           const bills = Object.fromEntries(Object.entries(c.pile(from)).filter(([d]) => Number(d) >= 100));
