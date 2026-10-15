@@ -16,5 +16,6 @@
   "animal": [{"file": "animal-1.mp3", "gain": 1.38}, {"file": "animal-2.mp3", "gain": 1.36}, {"file": "animal-3.mp3", "gain": 1.3}, {"file": "animal-4.mp3", "gain": 1.38}, {"file": "animal-5.mp3", "gain": 1.38}, {"file": "animal-6.mp3", "gain": 1.38}, {"file": "animal-7.mp3", "gain": 1.32}],
   "traffic": [{"file": "traffic.mp3", "gain": 1.46}],
   "murmur": [{"file": "murmur.mp3", "gain": 0.95}],
+  "park": ["park.mp3"],
   "rain": [{"file": "rain.mp3", "gain": 2.03}]
 }
