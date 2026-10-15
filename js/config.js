@@ -399,6 +399,10 @@ export const CART = {
   hunger: { perMinute: 100 / 210, low: 25 },
   // A packed lunch from home (made from sandwich makings bought at the corner store). Takes a cooler spot.
   lunch: { name: 'Packed lunch', food: 60, emoji: '🥪' },
+  // Eating your own stock: a little food, and too much ice cream gives you a tummy ache. food: by treat (other: the
+  // rest; drinks: 3). ache: the chance of a tummy ache with the 1st, 2nd, 3rd... treat eaten today (drinks don't
+  // count). A tummy ache gives no food and you sit on the bench for benchMinutes with the cart closed.
+  ownTreats: { food: { freezePop: 3, sandwich: 10, crunchBar: 10, sundaeCone: 10, drink: 3, other: 6 }, ache: [0, 0.25, 0.5, 0.75, 1], benchMinutes: 15 },
   // Buying in bulk at the restaurant store: 3 boxes of the same kind cost 20% less. They still take 3 freezer spots.
   bulk: { boxes: 3, off: 0.2 },
   vendorMistake: 0.15, // how often a seller gets your change wrong
