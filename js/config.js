@@ -528,10 +528,12 @@ export const CART_SHOPS = {
     icon: '✨',
     items: [
       { id: 'decalStar', name: 'Star sticker', kind: 'decal', price: 200, emoji: '⭐' },
-      { id: 'decalHeart', name: 'Heart sticker', kind: 'decal', price: 200, emoji: '💖' },
-      { id: 'decalFlower', name: 'Flower sticker', kind: 'decal', price: 250, emoji: '🌼' },
+      // grandma: 'likes' (she hints at it over lunch, with grandmaHint, and is pleased when you get it) or 'dislikes'
+      // (she tut-tuts, but it doesn't change anything)
+      { id: 'decalHeart', name: 'Heart sticker', kind: 'decal', price: 200, emoji: '💖', grandma: 'likes', grandmaHint: 'Hearts make everything look friendlier.' },
+      { id: 'decalFlower', name: 'Flower sticker', kind: 'decal', price: 250, emoji: '🌼', grandma: 'likes', grandmaHint: "I've always loved flowers." },
       { id: 'decalRainbow', name: 'Rainbow sticker', kind: 'decal', price: 300, emoji: '🌈' },
-      { id: 'decalRocket', name: 'Rocket sticker', kind: 'decal', price: 300, emoji: '🚀' },
+      { id: 'decalRocket', name: 'Rocket sticker', kind: 'decal', price: 300, emoji: '🚀', grandma: 'dislikes' },
       { id: 'decalCone', name: 'Ice cream sticker', kind: 'decal', price: 300, emoji: '🍦' },
     ],
   },
@@ -600,9 +602,25 @@ export const GRANDMA = {
   visit: { chance: 0.2, napkins: 2, tip: [200, 300] },
   feel: { lunch: 1, followed: 1, ignored: -0.5, fav: 1, noFav: -1, fewNapkins: -0.5, decline2: -1 },
   tip: { far: 0.25 }, // she mentions a price this far off the fair price
+  spend: 800, // she notices if you spent this much on snacks and toys since your last lunch (not counting lunch)
   gift: { feel: 8, chance: 0.3, cash: 500 },
-  // things Grandma says about the old days
+  // things Grandma says about the old days (she doesn't repeat one until she's said them all)
   oldDays: [
+    'When I was little, I could swing so high I thought I would touch the clouds!',
+    'We used to feed the ducks at the park pond. One duck followed me all the way home!',
+    "I climbed every tree in that park when I was your age. Don't tell your mother.",
+    'We played hopscotch on the path with chalk. I was the hopscotch champion!',
+    'Back then the park had a merry-go-round. I spun so fast I got dizzy!',
+    'We flew kites in the park on windy days. Mine got stuck in a tree once.',
+    'We roller-skated down the park paths. I had the scraped knees to prove it!',
+    'On the Fourth of July, the whole town had a picnic in the park.',
+    'I had a pet turtle named Mr. Slow. When he got big, he went to live in the park pond.',
+    'A movie ticket cost a quarter when I was a girl. Popcorn was a dime!',
+    "We didn't have phones. We had to come home when the streetlights came on!",
+    'My first job was at a bakery. They paid me a little money and a lot of cookies.',
+    "My mother always said, 'Save your pennies, and someday the pennies will save you.'",
+    'We had an icebox, not a freezer! A man brought big blocks of ice to the house.',
+    'Your grandpa won me a stuffed bear at the fair. I still have it!',
     'Back in my day, ice cream at the soda fountain cost a nickel!',
     'When I was your age, the ice cream man rang a bell, and we came running.',
     'Your grandpa and I had our first date at an ice cream stand.',

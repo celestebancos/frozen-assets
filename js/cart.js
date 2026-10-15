@@ -91,6 +91,7 @@ export const isFood = (id) => !!FOOD[id];
 const G = GRANDMA;
 const money = (c) => '$' + (c / 100).toFixed(2);
 const aOr = (name) => (/^[aeiou]/.test(name) ? 'an ' : 'a ') + name;
+const decalName = (id) => CART_SHOPS.decals.items.find((d) => d.id === id).name.toLowerCase();
 // Grandma's state: her favorite (something not many people pick, never this game's big seller), how she feels about
 // you (0–10, hidden), today's lunch invitation, and the advice she gave last time (to see if you took it).
 function newGrandma(state) {
@@ -578,6 +579,8 @@ export class Cart {
       if (!it || q <= 0) continue;
       for (let i = 0; i < q; i++) {
         got.push(this.receive(it));
+        // Grandma notices if you spend a lot on snacks and toys (lunch doesn't count)
+        if ((it.kind === 'snack' && it.id !== 'hotdog') || it.kind === 'toy') s.grandma.spent = (s.grandma.spent || 0) + it.price;
         if (it.kind === 'snack' && FOOD[it.id].keep && this.coolerFree > 0) {
           this.toCooler(it.id);
           stashed.push(it.id);
@@ -1183,7 +1186,8 @@ export class Cart {
     let target = t.dealFair > 0 ? 1 + W.strength * (1 - t.dealPaid / t.dealFair) : 1;
     target = Math.max(W.min, Math.min(W.max, target - W.leftLine * (t.leftLine || 0) - W.tooMuch * (t.tooExpensive || 0)));
     s.buzz = buzzBefore + (target - buzzBefore) * W.pull;
-    const summary = { day: s.day, weather: s.weather, ...t, endBox: this.boxTotal, tipsToWallet: tips, closed: Math.min(s.minute, K.parkClose, s.tooHungry ?? K.parkClose), tooHungry: s.tooHungry, buzz: s.buzz, buzzChange: s.buzz - buzzBefore };
+    const soldOut = Object.keys(t.sold).filter((id) => t.sold[id] > 0 && !this.count('cooler', id));
+    const summary = { day: s.day, weather: s.weather, soldOut, ...t, endBox: this.boxTotal, tipsToWallet: tips, closed: Math.min(s.minute, K.parkClose, s.tooHungry ?? K.parkClose), tooHungry: s.tooHungry, buzz: s.buzz, buzzChange: s.buzz - buzzBefore };
     s.days.push(summary);
     if (s.days.length > 400) s.days.shift();
     s.phase = 'night';
@@ -1317,48 +1321,30 @@ export class Cart {
     this.feel(G.feel.lunch);
     const lines = [];
     lines.push(g.feel >= 8 ? "There's my favorite business owner! Come in, come in." : g.feel <= 3 ? "Oh, you came! I wasn't sure you would." : 'Come in, sweetie! I made sandwiches.');
-    // did you take her advice from last time?
+    // did you take her advice from last time? Then one new piece of advice (not the same kind as last time).
     const a = g.advice;
-    if (a?.kind === 'price') {
-      const name = CART_ITEM[a.id].name.toLowerCase();
-      const now = s.prices[a.id];
-      const better = a.dir === 'down' ? now < a.price : now > a.price;
-      if (better) {
-        this.feel(G.feel.followed);
-        lines.push(`I see you changed the ${name} price. Good thinking!`);
-      } else {
-        this.feel(G.feel.ignored);
-        lines.push(`${money(now)} for ${name}? Still? Well, it's your cart.`);
-      }
-    } else if (a?.kind === 'sticker') {
-      if (this.decals().length > a.had) {
-        this.feel(G.feel.followed);
-        lines.push('Ooh, I saw your new sticker. Very nice!');
-      } else lines.push('Still no stickers? Your cart looks so plain.');
-    }
-    // new advice: a price that's way off, or the stickers
-    g.advice = null;
-    const off = CART_ITEMS.map((it) => ({ it, r: s.prices[it.id] / it.fair })).filter(({ it, r }) => (s.stats.soldItems[it.id] || this.count('cooler', it.id)) && Math.abs(r - 1) >= G.tip.far).sort((x, y) => Math.abs(y.r - 1) - Math.abs(x.r - 1))[0];
-    if (off && a?.kind !== 'price') {
-      const name = off.it.name.toLowerCase();
-      const p = money(s.prices[off.it.id]);
-      if (off.r > 1) lines.push(`${p} for ${aOr(name)}? That's a lot, dear. People might just walk by.`);
-      else lines.push(`You only charge ${p} for ${aOr(name)}? People would pay more than that!`);
-      g.advice = { kind: 'price', id: off.it.id, dir: off.r > 1 ? 'down' : 'up', price: s.prices[off.it.id] };
-    } else if (!this.decals().length && a?.kind !== 'sticker') {
-      lines.push('Your cart looks a little plain, dear. The sticker lady at the park has nice ones.');
-      g.advice = { kind: 'sticker', had: 0 };
-    } else if (this.decals().length) {
-      const d = CART_SHOPS.decals.items.find((x) => x.id === this.rng.pick(this.decals())).name.toLowerCase();
-      lines.push(this.rng.chance(0.5) || g.feel >= 7 ? `I love your ${d}!` : `Is your ${d} on crooked? It looks crooked to me.`);
-    }
+    const after = a && this.grandmaFollowUp(a);
+    if (after) lines.push(after);
+    const tip = this.grandmaAdvice(a);
+    g.advice = tip?.advice || null;
+    if (tip) lines.push(tip.line);
+    // chit-chat: your stickers or the weather
+    const chat = this.rng.chance(0.5) ? this.grandmaStickerTalk() || this.grandmaWeather() : this.grandmaWeather();
+    lines.push(chat);
     if (g.lunches === 1) {
       // her favorite, and a hint about napkins, before she ever comes by the cart
       const fav = CART_ITEM[g.fav];
       lines.push(`Do you sell ${fav.plural || fav.name.toLowerCase() + 's'}? They're my favorite! Maybe I'll come by your cart.`);
       lines.push("Oops, I spilled again. I'm such a messy eater. I always need a stack of napkins!");
     }
-    lines.push(this.rng.pick(G.oldDays));
+    // the old days: a different one each time, until she's told them all
+    g.said = (g.said || []).filter((i) => i < G.oldDays.length);
+    if (g.said.length >= G.oldDays.length) g.said = [];
+    const fresh = G.oldDays.map((_, i) => i).filter((i) => !g.said.includes(i));
+    const told = this.rng.pick(fresh);
+    g.said.push(told);
+    lines.push(G.oldDays[told]);
+    g.spent = 0;
     // a little something, just because
     let gift = 0;
     if (g.feel >= G.gift.feel && this.rng.chance(G.gift.chance)) {
@@ -1369,6 +1355,100 @@ export class Cart {
     }
     this.logAction('grandmaLunch', { yes: true, feel: g.feel, gift });
     return { lines, gift };
+  }
+  // Grandma checks on the advice she gave you last time. Returns a line, or null.
+  grandmaFollowUp(a) {
+    const s = this.state;
+    const g = s.grandma;
+    if (a.kind === 'price') {
+      const it = CART_ITEM[a.id];
+      const now = s.prices[a.id];
+      if (a.dir === 'down' ? now < a.price : now > a.price) {
+        this.feel(G.feel.followed);
+        return `I see you changed the ${it.name.toLowerCase()} price. Good thinking!`;
+      }
+      this.feel(G.feel.ignored);
+      return `${money(now)} for ${it.plural || it.name.toLowerCase() + 's'}? Still? Well, it's your cart.`;
+    }
+    if (a.kind === 'sticker') {
+      if (this.decals().length > a.had) {
+        this.feel(G.feel.followed);
+        return 'Ooh, I saw your new sticker. Very nice!';
+      }
+      return 'Still no stickers? Your cart looks so plain.';
+    }
+    if (a.kind === 'stickerHint' && this.has(a.id)) {
+      this.feel(G.feel.followed);
+      return `You got the ${decalName(a.id)}! It's lovely. You know just what I like.`;
+    }
+    if (a.kind === 'gear' && this.has(a.id)) {
+      this.feel(G.feel.followed);
+      return a.id === 'umbrella' ? 'I saw your new umbrella. I bet it keeps you nice and cool!' : 'A little fan! Smart thinking on a hot day.';
+    }
+    if (a.kind === 'spend') {
+      if ((g.spent || 0) < G.spend / 2) {
+        this.feel(G.feel.followed);
+        return "I hear you've been saving your money. Good for you!";
+      }
+      return "More snacks and toys? Money doesn't grow on trees, dear!";
+    }
+    return null;
+  }
+  // One new piece of advice, the first that fits (skipping the kind she gave last time). { line, advice } or null.
+  grandmaAdvice(prev) {
+    const s = this.state;
+    const g = s.grandma;
+    const not = (kind) => prev?.kind !== kind;
+    // a price that's way off
+    const off = CART_ITEMS.map((it) => ({ it, r: s.prices[it.id] / it.fair })).filter(({ it, r }) => (s.stats.soldItems[it.id] || this.count('cooler', it.id)) && Math.abs(r - 1) >= G.tip.far).sort((x, y) => Math.abs(y.r - 1) - Math.abs(x.r - 1))[0];
+    if (off && not('price')) {
+      const name = aOr(off.it.name.toLowerCase());
+      const p = money(s.prices[off.it.id]);
+      const line = off.r > 1 ? `${p} for ${name}? That's a lot, dear. People might just walk by.` : `You only charge ${p} for ${name}? People would pay more than that!`;
+      return { line, advice: { kind: 'price', id: off.it.id, dir: off.r > 1 ? 'down' : 'up', price: s.prices[off.it.id] } };
+    }
+    // ran out of something last time at the park
+    const out = s.days.at(-1)?.soldOut?.[0];
+    if (out && not('soldOut')) {
+      const it = CART_ITEM[out];
+      return { line: `I heard you ran out of ${it.plural || it.name.toLowerCase() + 's'}! Maybe pack more of those.`, advice: { kind: 'soldOut' } };
+    }
+    if ((g.spent || 0) >= G.spend && not('spend')) return { line: "You've been buying a lot of snacks and toys, haven't you? Remember to save some money for your business!", advice: { kind: 'spend' } };
+    if (!this.decals().length && not('sticker')) return { line: 'Your cart looks a little plain, dear. The sticker lady at the park has nice ones.', advice: { kind: 'sticker', had: 0 } };
+    if (!this.has('umbrella') && not('gear')) return { line: 'That sun is so hot, dear! A big umbrella would keep you and your treats cool.', advice: { kind: 'gear', id: 'umbrella' } };
+    if (!this.has('fan') && not('gear')) return { line: 'On hot days, a little fan by the cart would keep you comfy.', advice: { kind: 'gear', id: 'fan' } };
+    const like = CART_SHOPS.decals.items.find((d) => d.grandma === 'likes' && !this.has(d.id));
+    if (like && not('stickerHint')) return { line: `${like.grandmaHint} ${aOr(like.name.toLowerCase())[0].toUpperCase()}${aOr(like.name.toLowerCase()).slice(1)} would look so sweet on your cart.`, advice: { kind: 'stickerHint', id: like.id } };
+    return null;
+  }
+  // Something about your stickers, or null if you have none.
+  grandmaStickerTalk() {
+    const g = this.state.grandma;
+    const mine = this.decals();
+    if (!mine.length) return null;
+    const look = (id) => CART_SHOPS.decals.items.find((d) => d.id === id);
+    g.tutted ??= [];
+    const bad = mine.find((id) => look(id).grandma === 'dislikes' && !g.tutted.includes(id));
+    if (bad) {
+      g.tutted.push(bad);
+      return `${aOr(decalName(bad))[0].toUpperCase()}${aOr(decalName(bad)).slice(1)}? Tut tut. Not my taste, dear. But it's your cart.`;
+    }
+    const good = mine.filter((id) => look(id).grandma === 'likes');
+    if (good.length && this.rng.chance(0.5)) return `I just love your ${decalName(this.rng.pick(good))}!`;
+    if (mine.length >= 4) return 'You have so many stickers now! Your cart looks so cheerful.';
+    const d = decalName(this.rng.pick(mine));
+    return this.rng.chance(0.5) || g.feel >= 7 ? `I love your ${d}!` : `Is your ${d} on crooked? It looks crooked to me.`;
+  }
+  // The weather: a rainy day lately, or today's.
+  grandmaWeather() {
+    const s = this.state;
+    const w = s.weather;
+    const rained = s.days.slice(-3).some((d) => d.weather?.rain);
+    if (w.rain) return this.rng.pick(['Rain today? Not many people come to the park in the rain. Maybe pack fewer treats.', "Listen to that rain! Don't worry, dear. Rainy days happen to every business."]);
+    if (rained) return this.rng.pick(['What a rainy day that was! Hardly anybody comes out in the rain. The sun always comes back.', "I'm sorry about the rain the other day. Every business has slow days. Today will be better!"]);
+    if (w.temp >= 90) return this.rng.pick(["Whew, it's going to be a scorcher! Everyone will want something cold.", "It's so hot today, the ducks are hiding in the shade! Good day for ice cream."]);
+    if (w.temp <= 76) return this.rng.pick(["It's a cool one today. Maybe not as many people will want ice cream.", 'Bring a sweater! It feels more like a soup day than an ice cream day.']);
+    return this.rng.pick(['What a beautiful day for the park!', 'Sunny and warm. Perfect ice cream weather!']);
   }
   // Make a lunch at home and put it in the cooler.
   packLunch() {
