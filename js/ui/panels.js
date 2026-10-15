@@ -171,7 +171,7 @@ export function menuPanel(app) {
         <ul style="margin:6px 0 0;padding-left:20px">
           <li>🍦 <b>1 serving of mix</b> (a swirl uses half vanilla, half chocolate)</li>
           <li>🧇 <b>1 cone or 1 bowl</b>, whichever they order</li>
-          <li>🥄 <b>1 spoon</b> with every bowl. No spoons means no bowls!</li>
+          <li>🥄 <b>1 spoon</b> with every bowl and strawberry ice. No spoons means no bowls or ice!</li>
           <li>🧻 <b>Napkins</b>: grown-ups take 1, kids take 1 to 3. No napkins and people get sticky and grumpy.</li>
           <li>🌈 <b>1 serving of sprinkles</b> if they want a topping</li>
           <li>🚀 <b>Popsicles</b> are sold as is: 1 pop, plus napkins</li>

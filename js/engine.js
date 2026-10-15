@@ -1,7 +1,7 @@
 // Frozen Assets game engine. Pure logic, no DOM, so it runs in the browser and in Node.
 // All state lives in `game.state` (plain JSON, saved as-is). `game.events` is a transient feed for the UI.
 
-import { CONFIG, SUPPLIES, SUPPLY, SPOTS, SPOT, FEATURES, FEATURE, LOCS, destOf, CONTAINERS, FLAVORS, TOPPINGS, POPS, CROWDS, DROP_BY_PERSON, START_PRICES, MARKET_DAYS, OFFICE_ADULT_PAY, STREET_CROWD, itemKey } from './config.js';
+import { CONFIG, SUPPLIES, SUPPLY, SPOTS, SPOT, FEATURES, FEATURE, LOCS, destOf, CONTAINERS, FLAVORS, TOPPINGS, POPS, POP, CROWDS, DROP_BY_PERSON, START_PRICES, MARKET_DAYS, OFFICE_ADULT_PAY, STREET_CROWD, itemKey } from './config.js';
 import { makeRng } from './rng.js';
 import { ACCOUNT, balanceCheck, applyEntries, emptyTotals, share } from './ledger.js';
 import { addToDoc, docLines, docEntryList, checkFiling, DOC_TYPES } from './documents.js';
@@ -340,7 +340,7 @@ export class Game {
     return this.isOn(t) && this.rawStock(t) >= 1;
   }
   popAvail(id) {
-    return this.isOn(id) && this.rawStock(id) >= 1;
+    return this.isOn(id) && this.rawStock(id) >= 1 && (!POP[id]?.spoon || this.rawStock('spoons') >= 1);
   }
   itemAvail(it, forDog = false) {
     if (it.pop) return !forDog && this.popAvail(it.pop);
@@ -374,8 +374,10 @@ export class Game {
       const cost = this.consume(id, n);
       used.push({ id, n, cost });
     };
-    if (item.pop) take(item.pop, 1);
-    else {
+    if (item.pop) {
+      take(item.pop, 1);
+      if (POP[item.pop]?.spoon) take('spoons', 1);
+    } else {
       if (item.flavor === 'swirl') {
         take('vanilla', 1);
         take('chocolate', 1);

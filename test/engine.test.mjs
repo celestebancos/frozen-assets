@@ -492,6 +492,22 @@ test('kids with only pocket money buy a cheap pop, or say so and leave without g
   assert.equal(p3.members[0].result, 'broke', 'a $1.25 pop is too much for $1');
 });
 
+test('strawberry ice on the truck needs a spoon', () => {
+  const g = readyGame(31);
+  g.openDay();
+  g.buy('iceStrawberry', 0, 1);
+  g.setPrice('iceStrawberry', 100);
+  if (g.stock('spoons')) g.consume('spoons', g.rawStock('spoons'));
+  assert.equal(g.popAvail('iceStrawberry'), false, 'no spoons, no Italian ice');
+  g.buy('spoons', 0, 1);
+  assert.equal(g.popAvail('iceStrawberry'), true);
+  const p = { id: 1, type: 'soloKid', together: true, members: [{ kind: 'kid', look: 1, cash: 100 }] };
+  g.arrive(p);
+  assert.deepEqual(p.members[0].item, { pop: 'iceStrawberry' });
+  assert.equal(g.stock('iceStrawberry'), 23);
+  assert.equal(g.stock('spoons'), 99);
+});
+
 test('staying put long past a sensible stay brings a family or two who already had ice cream; a fresh spot does not', () => {
   const run = (route) => {
     const g = readyGame(41, [['vanilla', 2], ['chocolate', 2], ['cake', 2], ['bowl', 2], ['spoons', 1], ['napkins', 1]]);

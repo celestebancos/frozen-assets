@@ -17,7 +17,7 @@ function csvCell(v) {
 }
 
 export function daysCsv(days) {
-  const priceKeys = ['cake', 'sugar', 'waffle', 'bowl', 'chocSprinkles', 'rainbowSprinkles', 'rocketPop', 'fudgePop', 'freezePop'];
+  const priceKeys = ['cake', 'sugar', 'waffle', 'bowl', 'chocSprinkles', 'rainbowSprinkles', 'rocketPop', 'fudgePop', 'freezePop', 'pushOrange', 'pushGrape', 'orangeCream', 'shortcake', 'sandwich', 'iceStrawberry'];
   const header = [...DAY_COLUMNS, ...SPOTS.map((s) => 'min_' + s.id), ...priceKeys.map((k) => 'price_' + k), ...SUPPLIES.map((s) => 'stock_' + s.id), 'route', 'menuOff', 'policy_outOfStock', 'policy_drop'];
   const rows = days.map((d) => [
     ...DAY_COLUMNS.map((c) => d[c]),
