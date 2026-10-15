@@ -106,10 +106,13 @@ svg.truck-svg { width: 100%; height: auto; display: block; }
 .fuel .bar i { display: block; height: 100%; background: var(--mint); }
 .fuel.low .bar i { background: var(--red); }
 
-.stage { position: relative; overflow: hidden; background: var(--sky); }
+.stage { position: relative; overflow: hidden; background: var(--sky); container-type: size; }
 .stage .scene { position: absolute; inset: 0; }
 .stage .scene svg { width: 100%; height: 100%; display: block; }
-.stage .truck-wrap { position: absolute; left: 50%; bottom: 10%; width: min(48%, 420px); transform: translateX(-30%); transition: transform 1.2s ease-in; z-index: 2; }
+/* The street is a 1000×500 drawing scaled to cover the stage (by max(width/1000, height/500)) and pinned
+   to the bottom. Put the tires on y 432 of it, the near lane, whatever the screen shape. 3.5% of the
+   truck's width hangs below its tires (the shadow). */
+.stage .truck-wrap { --tw: min(48cqw, 420px); position: absolute; left: 50%; bottom: 10%; bottom: calc(max(100cqw, 200cqh) * 0.068 - var(--tw) * 0.035); width: var(--tw); transform: translateX(-30%); transition: transform 1.2s ease-in; z-index: 2; }
 .stage .truck-wrap svg { width: 100%; height: auto; display: block; }
 .stage .truck-wrap.arriving { transform: translateX(-200%); transition: none; }
 /* each wheel turns around its own center (its box is just the tire) */
@@ -441,7 +444,7 @@ table.books tr.bottom td { font-weight: 800; font-size: 18px; background: #fff3b
   .gadget { font-size: 13px; min-width: 150px; padding: 6px 8px; }
   .gadget .big { font-size: 20px; }
   .hud .biz { font-size: 16px; }
-  .stage .truck-wrap { width: 70%; transform: translateX(-50%); }
+  .stage .truck-wrap { --tw: 70cqw; transform: translateX(-50%); }
   .modal { padding: 12px; }
   .modal h2 { font-size: 23px; }
 }
