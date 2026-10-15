@@ -243,7 +243,7 @@ export class Scene {
     const key = `${s.color}|${s.business}|${moving}|${s.bling || 0}`;
     if (key !== this.truckKey) {
       this.truckKey = key;
-      this.truckEl.innerHTML = truckSVG(this.app.truckHex(), s.business, { wheelsSpin: moving, bling: s.bling || 0 });
+      this.truckEl.innerHTML = truckSVG(this.app.truckHex(), s.business, { wheelsSpin: moving, bling: s.bling || 0, used: !!s.truckUsed });
     }
     // what's going on, in a few words
     let html = '';

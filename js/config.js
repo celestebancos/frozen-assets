@@ -361,6 +361,9 @@ export const DROP_BY_PERSON = { kid: 1, teen: 0.5, adult: 0.1, dog: 0 };
 
 // Trucks for sale. Every color costs the same; bling costs extra up front and is just for looks.
 export const TRUCK_PRICE = 970_000;
+// Used trucks: about half price, no bling, and they look it (faded paint, rust, a dent). usedOnLot: how many are on
+// the lot. (More effects of a used truck, like breakdowns and gas, can come later.)
+export const USED_TRUCK = { price: 485_000, usedOnLot: 2 };
 export const TRUCK_COLORS = [
   { id: 'white', name: 'Vanilla', hex: '#fff7ea' },
   { id: 'sky', name: 'Sky', hex: '#7cc8ff' },

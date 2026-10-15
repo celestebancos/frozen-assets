@@ -15,6 +15,30 @@ export function shade(hex, amt) {
 // Outline color shared by the truck, people and ice cream so they read like stickers on the backdrop.
 const INK = '#2e2a45';
 // 0 (black) to 1 (white), for picking a color that shows up on top of another one.
+// Mix two colors: t = 0 gives a, 1 gives b.
+const mix = (a, b, t) => {
+  const x = parseInt(a.slice(1), 16);
+  const y = parseInt(b.slice(1), 16);
+  const ch = (sh) => Math.round(((x >> sh) & 255) * (1 - t) + ((y >> sh) & 255) * t);
+  return '#' + ((ch(16) << 16) | (ch(8) << 8) | ch(0)).toString(16).padStart(6, '0');
+};
+// A used truck's wear and tear: rust along the bottom, a dent, a taped-up crack in the window, a scuffed sign.
+function usedWear() {
+  // a jagged patch of rust, flaking up from the bottom edge
+  const rust = (x, y, w, h) => {
+    const pts = [[0, 1], [0.12, 0.45], [0.22, 0.7], [0.35, 0.15], [0.48, 0.55], [0.6, 0], [0.72, 0.5], [0.86, 0.3], [1, 1]];
+    return `<path d="M${pts.map(([u, v]) => `${(x + u * w).toFixed(1)} ${(y + v * h).toFixed(1)}`).join(' L')} Z" fill="#c0692b" opacity=".7"/><path d="M${(x + w * 0.2).toFixed(1)} ${y + h} L${(x + w * 0.4).toFixed(1)} ${(y + h * 0.5).toFixed(1)} L${(x + w * 0.65).toFixed(1)} ${y + h} Z" fill="#8a3f17" opacity=".6"/>`;
+  };
+  return `<g class="wear">
+    ${rust(14, 132, 26, 9)}${rust(92, 134, 18, 7)}${rust(176, 131, 22, 10)}${rust(226, 133, 20, 8)}${rust(268, 132, 14, 9)}
+    <circle cx="30" cy="138" r="1.6" fill="#7a3b1c"/><circle cx="185" cy="136" r="1.4" fill="#7a3b1c"/><circle cx="236" cy="137" r="1.3" fill="#7a3b1c"/>
+    <path d="M60 112 q8 -5 16 0 q-8 4 -16 0" fill="none" stroke="${INK}" stroke-width="1.2" opacity=".45"/>
+    <path d="M150 52 q4 10 -2 18" fill="none" stroke="${INK}" stroke-width="1" opacity=".35"/>
+    <path d="M222 82 L236 98 M228 80 L233 92" stroke="#fff" stroke-width="1.2" opacity=".9"/>
+    <rect x="224" y="86" width="12" height="4" rx="1" fill="#e8d9a8" stroke="${INK}" stroke-width=".8" transform="rotate(35 230 88)"/>
+    <path d="M26 66 l10 0 M170 79 l8 -2" stroke="#d0d4da" stroke-width="2" stroke-linecap="round"/>
+  </g>`;
+}
 const lum = (hex) => {
   const n = parseInt(hex.slice(1), 16);
   return (0.299 * (n >> 16) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255)) / 255;
@@ -100,7 +124,8 @@ function seller(x, y, s = 1, wave = false) {
 }
 
 let clipIds = 0;
-export function truckSVG(color, name, { width = 300, wheelsSpin = false, bling = 0 } = {}) {
+export function truckSVG(color, name, { width = 300, wheelsSpin = false, bling = 0, used = false } = {}) {
+  if (used) color = mix(color, '#a89f91', 0.45); // faded paint
   const light = shade(color, 0.1);
   const dark = shade(color, -0.14);
   const pale = lum(color) > 0.82;
@@ -175,6 +200,7 @@ export function truckSVG(color, name, { width = 300, wheelsSpin = false, bling =
   <rect x="2" y="145" width="16" height="10" rx="4" fill="#cfd5de" stroke="${INK}" stroke-width="2"/>
   <rect x="273" y="145" width="25" height="10" rx="4" fill="#cfd5de" stroke="${INK}" stroke-width="2"/>
   ${well(REAR)}${well(FRONT)}
+  ${used ? usedWear() : ''}
   ${blingFront(bling)}
   ${wheel(REAR, wheelsSpin, bling >= 2, bling >= 3)}${wheel(FRONT, wheelsSpin, bling >= 2, bling >= 3)}
 </svg>`;

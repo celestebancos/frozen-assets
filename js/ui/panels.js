@@ -583,7 +583,7 @@ export function truckPanel(app) {
           <button class="btn small ${app.music.muted ? 'on' : ''}" data-act="mute">${app.music.muted ? '🔇 Muted' : '🔊 Sound on'}</button>
           <button class="btn small ${app.ambience.on ? 'on' : ''}" data-act="street">${app.ambience.on ? '🐦 Street sounds on' : '🐦 Street sounds off'}</button></div>
         <h3>🎨 Truck</h3>
-        <div style="max-width:360px">${truckSVG(hex, name || s.business, { bling: s.bling || 0 })}</div>
+        <div style="max-width:360px">${truckSVG(hex, name || s.business, { bling: s.bling || 0, used: !!s.truckUsed })}</div>
         <div class="swatches">${TRUCK_COLORS.map((c) => `<button class="swatch ${color === c.id ? 'on' : ''}" style="background:${c.hex}" data-act="color" data-id="${c.id}" aria-label="${c.name}"></button>`).join('')}</div>
         <div style="margin-top:8px"><input class="text-in" maxlength="28" value="${esc(name)}" data-chg="name" aria-label="Business name"></div>
         <div class="row" style="margin-top:8px">
