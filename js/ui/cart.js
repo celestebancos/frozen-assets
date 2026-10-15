@@ -1030,7 +1030,9 @@ export class CartView {
     }
     this.tall = tall;
     st.classList.toggle('tall', tall);
-    st.querySelector('.scene').innerHTML = parkSVG({ tall });
+    const rain = !!this.cart.state.weather.rain;
+    st.classList.toggle('overcast', rain);
+    st.querySelector('.scene').innerHTML = parkSVG({ tall, rain });
     st.querySelector('.scene-front').innerHTML = parkSVG({ tall, front: true });
     const running = this.stories?.on;
     this.stories?.stop();
