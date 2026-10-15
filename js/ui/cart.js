@@ -1,6 +1,6 @@
 // The park cart screens: make your character, the morning at home, shops and errands, and the park day
 // where every sale is served and every bit of change is counted by hand.
-import { CART, CART_ITEMS, CART_ITEM, CART_SHOPS, CART_CROWD, REGULARS } from '../config.js';
+import { CART, GRANDMA, CART_ITEMS, CART_ITEM, CART_SHOPS, CART_CROWD, REGULARS } from '../config.js';
 import { Cart, total, pileCount, pileOf, capOf, bulkPrice, boxTint, FOOD, isFood, CART_DAY_NAMES } from '../cart.js';
 import { personSVG, parkSVG, CHARACTER, PARK_VIEW } from '../art.js';
 import { cartSVG, toyPlaySVG, STICKER_AREA, umbrellaSVG, moneySVG, treatSVG, thingSVG, boxFrontSVG, boxSideSVG, BOX_LOOK, spoonCupSVG, napkinStackSVG, spoonBoxSVG, napkinPackSVG, recyclingBinSVG, swingSetSVG, swingSeatSVG, balloonSVG, hotdogStandSVG, balloonSellerSVG, stickerStandSVG } from '../cartArt.js';
@@ -341,6 +341,19 @@ export class CartView {
         this.renderHome();
         this.cornerStore(() => this.renderHome());
       },
+      lunchYes: () => {
+        const r = c.lunchAtGrandmas();
+        if (!r) return;
+        this.save();
+        this.renderHome();
+        this.grandmaLunch(r);
+      },
+      lunchNo: () => {
+        if (!c.declineLunch()) return;
+        toast('👵 "Maybe next time, dear."');
+        this.save();
+        this.renderHome();
+      },
       packLunch: () => {
         const r = c.packLunch();
         if (!r.ok) return oops(r.reason === 'full' ? '🧊 The cooler is full!' : 'No sandwich makings left!');
@@ -426,6 +439,7 @@ export class CartView {
           <div class="row">${c.walletTotal ? `<button class="btn small" data-act="walletToBox">${walletIcon()} → 🧰 All in the cash box</button>` : ''}<button class="btn small" data-act="moveMoney">↔️ Move money</button></div>
         </div>
         <div class="card errands">
+          ${c.lunchInvite ? `<div class="grandma-call"><span class="gma">${personSVG('adult', 7, { ...GRANDMA.look, skin: s.look.skin })}</span><div><b>Grandma called!</b><div>"Come have lunch with me today?"</div><div class="tiny muted">It's free, but it takes an hour.</div><div class="row"><button class="btn go small" data-act="lunchYes">Yes, please!</button><button class="btn small" data-act="lunchNo">Not today</button></div></div></div>` : ''}
           <h3>🚶 Before the park</h3>
           <button class="btn ${noStock ? 'yellow pulse' : ''}" data-act="restaurant">🏬 Restaurant store</button>
           <button class="btn" data-act="corner">🏪 Corner store</button>
@@ -1258,6 +1272,24 @@ export class CartView {
     document.querySelector('.toolbar').innerHTML =
       b('prices', '🏷️', 'Prices') + b('cooler', '🧊', 'Cooler') + b('corner', '🏪', 'Corner store') + b('closet', '👕', 'Closet') + b('packUp', '🧺', 'Pack up') + b('quit', '🏠', 'Save & quit');
   }
+  // Lunch at Grandma's: she talks while you eat.
+  grandmaLunch({ lines, gift }) {
+    const s = this.s;
+    const m = openModal({
+      title: "🥪 Lunch at Grandma's",
+      cls: 'narrow',
+      closable: false,
+      render: (body) => {
+        body.innerHTML = `<div class="gma-lunch"><span class="gma">${personSVG('adult', 7, { ...GRANDMA.look, skin: s.look.skin })}</span>
+          <div class="gma-lines">${lines.map((l) => `<div class="say">${esc(l)}</div>`).join('')}</div></div>
+          ${gift ? `<p class="good">${walletIcon()} Grandma put ${money(gift)} in your wallet!</p>` : ''}
+          <p class="tiny muted">You're full! It's ${fmtTime(s.minute)}.</p>
+          <button class="btn big go" data-act="done">Thanks, Grandma! ▶</button>`;
+      },
+    });
+    onActs(m.body, { done: () => m.close() });
+    return m;
+  }
   // What you can eat: your food in the cooler, and how full you are.
   eatMenu() {
     const c = this.cart;
@@ -1425,7 +1457,7 @@ export class CartView {
 
   // ---------- people ----------
   custHTML(cust) {
-    return cust.members.map((m) => `<div class="who"><div class="bubble hidden"></div>${personSVG(m.kind, m.look)}</div>`).join('');
+    return cust.members.map((m) => `<div class="who"><div class="bubble hidden"></div>${personSVG(m.kind, m.look, m.me || null)}</div>`).join('');
   }
   handleEvents() {
     const c = this.cart;
@@ -1438,7 +1470,7 @@ export class CartView {
         this.passBy(ev.cust, ev.say);
       } else if (ev.t === 'join') {
         const e = el(`<div class="party walking" data-id="${ev.cust.id}" style="left:104%">${this.custHTML(ev.cust)}</div>`);
-        if (ev.cust.regular) e.insertAdjacentHTML('beforeend', `<div class="tag">${esc(REG[ev.cust.regular].name)}</div>`);
+        if (ev.cust.regular || ev.cust.grandma) e.insertAdjacentHTML('beforeend', `<div class="tag">${ev.cust.grandma ? 'Grandma' : esc(REG[ev.cust.regular].name)}</div>`);
         this.queue.appendChild(e);
         this.custEls.set(ev.cust.id, e);
       } else if (ev.t === 'window') {
@@ -1563,6 +1595,11 @@ export class CartView {
   // ---------- serving ----------
   orderWords(w) {
     const c = w.cust;
+    if (c.grandma) {
+      const fav = CART_ITEM[this.s.grandma.fav].name.toLowerCase();
+      const want = w.order.length === 1 ? `${a(w.order[0])[0].toUpperCase()}${a(w.order[0]).slice(1)}, please.` : `${andList(counted(w.order))}, please.`.replace(/^a/, 'A');
+      return w.missedFav ? `No ${fav}? Oh well. ${want}` : `Hi, sweetie! ${want} And plenty of napkins. I'm a messy eater!`;
+    }
     const reg = c.regular ? REG[c.regular] : null;
     let out = reg ? 'Hi again! ' : '';
     if (w.missedFav) out += `No ${CART_ITEM[w.missedFav].name.toLowerCase()} today? Aww. `;
@@ -1584,7 +1621,7 @@ export class CartView {
     el2.classList.remove('hidden');
     const cust = w.cust;
     const reg = cust.regular ? REG[cust.regular] : null;
-    const faces = cust.members.map((m) => `<span class="sface">${personSVG(m.kind, m.look)}</span>`).join('');
+    const faces = cust.members.map((m) => `<span class="sface">${personSVG(m.kind, m.look, m.me || null)}</span>`).join('');
     const words = this.serveMsg?.text || this.orderWords(w);
     const msgCls = this.serveMsg?.cls || '';
     let main = '';
@@ -1692,6 +1729,15 @@ export class CartView {
     this.tray = {};
     cashRegister(this.app.music);
     if (r.tip) this.app.music.sfx('yay');
+    if (r.grandma) {
+      this.serveMsg = r.grandma.fav && r.grandma.napkins
+        ? { text: "Perfect! Here's a little extra for you, dear.", cls: 'good' }
+        : r.grandma.fav
+          ? { text: `${w.napkins ? 'Only one napkin?' : 'No napkins?'} I'm a messy eater, dear!`, cls: 'hint' }
+          : { text: 'Thank you, dear. Next time, have my favorite!', cls: 'hint' };
+      if (r.tip) this.tipCoin(r.tip);
+      return;
+    }
     const reg = w.cust.regular ? REG[w.cust.regular] : null;
     const yum = reg && w.order.includes(reg.fav) ? `Yay, ${CART_ITEM[reg.fav].name.toLowerCase()}! ` : '';
     if (r.result === 'honest') this.serveMsg = { text: `${yum}You gave me too much change! Here's the extra back.`, cls: 'hint' };

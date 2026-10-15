@@ -4,7 +4,7 @@
 // Everyone walks on from the edge of the screen and walks off again when their story is done.
 // On tall screens the stories are drawn smaller (they're farther away than the customers on the path).
 import { PauseClock } from './clock.js';
-import { personSVG, PARK_VIEW, BENCH_W } from '../art.js';
+import { personSVG, PARK_VIEW, BENCH_W, LOOKS } from '../art.js';
 import { frisbeeSVG, balloonSVG, squirrelSVG, duckSVG, sandwichSVG, sunHatSVG, butterflySVG, bubbleWandSVG, soapBubbleSVG, puddleSVG, windSVG, dropSVG } from '../cartArt.js';
 
 const NS = 'http://www.w3.org/2000/svg';
@@ -21,8 +21,8 @@ const SCAMPER = 0.22; // squirrels
 const BALLOONS = ['#e5484d', '#3a8ee6', '#ffd23f', '#3cc6a0', '#b69cff', '#ff8fc7'];
 const rnd = (n) => Math.floor(Math.random() * n);
 const pick = (xs) => xs[rnd(xs.length)];
-// grown-ups without a sun hat (the hat story gives them one)
-const bareHead = () => pick([0, 1, 2, 4, 5, 6, 8, 9, 10]);
+// a grown-up with nothing on their head or eyes (the hat story gives them a sun hat)
+const plainAdult = () => personSVG('adult', rnd(LOOKS), null, { plain: true });
 // Where a hand, the top of the head or a dog's mouth is, in an actor's own space (feet at 0, 0), for a sprite w wide.
 const spotIn = (w, [px, py], [vw, vh]) => [-w / 2 + (px * w) / vw, -((vh - py) * w) / vw];
 const HAND = { kid: [30.4, 55], adult: [31.6, 50] };
@@ -132,7 +132,7 @@ const STORIES = {
     const side = s.near(x + 50);
     const [owner, dog] = s.walkOn(
       [
-        { svg: personSVG('adult', bareHead()), w: ADULT, x: x + 30 },
+        { svg: plainAdult(), w: ADULT, x: x + 30 },
         { svg: personSVG('dog', rnd(4)), w: DOG, x: x + 68, speed: TROT },
       ],
       side,
@@ -170,7 +170,7 @@ const STORIES = {
     const first = pick(BALLOONS);
     const second = pick(BALLOONS.filter((c) => c !== first));
     const kh = hand('kid', KID);
-    const [kid] = s.walkOn([{ svg: personSVG('kid', rnd(48)), w: KID, x: x + 110 }], -1);
+    const [kid] = s.walkOn([{ svg: personSVG('kid', rnd(LOOKS)), w: KID, x: x + 110 }], -1);
     const held = kid.hold(balloonSVG(first), 16, ...kh);
     await kid.there;
     await s.t(600);
@@ -184,7 +184,7 @@ const STORIES = {
     kid.say('😢', 2400);
     await s.t(300);
     // someone saw it all from over by the balloon seller
-    const [grownup] = s.walkOn([{ svg: personSVG('adult', bareHead()), w: ADULT, x: x + 150 }], 1);
+    const [grownup] = s.walkOn([{ svg: plainAdult(), w: ADULT, x: x + 150 }], 1);
     const gift = grownup.hold(balloonSVG(second), 16, ...hand('adult', ADULT));
     await grownup.there;
     gift.remove();
@@ -203,8 +203,8 @@ const STORIES = {
     const seat = B.y - BENCH_W * 0.19; // the top of the bench's seat, where the sandwich goes beside them
     const side = s.near(B.x);
     const dir = -side; // the squirrel comes from the other side, and runs off that way too
-    const look = pick([0, 2, 4, 5, 7, 9, 10]); // no sunglasses or glasses, so you can see their eyes close
-    const person = (pose) => personSVG('adult', look, null, pose);
+    const look = rnd(LOOKS);
+    const person = (pose) => personSVG('adult', look, null, { ...pose, plain: true }); // no sunglasses, so you can see their eyes close
     const [sitter] = s.walkOn([{ svg: person(), w: ADULT, x: B.x + side * 80 }], side);
     const carried = sitter.hold(sandwichSVG(), 16, ...hand('adult', ADULT));
     await sitter.there;
@@ -287,7 +287,7 @@ const STORIES = {
     const G = s.G;
     const x = s.spot(330);
     const side = s.near(x + 40);
-    const [kid] = s.walkOn([{ svg: personSVG('kid', rnd(48)), w: KID, x: x + 40 }], side);
+    const [kid] = s.walkOn([{ svg: personSVG('kid', rnd(LOOKS)), w: KID, x: x + 40 }], side);
     const kh = hand('kid', KID);
     kid.hold(bubbleWandSVG(), 10, kh[0], kh[1] + 5);
     await kid.there;
@@ -354,7 +354,7 @@ const STORIES = {
     const x = s.spot(340);
     const dir = -s.near(x + 70); // which way the wind blows: away from the side they came in
     const X = (o) => (dir > 0 ? x + o : x + 340 - o);
-    const [who] = s.walkOn([{ svg: personSVG('adult', bareHead()), w: ADULT, x: X(70) }], -dir);
+    const [who] = s.walkOn([{ svg: plainAdult(), w: ADULT, x: X(70) }], -dir);
     const [, top] = brim(ADULT);
     const hat = who.hold(sunHatSVG(), 34, 0, top + 4);
     const duckDue = performance.now() + Math.abs(s.edge(dir) - X(262)) / WADDLE;
@@ -400,7 +400,7 @@ const STORIES = {
           .then(() => d.remove());
       }
     };
-    const [kid] = s.walkOn([{ svg: personSVG('kid', rnd(48)), w: KID, x: x + 112 }], -1);
+    const [kid] = s.walkOn([{ svg: personSVG('kid', rnd(LOOKS)), w: KID, x: x + 112 }], -1);
     await kid.there;
     kid.say('😁', 1000);
     await s.t(1000);

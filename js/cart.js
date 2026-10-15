@@ -4,7 +4,7 @@
 // Money here is real bills and coins: every pile of money (cash box, wallet, tip jar, a customer's
 // pocket) is a count of each bill and coin, like { 2000: 1, 100: 3, 25: 2 } for $23.50.
 
-import { CART, CART_ITEMS, CART_ITEM, CART_SHOPS, CART_LOOKS, CART_CROWD, REGULARS, FREEZE_TINTS } from './config.js';
+import { CART, CART_ITEMS, CART_ITEM, CART_SHOPS, CART_LOOKS, CART_CROWD, REGULARS, FREEZE_TINTS, GRANDMA } from './config.js';
 import { makeRng } from './rng.js';
 
 const K = CART;
@@ -88,6 +88,15 @@ export const FOOD = {
   lunch: { ...K.lunch, keep: true },
 };
 export const isFood = (id) => !!FOOD[id];
+const G = GRANDMA;
+const money = (c) => '$' + (c / 100).toFixed(2);
+const aOr = (name) => (/^[aeiou]/.test(name) ? 'an ' : 'a ') + name;
+// Grandma's state: her favorite (something not many people pick, never this game's big seller), how she feels about
+// you (0–10, hidden), today's lunch invitation, and the advice she gave last time (to see if you took it).
+function newGrandma(state) {
+  const choices = G.favChoices.filter((id) => id !== state.hot);
+  return { fav: choices[(state.seed >>> 0) % choices.length], feel: G.start, invited: null, answered: null, declined: 0, advice: null, lunches: 0, visits: 0, gifts: 0 };
+}
 const TREATS = CART_ITEMS.filter((i) => i.kind !== 'drink');
 const DRINKS = CART_ITEMS.filter((i) => i.kind === 'drink');
 const BOX_SIZE = Object.fromEntries(CART_SHOPS.restaurant.items.filter((i) => i.kind === 'stock').map((i) => [i.item, i.qty]));
@@ -143,6 +152,7 @@ export function newCartState({ player, look, seed }) {
     fed: { minute: K.homeStart, level: 100 }, // how full you were at a minute; hunger runs down from there
     tooHungry: null, // the minute you got too hungry and went home, today
     pantry: 0, // packed lunches you can still make at home
+    grandma: null, // set up in the constructor: see newGrandma
     stats: { sold: 0, revenue: 0, tips: 0, keptExtra: 0, toTruck: 0, soldItems: {} }, // soldItems: how many of each, ever
     log: [],
   };
@@ -193,6 +203,7 @@ export class Cart {
     state.fed ??= { minute: state.minute, level: 100 };
     state.tooHungry ??= null;
     state.pantry ??= 0;
+    state.grandma ??= newGrandma(state);
     // older saves: smaller trays get the new spots added at the end
     for (const t of [...(state.cooler.trays || []), ...(state.cooler.tints || [])]) while (t.length < K.traySpots) t.push(null);
     if (!state.cooler.trays) {
@@ -709,6 +720,12 @@ export class Cart {
       const m = this.rng.int(s.minute + 20, K.parkClose - 30);
       if (m > s.minute) s.schedule.push({ id: r.id, minute: m });
     }
+    // Grandma comes by now and then (not on a day you had lunch with her)
+    const g = s.grandma;
+    if (s.day >= G.visit.firstDay && g.answered !== 'yes' && this.rng.chance(G.visit.chance)) {
+      const m = this.rng.int(s.minute + 30, K.parkClose - 40);
+      if (m > s.minute) s.schedule.push({ id: 'grandma', minute: m });
+    }
     this.logAction('openPark', { minute: s.minute });
     return true;
   }
@@ -745,11 +762,11 @@ export class Cart {
   makeCustomer(kind, regular = null) {
     const s = this.state;
     const rng = this.rng;
-    const look = regular ? regular.look : rng.int(0, 47);
+    const look = regular ? regular.look : rng.int(0, 9999);
     let members = [{ kind, look }];
-    if (kind === 'parentKid') members = [{ kind: 'adult', look }, { kind: 'kid', look: rng.int(0, 47) }];
-    if (kind === 'family') members = [{ kind: 'adult', look }, ...Array.from({ length: rng.int(2, 3) }, () => ({ kind: 'kid', look: rng.int(0, 47) }))];
-    if (kind === 'friends') members = Array.from({ length: rng.int(3, 4) }, (_, i) => ({ kind: 'teen', look: i ? rng.int(0, 47) : look }));
+    if (kind === 'parentKid') members = [{ kind: 'adult', look }, { kind: 'kid', look: rng.int(0, 9999) }];
+    if (kind === 'family') members = [{ kind: 'adult', look }, ...Array.from({ length: rng.int(2, 3) }, () => ({ kind: 'kid', look: rng.int(0, 9999) }))];
+    if (kind === 'friends') members = Array.from({ length: rng.int(3, 4) }, (_, i) => ({ kind: 'teen', look: i ? rng.int(0, 9999) : look }));
     const payer = members[0].kind;
     // what's in their pocket
     const pocket = {};
@@ -818,7 +835,7 @@ export class Cart {
         const reserved = items.filter((x) => x === id).length;
         const avail = this.canSell(id) && this.count('cooler', id) > reserved;
         if (!avail) {
-          if (c.regular && id === w.order[0]) missedFav = id;
+          if ((c.regular || c.grandma) && id === w.order[0]) missedFav = id;
           continue;
         }
         if (price > fair * w.f || price > budget) {
@@ -879,6 +896,10 @@ export class Cart {
     }
     // regulars due now
     for (const due of s.schedule.filter((x) => x.minute === s.minute)) {
+      if (due.id === 'grandma') {
+        this.arrive(this.makeGrandma(), true);
+        continue;
+      }
       const r = REGULARS.find((x) => x.id === due.id);
       this.arrive(this.makeCustomer(r.kind, r), true);
     }
@@ -920,7 +941,7 @@ export class Cart {
     s.line.push(c);
     this.emit({ t: 'join', cust: c });
     // a happy regular sometimes brings a friend
-    if (isRegular && s.regulars[c.regular].happy >= 3 && this.rng.chance(CR.regular.friend)) {
+    if (c.regular && s.regulars[c.regular].happy >= 3 && this.rng.chance(CR.regular.friend)) {
       const f = this.makeCustomer(c.members[0].kind === 'adult' ? 'adult' : c.members[0].kind);
       f.friendOf = c.regular;
       s.line.push(f);
@@ -1072,8 +1093,18 @@ export class Cart {
     // a quick, friendly sale sometimes gets a tip
     let tip = 0;
     const tipChance = w.noSpoon ? 0 : w.happy ? CR.tip.happy : fast ? CR.tip.fast : CR.tip.slow;
-    if (result !== 'kept' && this.rng.chance(tipChance)) {
+    if (c.grandma) {
+      // Grandma always tips: big with her favorite and enough napkins
+      const fav = w.order.includes(s.grandma.fav);
+      const napkins = (w.napkins || 0) >= G.visit.napkins;
+      tip = fav && napkins ? this.rng.pick(G.visit.tip) : fav ? 100 : 50;
+      this.feel((fav ? G.feel.fav : G.feel.noFav) + (napkins ? 0 : G.feel.fewNapkins));
+      s.grandma.visits++;
+      w.grandma = { fav, napkins };
+    } else if (result !== 'kept' && this.rng.chance(tipChance)) {
       tip = w.happy && fast && this.rng.chance(CR.tip.big) ? this.rng.pick(CR.tip.bigAmounts) : this.rng.pick(CR.tip.amounts);
+    }
+    if (tip) {
       addPile(s.money.jar, pileOf(tip));
       s.today.tips += tip;
       s.stats.tips += tip;
@@ -1089,7 +1120,7 @@ export class Cart {
     w.result = result;
     w.tip = tip;
     this.logAction('sale', { items: w.order, extras: w.extras, napkins: w.napkins, due: w.due, paid: total(w.paid), result, tip });
-    return { ok: true, result, tip };
+    return { ok: true, result, tip, grandma: w.grandma || null };
   }
   // Not enough change in the cash box: the customer pays some other way, or gives up.
   noChange() {
@@ -1168,6 +1199,10 @@ export class Cart {
     s.today = null;
     s.fed = { minute: K.homeStart, level: 100 }; // breakfast
     s.tooHungry = null;
+    // some mornings Grandma calls to ask you to lunch
+    const g = s.grandma;
+    g.answered = null;
+    g.invited = s.day >= G.lunch.firstDay && this.rng.chance(G.lunch.chance) ? s.day : null;
     this.rollWeather();
   }
 
@@ -1235,6 +1270,102 @@ export class Cart {
     }
     this.fill(drink ? O.food.drink : O.food[id] ?? O.food.other);
     return { ok: true, ache: false, hunger: this.hunger };
+  }
+  // ---------- Grandma ----------
+  feel(d) {
+    const g = this.state.grandma;
+    g.feel = Math.max(0, Math.min(G.max, g.feel + d));
+  }
+  // Grandma at the cart: she looks like family (your skin), wants her favorite and has money for it.
+  makeGrandma() {
+    const s = this.state;
+    const c = this.makeCustomer('adult');
+    c.members = [{ kind: 'adult', look: 7, me: { ...G.look, skin: s.look.skin } }];
+    c.grandma = true;
+    c.honest = true;
+    c.patience = 400;
+    c.pocket = { 1000: 1, 100: 2 };
+    c.wants = [{ f: 3, order: [s.grandma.fav, ...c.wants[0].order.filter((id) => id !== s.grandma.fav)], drinks: [] }];
+    return c;
+  }
+  // Grandma called this morning to ask you to lunch, and you haven't answered yet.
+  get lunchInvite() {
+    const s = this.state;
+    return s.phase === 'home' && s.grandma.invited === s.day && !s.grandma.answered;
+  }
+  // Not today, thanks. Saying no twice in a row hurts her feelings a little.
+  declineLunch() {
+    const g = this.state.grandma;
+    if (g.invited !== this.state.day || g.answered) return false;
+    g.answered = 'no';
+    g.declined++;
+    if (g.declined >= 2) this.feel(G.feel.decline2);
+    this.logAction('grandmaLunch', { yes: false });
+    return true;
+  }
+  // Lunch at Grandma's: it takes a while, fills you up, and she has things to say. Returns { lines, gift }.
+  lunchAtGrandmas() {
+    const s = this.state;
+    const g = s.grandma;
+    if (s.phase !== 'home' || g.invited !== s.day || g.answered) return null;
+    g.answered = 'yes';
+    g.declined = 0;
+    g.lunches++;
+    s.minute += G.lunch.minutes;
+    s.fed = { minute: s.minute, level: G.lunch.food };
+    this.feel(G.feel.lunch);
+    const lines = [];
+    lines.push(g.feel >= 8 ? "There's my favorite business owner! Come in, come in." : g.feel <= 3 ? "Oh, you came! I wasn't sure you would." : 'Come in, sweetie! I made sandwiches.');
+    // did you take her advice from last time?
+    const a = g.advice;
+    if (a?.kind === 'price') {
+      const name = CART_ITEM[a.id].name.toLowerCase();
+      const now = s.prices[a.id];
+      const better = a.dir === 'down' ? now < a.price : now > a.price;
+      if (better) {
+        this.feel(G.feel.followed);
+        lines.push(`I see you changed the ${name} price. Good thinking!`);
+      } else {
+        this.feel(G.feel.ignored);
+        lines.push(`${money(now)} for ${name}? Still? Well, it's your cart.`);
+      }
+    } else if (a?.kind === 'sticker') {
+      if (this.decals().length > a.had) {
+        this.feel(G.feel.followed);
+        lines.push('Ooh, I saw your new sticker. Very nice!');
+      } else lines.push('Still no stickers? Your cart looks so plain.');
+    }
+    // new advice: a price that's way off, or the stickers
+    g.advice = null;
+    const off = CART_ITEMS.map((it) => ({ it, r: s.prices[it.id] / it.fair })).filter(({ it, r }) => (s.stats.soldItems[it.id] || this.count('cooler', it.id)) && Math.abs(r - 1) >= G.tip.far).sort((x, y) => Math.abs(y.r - 1) - Math.abs(x.r - 1))[0];
+    if (off && a?.kind !== 'price') {
+      const name = off.it.name.toLowerCase();
+      const p = money(s.prices[off.it.id]);
+      if (off.r > 1) lines.push(`${p} for ${aOr(name)}? That's a lot, dear. People might just walk by.`);
+      else lines.push(`You only charge ${p} for ${aOr(name)}? People would pay more than that!`);
+      g.advice = { kind: 'price', id: off.it.id, dir: off.r > 1 ? 'down' : 'up', price: s.prices[off.it.id] };
+    } else if (!this.decals().length && a?.kind !== 'sticker') {
+      lines.push('Your cart looks a little plain, dear. The sticker lady at the park has nice ones.');
+      g.advice = { kind: 'sticker', had: 0 };
+    } else if (this.decals().length) {
+      const d = CART_SHOPS.decals.items.find((x) => x.id === this.rng.pick(this.decals())).name.toLowerCase();
+      lines.push(this.rng.chance(0.5) || g.feel >= 7 ? `I love your ${d}!` : `Is your ${d} on crooked? It looks crooked to me.`);
+    }
+    if (g.lunches === 1) {
+      const fav = CART_ITEM[g.fav];
+      lines.push(`Do you sell ${fav.plural || fav.name.toLowerCase() + 's'}? They're my favorite! Maybe I'll come by your cart.`);
+    }
+    lines.push(this.rng.pick(G.oldDays));
+    // a little something, just because
+    let gift = 0;
+    if (g.feel >= G.gift.feel && this.rng.chance(G.gift.chance)) {
+      gift = G.gift.cash;
+      addPile(s.money.wallet, pileOf(gift));
+      g.gifts++;
+      lines.push(`Here's a little something for you. Just because I'm proud of you.`);
+    }
+    this.logAction('grandmaLunch', { yes: true, feel: g.feel, gift });
+    return { lines, gift };
   }
   // Make a lunch at home and put it in the cooler.
   packLunch() {
