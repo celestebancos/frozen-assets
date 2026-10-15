@@ -12,12 +12,15 @@ const BOX_FOR = Object.fromEntries(CART_SHOPS.restaurant.items.filter((i) => i.k
 // cheap / bargain: the decent player with every price at about 3/4 or 1/2 of fair (word of mouth brings more
 //   people, so there's more to serve and longer lines).
 // pace: how long serving takes compared with a typical kid (see SERVE_SEC). 'hot' on a menu is this game's big seller.
+// food: how they keep from getting too hungry. hotdog: buys one at the stand when hungry. packed: packs a lunch at
+// home every day (sandwich makings from the corner store). snack: one bag of chips from the corner store, so most
+// days they go home early.
 export const CART_BOTS = {
-  decent: { fast: 0.5, pace: 1, napkin: false, gear: [], menu: ['rocketPop', 'hot', 'fudgePop', 'freezePop', 'iceCherry', 'iceBlue', 'crunchBar', 'water'] },
-  smart: { fast: 1, pace: 0.75, napkin: true, gear: ['umbrella', 'bell'], menu: ['rocketPop', 'hot', 'fudgePop', 'freezePop', 'iceCherry', 'sandwich', 'crunchBar', 'sundaeCone', 'water', 'punch'] },
-  cheap: { fast: 0.5, pace: 1, napkin: false, gear: [], price: 0.75, menu: ['rocketPop', 'hot', 'fudgePop', 'freezePop', 'iceCherry', 'iceBlue', 'crunchBar', 'water'] },
-  bargain: { fast: 0.5, pace: 1, napkin: false, gear: [], price: 0.5, menu: ['rocketPop', 'hot', 'fudgePop', 'freezePop', 'iceCherry', 'iceBlue', 'crunchBar', 'water'] },
-  slow: { fast: 0, pace: 1.5, napkin: false, gear: [], menu: ['rocketPop', 'freezePop'] },
+  decent: { food: 'hotdog', fast: 0.5, pace: 1, napkin: false, gear: [], menu: ['rocketPop', 'hot', 'fudgePop', 'freezePop', 'iceCherry', 'iceBlue', 'crunchBar', 'water'] },
+  smart: { food: 'packed', fast: 1, pace: 0.75, napkin: true, gear: ['umbrella', 'bell'], menu: ['rocketPop', 'hot', 'fudgePop', 'freezePop', 'iceCherry', 'sandwich', 'crunchBar', 'sundaeCone', 'water', 'punch'] },
+  cheap: { food: 'hotdog', fast: 0.5, pace: 1, napkin: false, gear: [], price: 0.75, menu: ['rocketPop', 'hot', 'fudgePop', 'freezePop', 'iceCherry', 'iceBlue', 'crunchBar', 'water'] },
+  bargain: { food: 'hotdog', fast: 0.5, pace: 1, napkin: false, gear: [], price: 0.5, menu: ['rocketPop', 'hot', 'fudgePop', 'freezePop', 'iceCherry', 'iceBlue', 'crunchBar', 'water'] },
+  slow: { food: 'snack', fast: 0, pace: 1.5, napkin: false, gear: [], menu: ['rocketPop', 'freezePop'] },
 };
 const menuOf = (c, bot) => [...new Set(bot.menu.map((id) => (id === 'hot' ? c.state.hot || 'sandwich' : id)))];
 
@@ -26,14 +29,33 @@ const menuOf = (c, bot) => [...new Set(bot.menu.map((id) => (id === 'hot' ? c.st
 const SERVE_SEC = { start: 6, perItem: 4, change: 8, perPiece: 2, exact: 3, goodbye: 2 };
 const SERVE_PACE_MS = 3000; // a game minute while serving (PACE.serve in js/ui/cart.js)
 
-function buy(c, basket) {
-  const cost = c.basketCost('restaurant', basket);
-  if (!cost || cost > c.boxTotal) return false;
-  const pool = c.pile('box');
+function buy(c, basket, shop = 'restaurant', from = 'box') {
+  const cost = c.basketCost(shop, basket);
+  if (!cost) return false;
+  // your own food comes out of the wallet, or the cash box if the wallet is short
+  if (from === 'wallet' && c.walletTotal < cost) from = 'box';
+  if (cost > total(c.pile(from))) return false;
+  const pool = c.pile(from);
   const given = makeAmount(pool, cost) || choosePayment({ ...pool }, cost, makeRng(cost));
-  if (!given || !c.pay('restaurant', basket, 'box', given).ok) return false;
-  c.takeChange(true); // count the change and speak up if it's wrong
-  return true;
+  if (!given || !c.pay(shop, basket, from, given).ok) return false;
+  return c.takeChange(true); // count the change and speak up if it's wrong
+}
+
+// Food before the park: a packed lunch, or a snack to take along.
+function packFood(c, bot) {
+  if (bot.food === 'packed') {
+    if (!c.state.pantry) buy(c, { lunchKit: 1 }, 'corner', 'wallet');
+    if (!c.count('cooler', 'lunch')) c.packLunch();
+  } else if (bot.food === 'snack' && !c.count('cooler', 'chips')) buy(c, { chips: 1 }, 'corner', 'wallet');
+}
+// At the park, between customers: eat when hungry.
+function eatIfHungry(c, bot) {
+  if (c.hunger > 20) return; // when the tummy rumbles
+  if (bot.food === 'hotdog') {
+    const r = buy(c, { hotdog: 1 }, 'hotdog', 'wallet');
+    if (r) return;
+  }
+  for (const id of ['lunch', 'chips']) if (c.count('cooler', id)) return void c.eat(id);
 }
 
 // Put boxes from the counter into the freezer.
@@ -102,6 +124,7 @@ function morning(c, bot) {
     }
   }
   makeFloat(c);
+  packFood(c, bot);
   // extra cash to the bank (keeps the box from piling up; it all counts the same)
   const box = c.pile('box');
   if ((box[2000] || 0) > 3) c.deposit('box', { 2000: box[2000] - 3 });
@@ -139,6 +162,7 @@ function park(c, bot, rng) {
       }
       continue;
     }
+    eatIfHungry(c, bot);
     if (!c.step() && !c.state.window) c.closePark();
   }
 }

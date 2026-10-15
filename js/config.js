@@ -394,6 +394,11 @@ export const CART = {
   freezerShelves: 2,
   shelfSlots: 6,
   priceStep: 25,
+  // Hunger: full at the start of the day, then it runs down. With nothing to eat you're empty about 2:30pm and go
+  // home. A snack (food 25) buys about an hour; lunch (food 60) lasts the day. low: when your tummy rumbles.
+  hunger: { perMinute: 100 / 210, low: 25 },
+  // A packed lunch from home (made from sandwich makings bought at the corner store). Takes a cooler spot.
+  lunch: { name: 'Packed lunch', food: 60, emoji: '🥪' },
   // Buying in bulk at the restaurant store: 3 boxes of the same kind cost 20% less. They still take 3 freezer spots.
   bulk: { boxes: 3, off: 0.2 },
   vendorMistake: 0.15, // how often a seller gets your change wrong
@@ -463,9 +468,11 @@ export const CART_SHOPS = {
     name: 'Corner store',
     icon: '🏪',
     items: [
-      { id: 'gum', name: 'Bubble gum', kind: 'snack', price: 100 }, // drawn: gumIcon in js/icons.js
-      { id: 'chips', name: 'Chips', kind: 'snack', price: 150, emoji: '🥔' },
-      { id: 'juice', name: 'Juice box', kind: 'snack', price: 125, emoji: '🧃' },
+      // food: how much a snack fills you up (the hunger bar is 100). Snacks from here can wait in the cooler.
+      { id: 'gum', name: 'Bubble gum', kind: 'snack', price: 100, food: 5 }, // drawn: gumIcon in js/icons.js
+      { id: 'chips', name: 'Chips', kind: 'snack', price: 150, emoji: '🥔', food: 25 },
+      { id: 'juice', name: 'Juice box', kind: 'snack', price: 125, emoji: '🧃', food: 15 },
+      { id: 'lunchKit', name: 'Sandwich makings', note: 'makes 5 lunches', kind: 'pantry', qty: 5, price: 500, emoji: '🍞' },
       // Small boxes, handy near the park but they cost more per treat than at the restaurant store. Bought at
       // the park, they go right into the cooler.
       { id: 'rocketSmall', name: 'Rocket pops', note: 'box of 6', kind: 'stock', item: 'rocketPop', qty: 6, price: 350 },
@@ -490,9 +497,10 @@ export const CART_SHOPS = {
     name: 'Hot dog stand',
     icon: '🌭',
     items: [
-      { id: 'hotdog', name: 'Hot dog', kind: 'snack', price: 250, emoji: '🌭' },
-      { id: 'lemonade', name: 'Lemonade', kind: 'snack', price: 150, emoji: '🍋' },
-      { id: 'pretzel', name: 'Pretzel', kind: 'snack', price: 200, emoji: '🥨' },
+      // eaten right away
+      { id: 'hotdog', name: 'Hot dog', kind: 'snack', price: 250, emoji: '🌭', food: 60 },
+      { id: 'lemonade', name: 'Lemonade', kind: 'snack', price: 150, emoji: '🍋', food: 10 },
+      { id: 'pretzel', name: 'Pretzel', kind: 'snack', price: 200, emoji: '🥨', food: 30 },
     ],
   },
   balloons: {
@@ -522,8 +530,8 @@ export const CART_LOOKS = { perDecal: 0.02, umbrella: 0.05, bell: 0.04, balloon:
 
 // Who walks by the park and what they do.
 export const CART_CROWD = {
-  // people walking past per hour, noon to 4pm (about 15 customers, many of them groups, on a normal day)
-  perHour: [10, 11, 11, 10],
+  // people walking past per hour, noon to 4pm (about 16 customers, many of them groups, on a normal day)
+  perHour: [12, 13, 13, 12],
   weekendBoost: 1.3,
   rain: 0.35,
   hotPerDegree: 0.03, // more people want something cold for every degree over 80°F
