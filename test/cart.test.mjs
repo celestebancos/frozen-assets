@@ -761,3 +761,65 @@ test('at the park, a small box goes right into the cooler, if it fits', () => {
   assert.equal(c.count('cooler', 'rocketPop'), 6);
   assert.equal(c.state.counter.length, 0);
 });
+
+test('hunger: empty about 2:30 with nothing to eat, and you go home early', () => {
+  const c = Cart.create({ player: 'Test', seed: 3 });
+  assert.equal(c.hunger, 100);
+  c.state.weather = { temp: 85, rain: false };
+  c.openPark();
+  for (let i = 0; i < 400 && c.step(); i++) if (c.state.window) c.state.window = null;
+  assert.ok(c.state.tooHungry >= 14 * 60 + 20 && c.state.tooHungry <= 14 * 60 + 40, `went home at ${c.state.tooHungry}`);
+  assert.ok(c.closedNow);
+  assert.ok(c.events.some((e) => e.t === 'hungry'), 'the tummy rumbled first');
+  assert.ok(c.events.some((e) => e.t === 'tooHungry'));
+  const sum = c.closePark();
+  assert.equal(sum.closed, c.state.tooHungry);
+  c.nextDay();
+  assert.equal(c.hunger, 100, 'breakfast');
+  assert.equal(c.state.tooHungry, null);
+});
+
+test('a snack buys about an hour; lunch lasts the day', () => {
+  const day = (food) => {
+    const c = Cart.create({ player: 'Test', seed: 3 });
+    c.state.weather = { temp: 85, rain: false };
+    c.openPark();
+    for (let i = 0; i < 400 && c.step(); i++) {
+      if (c.state.window) c.state.window = null;
+      if (c.hunger < 20 && food.length) c.eatNow(food.shift());
+    }
+    return c.state.tooHungry;
+  };
+  const one = day(['chips']);
+  assert.ok(one > 15 * 60 && one < 16 * 60, `one snack: home at ${one}`);
+  assert.equal(day(['chips', 'chips']), null, 'two snacks get you to 4pm');
+  assert.equal(day(['hotdog']), null, 'a hot dog lasts the day');
+});
+
+test('snacks wait in the cooler; a packed lunch comes from the pantry; food is not for customers', () => {
+  const c = Cart.create({ player: 'Test', seed: 3 });
+  c.state.money.wallet = { 500: 2 };
+  const r = buy(c, 'corner', { chips: 1, lunchKit: 1 }, 'wallet');
+  assert.deepEqual(r.stashed, ['chips']);
+  assert.equal(c.count('cooler', 'chips'), 1);
+  assert.equal(c.state.pantry, 5);
+  assert.ok(c.packLunch().ok);
+  assert.equal(c.state.pantry, 4);
+  assert.equal(c.count('cooler', 'lunch'), 1);
+  c.state.minute += 120;
+  const before = c.hunger;
+  assert.ok(c.eat('lunch').ok);
+  assert.ok(c.hunger > before + 50);
+  assert.equal(c.count('cooler', 'lunch'), 0);
+  // at the window, your chips can't be handed over
+  stock(c, 'rocketPop', 24);
+  c.pack('rocketPop', 24);
+  c.state.weather = { temp: 85, rain: false };
+  c.openPark();
+  for (let i = 0; i < 300 && !(c.state.window && c.state.window.stage === 'order'); i++) c.step();
+  assert.equal(c.give('chips').reason, 'food');
+  // hot dogs are eaten right away
+  c.state.money.wallet = { 500: 1 };
+  const h = buy(c, 'hotdog', { hotdog: 1 }, 'wallet');
+  assert.deepEqual(h.stashed, []);
+});

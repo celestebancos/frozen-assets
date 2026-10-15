@@ -1,7 +1,7 @@
 // The park cart screens: make your character, the morning at home, shops and errands, and the park day
 // where every sale is served and every bit of change is counted by hand.
 import { CART, CART_ITEMS, CART_ITEM, CART_SHOPS, CART_CROWD, REGULARS } from '../config.js';
-import { Cart, total, pileCount, pileOf, capOf, bulkPrice, boxTint, CART_DAY_NAMES } from '../cart.js';
+import { Cart, total, pileCount, pileOf, capOf, bulkPrice, boxTint, FOOD, isFood, CART_DAY_NAMES } from '../cart.js';
 import { personSVG, parkSVG, CHARACTER, PARK_VIEW } from '../art.js';
 import { cartSVG, toyPlaySVG, STICKER_AREA, umbrellaSVG, moneySVG, treatSVG, thingSVG, boxFrontSVG, boxSideSVG, BOX_LOOK, spoonCupSVG, napkinStackSVG, spoonBoxSVG, napkinPackSVG, recyclingBinSVG, swingSetSVG, swingSeatSVG, balloonSVG, hotdogStandSVG, balloonSellerSVG, stickerStandSVG } from '../cartArt.js';
 import { ParkStories } from './parkStories.js';
@@ -71,7 +71,7 @@ function coolerHTML(tray, { act = 'spot', sel = null, fresh = null, tints = [] }
   const spots = tray
     .map((id, i) => {
       const cls = `spot${id ? '' : ' empty'}${sel === i ? ' sel' : ''}${fresh === i ? ' fresh' : ''}`;
-      return `<button class="${cls}" data-act="${act}" data-i="${i}" ${id ? `data-id="${id}" aria-label="${esc(CART_ITEM[id].name)}"` : 'aria-label="Empty spot"'}>${id ? treatSVG(id, 48, tints[i]) : ''}</button>`;
+      return `<button class="${cls}" data-act="${act}" data-i="${i}" ${id ? `data-id="${id}" aria-label="${esc(CART_ITEM[id]?.name || FOOD[id]?.name || id)}"` : 'aria-label="Empty spot"'}>${id ? treatSVG(id, 48, tints[i]) : ''}</button>`;
     })
     .join('');
   return `<div class="cooler"><div class="cl-lid"><i></i><i></i></div><div class="cl-body"><div class="cl-tray" style="--cols:${K.trayCols}">${spots}</div></div><button class="btn small cl-swap" data-act="swapTrays">🔄 Swap trays</button></div>`;
@@ -341,6 +341,13 @@ export class CartView {
         this.renderHome();
         this.cornerStore(() => this.renderHome());
       },
+      packLunch: () => {
+        const r = c.packLunch();
+        if (!r.ok) return oops(r.reason === 'full' ? '🧊 The cooler is full!' : 'No sandwich makings left!');
+        toast(`${FOOD.lunch.emoji} Lunch is in the cooler!`);
+        this.save();
+        this.renderHome();
+      },
       prices: () => this.prices(() => this.renderHome()),
       closet: () => this.closet(() => this.renderHome()),
       stickers: () => this.placeStickers(null, () => this.renderHome()),
@@ -422,6 +429,7 @@ export class CartView {
           <h3>🚶 Before the park</h3>
           <button class="btn ${noStock ? 'yellow pulse' : ''}" data-act="restaurant">🏬 Restaurant store</button>
           <button class="btn" data-act="corner">🏪 Corner store</button>
+          ${s.pantry ? `<button class="btn" data-act="packLunch">${FOOD.lunch.emoji} Pack a lunch <span class="tiny muted">(${s.pantry} left)</span></button>` : ''}
           <button class="btn" data-act="prices">🏷️ Prices</button>
           <button class="btn" data-act="truck">🏦 Get a truck loan</button>
           ${used && total({ 100: s.money.box[100] || 0, 25: s.money.box[25] || 0 }) < 300 ? `<p class="hint">${coinIcon()} Your cash box has hardly any small money. How will you give change? The corner store has a change machine.</p>` : ''}
@@ -590,7 +598,8 @@ export class CartView {
           if (!res) return;
           const got = res.got.map((g) => g.kind);
           const sticker = res.got.find((g) => g.kind === 'decal');
-          if (got.includes('snack')) toast('😋 Yum!');
+          if (res.stashed?.length) this.eatNow(res.stashed);
+          else if (got.includes('snack')) toast('😋 Yum!');
           else if (got.includes('hat') || got.includes('shirt') || got.includes('glasses')) toast('😎 Looking good!');
           basket = {};
           this.save();
@@ -1190,6 +1199,7 @@ export class CartView {
       speed: (t) => {
         this.setSpeed(Number(t.dataset.s));
       },
+      eat: () => this.eatMenu(),
     });
     onActs(this.stage, {
       vendor: (t) => this.shop(t.dataset.v, () => this.refreshScene()),
@@ -1248,6 +1258,60 @@ export class CartView {
     document.querySelector('.toolbar').innerHTML =
       b('prices', '🏷️', 'Prices') + b('cooler', '🧊', 'Cooler') + b('corner', '🏪', 'Corner store') + b('closet', '👕', 'Closet') + b('packUp', '🧺', 'Pack up') + b('quit', '🏠', 'Save & quit');
   }
+  // What you can eat: your food in the cooler, and how full you are.
+  eatMenu() {
+    const c = this.cart;
+    const m = openModal({
+      title: '🍎 Lunch time?',
+      cls: 'narrow',
+      onClose: () => this.renderHUD(true),
+      render: (body) => {
+        const have = Object.keys(FOOD).map((id) => [id, c.count('cooler', id)]).filter(([, n]) => n);
+        const h = Math.round(c.hunger);
+        body.innerHTML = `<div class="tummy-big ${h < K.hunger.low ? 'low' : ''}"><span>${h < K.hunger.low ? 'Hungry!' : h < 60 ? 'A little hungry' : 'Full'}</span><i class="bar"><b style="width:${h}%"></b></i></div>
+          ${have.length
+            ? `<div class="food-list">${have.map(([id, n]) => `<div class="food-row">${treatSVG(id, 44)}<b>${esc(FOOD[id].name)}</b><span class="tiny muted">×${n}</span><button class="btn go small" data-act="eat" data-id="${id}">Eat</button></div>`).join('')}</div>`
+            : '<p>No food in the cooler.</p>'}
+          <p class="tiny muted">The hot dog stand and the corner store sell food. Packing a lunch at home costs less.</p>
+          <button class="btn" data-act="done">Done</button>`;
+      },
+    });
+    onActs(m.body, {
+      eat: (t) => {
+        if (c.eat(t.dataset.id).ok) toast('😋 Yum!');
+        this.save();
+        m.refresh();
+      },
+      done: () => m.close(),
+    });
+    return m;
+  }
+  // Snacks you just bought went in the cooler: eat one now, or save it for later.
+  eatNow(ids) {
+    const c = this.cart;
+    const left = [...ids];
+    const m = openModal({
+      title: '😋 Eat it now?',
+      cls: 'narrow',
+      onClose: () => this.s.phase === 'park' && this.renderHUD(true),
+      render: (body) => {
+        body.innerHTML = `<p>It's in the cooler. Eat it now, or save it for later?</p>
+          <div class="food-list">${left.map((id, i) => `<div class="food-row">${treatSVG(id, 44)}<b>${esc(FOOD[id].name)}</b><button class="btn go small" data-act="eat" data-i="${i}">Eat now</button></div>`).join('')}</div>
+          <button class="btn" data-act="done">${left.length ? 'Save for later' : 'Done'}</button>`;
+      },
+    });
+    onActs(m.body, {
+      eat: (t) => {
+        const [id] = left.splice(Number(t.dataset.i), 1);
+        if (c.eat(id).ok) toast('😋 Yum!');
+        this.save();
+        if (!left.length) m.close();
+        else m.refresh();
+      },
+      done: () => m.close(),
+    });
+    return m;
+  }
   // The cooler at the park: look inside and move things around.
   coolerView() {
     this.packView(null, () => this.renderServe());
@@ -1261,7 +1325,7 @@ export class CartView {
     if (force || key !== this.hudKey) {
       this.hudKey = key;
       this.hud.innerHTML = `<div class="biz"><span class="n">🛒 ${esc(s.player)}'s cart</span></div>
-        <div class="row" style="gap:6px"><span class="clock"></span><span class="pill wx">${s.weather.rain ? '🌧️' : '☀️'} ${s.weather.temp}°</span><span class="pill cash"></span><span class="pill jar">${jarIcon()} <span class="v"></span></span></div>
+        <div class="row" style="gap:6px"><span class="clock"></span><span class="pill wx">${s.weather.rain ? '🌧️' : '☀️'} ${s.weather.temp}°</span><span class="pill cash"></span><span class="pill jar">${jarIcon()} <span class="v"></span></span><button class="pill tummy" data-act="eat" aria-label="Hunger: tap to eat">🍎<i class="bar"><b></b></i></button></div>
         <div class="speed" role="group" aria-label="Speed">${[PAUSE_ICON, '▶', '▶▶', '⏩'].map((l, i) => `<button class="${this.speed === i ? 'on' : ''}" data-act="speed" data-s="${i}" aria-label="Speed ${i}">${l}</button>`).join('')}</div>`;
     }
     const set = (sel, text) => {
@@ -1271,6 +1335,12 @@ export class CartView {
     set('.clock', `${CART_DAY_NAMES[(s.day - 1) % 7]} · ${fmtTime(Math.min(s.minute, K.parkClose))}${serving ? ' · 🙂' : ''}`);
     set('.cash', `🧰 ${money(c.boxTotal)}`);
     set('.jar .v', money(c.jarTotal));
+    const bar = this.hud.querySelector('.tummy');
+    if (bar) {
+      const h = Math.round(c.hunger);
+      bar.querySelector('b').style.width = `${h}%`;
+      bar.classList.toggle('low', h < K.hunger.low);
+    }
   }
 
   frame(now) {
@@ -1305,7 +1375,7 @@ export class CartView {
       if (s.window && !w) break; // someone reached the window
     }
     this.handleEvents();
-    if (s.minute >= K.parkClose && !s.window && !this.closing) {
+    if (c.closedNow && !s.window && !this.closing) {
       this.closing = true;
       // a pop-up that's open (the corner store) gets finished first; the day ends when it's closed
       const end = () => (!this.running ? null : anyModalOpen() ? setTimeout(end, 300) : this.endDay());
@@ -1384,6 +1454,11 @@ export class CartView {
         e.classList.add('walking', 'leaving');
         e.style.left = '110%';
         this.clock.after(2600, () => e.remove());
+      } else if (ev.t === 'hungry') {
+        toast('🍎 Your tummy is rumbling! Time for something to eat.');
+      } else if (ev.t === 'tooHungry') {
+        this.app.music.sfx('oops');
+        toast("😩 You're too hungry to keep going. Time to go home!");
       } else if (ev.t === 'away') {
         // the kid walks off to the corner store for a bit
         const me = this.stage.querySelector('.cart-spot .me');
@@ -1542,6 +1617,7 @@ export class CartView {
       c.give(t.dataset.id);
       this.serveMsg = null;
     } else if (act === 'grab') {
+      if (isFood(t.dataset.id)) return toast("That's your food! Tap 🍎 up top to eat.");
       c.give(t.dataset.id, Number(t.dataset.i));
       this.serveMsg = null;
     } else if (act === 'swapTrays') {
@@ -1632,6 +1708,7 @@ export class CartView {
           </div>
           <div class="sold-grid">${sold.map(([id, v]) => `<span class="chip">${treatSVG(id, 26)} ${v}</span>`).join('')}</div>
           <ul class="tiny" style="margin-top:8px">
+            ${sum.tooHungry != null ? `<li>😩 You got too hungry and went home at ${fmtTime(sum.tooHungry)}.</li>` : ''}
             <li>🧰 The cash box started the day with ${money(sum.startBox)}.</li>
             ${sum.keptExtra ? `<li>😬 Someone kept ${money(sum.keptExtra)} of extra change.</li>` : ''}
             ${sum.returned ? `<li>🙂 Honest customers gave back ${money(sum.returned)} of extra change.</li>` : ''}
