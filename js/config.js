@@ -572,10 +572,36 @@ export const REGULARS = [
   { id: 'maya', name: 'Maya', kind: 'kid', look: 1, fav: 'iceCherry' },
   { id: 'jayden', name: 'Jayden', kind: 'kid', look: 4, fav: 'rocketPop' },
   { id: 'ortiz', name: 'Mr. Ortiz', kind: 'adult', look: 10, fav: 'fudgePop' },
-  { id: 'lou', name: 'Grandma Lou', kind: 'adult', look: 7, fav: 'iceLemon' },
+  { id: 'lou', name: 'Miss Lou', kind: 'adult', look: 7, fav: 'iceLemon' },
   { id: 'priya', name: 'Priya', kind: 'teen', look: 3, fav: 'iceBlue' },
   { id: 'theo', name: 'Theo', kind: 'kid', look: 6, fav: 'freezePop' },
 ];
+
+// Grandma: she gave you the cart. She invites you to lunch some mornings (free, but you get to the park later) and
+// gives advice over lunch, comes by the cart now and then for her favorite (something not many people pick) and
+// plenty of napkins, and keeps a hidden score of good feelings (0–10). When it's high she's sweeter and sometimes
+// gives you a little something.
+export const GRANDMA = {
+  look: { girl: true, hair: 5, style: 'bun', shirt: '#7d5ba6', pants: '#6d597a', hat: null }, // skin: same as yours
+  favChoices: ['iceLemon', 'orangeCream', 'pushGrape', 'iceStrawberry', 'fudgePop', 'sandwich'],
+  start: 5,
+  max: 10,
+  // invited some mornings: lunch takes an hour and is a big one (you stay full a while, past 4pm)
+  lunch: { chance: 0.3, firstDay: 3, minutes: 60, food: 125 },
+  visit: { chance: 0.2, firstDay: 2, napkins: 2, tip: [200, 300] }, // she tips big with her favorite and napkins
+  feel: { lunch: 1, followed: 1, ignored: -0.5, fav: 1, noFav: -1, fewNapkins: -0.5, decline2: -1 },
+  tip: { far: 0.25 }, // she mentions a price this far off the fair price
+  gift: { feel: 8, chance: 0.3, cash: 500 },
+  // things Grandma says about the old days
+  oldDays: [
+    'Back in my day, ice cream at the soda fountain cost a nickel!',
+    'When I was your age, the ice cream man rang a bell, and we came running.',
+    'Your grandpa and I had our first date at an ice cream stand.',
+    'We used to make ice cream by hand. It took all afternoon!',
+    "Popsicle sticks used to have jokes on them. What's a cow's favorite treat? A moo-shake!",
+    'I sold lemonade on my street when I was little. I made enough for a bicycle!',
+  ],
+};
 
 export const LEADERBOARD = {
   // Not secret: the token (pasted per device in Settings) is what grants access.

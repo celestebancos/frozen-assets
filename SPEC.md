@@ -120,6 +120,7 @@ Grandma gave you the cart. She's around all through the cart level and becomes a
 - **Advice and comments** over lunch, sometimes helpful, sometimes annoying: praise or nitpicking about your stickers, pricing tips that nudge toward good prices, and pure Grandma ("Back in my day, ice cream at the soda fountain cost a nickel!").
 - **She comes to buy ice cream** now and then. Have her favorite in stock, even if it isn't popular, and she leaves a big tip. Not enough napkins and she says so.
 - **Good feelings (hidden).** Goes up when you come to lunch, follow her advice, have her favorite and give her napkins. When it's high she says nicer things and sometimes gives you a gift, just because. It also improves her offer for the truck.
+- *Built:* invitations about 3 mornings in 10 from day 3 (an hour, a big lunch that lasts past 4pm), price and sticker advice she checks on next time, old-days lines, her favorite (named at your first lunch), visits about 1 day in 5 with a $2–3 tip for her favorite and 2 napkins, good feelings 0–10 (start 5), and a $5 gift sometimes when they're 8 or more. Lunch is about even for money; the payoff is her advice, her tips, and (next) a better truck deal. The regular "Grandma Lou" is now Miss Lou.
 
 ### Restocking
 - **The restaurant store** sells bigger boxes at a real discount, so freezer space becomes the limit on how much you save.

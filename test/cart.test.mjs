@@ -478,18 +478,19 @@ test('regulars: none on the first day, and only for favorites that have been sol
   stock(c, 'rocketPop', 40);
   c.pack('rocketPop', 40);
   c.openPark();
-  assert.equal(c.state.schedule.length, 0, 'day 1');
+  const regs = () => c.state.schedule.filter((x) => x.id !== 'grandma').length; // Grandma isn't a regular
+  assert.equal(regs(), 0, 'day 1');
   c.closePark();
   c.nextDay();
   c.openPark();
-  assert.equal(c.state.schedule.length, 0, 'nothing sold yet');
+  assert.equal(regs(), 0, 'nothing sold yet');
   c.closePark();
   c.nextDay();
   c.state.stats.soldItems = { rocketPop: 3 };
   let seen = new Set();
   for (let d = 0; d < 10; d++) {
     c.openPark();
-    for (const x of c.state.schedule) seen.add(x.id);
+    for (const x of c.state.schedule) if (x.id !== 'grandma') seen.add(x.id);
     c.closePark();
     c.nextDay();
   }
@@ -899,4 +900,92 @@ test('eating your own treats: a little food, what it could have sold for, and tu
   assert.equal(c.state.today.ateValue, c.state.prices.rocketPop * 5 + c.state.prices.water * 6);
   const sum = c.closePark();
   assert.equal(sum.ate.water, 6);
+});
+
+test('Grandma: lunch invitations, advice she checks on, and a gift when she feels good', async () => {
+  const { GRANDMA } = await import('../js/config.js');
+  const c = Cart.create({ player: 'Test', seed: 6 });
+  const g = c.state.grandma;
+  assert.ok(GRANDMA.favChoices.includes(g.fav) && g.fav !== c.state.hot);
+  assert.equal(g.feel, GRANDMA.start);
+  // an invitation: it's free, fills you up and takes a while
+  g.invited = c.state.day;
+  assert.ok(c.lunchInvite);
+  c.state.stats.soldItems.rocketPop = 5;
+  c.setPrice('rocketPop', 400); // way too much
+  const r = c.lunchAtGrandmas();
+  assert.ok(r.lines.length >= 3);
+  assert.ok(r.lines.some((l) => l.includes('rocket pop')), 'she mentions the price');
+  assert.equal(c.state.minute, CART.homeStart + GRANDMA.lunch.minutes);
+  assert.equal(c.hunger, 100);
+  assert.equal(g.feel, GRANDMA.start + GRANDMA.feel.lunch);
+  assert.ok(!c.lunchInvite, 'answered');
+  assert.equal(c.lunchAtGrandmas(), null, 'one lunch a day');
+  // next time: you took her advice
+  c.setPrice('rocketPop', 150);
+  g.invited = c.state.day = 2;
+  g.answered = null;
+  const r2 = c.lunchAtGrandmas();
+  assert.ok(r2.lines.some((l) => l.includes('Good thinking')));
+  assert.equal(g.feel, GRANDMA.start + 2 * GRANDMA.feel.lunch + GRANDMA.feel.followed);
+  // when she feels great, sometimes a little something
+  let gifts = 0;
+  for (let d = 3; d < 40; d++) {
+    g.feel = 9;
+    g.invited = c.state.day = d;
+    g.answered = null;
+    if (c.lunchAtGrandmas().gift) gifts++;
+  }
+  assert.ok(gifts > 3, `gifts ${gifts}`);
+  assert.equal(c.walletTotal, 1000 + gifts * GRANDMA.gift.cash);
+  // saying no twice in a row hurts a little
+  g.feel = 5;
+  for (const d of [50, 51]) {
+    g.invited = c.state.day = d;
+    g.answered = null;
+    assert.ok(c.declineLunch());
+  }
+  assert.equal(g.feel, 5 + GRANDMA.feel.decline2);
+});
+
+test('Grandma at the cart: her favorite and two napkins mean a big tip', async () => {
+  const { GRANDMA } = await import('../js/config.js');
+  const visit = (napkins, withFav) => {
+    const c = Cart.create({ player: 'Test', seed: 8 });
+    const fav = c.state.grandma.fav;
+    if (withFav) {
+      stock(c, fav, 6);
+      c.pack(fav, 6);
+    }
+    stock(c, 'rocketPop', 6);
+    c.pack('rocketPop', 6);
+    c.state.counter = [];
+    c.state.napkins = 10;
+    c.state.money.box = { 500: 2, 100: 10, 25: 12 };
+    c.openPark();
+    c.state.line = [];
+    c.state.line.push(c.makeGrandma());
+    c.nextToWindow();
+    const w = c.state.window;
+    assert.ok(w.cust.grandma);
+    assert.equal(w.order[0], withFav ? fav : 'rocketPop');
+    for (const id of w.order) {
+      c.give(id);
+      if (c.isIce(id)) c.give('spoon');
+    }
+    for (let i = 0; i < napkins; i++) c.give('napkin');
+    c.state.spoons = Math.max(c.state.spoons, 5);
+    assert.ok(c.handOver().ok);
+    const owed = total(w.paid) - w.due;
+    const r = owed ? c.giveChange(makeAmount(c.state.money.box, owed)) : c.noChange();
+    return { r, feel: c.state.grandma.feel };
+  };
+  const best = visit(2, true);
+  assert.ok(GRANDMA.visit.tip.includes(best.r.tip));
+  assert.equal(best.feel, GRANDMA.start + GRANDMA.feel.fav);
+  const fewNapkins = visit(1, true);
+  assert.equal(fewNapkins.r.tip, 100);
+  assert.equal(fewNapkins.feel, GRANDMA.start + GRANDMA.feel.fav + GRANDMA.feel.fewNapkins);
+  const noFav = visit(2, false);
+  assert.equal(noFav.feel, GRANDMA.start + GRANDMA.feel.noFav);
 });
