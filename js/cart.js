@@ -580,7 +580,12 @@ export class Cart {
       for (let i = 0; i < q; i++) {
         got.push(this.receive(it));
         // Grandma notices if you spend a lot on snacks and toys (lunch doesn't count)
-        if ((it.kind === 'snack' && it.id !== 'hotdog') || it.kind === 'toy') s.grandma.spent = (s.grandma.spent || 0) + it.price;
+        if ((it.kind === 'snack' && it.id !== 'hotdog') || it.kind === 'toy') {
+          const g = s.grandma;
+          g.spent = (g.spent || 0) + it.price;
+          if (it.kind === 'toy') g.spentToys = (g.spentToys || 0) + it.price;
+          else g.spentSnacks = (g.spentSnacks || 0) + it.price;
+        }
         if (it.kind === 'snack' && FOOD[it.id].keep && this.coolerFree > 0) {
           this.toCooler(it.id);
           stashed.push(it.id);
@@ -1328,31 +1333,36 @@ export class Cart {
     const tip = this.grandmaAdvice(a);
     g.advice = tip?.advice || null;
     if (tip) lines.push(tip.line);
-    // chit-chat: your stickers or the weather
-    const chat = this.rng.chance(0.5) ? this.grandmaStickerTalk() || this.grandmaWeather() : this.grandmaWeather();
-    lines.push(chat);
+    // Then a few more things, but lunch stays short (G.lunch.lines at most): on your first lunch, her favorite and
+    // a hint that she's a messy eater; a gift if she's feeling generous; then chit-chat and a story about the old days.
+    const more = [];
     if (g.lunches === 1) {
-      // her favorite, and a hint about napkins, before she ever comes by the cart
       const fav = CART_ITEM[g.fav];
-      lines.push(`Do you sell ${fav.plural || fav.name.toLowerCase() + 's'}? They're my favorite! Maybe I'll come by your cart.`);
-      lines.push("Oops, I spilled again. I'm such a messy eater. I always need a stack of napkins!");
+      more.push(`Do you sell ${fav.plural || fav.name.toLowerCase() + 's'}? They're my favorite! Oops, I spilled again. I always need a stack of napkins!`);
     }
-    // the old days: a different one each time, until she's told them all
-    g.said = (g.said || []).filter((i) => i < G.oldDays.length);
-    if (g.said.length >= G.oldDays.length) g.said = [];
-    const fresh = G.oldDays.map((_, i) => i).filter((i) => !g.said.includes(i));
-    const told = this.rng.pick(fresh);
-    g.said.push(told);
-    lines.push(G.oldDays[told]);
-    g.spent = 0;
-    // a little something, just because
     let gift = 0;
     if (g.feel >= G.gift.feel && this.rng.chance(G.gift.chance)) {
       gift = G.gift.cash;
       addPile(s.money.wallet, pileOf(gift));
       g.gifts++;
-      lines.push(`Here's a little something for you. Just because I'm proud of you.`);
+      more.push(`Here's a little something for you. Just because I'm proud of you.`);
     }
+    const chat = () => (this.rng.chance(0.5) ? this.grandmaStickerTalk() || this.grandmaWeather() : this.grandmaWeather());
+    const story = () => {
+      // a different one each time, until she's told them all
+      g.said = (g.said || []).filter((i) => i < G.oldDays.length);
+      if (g.said.length >= G.oldDays.length) g.said = [];
+      const told = this.rng.pick(G.oldDays.map((_, i) => i).filter((i) => !g.said.includes(i)));
+      g.said.push(told);
+      return G.oldDays[told];
+    };
+    const talk = this.rng.chance(0.5) ? [chat, story] : [story, chat];
+    for (const say of talk) if (lines.length + more.length < G.lunch.lines) more.push(say());
+    if (!more.length) more.push(talk[0]());
+    lines.push(...more.slice(0, Math.max(1, G.lunch.lines - lines.length)));
+    g.spent = 0;
+    g.spentSnacks = 0;
+    g.spentToys = 0;
     this.logAction('grandmaLunch', { yes: true, feel: g.feel, gift });
     return { lines, gift };
   }
@@ -1383,14 +1393,14 @@ export class Cart {
     }
     if (a.kind === 'gear' && this.has(a.id)) {
       this.feel(G.feel.followed);
-      return a.id === 'umbrella' ? 'I saw your new umbrella. I bet it keeps you nice and cool!' : 'A little fan! Smart thinking on a hot day.';
+      return { umbrella: 'I saw your new umbrella. I bet it keeps you nice and cool!', fan: 'A little fan! Smart thinking on a hot day.', bell: 'I heard your bell all the way across the park! Ding ding!' }[a.id];
     }
     if (a.kind === 'spend') {
       if ((g.spent || 0) < G.spend / 2) {
         this.feel(G.feel.followed);
         return "I hear you've been saving your money. Good for you!";
       }
-      return "More snacks and toys? Money doesn't grow on trees, dear!";
+      return `More ${a.what || 'snacks and toys'}? Money doesn't grow on trees, dear!`;
     }
     return null;
   }
@@ -1413,10 +1423,17 @@ export class Cart {
       const it = CART_ITEM[out];
       return { line: `I heard you ran out of ${it.plural || it.name.toLowerCase() + 's'}! Maybe pack more of those.`, advice: { kind: 'soldOut' } };
     }
-    if ((g.spent || 0) >= G.spend && not('spend')) return { line: "You've been buying a lot of snacks and toys, haven't you? Remember to save some money for your business!", advice: { kind: 'spend' } };
+    if ((g.spent || 0) >= G.spend && not('spend')) {
+      // what you bought: mostly snacks, mostly toys, or both
+      const sn = g.spentSnacks || 0;
+      const to = g.spentToys || 0;
+      const what = to < g.spent * 0.2 ? 'snacks' : sn < g.spent * 0.2 ? 'toys' : 'snacks and toys';
+      return { line: `You've been buying a lot of ${what}, haven't you? Remember to save some money for your business!`, advice: { kind: 'spend', what } };
+    }
     if (!this.decals().length && not('sticker')) return { line: 'Your cart looks a little plain, dear. The sticker lady at the park has nice ones.', advice: { kind: 'sticker', had: 0 } };
     if (!this.has('umbrella') && not('gear')) return { line: 'That sun is so hot, dear! A big umbrella would keep you and your treats cool.', advice: { kind: 'gear', id: 'umbrella' } };
     if (!this.has('fan') && not('gear')) return { line: 'On hot days, a little fan by the cart would keep you comfy.', advice: { kind: 'gear', id: 'fan' } };
+    if (!this.has('bell') && not('gear')) return { line: 'You know what your cart needs? A bell! Ding ding, and everybody knows the ice cream is here.', advice: { kind: 'gear', id: 'bell' } };
     const like = CART_SHOPS.decals.items.find((d) => d.grandma === 'likes' && !this.has(d.id));
     if (like && not('stickerHint')) return { line: `${like.grandmaHint} ${aOr(like.name.toLowerCase())[0].toUpperCase()}${aOr(like.name.toLowerCase()).slice(1)} would look so sweet on your cart.`, advice: { kind: 'stickerHint', id: like.id } };
     return null;
