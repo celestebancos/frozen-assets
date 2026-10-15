@@ -722,7 +722,7 @@ export class Cart {
     }
     // Grandma comes by now and then (not on a day you had lunch with her)
     const g = s.grandma;
-    if (s.day >= G.visit.firstDay && g.answered !== 'yes' && this.rng.chance(G.visit.chance)) {
+    if (g.lunches > 0 && g.answered !== 'yes' && this.rng.chance(G.visit.chance)) {
       const m = this.rng.int(s.minute + 30, K.parkClose - 40);
       if (m > s.minute) s.schedule.push({ id: 'grandma', minute: m });
     }
@@ -1202,7 +1202,8 @@ export class Cart {
     // some mornings Grandma calls to ask you to lunch
     const g = s.grandma;
     g.answered = null;
-    g.invited = s.day >= G.lunch.firstDay && this.rng.chance(G.lunch.chance) ? s.day : null;
+    // the first invitation comes on day firstDay; after that, now and then
+    g.invited = s.day === G.lunch.firstDay || (s.day > G.lunch.firstDay && this.rng.chance(G.lunch.chance)) ? s.day : null;
     this.rollWeather();
   }
 
@@ -1352,8 +1353,10 @@ export class Cart {
       lines.push(this.rng.chance(0.5) || g.feel >= 7 ? `I love your ${d}!` : `Is your ${d} on crooked? It looks crooked to me.`);
     }
     if (g.lunches === 1) {
+      // her favorite, and a hint about napkins, before she ever comes by the cart
       const fav = CART_ITEM[g.fav];
       lines.push(`Do you sell ${fav.plural || fav.name.toLowerCase() + 's'}? They're my favorite! Maybe I'll come by your cart.`);
+      lines.push("Oops, I spilled again. I'm such a messy eater. I always need a stack of napkins!");
     }
     lines.push(this.rng.pick(G.oldDays));
     // a little something, just because

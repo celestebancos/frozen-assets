@@ -989,3 +989,42 @@ test('Grandma at the cart: her favorite and two napkins mean a big tip', async (
   const noFav = visit(2, false);
   assert.equal(noFav.feel, GRANDMA.start + GRANDMA.feel.noFav);
 });
+
+test('Grandma: the first invitation is on day 3, and she only visits the cart after a lunch together', async () => {
+  const { GRANDMA } = await import('../js/config.js');
+  const c = Cart.create({ player: 'Test', seed: 10 });
+  const visits = () => {
+    let n = 0;
+    for (let d = 0; d < 10; d++) {
+      c.openPark();
+      if (c.state.schedule.some((x) => x.id === 'grandma')) n++;
+      c.closePark();
+      c.nextDay();
+      if (c.lunchInvite) c.declineLunch();
+    }
+    return n;
+  };
+  c.closePark();
+  c.state.phase = 'night';
+  c.nextDay();
+  c.nextDay();
+  assert.equal(visits(), 0, 'no lunch yet, no visits');
+  // lunch together: she names her favorite and drops a hint about napkins
+  c.state.grandma.invited = c.state.day;
+  c.state.grandma.answered = null;
+  const r = c.lunchAtGrandmas();
+  assert.ok(r.lines.some((l) => l.includes('napkins')));
+  c.state.phase = 'night';
+  c.nextDay();
+  assert.ok(visits() > 0, 'now she comes by');
+});
+
+test('Grandma calls on day 3', () => {
+  const c = Cart.create({ player: 'Test', seed: 10 });
+  for (let d = 1; d < 3; d++) {
+    c.state.phase = 'night';
+    c.nextDay();
+  }
+  assert.equal(c.state.day, 3);
+  assert.ok(c.lunchInvite);
+});
