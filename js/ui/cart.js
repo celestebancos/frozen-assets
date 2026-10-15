@@ -1,9 +1,9 @@
 // The park cart screens: make your character, the morning at home, shops and errands, and the park day
 // where every sale is served and every bit of change is counted by hand.
 import { CART, CART_ITEMS, CART_ITEM, CART_SHOPS, CART_CROWD, REGULARS } from '../config.js';
-import { Cart, total, pileCount, CART_DAY_NAMES } from '../cart.js';
+import { Cart, total, pileCount, boxSize, CART_DAY_NAMES } from '../cart.js';
 import { personSVG, parkSVG, CHARACTER, PARK_VIEW } from '../art.js';
-import { cartSVG, STICKER_AREA, umbrellaSVG, moneySVG, treatSVG, thingSVG, swingSetSVG, swingSeatSVG, balloonSVG, hotdogStandSVG, balloonSellerSVG, stickerStandSVG } from '../cartArt.js';
+import { cartSVG, STICKER_AREA, umbrellaSVG, moneySVG, treatSVG, thingSVG, boxFrontSVG, boxSideSVG, BOX_LOOK, spoonCupSVG, napkinStackSVG, spoonBoxSVG, napkinPackSVG, coolerSVG, swingSetSVG, swingSeatSVG, balloonSVG, hotdogStandSVG, balloonSellerSVG, stickerStandSVG } from '../cartArt.js';
 import { ParkStories } from './parkStories.js';
 import { Ambience, cashRegister, gameSound } from '../ambience.js';
 import { storage } from '../storage.js';
@@ -58,6 +58,30 @@ function itemIcon(it, size = 40) {
   if (it.kind === 'shirt') return `<span class="swatch" style="background:${it.color}">${it.stars ? '⭐' : ''}</span>`;
   return `<span style="font-size:${size * 0.7}px">${it.emoji || '🛍️'}</span>`;
 }
+
+// ---------- boxes and the cooler ----------
+const BOX_ITEM = Object.fromEntries(CART_SHOPS.restaurant.items.filter((i) => i.kind === 'stock').map((i) => [i.item, i]));
+// One tray of the cooler seen from above, with the lid open behind it. act: what tapping a spot does.
+function coolerHTML(tray, { act = 'spot', sel = null, fresh = null } = {}) {
+  const spots = tray
+    .map((id, i) => {
+      const cls = `spot${id ? '' : ' empty'}${sel === i ? ' sel' : ''}${fresh === i ? ' fresh' : ''}`;
+      return `<button class="${cls}" data-act="${act}" data-i="${i}" ${id ? `data-id="${id}" aria-label="${esc(CART_ITEM[id].name)}"` : 'aria-label="Empty spot"'}>${id ? treatSVG(id, 48) : ''}</button>`;
+    })
+    .join('');
+  return `<div class="cooler"><div class="cl-lid"><i></i><i></i></div><div class="cl-body"><div class="cl-tray">${spots}</div></div><button class="btn small cl-swap" data-act="swapTrays">🔄 Swap trays</button></div>`;
+}
+// Looking down into an open box: the treats that are left, and the gaps where some are gone.
+function openBoxHTML(box) {
+  const size = boxSize(box.item);
+  const cells = Array.from({ length: size }, (_, i) => (i < size - box.n ? '<i class="gone"></i>' : `<button class="bt" data-act="takeOne" aria-label="${esc(CART_ITEM[box.item].name)}">${treatSVG(box.item, 40)}</button>`)).join('');
+  return `<div class="open-box ${size > 24 ? 'big' : ''}" data-act="boxIn" style="--c:${BOX_LOOK[box.item].color}">${cells}</div>`;
+}
+// How full the cup of spoons and the stack of napkins look.
+const cupFill = (n) => (n > 0 ? Math.min(7, Math.ceil(n / 15)) : 0);
+const stackFill = (n) => (n > 0 ? Math.min(10, Math.ceil(n / 10)) : 0);
+// What a restaurant store item looks like on the shelf: a box, a pack, or a thing for the cart.
+const storeArt = (it) => (it.kind === 'stock' ? boxFrontSVG(it.item, it.qty) : it.kind === 'spoons' ? spoonBoxSVG() : it.kind === 'napkins' ? napkinPackSVG() : `<span class="gear">${itemIcon(it, 54)}</span>`);
 
 // ---------- money widgets ----------
 // Each bill and coin in a pile as a tappable button with how many there are.
@@ -190,26 +214,33 @@ export class CartView {
     this.stop();
     closeAllModals();
     const c = this.cart;
+    const s = this.s;
     document.body.innerHTML = '';
     const scr = el(`<div class="screen cart-home"></div>`);
     document.body.appendChild(scr);
     this.homeEl = scr;
     this.renderHome();
+    this.sel = null; // the box you've picked up
     onActs(scr, {
-      pack: (t) => {
-        const r = c.pack(t.dataset.id, Number(t.dataset.n || 1));
-        if (!r.ok) toast(r.reason === 'full' ? '🧊 The cooler is full!' : 'None in the freezer');
+      // Tap a box to pick it up, then a spot in the freezer to put it there (boxes trade places).
+      slot: (t) => {
+        const loc = t.dataset.loc;
+        if (this.sel === loc) this.sel = null;
+        else if (this.sel && c.isSlot(loc)) {
+          c.moveBox(this.sel, loc);
+          this.sel = null;
+          this.save();
+        } else if (c.boxAt(loc)) this.sel = loc;
         this.renderHome();
       },
-      unpack: (t) => {
-        c.unpack(t.dataset.id, Number(t.dataset.n || 1));
-        this.renderHome();
-      },
+      open: () => this.packView(this.sel),
+      cooler: () => this.packView(this.sel),
       restaurant: () => {
         c.errand('restaurant');
+        this.sel = null;
         this.save();
         this.renderHome();
-        this.shop('restaurant', () => this.renderHome());
+        this.restaurantStore(() => this.renderHome());
       },
       corner: () => {
         c.errand('corner');
@@ -224,9 +255,11 @@ export class CartView {
       truck: () => this.truckLoan(),
       park: () => {
         if (!c.spaceUsed('cooler') && !confirm('Your cooler is empty! Go to the park anyway?')) return;
+        if (s.counter.length && c.freeSlots && !confirm('Some boxes are still on the counter. They will melt! Go anyway?')) return;
         c.openPark();
         this.save();
         this.showPark();
+        if (s.today.melted) setTimeout(() => toast('🫠 The boxes on the counter melted.'), 600);
       },
       quit: () => this.quit(),
     });
@@ -235,21 +268,8 @@ export class CartView {
     const c = this.cart;
     const s = this.s;
     const w = s.weather;
-    const rows = CART_ITEMS.map((it) => {
-      const fz = c.count('freezer', it.id);
-      const co = c.count('cooler', it.id);
-      return `<div class="pack-row">
-        <span class="ic">${treatSVG(it.id, 34)}</span><span class="nm">${esc(it.name)}</span>
-        <span class="tiny muted">🏠 ${fz}</span>
-        <span class="pk">
-          <button class="btn small" data-act="unpack" data-id="${it.id}" data-n="6" ${co ? '' : 'disabled'} aria-label="Take out">◀</button>
-          <b>🧊 ${co}</b>
-          <button class="btn small" data-act="pack" data-id="${it.id}" data-n="1" ${fz ? '' : 'disabled'} aria-label="Pack one">+1</button>
-          <button class="btn small" data-act="pack" data-id="${it.id}" data-n="6" ${fz ? '' : 'disabled'} aria-label="Pack six">+6</button>
-        </span></div>`;
-    }).join('');
     const used = c.spaceUsed('cooler');
-    const noStock = !Object.values(s.freezer.pops).some(Boolean) && !used;
+    const noStock = !c.spaceUsed('freezer') && !used;
     this.homeEl.innerHTML = `
       <div class="home-top">
         <h2 style="margin:0">${w.rain ? '🌧️' : w.temp >= 88 ? '🥵☀️' : '☀️'} ${CART_DAY_NAMES[(s.day - 1) % 7]} · Day ${s.day} · ${w.temp}°F</h2>
@@ -262,14 +282,8 @@ export class CartView {
           <button class="btn small" data-act="closet">👕 Closet</button>
           ${c.decalsLoose().length ? '<button class="btn small" data-act="stickers">🌟 Stickers</button>' : ''}
         </div>
-        <div class="card">
-          <h3>🧊 Pack the cooler</h3>
-          <div class="space"><span>Cooler</span><span class="bar"><i style="width:${(used / K.coolerSpace) * 100}%"></i></span><b>${used}/${K.coolerSpace}</b></div>
-          <div class="tiny muted">Each pop or cup takes 1 space. 🥄 Spoons: <b>${s.spoons}</b> · 🧻 Napkins: <b>${s.napkins}</b></div>
-          ${rows}
-          ${noStock ? '<p class="hint">👉 Nothing to sell yet! Buy treats at the 🏬 restaurant store.</p>' : ''}
-        </div>
-        <div class="card">
+        ${this.kitchenHTML()}
+        <div class="card cash-card">
           <h3>💵 Money</h3>
           <div class="money-row"><span>🧰 Cash box <span class="tiny muted">(the cart's)</span></span><b>${money(c.boxTotal)}</b></div>
           <div class="pile">${pieces(s.money.box, null, 40)}</div>
@@ -289,6 +303,102 @@ export class CartView {
         </div>
       </div>`;
   }
+  // The kitchen: the freezer with its shelves of boxes, the shopping on the counter, the spoons and napkins on a
+  // shelf, and the cooler on the floor.
+  kitchenHTML() {
+    const c = this.cart;
+    const s = this.s;
+    const sel = this.sel;
+    const name = (b) => esc(BOX_ITEM[b.item]?.name || b.item);
+    const slot = (loc, b) => {
+      if (!b) return `<button class="slot empty ${sel ? 'target' : ''}" data-act="slot" data-loc="${loc}" aria-label="Empty spot"></button>`;
+      return `<button class="slot ${sel === loc ? 'sel' : ''}" data-act="slot" data-loc="${loc}" aria-label="${name(b)}">${boxSideSVG(b.item, b.n < boxSize(b.item))}</button>`;
+    };
+    const shelves = s.freezer.shelves.map((shelf, r) => `<div class="fz-shelf">${shelf.map((b, i) => slot(`s${r}-${i}`, b)).join('')}</div>`).join('<div class="fz-rail"></div>');
+    const counter = s.counter
+      .map((b, i) => `<button class="cbox ${sel === `c${i}` ? 'sel' : ''} ${!sel && i === 0 && c.freeSlots ? 'nudge' : ''}" data-act="slot" data-loc="c${i}" aria-label="${name(b)}">${boxFrontSVG(b.item, boxSize(b.item))}</button>`)
+      .join('');
+    const packs = (n, svg) => Array.from({ length: Math.min(3, Math.ceil(n / 100)) }, () => `<span class="pk">${svg}</span>`).join('');
+    return `<div class="card kitchen">
+      <div class="fridge"><div class="fz-box"><div class="fz-in">${shelves}</div></div><div class="fz-door"><i class="hinge"></i><i class="hinge low"></i></div></div>
+      <div class="kit-side">
+        <div class="packs">${packs(s.spoons, spoonBoxSVG())}${packs(s.napkins, napkinPackSVG())}</div>
+        <div class="kit-counter"><div class="kc-boxes">${counter}</div></div>
+        <div class="kit-floor">${sel ? '<button class="btn go" data-act="open">📦 Open</button>' : ''}<button class="cooler-btn ${sel ? 'nudge' : ''}" data-act="cooler" aria-label="Cooler">${coolerSVG()}</button></div>
+      </div></div>`;
+  }
+  // Pack the cooler from an open box: tap a treat and it goes in the first empty spot. Tap a treat in the cooler,
+  // then another spot, to swap them (or tap the box to put it back). With no box (or at the park), just the cooler.
+  packView(loc = null, onClose = null) {
+    const c = this.cart;
+    const home = this.s.phase === 'home';
+    let at = home ? loc : null;
+    let sel = null;
+    let fresh = null;
+    const m = openModal({
+      title: '🧊 Cooler',
+      cls: 'packing-modal',
+      onClose: () => {
+        this.sel = null;
+        this.save();
+        if (home) this.renderHome();
+        onClose?.();
+      },
+      render: (body) => {
+        const box = at ? c.boxAt(at) : null;
+        const left = box ? `<div class="pk-left">${openBoxHTML(box)}<button class="btn" data-act="done">📦 ${at.startsWith('s') ? 'Back in freezer' : 'Close box'}</button></div>` : '';
+        body.innerHTML = `<div class="packing ${box ? '' : 'solo'}">${left}<div class="pk-right">${coolerHTML(c.topTray, { sel, fresh })}${box ? '' : '<button class="btn go" data-act="done">Done ✓</button>'}</div></div>`;
+        fresh = null;
+      },
+    });
+    const fail = (msg) => {
+      this.app.music.sfx('oops');
+      toast(msg);
+    };
+    const putBack = () => {
+      const r = c.unpackOne(sel, at);
+      if (!r.ok) return fail(r.reason === 'boxFull' ? 'This box is full.' : 'That goes in a different box.');
+      sel = null;
+    };
+    onActs(m.body, {
+      takeOne: () => {
+        if (sel != null) putBack();
+        else {
+          const r = c.packOne(at);
+          if (!r.ok) fail(r.reason === 'trayFull' ? '🔄 This tray is full. Swap trays!' : '🧊 The cooler is full!');
+          else {
+            fresh = r.i;
+            if (r.emptied) {
+              toast('♻️ Empty box recycled');
+              at = null;
+            }
+          }
+        }
+        m.refresh();
+      },
+      boxIn: () => {
+        if (sel == null) return;
+        putBack();
+        m.refresh();
+      },
+      spot: (t) => {
+        const i = Number(t.dataset.i);
+        if (sel === i) sel = null;
+        else if (sel != null) {
+          c.moveSpot(sel, i);
+          sel = null;
+        } else if (t.dataset.id) sel = i;
+        m.refresh();
+      },
+      swapTrays: () => {
+        c.swapTrays();
+        sel = null;
+        m.refresh();
+      },
+      done: () => m.close(),
+    });
+    return m;
+  }
 
   // ---------- shops ----------
   // A shop: pick things, then pay. onClose runs when the shop closes.
@@ -303,8 +413,7 @@ export class CartView {
       render: (body) => {
         const cost = c.basketCost(id, basket);
         const chk = c.checkBasket(id, basket);
-        const space = id === 'restaurant' ? `<div class="space"><span>Freezer at home</span><span class="bar"><i style="width:${((K.freezerSpace - c.freezerFree) / K.freezerSpace) * 100}%"></i></span><b>${K.freezerSpace - c.freezerFree}/${K.freezerSpace}</b></div>` : '';
-        body.innerHTML = `${space}<div class="shop-grid">${S.items
+        body.innerHTML = `<div class="shop-grid">${S.items
           .map((it) => {
             const q = basket[it.id] || 0;
             const owned = one(it) && it.kind !== 'balloon' && c.has(it.id);
@@ -316,7 +425,6 @@ export class CartView {
             return `<div class="shop-item ${q ? 'on' : ''}"><div class="ic">${itemIcon(it)}</div><b>${esc(it.name)}</b>${it.note ? `<div class="tiny muted">${esc(it.note)}</div>` : ''}<div class="price">${money(it.price)}</div>${ctl}</div>`;
           })
           .join('')}</div>
-          ${!chk.ok && chk.reason === 'freezer' ? '<p class="warn">🧊 That won\'t fit in your freezer at home.</p>' : ''}
           ${!chk.ok && chk.reason === 'park' ? '<p class="warn">🎈 Balloons are for the cart at the park.</p>' : ''}
           <div class="row" style="justify-content:space-between;margin-top:10px"><b style="font-size:22px">Total: ${money(cost)}</b>
             <button class="btn big go" data-act="pay" ${cost && chk.ok ? '' : 'disabled'}>Pay ▶</button></div>`;
@@ -357,10 +465,73 @@ export class CartView {
     return m;
   }
 
-  // Hand over money, then count the change the seller gives back.
+  // The restaurant store: a freezer case full of boxes and a shelf of supplies. Tap a box to put it in your
+  // shopping cart (tap it in the cart to put it back), then check out.
+  restaurantStore(onClose) {
+    const c = this.cart;
+    const S = CART_SHOPS.restaurant;
+    let basket = {};
+    const m = openModal({
+      title: `${S.icon} ${S.name}`,
+      cls: 'store-modal',
+      onClose,
+      render: (body) => {
+        const stock = S.items.filter((i) => i.kind === 'stock');
+        const rows = [];
+        for (let i = 0; i < stock.length; i += 2) rows.push(stock.slice(i, i + 2));
+        // two boxes of each kind stand on the shelf, with one price tag clipped under them
+        const kind = (it) => `<div class="sf-kind">${[0, 1].map(() => `<button class="sf-box" data-act="take" data-id="${it.id}" aria-label="${esc(it.name)}">${storeArt(it)}</button>`).join('')}<span class="tag">${money(it.price)}</span></div>`;
+        const dry = S.items
+          .filter((i) => i.kind !== 'stock')
+          .map((it) => {
+            const owned = it.kind === 'gear' && c.has(it.id);
+            return `<div class="dry-item"><button class="dry-btn" data-act="take" data-id="${it.id}" ${owned ? 'disabled' : ''} aria-label="${esc(it.name)}">${storeArt(it)}</button><span class="tag">${owned ? '✓' : money(it.price)}</span></div>`;
+          })
+          .join('');
+        const inCart = Object.entries(basket).flatMap(([id, q]) => Array(q).fill(id));
+        const cartItems = inCart.map((id) => `<button class="in-cart ${ITEM[id].kind}" data-act="putBack" data-id="${id}" aria-label="Put back ${esc(ITEM[id].name)}">${storeArt(ITEM[id])}</button>`).join('');
+        body.innerHTML = `<div class="store">
+          <div class="store-freezer"><div class="sf-head">❄ FROZEN TREATS ❄</div><div class="sf-glass">${rows.map((r) => `<div class="sf-shelf">${r.map(kind).join('')}</div>`).join('')}</div></div>
+          <div class="store-side"><div class="dry-shelf">${dry}</div>
+            <div class="trolley"><div class="basket">${cartItems}</div><div class="wheels"><i></i><i></i></div></div>
+            <button class="btn big go" data-act="checkout" ${inCart.length ? '' : 'disabled'}>Check out ▶</button></div></div>`;
+      },
+    });
+    onActs(m.body, {
+      take: (t) => {
+        const it = ITEM[t.dataset.id];
+        if (it.kind === 'gear' && basket[it.id]) return;
+        basket[it.id] = (basket[it.id] || 0) + 1;
+        m.refresh();
+      },
+      putBack: (t) => {
+        const id = t.dataset.id;
+        if (--basket[id] <= 0) delete basket[id];
+        m.refresh();
+      },
+      checkout: () => {
+        this.payFlow('restaurant', basket, 'box', (res) => {
+          if (!res) return;
+          basket = {};
+          this.save();
+          m.refresh();
+          this.refreshScene?.();
+        });
+      },
+    });
+    return m;
+  }
+
+  // Hand over money, then count the change the seller gives back. At the restaurant store you check out at a
+  // counter: the cashier might drop a hint, and if your money isn't enough, you pick what to put back.
   payFlow(shopId, basket, from, done) {
     const c = this.cart;
-    const cost = c.basketCost(shopId, basket);
+    const store = shopId === 'restaurant';
+    const putBack = {}; // what you've decided not to buy after all
+    const buying = () => Object.fromEntries(Object.entries(basket).map(([id, q]) => [id, q - (putBack[id] || 0)]).filter(([, q]) => q > 0));
+    let cost = c.basketCost(shopId, basket);
+    let short = false;
+    const hint = store ? c.roomHint(shopId, basket) : null;
     let tray = {};
     let step = 'pay';
     let result = null;
@@ -371,17 +542,31 @@ export class CartView {
       closable: false,
       render: (body) => {
         const pool = c.pile(from);
+        cost = c.basketCost(shopId, buying());
         if (step === 'pay') {
           const have = total(pool);
-          body.innerHTML = `<div class="pay-top"><span class="big">${seller}</span><div class="say">That's <b>${money(cost)}</b>, please!</div></div>
+          let top = `<div class="pay-top"><span class="big">${seller}</span><div class="say">That's <b>${money(cost)}</b>, please!</div></div>`;
+          if (store) {
+            const gave = total(tray);
+            const words = short && gave < cost
+              ? `That's <b>${money(cost)}</b>. You gave me <b>${money(gave)}</b>. What should I put back?`
+              : `${hint && !short ? (hint === 'lots' ? "Wow, that's a lot of boxes. You must have a big freezer! " : 'Do you have room in your freezer for that? ') : ''}That's <b>${money(cost)}</b>${short ? '.' : ', please!'}`;
+            const thing = (id, act) => (short ? `<button class="co-item" data-act="${act}" data-id="${id}" aria-label="${esc(ITEM[id].name)}">${storeArt(ITEM[id])}</button>` : `<span class="co-item">${storeArt(ITEM[id])}</span>`);
+            const each = (b) => Object.entries(b).flatMap(([id, q]) => Array(q).fill(id));
+            const back = each(putBack);
+            top = `<div class="checkout"><div class="co-wall"><div class="co-say">${words}</div><div class="co-register"><span>${money(cost)}</span></div><div class="co-cashier">${personSVG('adult', 7)}</div></div>
+              <div class="co-counter">${each(buying()).map((id) => thing(id, 'ret')).join('')}</div>
+              ${back.length ? `<div class="co-back"><span class="tiny">Put back</span>${back.map((id) => thing(id, 'unret')).join('')}</div>` : ''}</div>`;
+          }
+          body.innerHTML = `${top}
             <div class="tabs"><button class="btn small ${from === 'box' ? 'on' : ''}" data-act="from" data-w="box">🧰 Cash box ${money(c.boxTotal)}</button><button class="btn small ${from === 'wallet' ? 'on' : ''}" data-act="from" data-w="wallet">👛 Wallet ${money(c.walletTotal)}</button></div>
             ${from === 'box' ? '<div class="tiny muted">Cart money, for cart things.</div>' : '<div class="tiny muted">Your own money.</div>'}
-            ${have < cost ? '<p class="warn">Not enough money here.</p>' : ''}
+            ${have < cost && !store ? '<p class="warn">Not enough money here.</p>' : ''}
             <div class="tiny">Tap money to hand it over:</div>
             <div class="chips">${chips(pool, 'give', from, { except: tray })}</div>
             <div class="tray"><div class="tiny">Handing over:</div><div class="pieces">${pieces(tray, 'untray')}</div></div>
             <div class="row" style="justify-content:space-between;margin-top:8px"><button class="btn" data-act="cancel">✕ Never mind</button>
-              <button class="btn big go" data-act="hand" ${total(tray) >= cost ? '' : 'disabled'}>Hand it over ▶</button></div>`;
+              <button class="btn big go" data-act="hand" ${cost && (total(tray) >= cost || (store && total(tray))) ? '' : 'disabled'}>Hand it over ▶</button></div>`;
         } else if (step === 'change') {
           const t = c.state.txn;
           body.innerHTML = `<div class="pay-top"><span class="big">${seller}</span><div class="say">${t.due ? "Here's your change!" : 'Exact money. Thanks!'}</div></div>
@@ -423,9 +608,23 @@ export class CartView {
         m.close();
         done(null);
       },
+      ret: (t) => {
+        putBack[t.dataset.id] = (putBack[t.dataset.id] || 0) + 1;
+        m.refresh();
+      },
+      unret: (t) => {
+        if (--putBack[t.dataset.id] <= 0) delete putBack[t.dataset.id];
+        m.refresh();
+      },
       hand: () => {
-        const r = c.pay(shopId, basket, from, tray);
-        if (!r.ok) return toast(r.reason === 'freezer' ? "🧊 That won't fit in the freezer" : 'Hmm, that didn\'t work');
+        if (store && total(tray) < cost) {
+          short = true; // "What should I put back?"
+          this.app.music.sfx('oops');
+          m.refresh();
+          return;
+        }
+        const r = c.pay(shopId, buying(), from, tray);
+        if (!r.ok) return toast("Hmm, that didn't work");
         step = 'change';
         m.refresh();
       },
@@ -876,16 +1075,9 @@ export class CartView {
     document.querySelector('.toolbar').innerHTML =
       b('prices', '🏷️', 'Prices') + b('cooler', '🧊', 'Cooler') + b('corner', '🏪', 'Corner store') + b('closet', '👕', 'Closet') + b('packUp', '🧺', 'Pack up') + b('quit', '🏠', 'Save & quit');
   }
+  // The cooler at the park: look inside and move things around.
   coolerView() {
-    const c = this.cart;
-    openModal({
-      title: '🧊 Cooler',
-      cls: 'narrow',
-      render: (body) => {
-        body.innerHTML = `<div class="price-list">${CART_ITEMS.map((it) => `<div class="price-row"><span class="ic">${treatSVG(it.id, 34)}</span><span class="nm">${esc(it.name)}</span><b>${c.count('cooler', it.id)}</b></div>`).join('')}</div>
-          <p>🥄 Spoons: <b>${c.state.spoons}</b> · 🧻 Napkins: <b>${c.state.napkins}</b></p><p class="tiny muted">More is in the freezer at home. You can pack the cooler in the morning.</p>`;
-      },
-    });
+    this.packView(null, () => this.renderServe());
   }
 
   renderHUD(force = false) {
@@ -1087,12 +1279,14 @@ export class CartView {
     const msgCls = this.serveMsg?.cls || '';
     let main = '';
     if (w.stage === 'order') {
-      const btn = (act, id, art, name, n) => `<button class="treat" data-act="${act}" data-id="${id}" ${n > 0 ? '' : 'disabled'}>${art}<span>${esc(name)}</span><b>${n}</b></button>`;
-      const counter = w.handed.map((id, i) => `<button class="piece" data-act="takeBack" data-i="${i}" aria-label="Take back">${thingSVG(id, 38)}</button>`).join('');
-      main = `<div class="serve-cooler"><div class="treats">${CART_ITEMS.map((it) => btn('give', it.id, treatSVG(it.id, 40), it.name, c.count('cooler', it.id))).join('')}
-          ${btn('give', 'spoon', thingSVG('spoon', 40), 'Spoon', s.spoons)}${btn('give', 'napkin', thingSVG('napkin', 40), 'Napkin', s.napkins)}</div></div>
-        <div class="tray"><div class="tiny">On the counter:</div><div class="pieces">${counter || '<span class="muted tiny">Nothing yet</span>'}</div></div>
-        <div class="row serve-btns"><button class="btn big go" data-act="handOver" ${w.handed.length ? '' : 'disabled'}>🤲 Here you go!</button></div>`;
+      // the counter: what you've handed over so far, the cup of spoons and the stack of napkins. Then the cooler.
+      const handed = w.handed.map((id, i) => `<button class="on-counter" data-act="takeBack" data-i="${i}" aria-label="Take back">${thingSVG(id, 44)}</button>`).join('');
+      main = `<div class="serve-scene">
+          <div class="srv-counter"><div class="ct-top"><div class="ct-handed">${handed}</div>
+              <button class="ct-cup" data-act="give" data-id="spoon" aria-label="Spoon" ${s.spoons ? '' : 'disabled'}>${spoonCupSVG(cupFill(s.spoons))}</button>
+              <button class="ct-stack" data-act="give" data-id="napkin" aria-label="Napkin" ${s.napkins ? '' : 'disabled'}>${napkinStackSVG(stackFill(s.napkins))}</button></div>
+            <div class="ct-front"><button class="btn big go" data-act="handOver" ${w.handed.length ? '' : 'disabled'}>🤲 Here you go!</button></div></div>
+          ${coolerHTML(c.topTray, { act: 'grab' })}</div>`;
     } else if (w.stage === 'change') {
       const owed = total(w.paid) - w.due;
       const bought = w.order.map((id) => `<span class="bought">${treatSVG(id, 30)} ${money(s.prices[id])}</span>`).join('');
@@ -1125,6 +1319,11 @@ export class CartView {
     if (act === 'give') {
       c.give(t.dataset.id);
       this.serveMsg = null;
+    } else if (act === 'grab') {
+      c.give(t.dataset.id, Number(t.dataset.i));
+      this.serveMsg = null;
+    } else if (act === 'swapTrays') {
+      c.swapTrays();
     } else if (act === 'takeBack') {
       c.takeBack(Number(t.dataset.i));
     } else if (act === 'handOver') {
@@ -1222,7 +1421,7 @@ export class CartView {
             ${sum.noChange ? `<li>🪙 ${sum.noChange} time${sum.noChange === 1 ? '' : 's'} you didn't have change.</li>` : ''}
             ${regs.map((r) => `<li>💔 ${esc(r.name)} hasn't been coming around.</li>`).join('')}
           </ul>
-          <p class="tiny muted">Leftover treats went back in the freezer.</p>
+          ${sum.melted ? `<p class="tiny muted">🫠 ${sum.melted} treats melted on the kitchen counter.</p>` : ''}
           <div class="row" style="justify-content:center"><button class="btn big go" data-act="sleep">😴 Sleep</button></div>`;
         body.querySelector('[data-act=sleep]').onclick = () => {
           m.close();
