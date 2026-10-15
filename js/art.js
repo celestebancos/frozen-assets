@@ -283,7 +283,7 @@ export function personSVG(kind, look = 0, me = null, { sit = false, sleep = fals
   let hair = me ? HAIR[me.hair % HAIR.length] : HAIR[t(2, HAIR.length)];
   if (kind !== 'adult' && hair === '#9a9a9a') hair = '#6b3e1e'; // no gray hair on kids
   const shirt = me ? me.shirt : SHIRT[t(3, SHIRT.length)];
-  const shoes = SHOES[t(5, SHOES.length)];
+  const shoes = me ? SHOES[(look * 5 + (kind === 'kid' ? 2 : 0)) % 6] : SHOES[t(5, SHOES.length)]; // yours (and Grandma's) stay as they were
   const girl = me ? !!me.girl : look % 2 === 1;
   const style = me ? me.style : (girl ? GIRL_STYLES : BOY_STYLES)[t(6, 6)];
   const dress = !me && girl && t(7, 3) === 0;

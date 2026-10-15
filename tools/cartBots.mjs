@@ -84,6 +84,8 @@ function makeFloat(c) {
 }
 
 function morning(c, bot) {
+  // Grandma's lunch invitation: decent and smart go (it's free and fills you up); slow says not today
+  if (c.lunchInvite) bot.food === 'snack' ? c.declineLunch() : c.lunchAtGrandmas();
   // gear first, once there's plenty in the box
   for (const g of bot.gear) {
     const it = c.shopItem('restaurant', g);
