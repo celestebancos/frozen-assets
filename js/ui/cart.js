@@ -240,7 +240,8 @@ export class CartView {
     };
     onActs(scr, {
       // Tap a box on the counter and it goes in the first open spot in the freezer. Tap a box in the freezer to
-      // open it next to the cooler; then tap another spot to move it there (boxes trade places), or it again to close it.
+      // open it next to the cooler; then tap an empty spot to move it there, another box to open that one instead
+      // (this one goes back in the freezer), or it again to close it.
       slot: (t) => {
         const loc = t.dataset.loc;
         const spot = loc.startsWith('c') && c.emptySlot();
@@ -250,7 +251,7 @@ export class CartView {
           this.sel = null;
           this.save();
         } else if (this.sel === loc) this.sel = null;
-        else if (this.sel && c.isSlot(loc)) {
+        else if (this.sel && c.isSlot(loc) && !c.boxAt(loc)) {
           c.moveBox(this.sel, loc);
           this.sel = null;
           this.save();
