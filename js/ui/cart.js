@@ -322,7 +322,7 @@ export class CartView {
     return `<div class="card kitchen">
       <div class="fridge"><div class="fz-box"><div class="fz-in">${shelves}</div></div><div class="fz-door"><i class="hinge"></i><i class="hinge low"></i></div></div>
       <div class="kit-side">
-        <div class="packs">${packs(s.spoons, spoonBoxSVG())}${packs(s.napkins, napkinPackSVG())}</div>
+        <div class="supplies">${packs(s.spoons, spoonBoxSVG())}${packs(s.napkins, napkinPackSVG())}</div>
         <div class="kit-counter"><div class="kc-boxes">${counter}</div></div>
         <div class="kit-floor">${sel ? '<button class="btn go" data-act="open">📦 Open</button>' : ''}<button class="cooler-btn ${sel ? 'nudge' : ''}" data-act="cooler" aria-label="Cooler">${coolerSVG()}</button></div>
       </div></div>`;
@@ -1280,7 +1280,7 @@ export class CartView {
     let main = '';
     if (w.stage === 'order') {
       // the counter: what you've handed over so far, the cup of spoons and the stack of napkins. Then the cooler.
-      const handed = w.handed.map((id, i) => `<button class="on-counter" data-act="takeBack" data-i="${i}" aria-label="Take back">${thingSVG(id, 44)}</button>`).join('');
+      const handed = w.handed.map((id, i) => `<button class="on-counter" data-act="takeBack" data-i="${i}" aria-label="Take back">${thingSVG(id, 54)}</button>`).join('');
       main = `<div class="serve-scene">
           <div class="srv-counter"><div class="ct-top"><div class="ct-handed">${handed}</div>
               <button class="ct-cup" data-act="give" data-id="spoon" aria-label="Spoon" ${s.spoons ? '' : 'disabled'}>${spoonCupSVG(cupFill(s.spoons))}</button>

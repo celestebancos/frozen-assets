@@ -122,14 +122,14 @@ export function napkinStackSVG(layers = 9) {
 // What spoons and napkins come in at the store (and how they sit on the shelf at home).
 export function spoonBoxSVG() {
   const win = [0, 1, 2, 3].map((i) => spoon(16 + i * 10, 70, -12, 40, 0.8)).join('');
-  return `<svg viewBox="-2 -2 80 74" class="pack" xmlns="http://www.w3.org/2000/svg"><rect width="76" height="70" rx="5" fill="#fffaf0" ${OUT}/><rect width="76" height="18" rx="5" fill="#3cc6a0" ${OUT}/>${label(38, 9.5, 'SPOONS', 11, '#fff')}
+  return `<svg viewBox="-2 -2 80 74" class="supply-pack" xmlns="http://www.w3.org/2000/svg"><rect width="76" height="70" rx="5" fill="#fffaf0" ${OUT}/><rect width="76" height="18" rx="5" fill="#3cc6a0" ${OUT}/>${label(38, 9.5, 'SPOONS', 11, '#fff')}
     <clipPath id="spoon-win"><rect x="6" y="24" width="46" height="40" rx="4"/></clipPath><rect x="6" y="24" width="46" height="40" rx="4" fill="#e9f6ff" ${thin}/><g clip-path="url(#spoon-win)">${win}</g><rect x="6" y="24" width="46" height="40" rx="4" fill="none" ${thin}/>
     <circle cx="62" cy="50" r="12" fill="#ffd23f" ${thin}/>${label(62, 51, '100', 10)}</svg>`;
 }
 export function napkinPackSVG() {
   let lines = '';
   for (let i = 0; i < 12; i++) lines += `<path d="M3 ${18 + i * 4.2} H73" stroke="#d7dee8" stroke-width="1"/>`;
-  return `<svg viewBox="-3 -2 92 74" class="pack" xmlns="http://www.w3.org/2000/svg"><rect y="14" width="76" height="56" rx="6" fill="#fff" ${OUT}/>${lines}
+  return `<svg viewBox="-3 -2 92 74" class="supply-pack" xmlns="http://www.w3.org/2000/svg"><rect y="14" width="76" height="56" rx="6" fill="#fff" ${OUT}/>${lines}
     <path d="M6 14 L22 0 H86 L76 14 Z" fill="#fff" ${thin}/>
     <rect x="-1" y="32" width="78" height="20" fill="#ff8fb1" ${thin}/>${label(38, 42.5, 'NAPKINS', 11, '#fff')}
     <circle cx="64" cy="60" r="12" fill="#ffd23f" ${thin}/>${label(64, 61, '100', 10)}</svg>`;
