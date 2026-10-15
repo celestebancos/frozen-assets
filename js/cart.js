@@ -81,6 +81,13 @@ export function choosePayment(pocket, due, rng) {
 // How many treats come in a box from the restaurant store.
 // how many spoons or napkins come in a pack
 const PACK_QTY = Object.fromEntries(CART_SHOPS.restaurant.items.filter((i) => i.kind === 'spoons' || i.kind === 'napkins').map((i) => [i.kind, i.qty]));
+// Things you eat: corner store snacks and a packed lunch can wait in the cooler (a spot each); hot dog stand food
+// is eaten right away. { id: { name, food, emoji, keep } }
+export const FOOD = {
+  ...Object.fromEntries(Object.entries(CART_SHOPS).flatMap(([shop, S]) => S.items.filter((i) => i.food).map((i) => [i.id, { name: i.name, food: i.food, emoji: i.emoji, keep: shop === 'corner' }]))),
+  lunch: { ...K.lunch, keep: true },
+};
+export const isFood = (id) => !!FOOD[id];
 const TREATS = CART_ITEMS.filter((i) => i.kind !== 'drink');
 const DRINKS = CART_ITEMS.filter((i) => i.kind === 'drink');
 const BOX_SIZE = Object.fromEntries(CART_SHOPS.restaurant.items.filter((i) => i.kind === 'stock').map((i) => [i.item, i.qty]));
@@ -133,6 +140,9 @@ export function newCartState({ player, look, seed }) {
     txn: null, // a purchase waiting for its change to be checked
     today: null,
     days: [], // a short summary of each day
+    fed: { minute: K.homeStart, level: 100 }, // how full you were at a minute; hunger runs down from there
+    tooHungry: null, // the minute you got too hungry and went home, today
+    pantry: 0, // packed lunches you can still make at home
     stats: { sold: 0, revenue: 0, tips: 0, keptExtra: 0, toTruck: 0, soldItems: {} }, // soldItems: how many of each, ever
     log: [],
   };
@@ -178,6 +188,10 @@ export class Cart {
     }
     state.counter ??= [];
     state.recycling ??= [];
+    // older saves: full, with nothing in the pantry
+    state.fed ??= { minute: state.minute, level: 100 };
+    state.tooHungry ??= null;
+    state.pantry ??= 0;
     // older saves: smaller trays get the new spots added at the end
     for (const t of [...(state.cooler.trays || []), ...(state.cooler.tints || [])]) while (t.length < K.traySpots) t.push(null);
     if (!state.cooler.trays) {
@@ -545,14 +559,21 @@ export class Cart {
       addPile(this.pile(t.from), t.change);
     }
     const got = [];
+    const stashed = []; // snacks that went in the cooler for later
     for (const [id, q] of Object.entries(t.basket)) {
       const it = this.shopItem(t.shop, id);
       if (!it || q <= 0) continue;
-      for (let i = 0; i < q; i++) got.push(this.receive(it));
+      for (let i = 0; i < q; i++) {
+        got.push(this.receive(it));
+        if (it.kind === 'snack' && FOOD[it.id].keep && this.coolerFree > 0) {
+          this.toCooler(it.id);
+          stashed.push(it.id);
+        } else if (it.kind === 'snack') this.eatNow(it.id);
+      }
     }
     s.txn = null;
     this.logAction('buy', { shop: t.shop, basket: t.basket, cost: t.cost, from: t.from, result, wrong: t.wrong });
-    return { result, cost: t.cost, wrong: t.wrong, got };
+    return { result, cost: t.cost, wrong: t.wrong, got, stashed };
   }
   cancelPay() {
     const t = this.state.txn;
@@ -581,7 +602,10 @@ export class Cart {
         s.balloon = it.color;
         break;
       case 'snack':
-        break; // eaten right away
+        break; // eaten, or into the cooler for later (takeChange)
+      case 'pantry':
+        s.pantry += it.qty;
+        break;
       case 'toy':
         s.owned.push(it.id); // toys can be bought again
         break;
@@ -815,8 +839,13 @@ export class Cart {
   step() {
     const s = this.state;
     if (s.phase !== 'park') return false;
-    if (s.minute >= K.parkClose) {
-      // closing time: the line goes home, the last customer finishes up
+    if (s.minute < K.parkClose && s.tooHungry == null && this.hunger <= 0) {
+      s.tooHungry = s.minute;
+      this.logAction('tooHungry', { minute: s.minute });
+      this.emit({ t: 'tooHungry' });
+    }
+    if (this.closedNow) {
+      // closing time (or too hungry to go on): the line goes home, the last customer finishes up
       if (s.line.length) {
         for (const c of s.line) this.emit({ t: 'leave', id: c.id, say: 'closed' });
         s.line = [];
@@ -825,6 +854,10 @@ export class Cart {
       return false;
     }
     s.minute++;
+    if (!s.today.rumbled && this.hunger < K.hunger.low) {
+      s.today.rumbled = true;
+      this.emit({ t: 'hungry' });
+    }
     // people walking past
     const n = this.rng.poisson(this.walkRate());
     for (let i = 0; i < n; i++) {
@@ -908,6 +941,7 @@ export class Cart {
     if (!w || w.stage !== 'order') return { ok: false };
     w.from ??= w.handed.map(() => null);
     let from = null;
+    if (isFood(id)) return { ok: false, reason: 'food' }; // that's your lunch!
     if (id === 'spoon' || id === 'napkin') {
       const k = id + 's';
       if (s[k] <= 0) return { ok: false, reason: 'out' };
@@ -1092,7 +1126,7 @@ export class Cart {
     addPile(s.money.wallet, s.money.jar);
     s.money.jar = {};
     s.balloon = null;
-    const summary = { day: s.day, weather: s.weather, ...t, endBox: this.boxTotal, tipsToWallet: tips, closed: Math.min(s.minute, K.parkClose) };
+    const summary = { day: s.day, weather: s.weather, ...t, endBox: this.boxTotal, tipsToWallet: tips, closed: Math.min(s.minute, K.parkClose, s.tooHungry ?? K.parkClose), tooHungry: s.tooHungry };
     s.days.push(summary);
     if (s.days.length > 400) s.days.shift();
     s.phase = 'night';
@@ -1106,7 +1140,51 @@ export class Cart {
     s.phase = 'home';
     s.minute = K.homeStart;
     s.today = null;
+    s.fed = { minute: K.homeStart, level: 100 }; // breakfast
+    s.tooHungry = null;
     this.rollWeather();
+  }
+
+  // ---------- hunger ----------
+  // How full you are now, 0–100.
+  get hunger() {
+    const f = this.state.fed;
+    return Math.max(0, Math.min(100, f.level - (this.state.minute - f.minute) * K.hunger.perMinute));
+  }
+  // The park is closed for the day: it's past closing time, or you got too hungry.
+  get closedNow() {
+    const s = this.state;
+    return s.minute >= K.parkClose || s.tooHungry != null;
+  }
+  fill(food) {
+    this.state.fed = { minute: this.state.minute, level: Math.min(100, this.hunger + food) };
+  }
+  // Eat something right away (hot dog stand food, or a snack you didn't save).
+  eatNow(id) {
+    this.fill(FOOD[id].food);
+    this.logAction('eat', { id, hunger: Math.round(this.hunger) });
+  }
+  // Eat something from the cooler. Too late once you've gone home hungry.
+  eat(id) {
+    const s = this.state;
+    if (!isFood(id) || s.tooHungry != null) return { ok: false };
+    const c = s.cooler;
+    const t = [c.top, ...c.trays.keys()].find((k) => c.trays[k].includes(id));
+    if (t == null) return { ok: false, reason: 'none' };
+    c.trays[t][c.trays[t].indexOf(id)] = null;
+    this.eatNow(id);
+    return { ok: true, hunger: this.hunger };
+  }
+  // Make a lunch at home and put it in the cooler.
+  packLunch() {
+    const s = this.state;
+    if (s.phase !== 'home') return { ok: false, reason: 'notHome' };
+    if (s.pantry <= 0) return { ok: false, reason: 'none' };
+    if (this.coolerFree <= 0) return { ok: false, reason: 'full' };
+    s.pantry--;
+    this.toCooler('lunch');
+    this.logAction('packLunch');
+    return { ok: true };
   }
 
   // ---------- moving up to a truck ----------

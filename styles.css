@@ -993,3 +993,16 @@ button.co-item { animation: nudge 1.4s ease-in-out infinite; }
   .home-grid .kitchen, .home-grid .cash-card { align-self: stretch; }
   .home-grid .me-card .me-pic { margin-top: auto; }
 }
+/* hunger: a little bar in the park HUD (tap to eat), and a big one in the eat menu */
+.hud .tummy { display: inline-flex; align-items: center; gap: 4px; cursor: pointer; font: inherit; color: inherit; }
+.tummy .bar, .tummy-big .bar { display: inline-block; width: 46px; height: 10px; border: 2px solid var(--ink); border-radius: 6px; background: #fff; overflow: hidden; }
+.tummy .bar b, .tummy-big .bar b { display: block; height: 100%; background: #3cc6a0; transition: width 0.4s; }
+.tummy.low .bar b, .tummy-big.low .bar b { background: #e5484d; }
+.tummy.low { animation: pulse 1.2s ease-in-out infinite; }
+.tummy-big { display: flex; align-items: center; gap: 10px; font-weight: 800; margin-bottom: 10px; }
+.tummy-big .bar { flex: 1; height: 16px; }
+.food-list { display: flex; flex-direction: column; gap: 6px; margin: 8px 0; }
+.food-row { display: flex; align-items: center; gap: 10px; }
+.food-row > b { flex: 1; }
+.food-ic { display: inline-flex; align-items: center; justify-content: center; line-height: 1; }
+.food-ic .ico { width: 1.2em; height: auto; }

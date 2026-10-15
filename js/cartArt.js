@@ -1,6 +1,7 @@
 // Cartoon SVG art for the park cart: the cart, bills and coins, Italian ice, the swings, critters and stands.
 import { iceCreamSVG, iceCupArt, personSVG } from './art.js';
-import { CART_ITEM, CART_SHOPS, FREEZE_TINTS } from './config.js';
+import { CART, CART_ITEM, CART_SHOPS, FREEZE_TINTS } from './config.js';
+import { gumIcon } from './icons.js';
 
 const INK = '#2e2a45';
 const OUT = `stroke="${INK}" stroke-width="2" stroke-linejoin="round"`;
@@ -240,6 +241,13 @@ export function boxSideSVG(id, open = false) {
     ${nest(treatSVG(id, 34), 22, 8, 34)}
     ${label(w / 2 + 7, h / 2 + 22, b.name, 11, b.color, `transform="rotate(-90 ${w / 2 + 7} ${h / 2 + 22})"`)}</svg>`;
 }
+// Your own food in the cooler (a snack or a packed lunch), drawn as its emoji.
+const FOOD_LOOK = Object.fromEntries([...Object.values(CART_SHOPS).flatMap((S) => S.items.filter((i) => i.food)), { id: 'lunch', ...CART.lunch }].map((i) => [i.id, i]));
+export function foodHTML(id, size = 34) {
+  const f = FOOD_LOOK[id];
+  if (!f) return '';
+  return `<span class="food-ic" style="font-size:${Math.round(size * 0.62)}px">${f.emoji || (id === 'gum' ? gumIcon() : '🍪')}</span>`;
+}
 // Anything that goes on the counter: a treat, 'spoon' or 'napkin'.
 export function thingSVG(id, size = 34, tint = null) {
   if (id === 'spoon') return spoonSVG(size);
@@ -249,7 +257,7 @@ export function thingSVG(id, size = 34, tint = null) {
 // Any cart treat by id. tint: which color a freeze pop is (without one, a freeze pop is drawn as a few colors).
 export function treatSVG(id, size = 34, tint = null) {
   const it = CART_ITEM[id];
-  if (!it) return '';
+  if (!it) return foodHTML(id, size);
   if (it.kind === 'ice') return iceCupSVG(it.color, size, it.seeds);
   return iceCreamSVG({ pop: id, color: tint != null ? FREEZE_TINTS[tint] : null }, size);
 }

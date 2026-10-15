@@ -107,6 +107,7 @@ Before the truck, a new player starts small: **selling popsicles and Italian ice
 - **A hunger bar** goes down slowly through the day. If it runs out, you close up and go home for the day. Snacks finally *do* something.
 - **How much food a day takes:** one snack holds you off for a while, but you'll need a second one later or you go home somewhat early. One bigger lunch item (a hot dog, a packed lunch) lasts the day. Skip lunch altogether and you go home a lot earlier.
 - **The day may get longer** (today noon to 4pm) if that's needed to fit lunch, errands and selling. Tune it together with hunger.
+- *Built:* the 🍎 bar, snacks in the cooler with an "Eat it now?" prompt, hot dog stand food eaten right away, sandwich makings and "Pack a lunch" at home. With nothing to eat you go home about 2:30. The day stayed noon to 4pm. A decent bot buys a hot dog a day and reaches $500 around day 22; packing a lunch (smart bot) is cheaper.
 - **Corner store snacks** can be eaten right away or stashed in the cooler for later, where each one takes a treat spot.
 - **The hot dog stand** is eaten right away.
 - **Planning ahead saves money:** pack a lunch from home before leaving (cheaper than buying, takes a cooler spot).
@@ -130,7 +131,7 @@ Grandma gave you the cart. She's around all through the cart level and becomes a
 ### Making the cart earn more
 Target: a *decent* player reaches **$500 (cash box, bank and wallet) in about 3 weeks** (21 days), after paying for food. Measured with `node tools/cartSimulate.mjs`, whose bots take about as long to serve as a kid does.
 
-*Built:* more people walking by, more families and groups of friends (bigger orders, more adding up and change-making), bigger tips with a now-and-then $3 or $5 tip for a quick, happy sale, two fancy treats (crunch bars and sundae cones), two drinks (more wanted on hot days), 3 boxes for less at the restaurant store, and small boxes at the corner store. A decent bot now earns about $26 a day and reaches $500 around day 21, before food costs. Hunger will need a re-tune.
+*Built:* more people walking by, more families and groups of friends (bigger orders, more adding up and change-making), bigger tips with a now-and-then $3 or $5 tip for a quick, happy sale, two fancy treats (crunch bars and sundae cones), two drinks (more wanted on hot days), 3 boxes for less at the restaurant store, and small boxes at the corner store. With hunger in (and 12–13 people an hour walking by), a decent bot earns about $25 a day after buying a hot dog every day, and reaches $500 around day 22.
 
 *Later:*
 - **"2 for $3" deals.**
