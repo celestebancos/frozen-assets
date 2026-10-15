@@ -5,15 +5,17 @@ import { makeRng } from '../js/rng.js';
 
 const BOX_FOR = Object.fromEntries(CART_SHOPS.restaurant.items.filter((i) => i.kind === 'stock').map((i) => [i.item, i]));
 
-// decent: fair prices, keeps the cooler stocked, right change, a quick sale about half the time.
-// smart: also a napkin with every sale, always quick, and an umbrella and bell once there's money for them.
-// slow: fair prices and right change, but every sale is slow and the cooler only gets the cheap pops.
-// pace: how long serving takes compared with a typical kid (see serveSeconds).
+// decent: fair prices, a menu of 8 (the favorites, a fancy treat and water), right change, quick about half the time.
+// smart: a menu of 10 with both fancy treats and both drinks, a napkin with every sale, always quick, and an
+//   umbrella and bell once there's money for them.
+// slow: fair prices and right change, but every sale is slow and the cooler only has the cheap pops.
+// pace: how long serving takes compared with a typical kid (see SERVE_SEC). 'hot' on a menu is this game's big seller.
 export const CART_BOTS = {
-  decent: { fast: 0.5, pace: 1, napkin: false, gear: [], items: CART_ITEMS.map((i) => i.id) },
-  smart: { fast: 1, pace: 0.75, napkin: true, gear: ['umbrella', 'bell'], items: CART_ITEMS.map((i) => i.id) },
-  slow: { fast: 0, pace: 1.5, napkin: false, gear: [], items: ['rocketPop', 'freezePop'] },
+  decent: { fast: 0.5, pace: 1, napkin: false, gear: [], menu: ['rocketPop', 'hot', 'fudgePop', 'freezePop', 'iceCherry', 'iceBlue', 'crunchBar', 'water'] },
+  smart: { fast: 1, pace: 0.75, napkin: true, gear: ['umbrella', 'bell'], menu: ['rocketPop', 'hot', 'fudgePop', 'freezePop', 'iceCherry', 'sandwich', 'crunchBar', 'sundaeCone', 'water', 'punch'] },
+  slow: { fast: 0, pace: 1.5, napkin: false, gear: [], menu: ['rocketPop', 'freezePop'] },
 };
+const menuOf = (c, bot) => [...new Set(bot.menu.map((id) => (id === 'hot' ? c.state.hot || 'sandwich' : id)))];
 
 // Real seconds a typical kid takes: finding each treat, then counting out change (a few seconds a bill or coin).
 // The game clock keeps running at the serving pace meanwhile, so the line waits.
@@ -63,15 +65,19 @@ function morning(c, bot) {
   }
   if (c.state.spoons < 30) buy(c, { spoons: 1 });
   if (bot.napkin && c.state.napkins < 30) buy(c, { napkins: 1 });
-  // a box of anything running low (cooler + freezer under a day's worth), keeping $15 for change
-  const wantSum = bot.items.reduce((a, id) => a + c.wantOf(id), 0);
+  // Restock what's running lowest first (under two days' worth in the cooler and freezer), keeping $15 for change.
+  const items = menuOf(c, bot);
+  const wantSum = items.reduce((a, id) => a + c.wantOf(id), 0);
+  const perDay = (id) => (20 * c.wantOf(id)) / wantSum; // about how many sell in a day
+  const cover = (id) => (c.count('cooler', id) + c.count('freezer', id)) / perDay(id);
   const basket = {};
-  for (const id of bot.items) {
-    const day = Math.ceil((14 * c.wantOf(id)) / wantSum) + 2;
-    if (c.count('cooler', id) + c.count('freezer', id) < day) basket[BOX_FOR[id].id] = 1;
-  }
-  while (Object.keys(basket).length && (c.basketCost('restaurant', basket) > c.boxTotal - 1500 || Object.keys(basket).length > c.freeSlots)) {
-    delete basket[Object.keys(basket).pop()];
+  let room = c.freeSlots;
+  for (const id of [...items].sort((x, y) => cover(x) - cover(y))) {
+    if (cover(id) >= 2 || room <= 0) break;
+    const box = BOX_FOR[id];
+    if (c.basketCost('restaurant', { ...basket, [box.id]: 1 }) > c.boxTotal - 1500) continue;
+    basket[box.id] = 1;
+    room--;
   }
   if (Object.keys(basket).length) {
     c.errand('restaurant');
@@ -80,7 +86,7 @@ function morning(c, bot) {
   }
   // fill the cooler by how much people want each thing
   for (let round = 0; round < 3 && c.coolerFree > 0; round++) {
-    for (const id of bot.items) {
+    for (const id of items) {
       const target = Math.round((48 * c.wantOf(id)) / wantSum);
       const need = target - c.count('cooler', id);
       if (need > 0) c.pack(id, need);

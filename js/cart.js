@@ -81,6 +81,8 @@ export function choosePayment(pocket, due, rng) {
 // How many treats come in a box from the restaurant store.
 // how many spoons or napkins come in a pack
 const PACK_QTY = Object.fromEntries(CART_SHOPS.restaurant.items.filter((i) => i.kind === 'spoons' || i.kind === 'napkins').map((i) => [i.kind, i.qty]));
+const TREATS = CART_ITEMS.filter((i) => i.kind !== 'drink');
+const DRINKS = CART_ITEMS.filter((i) => i.kind === 'drink');
 const BOX_SIZE = Object.fromEntries(CART_SHOPS.restaurant.items.filter((i) => i.kind === 'stock').map((i) => [i.item, i.qty]));
 export const boxSize = (id) => BOX_SIZE[id] || 24;
 const emptyShelves = () => Array.from({ length: K.freezerShelves }, () => Array(K.shelfSlots).fill(null));
@@ -152,6 +154,8 @@ export class Cart {
       delete state.cups;
     }
     state.spoons ??= 0;
+    // older saves: treats added since get their fair price
+    for (const it of CART_ITEMS) state.prices[it.id] ??= it.fair;
     // older saves: a count of each treat in the freezer and the cooler, with no boxes or spots
     if (!state.freezer.shelves) {
       const old = state.freezer.pops || {};
@@ -260,6 +264,9 @@ export class Cart {
   // ---------- stock ----------
   isIce(id) {
     return CART_ITEM[id]?.kind === 'ice';
+  }
+  isDrink(id) {
+    return CART_ITEM[id]?.kind === 'drink';
   }
   // Every box at home: on the freezer shelves and on the kitchen counter, with where it is.
   // Where a box is: 's0-3' (top shelf, 4th spot), 's1-0' (bottom shelf, 1st spot), 'c2' (3rd box on the counter).
@@ -714,13 +721,15 @@ export class Cart {
       put(100, rng.int(0, 3));
       put(25, rng.int(0, 4));
     }
-    // the most each person would pay for each thing, and what they like best
+    // the most each person would pay for each thing, and what they like best. Some want a drink too.
+    const thirst = Math.min(CR.drink.max, Math.max(CR.drink.min, CR.drink.base + (s.weather.temp - 80) * CR.drink.perDegree));
+    const rank = (list) => list.map((it) => [it.id, this.wantOf(it.id) * rng.range(0.4, 1.6)]).sort((x, y) => y[1] - x[1]).map((x) => x[0]);
     const wantFor = () => {
       const [a, b] = CR.wtp[payer] || CR.wtp.adult;
       const f = rng.range(a, b) * (regular ? CR.regular.wtp : 1);
-      const order = CART_ITEMS.map((it) => [it.id, this.wantOf(it.id) * rng.range(0.4, 1.6)]).sort((x, y) => y[1] - x[1]).map((x) => x[0]);
+      const order = rank(TREATS);
       if (regular) order.unshift(...order.splice(order.indexOf(regular.fav), 1));
-      return { f, order };
+      return { f, order, drinks: rng.chance(thirst) ? rank(DRINKS) : [] };
     };
     const wants = members.filter((m) => m.kind !== 'dog').map(wantFor);
     return {
@@ -735,7 +744,8 @@ export class Cart {
       honest: rng.chance(CR.honest),
     };
   }
-  // What a customer would order right now: one thing per person, their favorite they can afford.
+  // What a customer would order right now: one treat per person, their favorite they can afford (or a drink if
+  // there's no treat for them), and a drink with it if they're thirsty.
   // { items } or { no: 'tooMuch' | 'nothing' | 'fav', fav }.
   orderFor(c) {
     const s = this.state;
@@ -745,7 +755,7 @@ export class Cart {
     let missedFav = null;
     for (const w of c.wants) {
       let got = null;
-      for (const id of w.order) {
+      for (const id of [...w.order, ...(w.drinks || [])]) {
         const fair = CART_ITEM[id].fair;
         const price = s.prices[id];
         const reserved = items.filter((x) => x === id).length;
@@ -764,6 +774,17 @@ export class Cart {
       if (got) {
         items.push(got);
         budget -= s.prices[got];
+      }
+      // a drink to go with it
+      if (got && !this.isDrink(got)) {
+        for (const id of w.drinks || []) {
+          const reserved = items.filter((x) => x === id).length;
+          if (this.count('cooler', id) <= reserved) continue;
+          if (s.prices[id] > CART_ITEM[id].fair * w.f || s.prices[id] > budget) continue;
+          items.push(id);
+          budget -= s.prices[id];
+          break;
+        }
       }
     }
     if (items.length) return { items, missedFav };

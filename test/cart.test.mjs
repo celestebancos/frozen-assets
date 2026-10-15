@@ -670,3 +670,40 @@ test('each game has one more big seller besides rocket pops, with two boxes on t
   delete c.state.hot;
   assert.ok(new Cart(JSON.parse(JSON.stringify(c.state))).state.hot);
 });
+
+test('on a hot day some people want a drink with their treat; drinks alone if no treat is left', () => {
+  const c = Cart.create({ player: 'Test', seed: 12 });
+  stock(c, 'rocketPop', 24);
+  stock(c, 'water', 24);
+  c.pack('rocketPop', 24);
+  c.pack('water', 24);
+  const thirsty = (temp) => {
+    c.state.weather = { temp, rain: false };
+    let n = 0;
+    for (let i = 0; i < 300; i++) {
+      const cust = c.makeCustomer('adult');
+      cust.pocket = { 1000: 1 };
+      if (c.orderFor(cust).items?.join() === 'rocketPop,water') n++;
+    }
+    return n;
+  };
+  const hot = thirsty(98);
+  const cool = thirsty(72);
+  assert.ok(hot > 90, `hot day: ${hot} of 300 want water too`);
+  assert.ok(cool < hot / 2, `cool day: ${cool}`);
+  // no treats left: a thirsty person still buys a drink
+  const cust = c.makeCustomer('adult');
+  cust.wants[0].drinks = ['water'];
+  cust.pocket = { 500: 1 };
+  for (let t = 0; t < 2; t++) c.state.cooler.trays[t] = c.state.cooler.trays[t].map((x) => (x === 'water' ? x : null));
+  assert.deepEqual(c.orderFor(cust).items, ['water']);
+});
+
+test('older saves get prices for treats added since', () => {
+  const c = Cart.create({ player: 'Test', seed: 1 });
+  delete c.state.prices.crunchBar;
+  delete c.state.prices.water;
+  const again = new Cart(JSON.parse(JSON.stringify(c.state)));
+  assert.equal(again.state.prices.crunchBar, 300);
+  assert.equal(again.state.prices.water, 100);
+});

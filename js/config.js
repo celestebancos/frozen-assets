@@ -395,6 +395,12 @@ export const CART_ITEMS = [
   { id: 'iceStrawberry', name: 'Strawberry ice', kind: 'ice', fair: 200, want: 3, color: '#ffa3bd', seeds: true },
   { id: 'iceLemon', name: 'Lemon ice', kind: 'ice', fair: 200, want: 2, color: '#ffe066' },
   { id: 'iceBlue', name: 'Blue ice', kind: 'ice', fair: 200, want: 3, color: '#4cc9f0' },
+  // Fancy treats: they cost more, so a sale earns more. Kids with pocket money usually can't afford them.
+  { id: 'crunchBar', name: 'Chocolate crunch bar', kind: 'pop', fair: 300, want: 3 },
+  { id: 'sundaeCone', name: 'Sundae cone', kind: 'pop', fair: 350, want: 3 },
+  // Drinks: some people want one with their treat, more on a hot day. They take a spot in the cooler too.
+  { id: 'water', name: 'Water bottle', kind: 'drink', fair: 100, want: 3 },
+  { id: 'punch', name: 'Fruit punch', kind: 'drink', fair: 150, want: 2, plural: 'fruit punches' },
 ];
 // Freeze pops come in a box of assorted colors. The color is just for looks.
 export const FREEZE_TINTS = ['#ff4d6d', '#ff9f1c', '#ffd23f', '#5fd068', '#4cc9f0', '#c08cff'];
@@ -421,6 +427,10 @@ export const CART_SHOPS = {
       { id: 'strawberryCups', name: 'Strawberry ice', note: 'box of 24 cups', kind: 'stock', item: 'iceStrawberry', qty: 24, price: 950 },
       { id: 'lemonCups', name: 'Lemon ice', note: 'box of 24 cups', kind: 'stock', item: 'iceLemon', qty: 24, price: 950 },
       { id: 'blueCups', name: 'Blue ice', note: 'box of 24 cups', kind: 'stock', item: 'iceBlue', qty: 24, price: 950 },
+      { id: 'crunchBox', name: 'Chocolate crunch bars', note: 'box of 12', kind: 'stock', item: 'crunchBar', qty: 12, price: 1200 },
+      { id: 'coneBox', name: 'Sundae cones', note: 'box of 12', kind: 'stock', item: 'sundaeCone', qty: 12, price: 1500 },
+      { id: 'waterBox', name: 'Water bottles', note: 'case of 24', kind: 'stock', item: 'water', qty: 24, price: 500 },
+      { id: 'punchBox', name: 'Fruit punch', note: 'case of 24', kind: 'stock', item: 'punch', qty: 24, price: 800 },
       { id: 'spoons', name: 'Spoons', note: 'pack of 100', kind: 'spoons', qty: 100, price: 200 },
       { id: 'napkins', name: 'Napkins', note: 'pack of 100', kind: 'napkins', qty: 100, price: 200 },
       { id: 'umbrella', name: 'Big umbrella', note: 'shade for the cart', kind: 'gear', price: 1500 },
@@ -508,6 +518,8 @@ export const CART_CROWD = {
   // big: now and then a happy customer after a quick sale leaves a big tip
   tip: { happy: 0.5, fast: 0.3, slow: 0.08, amounts: [25, 50, 50, 100, 100], big: 0.06, bigAmounts: [300, 500] },
   regular: { visit: 0.5, wtp: 1.4, missLimit: 3, awayDays: 5, friend: 0.3 },
+  // chance each person wants a drink too: more on hot days (per degree over 80°F)
+  drink: { base: 0.15, perDegree: 0.02, min: 0.05, max: 0.5 },
 };
 
 // Regulars: the same people most days, each with a favorite.
