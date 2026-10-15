@@ -702,6 +702,61 @@ table.books tr.bottom td { font-weight: 800; font-size: 18px; background: #fff3b
 /* the kid steps away (corner store); a tip coin hops into the jar */
 .park .cart-spot .me { transition: opacity 0.6s; }
 .park .cart-spot .me.gone { opacity: 0; }
+
+/* Playing with a toy while nobody's at the cart (toyPlaySVG draws it over the cart, in the cart's units). */
+.park .cart-spot .toy-play { position: absolute; left: 0; top: 0; width: 100%; pointer-events: none; z-index: 1; animation: toyIn 0.4s ease-out; transition: opacity 0.35s; }
+.park .cart-spot .toy-play.away, .park .cart-spot .me.gone ~ .toy-play { opacity: 0; }
+@keyframes toyIn { from { opacity: 0; } }
+.toy-svg .roll, .toy-svg .wheel, .toy-svg .yy-spin, .toy-svg .kite-bob { transform-box: fill-box; transform-origin: 50% 50%; }
+/* the ball: up beside your head, and back down into your hand behind the lid */
+.toy-svg .toss { animation: toyToss 1.2s infinite; }
+.toy-svg .roll { animation: toySpin 1.2s linear infinite; }
+@keyframes toyToss {
+  0%, 100% { transform: translateY(0); animation-timing-function: cubic-bezier(0.2, 0.7, 0.4, 1); }
+  45% { transform: translateY(-56px); animation-timing-function: cubic-bezier(0.6, 0, 0.8, 0.3); }
+  85% { transform: translateY(0); }
+}
+/* the car: along the lid, turn around, and back */
+.toy-svg .drive { animation: toyDrive 6s linear infinite; }
+.toy-svg .wheel { animation: toySpin 0.45s linear infinite; }
+.toy-svg .zoom { animation: toyZoom 0.3s steps(2) infinite; }
+@keyframes toyDrive {
+  0% { transform: translateX(62px) scaleX(1); }
+  44% { transform: translateX(166px) scaleX(1); }
+  50% { transform: translateX(166px) scaleX(-1); }
+  94% { transform: translateX(62px) scaleX(-1); }
+  100% { transform: translateX(62px) scaleX(1); }
+}
+@keyframes toyZoom { 50% { opacity: 0.3; } }
+/* the yo-yo: down the string (which plays out with it), a quick spin at the bottom, and back up */
+.toy-svg .yy-drop { animation: yoyoDrop 1.8s infinite; }
+.toy-svg .yy-string { transform-box: fill-box; transform-origin: 50% 0; animation: yoyoString 1.8s infinite; }
+.toy-svg .yy-spin { animation: toySpin 0.35s linear infinite; }
+@keyframes yoyoDrop {
+  0%, 100% { transform: translateY(-50px); animation-timing-function: cubic-bezier(0.5, 0, 0.9, 0.6); }
+  42% { transform: translateY(0); }
+  58% { transform: translateY(0); animation-timing-function: cubic-bezier(0.1, 0.4, 0.5, 1); }
+}
+@keyframes yoyoString {
+  0%, 100% { transform: scaleY(0.09); animation-timing-function: cubic-bezier(0.5, 0, 0.9, 0.6); }
+  42% { transform: scaleY(1); }
+  58% { transform: scaleY(1); animation-timing-function: cubic-bezier(0.1, 0.4, 0.5, 1); }
+}
+/* the kite: swinging on its string around your hand, and bobbing in the wind */
+.toy-svg .kite-sway { transform-origin: 128px 92px; animation: kiteSway 4s ease-in-out infinite alternate; }
+.toy-svg .kite-bob { transform-origin: 50% 30%; animation: kiteBob 1.3s ease-in-out infinite alternate; }
+@keyframes kiteSway { from { transform: rotate(-4deg); } to { transform: rotate(5deg); } }
+@keyframes kiteBob { from { transform: rotate(-8deg); } to { transform: rotate(8deg) translateY(-3px); } }
+@keyframes toySpin { to { transform: rotate(360deg); } }
+/* and you move along with your toy */
+.park .cart-spot.playing .me { transform-origin: 50% 100%; }
+.park .cart-spot[data-toy='ball'] .me { animation: meToss 1.2s ease-in-out infinite; }
+.park .cart-spot[data-toy='car'] .me { animation: meWatch 6s ease-in-out infinite; }
+.park .cart-spot[data-toy='yoyo'] .me { animation: meToss 1.8s ease-in-out infinite; }
+.park .cart-spot[data-toy='kite'] .me { animation: meWatch 8s ease-in-out infinite; }
+@keyframes meToss { 0%, 70%, 100% { transform: translateY(0); } 25% { transform: translateY(-3%); } }
+@keyframes meWatch { 0%, 100% { transform: rotate(-2.5deg); } 47% { transform: rotate(2.5deg); } }
+@media (prefers-reduced-motion: reduce) { .toy-svg *, .park .cart-spot.playing .me { animation: none !important; } }
 .park .tip-coin { position: absolute; left: 70%; bottom: 60%; z-index: 2; animation: tipHop 1.3s ease-out forwards; pointer-events: none; }
 @keyframes tipHop { 0% { transform: translateY(0) scale(0.6); opacity: 0; } 25% { opacity: 1; transform: translateY(-40px) scale(1); } 100% { transform: translateY(-90px) scale(0.8); opacity: 0; } }
 /* the change buttons sit in one row, Give change included */
