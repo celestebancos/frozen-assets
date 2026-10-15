@@ -853,12 +853,12 @@ body { position: fixed; inset: 0; }
 @media (max-width: 640px) {
   .kitchen { padding: 10px; }
   .kit-top { flex-direction: column; align-items: stretch; }
-  /* keep the open box beside the cooler, so you see each treat land */
-  .kit-pack { flex-wrap: nowrap; gap: 8px; align-items: center; }
-  .kit-pack .pk-left { flex: 0 0 36%; }
-  .kit-pack .pk-right { flex: 1 1 0; min-width: 0; }
-  .kit-pack .open-box { grid-template-columns: repeat(4, minmax(0, 1fr)); width: 100%; padding: 6px; box-sizing: border-box; }
-  .kit-pack .open-box.big { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+  /* the open box sits right above the cooler (8 across, like a tray), so you see each treat land */
+  .kit-pack { flex-direction: column; flex-wrap: nowrap; gap: 6px; align-items: stretch; }
+  .kit-pack .pk-left { flex: none; display: flex; gap: 8px; align-items: center; }
+  .kit-pack .pk-right { flex: none; max-width: none; min-width: 0; }
+  .kit-pack .open-box { grid-template-columns: repeat(8, minmax(0, 1fr)); flex: 1; min-width: 0; padding: 4px; box-sizing: border-box; }
+  .kit-pack .open-box.big { grid-template-columns: repeat(10, minmax(0, 1fr)); }
   .kit-pack .pk-left .btn { font-size: 14px; padding: 6px 8px; }
   .kit-pack .cl-body { padding: 5px 5px 18px; } .kit-pack .cl-tray { padding: 4px; gap: 3px; }
   .kit-pack .cl-lid { height: 16px; margin-bottom: 4px; } .kit-pack .cl-lid i { height: 10px; bottom: -8px; }
@@ -872,7 +872,7 @@ body { position: fixed; inset: 0; }
 .cl-lid i { position: absolute; bottom: -12px; left: 20%; width: 30px; height: 14px; background: #e3e8ee; border: 2px solid var(--ink); border-radius: 4px; }
 .cl-lid i + i { left: auto; right: 20%; }
 .cl-body { width: 100%; background: #7cc8ff; border: 3px solid var(--ink); border-radius: 16px; padding: 8px 8px 22px; }
-.cl-tray { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 4px; background: #eef8ff; border: 3px solid var(--ink); border-radius: 10px; padding: 6px; }
+.cl-tray { display: grid; grid-template-columns: repeat(var(--cols, 8), minmax(0, 1fr)); gap: 4px; background: #eef8ff; border: 3px solid var(--ink); border-radius: 10px; padding: 6px; }
 .spot { aspect-ratio: 1; border: 1.5px solid #a9d8f2; background: #d9f1ff; border-radius: 8px; padding: 3px; display: grid; place-items: center; min-width: 0; }
 .spot > svg { width: 100%; height: 100%; display: block; }
 .spot.sel { background: #fff3b0; border: 3px solid var(--ink); transform: translateY(-3px); }

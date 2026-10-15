@@ -171,12 +171,13 @@ test('packing one at a time: first empty spot, two trays, swaps, and back in the
   assert.equal(c.unpackOne(1, 's0-0').reason, 'kind');
   assert.ok(c.unpackOne(7, 's0-0').ok);
   assert.equal(c.boxAt('s0-0').n, 23);
-  // a full top tray: swap trays to fill the other one
-  while (c.packOne('s0-0').ok);
-  assert.equal(c.packOne('s0-0').reason, 'trayFull');
+  // a full top tray: swap trays to fill the other one (a second box, since a tray holds more than one box)
+  c.state.freezer.shelves[0][2] = { item: 'rocketPop', n: 24 };
+  while (c.packOne('s0-0').ok || c.packOne('s0-2').ok);
+  assert.equal(c.packOne('s0-2').reason, 'trayFull');
   c.swapTrays();
   assert.equal(c.topTray.filter(Boolean).length, 0);
-  assert.ok(c.packOne('s0-0').ok);
+  assert.ok(c.packOne('s0-2').ok);
   assert.equal(c.spaceUsed('cooler'), CART.traySpots + 1);
 });
 
@@ -720,7 +721,7 @@ test('older saves get prices for treats added since', () => {
   assert.equal(again.state.prices.water, 100);
 });
 
-test('3 boxes of a kind cost less at the restaurant store; small boxes at the corner store hold 12', async () => {
+test('3 boxes of a kind cost less at the restaurant store; small boxes at the corner store hold 6', async () => {
   const { bulkPrice, capOf } = await import('../js/cart.js');
   const c = Cart.create({ player: 'Test', seed: 2 });
   const rocket = c.shopItem('restaurant', 'rocketBox');
@@ -728,35 +729,35 @@ test('3 boxes of a kind cost less at the restaurant store; small boxes at the co
   assert.equal(c.basketCost('restaurant', { rocketBox: 3 }), 2150);
   assert.equal(c.basketCost('restaurant', { rocketBox: 4 }), 2150 + 900);
   assert.equal(c.basketCost('restaurant', { rocketBox: 2, fudgeBox: 1 }), 900 * 2 + 1100, 'the deal is 3 of the same kind');
-  assert.equal(c.basketCost('corner', { rocketSmall: 3 }), 1800, 'no deal at the corner store');
-  // a small box bought at home lands on the counter and holds 12
+  assert.equal(c.basketCost('corner', { rocketSmall: 3 }), 350 * 3, 'no deal at the corner store');
+  // a small box bought at home lands on the counter and holds 6
   c.state.money.box = { 2000: 2 };
   buy(c, 'corner', { rocketSmall: 1 });
   const box = c.state.counter.at(-1);
-  assert.equal(capOf(box), 12);
-  assert.equal(box.n, 12);
+  assert.equal(capOf(box), 6);
+  assert.equal(box.n, 6);
   c.moveBox('c0', 's0-0');
   c.pack('rocketPop', 2);
   assert.equal(c.unpackOne(c.topTray.indexOf('rocketPop'), 's0-0').ok, true);
   c.unpackOne(c.topTray.indexOf('rocketPop'), 's0-0');
-  assert.equal(c.boxAt('s0-0').n, 12);
+  assert.equal(c.boxAt('s0-0').n, 6);
   c.pack('rocketPop', 1);
-  c.boxAt('s0-0').n = 12;
+  c.boxAt('s0-0').n = 6;
   assert.equal(c.unpackOne(c.topTray.indexOf('rocketPop'), 's0-0').reason, 'boxFull', 'a full small box takes no more');
 });
 
 test('at the park, a small box goes right into the cooler, if it fits', () => {
   const c = Cart.create({ player: 'Test', seed: 2 });
   c.state.money.box = { 2000: 2 };
-  stock(c, 'freezePop', 40);
-  c.pack('freezePop', 40);
+  stock(c, 'freezePop', CART.coolerSpace - 4);
+  c.pack('freezePop', CART.coolerSpace - 4);
   c.state.counter = [];
   c.openPark();
-  assert.equal(c.checkBasket('corner', { rocketSmall: 1 }).reason, 'cooler', 'only 8 spots left');
+  assert.equal(c.checkBasket('corner', { rocketSmall: 1 }).reason, 'cooler', 'only 4 spots left');
   const tray = c.state.cooler.trays[0];
-  for (let i = 0; i < 4; i++) tray[tray.indexOf('freezePop')] = null;
+  for (let i = 0; i < 2; i++) tray[tray.indexOf('freezePop')] = null;
   assert.ok(c.checkBasket('corner', { rocketSmall: 1 }).ok);
   buy(c, 'corner', { rocketSmall: 1 });
-  assert.equal(c.count('cooler', 'rocketPop'), 12);
+  assert.equal(c.count('cooler', 'rocketPop'), 6);
   assert.equal(c.state.counter.length, 0);
 });
