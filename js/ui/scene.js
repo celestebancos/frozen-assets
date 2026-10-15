@@ -288,6 +288,8 @@ export class Scene {
       case 'tooExpensive': {
         return bad(`${money(m.askedPrice || 0)} for ${itemName(m.askedItem || m.want)}? Too expensive!`, '💸');
       }
+      case 'lineTooLong':
+        return bad('That line is too long!', '😩');
       case 'mad':
         return m.declined ? bad('No thanks.', '🙅') : bad(`No ${NAMES[m.missing] || 'ice cream'}?!`, '😠');
       case 'giftCard':

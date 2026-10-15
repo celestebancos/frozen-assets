@@ -657,6 +657,7 @@ export class Game {
     s.minutesHere = {};
     s.driving = null;
     s.today = { customers: 0, parties: 0, sold: {}, toppings: {}, tooExpensive: 0, tooExpensiveWants: {}, outOfStock: 0, revenue: 0, cardsSold: 0, cardsRedeemed: 0, startCash: this.cash, drops: 0, mood: 0, bySpot: {}, broke: 0, alreadyHad: 0, curb: 0 };
+    s.queue = 0; // nobody waiting at the window yet
     if (!s.week || s.week.gw !== this.gw) s.week = { gw: this.gw, sold: {}, toppings: {}, customers: 0, tooExpensive: 0, tooExpensiveWants: {}, outOfStock: 0, broke: 0, startTotals: { ...s.truth } };
     s.dayFactor = this.rng.range(...C.dayRandom);
     // supply sale roll
@@ -1099,7 +1100,24 @@ export class Game {
     const sat = fresh ? 1 : this.saturation(spotId);
     const weather = this.heat() * (s.weather.rain ? C.weather.rainDemand : 1);
     const season = C.seasonCurve[this.week - 1];
-    return (C.demandScale / 60) * this.spotProfile(spotId, hour) * season * weather * s.popularity * (1 + s.buzz) * sat * s.dayFactor;
+    return (C.demandScale / 60) * this.spotProfile(spotId, hour) * season * weather * s.popularity * (1 + s.buzz) * sat * s.dayFactor * this.dealAppeal();
+  }
+  // How cheap the menu is next to fair (average of what's on it and in stock): 1 = fair, 0.5 = half price.
+  priceRatio() {
+    const p = this.state.prices;
+    const r = [
+      ...CONTAINERS.filter((c) => this.containerAvail(c.id)).map((c) => p[c.id] / C.fairPrice[c.id]),
+      ...POPS.filter((x) => !x.drink && this.popAvail(x.id)).map((x) => p[x.id] / C.fairPrice[x.id]),
+    ];
+    return r.length ? r.reduce((a, b) => a + b, 0) / r.length : 1;
+  }
+  // Super-low prices draw a crowd.
+  dealAppeal() {
+    const D = C.dealCrowd;
+    // checked every half hour (and whenever a price changes): what's in stock changes slowly
+    const key = `${this.state.day}:${Math.floor(this.state.minute / 30)}`;
+    if (this._deal?.key !== key) this._deal = { key, v: Math.min(D.max, 1 + D.strength * Math.max(0, D.below - this.priceRatio())) };
+    return this._deal.v;
   }
 
   // ---------- the main tick ----------
@@ -1116,6 +1134,7 @@ export class Game {
     if (s.route.some((r) => r.at === s.minute) && stop && stop !== s.spot && !(s.driving && s.driving.to === stop)) this.driveTo(stop, false);
 
     s.fuel = Math.max(0, s.fuel - C.gas.idleGalPerHour / 60);
+    s.queue = Math.max(0, (s.queue || 0) - C.service.perMinute); // the window serves the line
     if (s.driving) {
       const d = s.driving;
       this.countMinute(d.to);
@@ -1294,6 +1313,19 @@ export class Game {
 
   arrive(party) {
     const s = this.state;
+    // a long line at the window: they'd wait too long, so they walk away
+    s.queue ||= 0;
+    if (!party.cardIds && s.queue / C.service.perMinute > C.service.patience) {
+      for (const m of party.members) (m.result = m.kind === 'dog' ? 'none' : 'lineTooLong'), (m.done = true);
+      const n = party.members.filter((m) => m.kind !== 'dog').length;
+      s.today.lineLeft = (s.today.lineLeft || 0) + n;
+      s.week.lineLeft = (s.week.lineLeft || 0) + n;
+      this.nudge('lineLeft', n);
+      this.emit({ t: 'party', party: { id: party.id, type: party.type, members: party.members } });
+      this.finishParty(party);
+      return;
+    }
+    s.queue += party.members.length;
     s.today.parties++;
     const people = party.members.filter((m) => m.kind !== 'dog');
     s.today.customers += people.length;
@@ -1880,6 +1912,7 @@ export class Game {
       tooExpensive: t.tooExpensive,
       tooExpensiveWants: t.tooExpensiveWants || {},
       broke: t.broke || 0,
+      lineLeft: t.lineLeft || 0,
       alreadyHad: t.alreadyHad || 0,
       curbStops: t.curb || 0,
       bySpot: Object.fromEntries(Object.entries(t.bySpot || {}).map(([k, v]) => [k, { minutes: s.minutesHere[k] || 0, ...v }])),
@@ -1944,6 +1977,7 @@ export class Game {
   setPrice(id, cents) {
     const from = this.state.prices[id];
     this.state.prices[id] = Math.max(0, Math.min(5000, Math.round(cents)));
+    this._deal = null; // the crowd sees the new prices
     if (from !== this.state.prices[id]) this.logAction('price', { id, from, to: this.state.prices[id] });
   }
   setMenuOn(id, on) {
