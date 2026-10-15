@@ -370,10 +370,11 @@ export const CART = {
   // Minutes each errand takes. From the park, the corner store means closing the cart for a bit.
   errand: { restaurant: 45, corner: 15, cornerFromPark: 20 },
   refillBelow: 25, // a new pack of spoons or napkins goes on the cart only once it's down to fewer than this
-  // The cooler has two trays of 24 spots (6 across, 4 down), one on top of the other. Each pop or cup takes a spot.
+  // The cooler has two trays of 32 spots (8 across, 4 down), one on top of the other. Each pop or cup takes a spot.
   coolerTrays: 2,
-  traySpots: 24,
-  coolerSpace: 48,
+  traySpots: 32,
+  trayCols: 8,
+  coolerSpace: 64,
   // The freezer at home has two shelves, each with room for 6 boxes standing side by side.
   freezerShelves: 2,
   shelfSlots: 6,
@@ -452,9 +453,9 @@ export const CART_SHOPS = {
       { id: 'juice', name: 'Juice box', kind: 'snack', price: 125, emoji: '🧃' },
       // Small boxes, handy near the park but they cost more per treat than at the restaurant store. Bought at
       // the park, they go right into the cooler.
-      { id: 'rocketSmall', name: 'Rocket pops', note: 'box of 12', kind: 'stock', item: 'rocketPop', qty: 12, price: 600 },
-      { id: 'fudgeSmall', name: 'Fudge pops', note: 'box of 12', kind: 'stock', item: 'fudgePop', qty: 12, price: 750 },
-      { id: 'pushSmall', name: 'Orange push pops', note: 'box of 12', kind: 'stock', item: 'pushOrange', qty: 12, price: 500 },
+      { id: 'rocketSmall', name: 'Rocket pops', note: 'box of 6', kind: 'stock', item: 'rocketPop', qty: 6, price: 350 },
+      { id: 'fudgeSmall', name: 'Fudge pops', note: 'box of 6', kind: 'stock', item: 'fudgePop', qty: 6, price: 425 },
+      { id: 'pushSmall', name: 'Orange push pops', note: 'box of 6', kind: 'stock', item: 'pushOrange', qty: 6, price: 300 },
       { id: 'ball', name: 'Bouncy ball', kind: 'toy', price: 100, emoji: '🔴' },
       { id: 'car', name: 'Toy car', kind: 'toy', price: 250, emoji: '🏎️' },
       { id: 'yoyo', name: 'Yo-yo', kind: 'toy', price: 300, emoji: '🪀' },
