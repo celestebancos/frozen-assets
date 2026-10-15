@@ -36,6 +36,7 @@ Not built yet. Most of these teach that **profit isn't cash**, and most add a ne
   - Padded gas receipts.
   - Ways to stop it: whoever counts the cash doesn't file, surprise counts, comparing weeks.
 - **Money laundering, gently:** a "friend" pays you to report extra sales. The clue is sales way beyond what your supplies could make.
+- **Grandma's been laundering money.** The clue is in the books: her investments or "gifts" don't add up. Do you blow the whistle on Grandma, even though she's helped you all along?
 - **The bank reads your books** at loan time: clean books mean a cheaper loan.
 
 ## Suggested order

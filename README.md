@@ -116,7 +116,7 @@ node tools/cartSimulate.mjs 30 60          # cart bots: 30 players, 60 days each
 TRACE=1 node tools/cartSimulate.mjs 5 90 decent  # cart money every 5 days
 ```
 
-The cart bots (`tools/cartBots.mjs`) are *decent* (fair prices, keeps stocked, right change), *smart* (also napkins, quick sales, umbrella and bell) and *slow* (only the cheap pops, slow sales). They report how much the cart earns a day and which day it reaches $200, $300, $500 and $1,000.
+The cart bots (`tools/cartBots.mjs`) are *decent* (fair prices, keeps stocked, right change), *smart* (also napkins, quick sales, umbrella and bell) and *slow* (only the cheap pops, slow sales). They report how much the player earns a day (cash box, bank and wallet) and which day it reaches $200, $300, $500 and $1,000.
 
 ## Developing
 

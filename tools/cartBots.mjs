@@ -122,7 +122,7 @@ function stockValue(c) {
   }, 0);
 }
 
-// Play up to `days` days. Returns the cart's money each night, and the day it first reached each goal.
+// Play up to `days` days. Returns the player's money (cart and wallet) each night, and the day it first reached each goal.
 export function playCart(name, seed, days = 60, goals = [20000, 30000, 50000, 100000]) {
   const bot = CART_BOTS[name];
   const c = Cart.create({ player: name, seed });
@@ -132,7 +132,7 @@ export function playCart(name, seed, days = 60, goals = [20000, 30000, 50000, 10
   for (let d = 1; d <= days; d++) {
     morning(c, bot);
     park(c, bot, rng);
-    const money = c.businessMoney;
+    const money = c.businessMoney + c.walletTotal; // cash box, bank and wallet (tips land in the wallet)
     nights.push({ day: d, money, stock: Math.round(stockValue(c)), sales: c.state.days.at(-1).revenue, customers: c.state.days.at(-1).customers });
     for (const g of goals) if (reached[g] == null && money >= g) reached[g] = d;
     c.nextDay();
