@@ -400,11 +400,11 @@ export const CART = {
   // Each game, one of these is a big seller too (as popular as rocket pops, about 1 order in 5). Lemon ice is
   // never one. It stays the favorite on the truck.
   hotChoices: ['fudgePop', 'freezePop', 'pushOrange', 'pushGrape', 'orangeCream', 'shortcake', 'sandwich', 'iceCherry', 'iceStrawberry', 'iceBlue', 'crunchBar', 'sundaeCone'],
-  hotWant: 3.35,
+  hotWant: 3.55,
 };
 
 export const CART_ITEMS = [
-  { id: 'rocketPop', name: 'Rocket pop', kind: 'pop', fair: 150, want: 3.35 }, // a big seller: about 1 order in 5
+  { id: 'rocketPop', name: 'Rocket pop', kind: 'pop', fair: 150, want: 3.55 }, // a big seller: about 1 order in 5
   { id: 'fudgePop', name: 'Fudge pop', kind: 'pop', fair: 175, want: 3 },
   { id: 'freezePop', name: 'Freeze pop', kind: 'pop', fair: 50, want: 3 },
   { id: 'pushOrange', name: 'Orange push pop', kind: 'pop', fair: 100, want: 3 },
