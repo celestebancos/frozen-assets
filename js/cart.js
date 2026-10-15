@@ -420,13 +420,15 @@ export class Cart {
     if (!done) return { ok: false, reason: this.count('freezer', id) ? 'full' : 'none' };
     return { ok: true, n: done };
   }
-  // Open a pack of spoons or napkins from the shelf at home onto the cart.
+  // Open a pack of spoons or napkins from the shelf at home onto the cart: one pack at a time, and only once the
+  // cart is running low.
   openPack(kind) {
     const s = this.state;
-    if (s.phase !== 'home' || !['spoons', 'napkins'].includes(kind) || !(s.packs[kind] > 0)) return false;
+    if (s.phase !== 'home' || !['spoons', 'napkins'].includes(kind) || !(s.packs[kind] > 0)) return { ok: false };
+    if (s[kind] >= K.refillBelow) return { ok: false, reason: 'notLow' };
     s.packs[kind]--;
     s[kind] += PACK_QTY[kind];
-    return true;
+    return { ok: true };
   }
   // Is there one in the cooler?
   canSell(id) {

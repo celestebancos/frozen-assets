@@ -75,10 +75,19 @@ test('starting money, shopping, change and the freezer', () => {
   // spoons wait on the shelf at home until a pack is opened onto the cart
   assert.equal(c.state.spoons, 0);
   assert.equal(c.state.packs.spoons, 1);
-  assert.ok(c.openPack('spoons'));
+  c.state.packs.spoons = 2;
+  assert.ok(c.openPack('spoons').ok);
   assert.equal(c.state.spoons, 100);
-  assert.equal(c.state.packs.spoons, 0);
-  assert.ok(!c.openPack('spoons'), 'no packs left');
+  assert.equal(c.state.packs.spoons, 1);
+  // one pack at a time: the next one waits until the cart runs low
+  assert.equal(c.openPack('spoons').reason, 'notLow');
+  c.state.spoons = CART.refillBelow;
+  assert.equal(c.openPack('spoons').reason, 'notLow');
+  c.state.spoons = CART.refillBelow - 1;
+  assert.ok(c.openPack('spoons').ok);
+  assert.equal(c.state.spoons, CART.refillBelow - 1 + 100);
+  c.state.spoons = 0;
+  assert.ok(!c.openPack('spoons').ok, 'no packs left');
   const expected = 4000 - r.cost + (r.result === 'shortChanged' ? r.wrong : r.result === 'extra' ? r.wrong : 0);
   assert.equal(c.boxTotal, expected);
   // a complaint about right change is harmless; about wrong change gets it fixed

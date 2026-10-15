@@ -367,6 +367,7 @@ export const CART = {
   parkClose: 16 * 60,
   // Minutes each errand takes. From the park, the corner store means closing the cart for a bit.
   errand: { restaurant: 45, corner: 15, cornerFromPark: 20 },
+  refillBelow: 25, // a new pack of spoons or napkins goes on the cart only once it's down to fewer than this
   // The cooler has two trays of 24 spots (6 across, 4 down), one on top of the other. Each pop or cup takes a spot.
   coolerTrays: 2,
   traySpots: 24,
