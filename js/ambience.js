@@ -3,7 +3,7 @@
 // Every sound is a recording in sounds/, listed in sounds/sounds.json. Plays through the music's volume and mute.
 
 // How often each sound happens (times per minute of real time) and how loud the steady beds are, by place.
-// Beds: traffic (a low rumble), murmur (a crowd far away), rain.
+// Beds: traffic (a low rumble), murmur (a crowd far away), park (kids playing in a park), rain.
 const MIX = {
   street: { car: 1.5, bird: 8, dog: 2, laugh: 2, voices: 1, traffic: 0.12, murmur: 0.06 },
   downtownStreet: { car: 6, horn: 1.5, bird: 1.5, voices: 4, traffic: 0.4, murmur: 0.3 },
@@ -17,9 +17,9 @@ const MIX = {
   office: { car: 5, horn: 1, voices: 4, bird: 1, traffic: 0.35, murmur: 0.35 },
   market: { voices: 6, laugh: 2, dog: 1, bird: 3, car: 1, murmur: 0.45 },
   zoo: { animal: 1.5, laugh: 5, squeal: 2, voices: 3, bird: 4, murmur: 0.35 },
-  park: { bird: 10, dog: 3, laugh: 3, quack: 1.5, voices: 2, murmur: 0.2 },
+  park: { bird: 10, dog: 3, laugh: 3, quack: 1.5, voices: 2, murmur: 0.1, park: 0.25 },
   // the park cart's spot: by the swings and the pond, with the hot dog stand and the balloon seller
-  cartPark: { bird: 8, laugh: 4, squeal: 2.5, voices: 3, dog: 1.5, quack: 1, murmur: 0.25, traffic: 0.04 },
+  cartPark: { bird: 12, laugh: 5, squeal: 3, voices: 3, dog: 2, quack: 1.5, park: 0.4, murmur: 0.1, traffic: 0.04 },
 };
 // Different neighborhoods sound a little different on their streets.
 const STREET_TWEAKS = {
@@ -31,7 +31,9 @@ const STREET_TWEAKS = {
 import { MARKET_DAYS } from './config.js';
 
 const rand = (a, b) => a + Math.random() * (b - a);
-const BEDS = ['traffic', 'murmur', 'rain'];
+const BEDS = ['traffic', 'murmur', 'park', 'rain'];
+// With no music playing (the park cart, or music turned off) the street sounds come up a little.
+const BUS = { music: 1.4, quiet: 2.2 };
 
 // ---------- recordings ----------
 // sounds/sounds.json: { "bird": ["bird-robin.mp3", ...], "traffic": ["traffic-loop.mp3"], "cash": [...], ... }
@@ -148,7 +150,7 @@ export class Ambience {
   // Rain: fewer birds and kids outside, and the patter of rain.
   static rainy(key, mix) {
     mix = { ...mix };
-    for (const k of ['bird', 'laugh', 'squeal', 'splash', 'dog', 'quack']) if (mix[k]) mix[k] *= 0.3;
+    for (const k of ['bird', 'laugh', 'squeal', 'splash', 'dog', 'quack', 'park']) if (mix[k]) mix[k] *= 0.3;
     mix.rain = 0.2;
     return { key: key + '|rain', mix };
   }
@@ -204,7 +206,7 @@ export class Ambience {
   out() {
     if (!this.bus) {
       this.bus = this.ctx.createGain();
-      this.bus.gain.value = 1.4; // street sounds sit under the music
+      this.bus.gain.value = this.music.playing ? BUS.music : BUS.quiet; // street sounds sit under the music
       this.bus.connect(this.music.master);
     }
     return this.bus;
@@ -239,7 +241,7 @@ export class Ambience {
       } else g.loading = !!recordings && (!recordings.loaded || recordings.has(name));
       return g;
     };
-    this.beds = { traffic: bed('traffic'), murmur: bed('murmur'), rain: bed('rain') };
+    this.beds = Object.fromEntries(BEDS.map((k) => [k, bed(k)]));
   }
   setBeds() {
     if (!this.beds) return;
@@ -261,6 +263,7 @@ export class Ambience {
     const dt = Math.min(1, (now - this.last) / 1000);
     this.last = now;
     if (!this.mix || this.ctx.state !== 'running') return;
+    this.out().gain.setTargetAtTime(this.music.playing ? BUS.music : BUS.quiet, this.ctx.currentTime, 0.5);
     // the crowd's murmur rises and falls a little
     if (this.beds && BEDS.some((k) => this.beds[k].loading)) this.setBeds();
     if (this.beds && this.mix.murmur) this.beds.murmur.gain.setTargetAtTime(this.mix.murmur * this.beds.murmur.level * rand(0.6, 1.3), this.ctx.currentTime, 0.6);

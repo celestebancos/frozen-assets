@@ -12,18 +12,18 @@ Recordings the game plays for the cash register and street sounds. `sounds.json`
 
 `gain` makes one file quieter or louder. Every sound is a recording; a sound with no files listed is just silent.
 
-Names: `cash` (the cash register), `bell` (the park cart's bell); street one-shots `car`, `horn`, `laugh`, `squeal`, `voices`, `dog`, `bird`, `quack`, `splash`, `whistle`, `bat`, `cheer`, `animal`; loops `traffic`, `murmur`, `rain`.
+Names: `cash` (the cash register), `bell` (the park cart's bell); street one-shots `car`, `horn`, `laugh`, `squeal`, `voices`, `dog`, `bird`, `quack`, `splash`, `whistle`, `bat`, `cheer`, `animal`; loops `traffic`, `murmur`, `park`, `rain`.
 
 Keep files short (one-shots under ~4 s, loops 20–60 s), mono, MP3 at about 96 kbps.
 
 How the files here were made (ffmpeg):
 
 - One-shots: cut from the original, silence trimmed, short fades, and evened out so the louder half of each file sits at about −20 dBFS (peaks under −1 dBFS).
-- Loops (`traffic`, `murmur`, `rain`): 30 s, with the last 3 s blended over the start so they loop without a seam, at about −24 dBFS. The rain is compressed so single big drops don't stick out.
+- Loops (`traffic`, `murmur`, `park`, `rain`): 30–36 s, with the last 3 s blended over the start so they loop without a seam, at about −24 dBFS. The rain is compressed so single big drops don't stick out.
 - Far-away sounds (`voices`, `murmur`, `traffic`) are low-passed so you hear people and cars, not words.
 - `bell.mp3` is one bicycle-bell ring played twice: ding ding.
 - `bat-2` is the same hit as `bat-1`, made to sound farther away (muffled, with a little echo off the stands).
-- The `gain` numbers in `sounds.json` balance the sounds against the music. They were set by playing everything through the game's own volume chain in an OfflineAudioContext and comparing it with The Entertainer on the truck speaker (the default music voice) at the same volume: street sounds sit about 7–12 dB under the music on average, with their peaks no louder than the music's; the ka-ching peaks a little over it, and the cart's bell is about level with it.
+- The `gain` numbers in `sounds.json` balance the sounds against the music. They were set by playing everything through the game's own volume chain in an OfflineAudioContext and comparing it with The Entertainer on the truck speaker (the default music voice) at the same volume: street sounds sit about 7–12 dB under the music on average, with their peaks no louder than the music's; the ka-ching peaks a little over it, and the cart's bell is about level with it. When no music is playing (the park cart, or music turned off) the street sounds come up about 4 dB.
 
 ## Credits
 
@@ -79,4 +79,5 @@ Every file here, where it came from, who made it, and its license. Everything is
 | animal-7.mp3 | [Lion roaring](https://freesound.org/s/69572/) | Bidone (Freesound) | CC0 |
 | traffic.mp3 | [Street and Roads](https://bigsoundbank.com/sound-s0608.html) | Joseph Sardin (BigSoundBank) | CC0 |
 | murmur.mp3 | [Outside Talks #2](https://bigsoundbank.com/sound-s2969.html) | Joseph Sardin (BigSoundBank) | CC0 |
+| park.mp3 | [Parisian park, children's games](https://bigsoundbank.com/sound-s1082.html) | Joseph Sardin (BigSoundBank) | CC0 |
 | rain.mp3 | [Rain on concrete](https://bigsoundbank.com/sound-s1289.html) | Joseph Sardin (BigSoundBank) | CC0 |
