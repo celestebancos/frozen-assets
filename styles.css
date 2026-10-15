@@ -127,8 +127,15 @@ svg.truck-svg { width: 100%; height: auto; display: block; }
 .party .wave { animation: wave 0.5s ease-in-out infinite alternate; }
 @keyframes wave { to { transform: translateX(-50%) rotate(-18deg); } }
 @media (prefers-reduced-motion: reduce) { .scene-root.driving .truck-wrap, .party .wave { animation: none; } }
-.rain { position: absolute; inset: 0; pointer-events: none; background-image: linear-gradient(transparent 90%, rgba(80, 120, 200, 0.5) 90%); background-size: 3px 26px; animation: rain 0.4s linear infinite; opacity: 0.6; z-index: 3; }
-@keyframes rain { to { background-position: 0 26px; } }
+.rain { position: absolute; inset: 0; pointer-events: none; z-index: 3; overflow: hidden; }
+/* two sheets of slanted streaks: a near one (longer, faster) and a far one (shorter, fainter, slower). Each moves
+   whole tiles at the same slant as its streaks, so it loops without a jump. */
+.rain::before, .rain::after { content: ''; position: absolute; inset: 0; background-repeat: repeat; }
+.rain::before { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='160'%3E%3Cg stroke='%23dfeeff' stroke-width='1.8' stroke-linecap='round' fill='none'%3E%3Cpath d='M7.7 33.9l-3.1 16.6'/%3E%3Cpath d='M45.8 20.2l-2.7 14.6'/%3E%3Cpath d='M75.2 4.5l-2.7 14.5'/%3E%3Cpath d='M96.0 7.0l-3.3 17.5'/%3E%3Cpath d='M21.9 61.9l-3.3 17.4'/%3E%3Cpath d='M47.7 101.5l-3.0 15.8'/%3E%3Cpath d='M72.8 102.9l-3.5 18.6'/%3E%3Cpath d='M112.5 69.9l-2.7 14.4'/%3E%3Cpath d='M7.0 124.1l-2.8 15.2'/%3E%3Cpath d='M38.3 137.3l-3.8 20.5'/%3E%3Cpath d='M72.3 135.6l-3.6 19.1'/%3E%3Cpath d='M95.8 119.2l-2.7 14.5'/%3E%3C/g%3E%3C/svg%3E"); opacity: 0.75; animation: rainNear 0.75s linear infinite; }
+.rain::after { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='90' height='120'%3E%3Cg stroke='%23cfe2f7' stroke-width='1.2' stroke-linecap='round' fill='none'%3E%3Cpath d='M10.1 13.3l-2.1 11.4'/%3E%3Cpath d='M33.0 12.8l-2.0 10.9'/%3E%3Cpath d='M59.4 10.8l-2.2 12.0'/%3E%3Cpath d='M79.1 33.5l-2.0 10.9'/%3E%3Cpath d='M7.9 77.3l-2.2 11.6'/%3E%3Cpath d='M32.5 69.3l-1.6 8.6'/%3E%3Cpath d='M56.1 43.4l-1.6 8.8'/%3E%3Cpath d='M82.9 62.6l-2.1 11.3'/%3E%3Cpath d='M8.3 105.6l-2.3 12.4'/%3E%3Cpath d='M35.0 98.4l-2.1 11.0'/%3E%3Cpath d='M63.3 99.1l-2.3 12.2'/%3E%3Cpath d='M71.8 106.7l-2.1 11.3'/%3E%3C/g%3E%3C/svg%3E"); opacity: 0.5; animation: rainFar 0.9s linear infinite; }
+@keyframes rainNear { to { background-position: -120px 640px; } }
+@keyframes rainFar { to { background-position: -90px 480px; } }
+@media (prefers-reduced-motion: reduce) { .rain::before, .rain::after { animation: none; } }
 .crowd { position: absolute; inset: 0; pointer-events: none; z-index: 3; }
 .party { position: absolute; bottom: 2.5%; display: flex; align-items: flex-end; gap: 2px; transition: left linear; }
 .party .who { position: relative; display: flex; flex-direction: column; align-items: center; }
