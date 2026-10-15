@@ -514,6 +514,22 @@ test('every Italian ice on the truck needs a spoon', async () => {
   assert.deepEqual(ices, ['iceBlue', 'iceCherry', 'iceLemon', 'iceStrawberry']);
 });
 
+test('the favorite treat from the park cart carries over, and it and rocket pops are each about 1 pop in 5', async () => {
+  const { CART } = await import('../js/config.js');
+  const g = Game.create({ player: 'N', business: 'T', color: 'pink', seed: 4, favorite: 'sandwich' });
+  assert.equal(g.state.favorite, 'sandwich');
+  const n = {};
+  let pops = 0;
+  for (let i = 0; i < 40000; i++) {
+    const w = g.wants({ kind: 'kid' });
+    if (w.pop) (n[w.pop] = (n[w.pop] || 0) + 1), pops++;
+  }
+  for (const id of ['rocketPop', 'sandwich']) assert.ok(Math.abs(n[id] / pops - 0.2) < 0.03, `${id} ${n[id] / pops}`);
+  // no park cart: one is picked anyway
+  const g2 = Game.create({ player: 'N', business: 'T', color: 'pink', seed: 5 });
+  assert.ok(CART.hotChoices.includes(g2.state.favorite));
+});
+
 test('staying put long past a sensible stay brings a family or two who already had ice cream; a fresh spot does not', () => {
   const run = (route) => {
     const g = readyGame(41, [['vanilla', 2], ['chocolate', 2], ['cake', 2], ['bowl', 2], ['spoons', 1], ['napkins', 1]]);

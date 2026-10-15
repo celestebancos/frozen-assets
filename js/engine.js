@@ -1,7 +1,7 @@
 // Frozen Assets game engine. Pure logic, no DOM, so it runs in the browser and in Node.
 // All state lives in `game.state` (plain JSON, saved as-is). `game.events` is a transient feed for the UI.
 
-import { CONFIG, SUPPLIES, SUPPLY, SPOTS, SPOT, FEATURES, FEATURE, LOCS, destOf, CONTAINERS, FLAVORS, TOPPINGS, POPS, POP, CROWDS, DROP_BY_PERSON, START_PRICES, MARKET_DAYS, OFFICE_ADULT_PAY, STREET_CROWD, itemKey } from './config.js';
+import { CONFIG, SUPPLIES, SUPPLY, SPOTS, SPOT, FEATURES, FEATURE, LOCS, destOf, CONTAINERS, FLAVORS, TOPPINGS, POPS, POP, CROWDS, DROP_BY_PERSON, START_PRICES, MARKET_DAYS, OFFICE_ADULT_PAY, CART, STREET_CROWD, itemKey } from './config.js';
 import { makeRng } from './rng.js';
 import { ACCOUNT, balanceCheck, applyEntries, emptyTotals, share } from './ledger.js';
 import { addToDoc, docLines, docEntryList, checkFiling, DOC_TYPES } from './documents.js';
@@ -10,7 +10,7 @@ const C = CONFIG;
 const SEASON_DAYS = C.seasonWeeks * C.daysPerWeek;
 const DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
-export function newGameState({ player, business, color, tune = 'entertainer', seed, loan, truckCost, bling = 0, blingName = '', ownerCash = 0 }) {
+export function newGameState({ player, business, color, tune = 'entertainer', seed, loan, truckCost, bling = 0, blingName = '', ownerCash = 0, favorite = null }) {
   const s = {
     version: 1,
     seed: seed ?? Math.floor(Math.random() * 2 ** 31),
@@ -29,6 +29,7 @@ export function newGameState({ player, business, color, tune = 'entertainer', se
     bling,
     blingName,
     ownerCash, // money brought from the park cart
+    favorite, // the treat people want most besides rocket pops (from the park cart, or picked below)
     cash: 0,
     truth: emptyTotals(),
     filed: emptyTotals(),
@@ -83,6 +84,8 @@ export class Game {
     state.routes ||= [];
     state.nextRouteId ||= 1;
     state.weekPlan ||= Array(7).fill(null);
+    // no favorite (older saves, or no park cart): one is picked from the seed, like at the cart
+    state.favorite ||= CART.hotChoices[Math.abs(state.seed | 0) % CART.hotChoices.length];
     for (const p of POPS) {
       state.prices[p.id] ??= START_PRICES[p.id];
       // already opened once: pops join the menu when first bought, like everything else
@@ -1202,7 +1205,7 @@ export class Game {
   wants(m) {
     const r = this.rng;
     const pops = POPS.filter((p) => this.isOn(p.id));
-    if (pops.length && r.chance(C.popWant[m.kind] ?? 0)) return { pop: r.weighted(pops.map((p) => [p.id, p.want])) };
+    if (pops.length && r.chance(C.popWant[m.kind] ?? 0)) return { pop: r.weighted(pops.map((p) => [p.id, p.id === this.state.favorite ? C.favoriteWant : p.want])) };
     const kid = m.kind === 'kid' || m.kind === 'teen';
     const flavor = r.weighted(kid ? [['vanilla', 35], ['chocolate', 40], ['swirl', 25]] : [['vanilla', 40], ['chocolate', 30], ['swirl', 30]]);
     const container = r.weighted(kid ? [['cake', 35], ['sugar', 25], ['waffle', 15], ['bowl', 25]] : [['cake', 20], ['sugar', 25], ['waffle', 30], ['bowl', 25]]);
