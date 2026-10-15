@@ -1637,6 +1637,8 @@ export class CartView {
             ${sum.returned ? `<li>🙂 Honest customers gave back ${money(sum.returned)} of extra change.</li>` : ''}
             ${sum.tooExpensive ? `<li>😕 ${sum.tooExpensive} said "too much".</li>` : ''}
             ${sum.leftLine ? `<li>😤 ${sum.leftLine} got tired of waiting in line.</li>` : ''}
+            ${sum.sawLine ? `<li>👀 ${sum.sawLine} saw the long line and kept walking.</li>` : ''}
+            ${sum.buzzChange > 0.02 ? '<li>📣 People are talking about your good prices! More will come by.</li>' : sum.buzzChange < -0.02 ? '<li>🤫 Fewer people are talking about your cart.</li>' : ''}
             ${sum.missedFav ? `<li>😢 ${sum.missedFav} regular${sum.missedFav === 1 ? '' : 's'} didn't find their favorite.</li>` : ''}
             ${sum.napkins ? `<li>🧻 You handed out ${sum.napkins} napkin${sum.napkins === 1 ? '' : 's'}.</li>` : ''}
             ${Object.values(sum.given || {}).reduce((x, y) => x + y, 0) ? `<li>🎁 You gave away ${Object.values(sum.given).reduce((x, y) => x + y, 0)} free treat${Object.values(sum.given).reduce((x, y) => x + y, 0) === 1 ? '' : 's'}.</li>` : ''}

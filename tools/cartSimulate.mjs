@@ -20,7 +20,9 @@ for (const name of names) {
     const ds = runs.map((r) => r.reached[g]).filter((x) => x != null);
     return `${$(g)}: ${ds.length < n ? `${ds.length}/${n} by day ${days}` : `day ${median(ds)}`}`;
   });
-  console.log(`${name.padEnd(7)} day ${days}: ${$(avg(end))}  earns ${$(avg(perDay))}/day  sales ${$(sales)}/day  ${cust.toFixed(1)} customers/day  tips ${$(avg(runs.map((r) => r.tips)))}`);
+  const left = avg(runs.flatMap((r) => r.nights.map((x) => x.leftLine)));
+  const buzz = avg(runs.flatMap((r) => r.nights.slice(10).map((x) => x.buzz)));
+  console.log(`${name.padEnd(7)} day ${days}: ${$(avg(end))}  earns ${$(avg(perDay))}/day  sales ${$(sales)}/day  ${cust.toFixed(1)} customers/day  ${left.toFixed(1)} lost to the line/day  crowd ×${buzz.toFixed(2)}  tips ${$(avg(runs.map((r) => r.tips)))}`);
   console.log(`        median day reached → ${when.join('  ')}`);
   if (process.env.TRACE) console.log(runs[0].nights.filter((x) => x.day % 5 === 0).map((x) => `d${x.day} ${$(x.money)} (+stock ${$(x.stock)})`).join('  '));
 }

@@ -761,3 +761,44 @@ test('at the park, a small box goes right into the cooler, if it fits', () => {
   assert.equal(c.count('cooler', 'rocketPop'), 6);
   assert.equal(c.state.counter.length, 0);
 });
+
+test('word of mouth: cheap prices bring more people over the next days, and longer lines', () => {
+  const day = (paid, fair, extra = {}) => {
+    const c = Cart.create({ player: 'Test', seed: 3 });
+    const rates = [];
+    for (let d = 0; d < 6; d++) {
+      c.openPark();
+      rates.push(c.walkRate());
+      Object.assign(c.state.today, { dealPaid: paid, dealFair: fair }, extra);
+      c.closePark();
+      c.nextDay();
+    }
+    return { c, rates };
+  };
+  const fair = day(1000, 1000);
+  assert.equal(fair.c.state.buzz, 1, 'fair prices: a normal crowd');
+  const half = day(500, 1000);
+  assert.ok(half.c.state.buzz > 1.8, `half price: crowd ×${half.c.state.buzz}`);
+  assert.ok(half.rates[5] > half.rates[1] * 1.5, 'more people walk by as word spreads');
+  assert.ok(half.c.state.days[0].buzzChange > 0);
+  // long waits and "too much" hurt
+  assert.ok(day(1000, 1000, { leftLine: 5, tooExpensive: 5 }).c.state.buzz < 1);
+  // cheap prices on the cooler make more people stop right away
+  const c = Cart.create({ player: 'Test', seed: 3 });
+  stock(c, 'rocketPop', 10);
+  c.pack('rocketPop', 10);
+  assert.equal(c.priceAppeal(), 1);
+  c.setPrice('rocketPop', 75);
+  assert.ok(c.priceAppeal() > 1.3);
+  // people who want something but see a long line keep walking (and are counted)
+  c.openPark();
+  for (let i = 0; i < 6; i++) c.state.line.push(c.makeCustomer('adult'));
+  for (let i = 0; i < 100; i++) c.arrive(c.makeCustomer('kid'));
+  assert.ok(c.state.today.sawLine > 10, `${c.state.today.sawLine} saw the line`);
+});
+
+test('older saves start with a normal crowd', () => {
+  const c = Cart.create({ player: 'Test', seed: 2 });
+  delete c.state.buzz;
+  assert.equal(new Cart(JSON.parse(JSON.stringify(c.state))).state.buzz, 1);
+});
