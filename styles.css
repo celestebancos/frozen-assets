@@ -155,6 +155,10 @@ svg.truck-svg { width: 100%; height: auto; display: block; }
 .party .who svg.person.dog { width: clamp(42px, 4.8vw, 64px); }
 .party .who .hand { position: absolute; top: 42%; right: -8px; }
 .party .who .hand svg { width: clamp(26px, 2.9vw, 38px); height: auto; }
+/* at the truck, a group stands close together (a clump), with a gap to the next group in line */
+.crowd .party { gap: 0; }
+.crowd .party .who + .who { margin-left: -14px; }
+.crowd .party.flip .who > svg.person { transform: scaleX(-1); }
 .bubble { position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%); background: #fff; border: 2px solid var(--ink); border-radius: 12px; padding: 2px 8px; font-size: 13px; font-weight: 800; white-space: nowrap; margin-bottom: 4px; animation: pop 0.25s ease-out; }
 .bubble.bad { background: #ffe3e3; }
 .bubble.good { background: #e6fcf5; }
