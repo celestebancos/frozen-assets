@@ -1039,9 +1039,10 @@ function sky() {
 // opts: { tall, front, rain }. Sprites (the cart, people, stands, the swings) are drawn on top by the cart screen.
 // On rainy days more clouds roll in (the stage's .overcast class grays them and hides the sun).
 // ground: where the stories stand. story: how big the stories are drawn (a bit smaller than the customers, who
-// are closer). bench: the park bench by the path (middle, bottom), which the sandwich story uses.
+// are closer). bench: the park bench by the path (middle, bottom), which the sandwich story uses. lamp: the lamp post
+// in front of the lawn (laptops only), which the stories keep clear of.
 export const PARK_VIEW = {
-  wide: { w: 1000, h: 500, ground: 364, story: 0.92, bench: [500, 410] },
+  wide: { w: 1000, h: 500, ground: 364, story: 0.92, bench: [500, 410], lamp: 780 },
   tall: { w: 360, h: 600, ground: 392, story: 0.85, bench: [205, 440] },
 };
 // The park bench, 100 × 40. The stories draw someone sitting on it 116 story units wide.
@@ -1128,7 +1129,7 @@ export function parkSVG({ tall = false, front = false, rain = false } = {}) {
   if (front) {
     const inner = tall
       ? `${bed(118, 240, pathTop(180) - 6)}${path}`
-      : `${bed(300, 430, pathTop(365) - 6)}${bed(600, 740, pathTop(670) - 6)}${parkLamp(780, pathTop(780) - 2)}${path}`;
+      : `${bed(300, 430, pathTop(365) - 6)}${bed(600, 740, pathTop(670) - 6)}${parkLamp(PARK_VIEW.wide.lamp, pathTop(PARK_VIEW.wide.lamp) - 2)}${path}`;
     return `${open}${inner}</svg>`;
   }
   if (tall) {

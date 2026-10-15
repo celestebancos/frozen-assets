@@ -416,6 +416,7 @@ export class ParkStories {
     const [bx, by] = v.bench;
     this.bench = { x: bx / this.k, y: this.G + (by - this.G) / this.k, ends: [bx / this.k - BENCH_W / 2, bx / this.k + BENCH_W / 2] };
     this.bench.inWay = by - BENCH_W * 0.4 * this.k < this.G; // its top comes up past the stories' feet
+    this.lamp = v.lamp ? [(v.lamp - 16) / this.k, (v.lamp + 16) / this.k] : null; // the lamp post and its lamp
     host.innerHTML = `<svg class="story-layer" viewBox="0 0 ${v.w} ${v.h}" preserveAspectRatio="xMidYMax slice" xmlns="${NS}"><g transform="translate(0 ${this.G}) scale(${this.k}) translate(0 ${-this.G})"></g></svg>`;
     this.layer = host.firstElementChild;
     this.root = this.layer.firstElementChild;
@@ -512,6 +513,7 @@ export class ParkStories {
       .filter((q) => q.width && q.bottom > band[1] && q.top < band[0])
       .map((q) => [a + (q.left - r.left) / u, a + (q.right - r.left) / u]);
     if (this.bench.inWay) blocks.push(this.bench.ends); // stories behind the bench would have their feet hidden
+    if (this.lamp) blocks.push(this.lamp); // and the lamp post would hide bubbles, frisbees and people
     const covered = (x) => blocks.reduce((sum, [l, rr]) => sum + Math.max(0, Math.min(rr, x + span) - Math.max(l, x)), 0);
     let best = [];
     let least = Infinity;
