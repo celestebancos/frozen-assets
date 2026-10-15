@@ -596,7 +596,7 @@ export const GRANDMA = {
   start: 5,
   max: 10,
   // invited some mornings: lunch takes an hour and is a big one (you stay full a while, past 4pm)
-  lunch: { chance: 0.3, firstDay: 3, minutes: 60, food: 125 },
+  lunch: { chance: 0.3, firstDay: 3, minutes: 60, food: 125, lines: 5 }, // lines: the most she says at one lunch
   // she comes by the cart only after your first lunch together (that's when she tells you her favorite and that
   // she's a messy eater), and tips big with her favorite and at least 2 napkins
   visit: { chance: 0.2, napkins: 2, tip: [200, 300] },

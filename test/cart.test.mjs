@@ -929,6 +929,7 @@ test('Grandma: lunch invitations, advice she checks on, and a gift when she feel
   assert.ok(r2.lines.some((l) => l.includes('Good thinking')));
   assert.equal(g.feel, GRANDMA.start + 2 * GRANDMA.feel.lunch + GRANDMA.feel.followed);
   // when she feels great, sometimes a little something
+  const wallet = c.walletTotal;
   let gifts = 0;
   for (let d = 3; d < 40; d++) {
     g.feel = 9;
@@ -937,7 +938,7 @@ test('Grandma: lunch invitations, advice she checks on, and a gift when she feel
     if (c.lunchAtGrandmas().gift) gifts++;
   }
   assert.ok(gifts > 3, `gifts ${gifts}`);
-  assert.equal(c.walletTotal, 1000 + gifts * GRANDMA.gift.cash);
+  assert.equal(c.walletTotal, wallet + gifts * GRANDMA.gift.cash);
   // saying no twice in a row hurts a little
   g.feel = 5;
   for (const d of [50, 51]) {
@@ -1047,10 +1048,18 @@ test('Grandma over lunch: gear, spending, sticker likes and dislikes, running ou
   l = lunch();
   assert.ok(l.includes('new umbrella'), l);
   // a lot of snacks and toys since last lunch
-  c.state.owned.push('fan');
+  c.state.owned.push('fan', 'bell');
   g.spent = GRANDMA.spend + 100;
+  g.spentSnacks = 500;
+  g.spentToys = GRANDMA.spend - 400;
   l = lunch();
-  assert.ok(l.includes('snacks and toys'), l);
+  assert.ok(l.includes('lot of snacks and toys'), l);
+  // just toys: she says toys
+  g.advice = null;
+  g.spent = g.spentToys = GRANDMA.spend;
+  g.spentSnacks = 0;
+  l = lunch();
+  assert.ok(l.includes('lot of toys,'), l);
   // a sticker she likes: a hint, then she's pleased
   l = lunch();
   const hinted = g.advice?.kind === 'stickerHint' ? g.advice.id : null;
@@ -1076,6 +1085,14 @@ test('Grandma over lunch: gear, spending, sticker likes and dislikes, running ou
   let rainy = false;
   for (let i = 0; i < 8; i++) if (/rain/i.test(lunch())) rainy = true;
   assert.ok(rainy);
+  // lunch stays short
+  for (let i = 0; i < 10; i++) assert.ok(lunch().split(' | ').length <= GRANDMA.lunch.lines);
+  // the bell, once the umbrella and fan are there
+  c.state.owned = c.state.owned.filter((x) => x !== 'bell');
+  let bell = false;
+  for (let i = 0; i < 6; i++) if (lunch().includes('A bell!')) bell = true;
+  assert.ok(bell);
+  c.state.owned.push('bell');
   // the old days don't repeat until she's told them all
   g.said = [];
   const told = new Set();
