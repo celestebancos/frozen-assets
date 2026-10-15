@@ -1,9 +1,10 @@
 // Little wordless stories that play out on the lawn behind the cart now and then: a squirrel steals a
 // sandwich, the wind blows a hat onto a duck, a dog fetches a frisbee... They're drawn in the same
 // space as the park backdrop (wide or tall), and each one picks a spot you can see on this screen.
+// Everyone walks on from the edge of the screen and walks off again when their story is done.
 // On tall screens the stories are drawn smaller (they're farther away than the customers on the path).
-import { personSVG, PARK_VIEW } from '../art.js';
-import { frisbeeSVG, balloonSVG, squirrelSVG, duckSVG, sandwichSVG, benchSVG, sunHatSVG, butterflySVG, bubbleWandSVG, soapBubbleSVG, puddleSVG, windSVG, dropSVG } from '../cartArt.js';
+import { personSVG, PARK_VIEW, BENCH_W } from '../art.js';
+import { frisbeeSVG, balloonSVG, squirrelSVG, duckSVG, sandwichSVG, sunHatSVG, butterflySVG, bubbleWandSVG, soapBubbleSVG, puddleSVG, windSVG, dropSVG } from '../cartArt.js';
 
 const NS = 'http://www.w3.org/2000/svg';
 const INK = '#2e2a45';
@@ -11,6 +12,11 @@ const STOP = Symbol('stop');
 const ADULT = 44;
 const KID = 34;
 const DOG = 38;
+// walking speeds, in story units a millisecond
+const WALK = 0.13;
+const TROT = 0.18; // dogs
+const WADDLE = 0.09; // ducks
+const SCAMPER = 0.22; // squirrels
 const BALLOONS = ['#e5484d', '#3a8ee6', '#ffd23f', '#3cc6a0', '#b69cff', '#ff8fc7'];
 const rnd = (n) => Math.floor(Math.random() * n);
 const pick = (xs) => xs[rnd(xs.length)];
@@ -42,6 +48,7 @@ class Actor {
   constructor(stage, svg, x, y, w) {
     this.stage = stage;
     this.w = w;
+    this.speed = WALK;
     this.g = el('actor'); // where it is
     this.body = el('body'); // bobbing, dozing, shaking
     this.flip = el(); // which way it faces; things it holds turn with it
@@ -77,6 +84,14 @@ class Actor {
     this.y = y;
     return wait(ms);
   }
+  // Walk over to x (and y), facing the way it goes, at its own speed unless one is given.
+  async walkTo(x, speed = this.speed, y = this.y) {
+    const d = Math.hypot(x - this.x, y - this.y);
+    if (Math.abs(x - this.x) > 1) this.face(x - this.x);
+    this.walk();
+    await this.moveTo(x, y, d / speed);
+    this.walk(false);
+  }
   // Something carried, placed in the actor's own space (it turns when the actor turns).
   hold(svg, w, dx, dy) {
     const g = el();
@@ -92,6 +107,9 @@ class Actor {
     cp.innerHTML = `<rect x="-60" y="-300" width="120" height="${300 + y}"/>`;
     this.g.appendChild(cp);
     this.art.setAttribute('clip-path', `url(#${id})`);
+  }
+  unclip() {
+    this.art.removeAttribute('clip-path');
   }
   // A sound from where this actor stands (a bark, a quack, a laugh).
   sound(name) {
@@ -124,9 +142,18 @@ const STORIES = {
   async frisbee(s) {
     const G = s.G;
     const x = s.spot(320);
-    const owner = s.actor(personSVG('adult', bareHead()), x + 30, G, ADULT);
-    const dog = s.actor(personSVG('dog', rnd(4)), x + 68, G, DOG);
-    await s.t(900);
+    const side = s.near(x + 50);
+    const [owner, dog] = s.walkOn(
+      [
+        { svg: personSVG('adult', bareHead()), w: ADULT, x: x + 30 },
+        { svg: personSVG('dog', rnd(4)), w: DOG, x: x + 68, speed: TROT },
+      ],
+      side,
+    );
+    await Promise.all([owner.there, dog.there]);
+    owner.face(1);
+    dog.face(1);
+    await s.t(500);
     owner.say('🥏', 1000);
     await s.t(900);
     const fr = s.actor(frisbeeSVG(), x + 50, G - 50, 24);
@@ -141,13 +168,12 @@ const STORIES = {
     dog.hold(frisbeeSVG(), 22, ...mouth(DOG).map((v, i) => v + [2, 5][i]));
     dog.sound('dog');
     await dog.moveTo(x + 290, G, 220, 'ease-in');
-    dog.face(-1);
-    await dog.moveTo(x + 86, G, 1600);
-    dog.walk(false);
+    await dog.walkTo(x + 86, 0.13);
     owner.say('❤️', 1800);
     await dog.hop(14);
     await dog.hop(14);
-    await s.t(1600);
+    await s.t(1400);
+    await s.walkOff([owner, dog], s.near(x + 50));
   },
 
   // A kid lets go of a balloon by accident, and a grown-up brings a new one.
@@ -156,72 +182,64 @@ const STORIES = {
     const x = s.spot(330);
     const first = pick(BALLOONS);
     const second = pick(BALLOONS.filter((c) => c !== first));
-    const kid = s.actor(personSVG('kid', rnd(48)), x - 20, G, KID);
     const kh = hand('kid', KID);
+    const [kid] = s.walkOn([{ svg: personSVG('kid', rnd(48)), w: KID, x: x + 110 }], -1);
     const held = kid.hold(balloonSVG(first), 16, ...kh);
-    kid.walk();
-    await kid.moveTo(x + 110, G, 2200);
-    kid.walk(false);
+    await kid.there;
     await s.t(600);
     held.remove(); // oops, the string slips
     const away = s.actor(balloonSVG(first), x + 110 + kh[0], G + kh[1], 16);
     away.mood('sway');
     away.moveTo(x + 180, -420, 5200, 'ease-in');
+    kid.face(1);
     kid.say('😮', 1300);
     await s.t(1500);
     kid.say('😢', 2400);
-    await s.t(900);
-    const grownup = s.actor(personSVG('adult', bareHead()), x + 340, G, ADULT);
-    grownup.face(-1);
+    await s.t(300);
+    // someone saw it all from over by the balloon seller
+    const [grownup] = s.walkOn([{ svg: personSVG('adult', bareHead()), w: ADULT, x: x + 150 }], 1);
     const gift = grownup.hold(balloonSVG(second), 16, ...hand('adult', ADULT));
-    grownup.walk();
-    await grownup.moveTo(x + 150, G, 1900);
-    grownup.walk(false);
+    await grownup.there;
     gift.remove();
     kid.hold(balloonSVG(second), 16, ...kh);
     kid.say('😄', 1800);
     kid.sound('laugh');
     grownup.say('❤️', 1800);
     await s.t(2000);
-    grownup.face(1);
-    kid.walk();
-    grownup.walk();
-    kid.moveTo(x + 430, G, 3200);
-    grownup.moveTo(x + 470, G, 3200);
-    await s.t(2400);
+    await s.walkOff([kid, grownup], 1);
   },
 
-  // Someone dozes off on a bench and a squirrel sneaks off with their sandwich.
+  // Someone sits down on the park bench with their lunch, dozes off, and a squirrel sneaks off with it.
   async sandwich(s) {
-    const G = s.G;
-    const x = s.spot(330);
-    const sitter = s.actor(personSVG('adult', rnd(12)), x + 70, G - 5, ADULT);
+    const B = s.bench;
+    const seat = B.y - BENCH_W * 0.37; // just above the bench's top plank, where the sandwich goes
+    const side = s.near(B.x);
+    const dir = -side; // the squirrel comes from the other side, and runs off that way too
+    const [sitter] = s.walkOn([{ svg: personSVG('adult', rnd(12)), w: ADULT, x: B.x, y: B.y }], side);
+    const carried = sitter.hold(sandwichSVG(), 16, ...hand('adult', ADULT));
+    await sitter.there;
+    carried.remove();
+    const lunch = s.actor(sandwichSVG(), B.x + dir * 42, seat, 20);
+    await sitter.moveTo(B.x, B.y - 5, 250, 'ease-out'); // sit down
     sitter.clipBelow(-17); // the bench hides their legs
-    s.actor(benchSVG(), x + 70, G, 116);
-    const lunch = s.actor(sandwichSVG(), x + 112, G - 41, 20);
-    await s.t(800);
+    sitter.face(1);
+    await s.t(500);
     sitter.say('🥪', 1400);
     await s.t(1800);
     sitter.mood('doze');
     sitter.say('💤', 4200);
-    const sq = s.actor(squirrelSVG(false), x + 360, G, 30);
-    sq.face(-1);
-    sq.walk();
-    for (const to of [x + 280, x + 205, x + 140]) {
-      await sq.moveTo(to, G, 650, 'ease-out');
-      sq.walk(false);
+    const [sq] = s.walkOn([{ svg: squirrelSVG(false), w: 30, x: B.x + dir * 210, y: B.y, speed: SCAMPER }], dir);
+    await sq.there;
+    for (const o of [135, 70]) {
       await s.t(350);
-      sq.walk();
+      await sq.walkTo(B.x + dir * o);
     }
-    sq.walk(false);
-    await sq.moveTo(x + 118, G - 41, 260, 'ease-out'); // up onto the bench
+    await sq.moveTo(B.x + dir * 48, seat, 260, 'ease-out'); // up onto the bench
     lunch.remove();
     sq.setArt(squirrelSVG(true));
-    sq.face(1);
-    await sq.moveTo(x + 150, G, 260, 'ease-in');
-    sq.walk();
-    await sq.moveTo(x + 240, G, 500);
-    sq.walk(false);
+    sq.face(dir);
+    await sq.moveTo(B.x + dir * 80, B.y, 260, 'ease-in');
+    await sq.walkTo(B.x + dir * 170);
     sq.say('😋', 1600);
     sitter.mood('doze', false);
     await s.t(500);
@@ -229,60 +247,59 @@ const STORIES = {
     await s.t(1500);
     sitter.say('😲', 1400);
     await s.t(500);
-    sq.walk();
-    await sq.moveTo(x + 440, G, 1000);
+    const gone = s.walkOff([sq], dir);
     sitter.say('😂', 1600);
     await s.t(1700);
+    sitter.unclip();
+    await sitter.moveTo(B.x, B.y, 250, 'ease-in'); // up off the bench
+    await Promise.all([gone, s.walkOff([sitter], side)]);
   },
 
   // A duckling wanders off after a butterfly and has to hurry to catch up with Mom.
   async ducks(s) {
     const G = s.G;
     const x = s.spot(360);
-    const mom = s.actor(duckSVG(), x + 40, G, 30);
-    const babies = [0, 1, 2].map((i) => s.actor(duckSVG(true), x + 10 - i * 21, G, 19));
-    const all = [mom, ...babies];
-    all.forEach((d) => d.walk());
-    mom.moveTo(x + 210, G, 3600);
-    babies[0].moveTo(x + 180, G, 3600);
-    babies[1].moveTo(x + 159, G, 3600);
-    await babies[2].moveTo(x + 70, G, 1900); // the little one stops...
-    babies[2].walk(false);
-    const fly = s.actor(butterflySVG(pick(['#ff9fb7', '#ffd23f', '#b69cff'])), x + 116, G - 52, 20);
-    await fly.moveTo(x + 86, G - 26, 900, 'ease-in-out');
-    babies[2].say('😍', 1200);
-    babies[2].face(-1);
-    babies[2].walk();
-    fly.moveTo(x + 30, G - 40, 1400, 'ease-in-out');
-    await babies[2].moveTo(x + 46, G, 1400);
-    babies[2].walk(false);
-    all.slice(0, 3).forEach((d) => d.walk(false));
-    mom.face(-1);
+    const dir = -s.near(x + 180); // they walk in from the nearer side, toward the far one
+    const X = (o) => (dir > 0 ? x + o : x + 360 - o);
+    const all = s.walkOn(
+      [
+        { svg: duckSVG(), w: 30, x: X(210), speed: WADDLE },
+        { svg: duckSVG(true), w: 19, x: X(180), speed: WADDLE },
+        { svg: duckSVG(true), w: 19, x: X(159), speed: WADDLE },
+        { svg: duckSVG(true), w: 19, x: X(138), stop: X(70), speed: WADDLE }, // the little one stops...
+      ],
+      -dir,
+    );
+    const [mom, , , baby] = all;
+    await baby.there;
+    const fly = s.actor(butterflySVG(pick(['#ff9fb7', '#ffd23f', '#b69cff'])), X(150), G - 200, 20);
+    await fly.moveTo(X(86), G - 26, 1800, 'ease-in-out'); // a butterfly flutters down
+    baby.say('😍', 1200);
+    fly.moveTo(X(30), G - 40, 1400, 'ease-in-out');
+    await baby.walkTo(X(46));
+    await Promise.all(all.map((d) => d.there));
+    mom.face(-dir);
     mom.say('❗', 1500);
     mom.sound('quack');
-    fly.moveTo(x - 10, G - 160, 2600, 'ease-in');
+    fly.moveTo(X(-10), G - 220, 2600, 'ease-in').then(() => fly.remove());
     await s.t(1300);
-    babies[2].face(1);
-    babies[2].walk();
-    babies[2].say('💦', 1000);
-    await babies[2].moveTo(x + 150, G, 1100, 'ease-in');
-    mom.face(1);
+    baby.say('💦', 1000);
+    await baby.walkTo(X(150), 0.14);
     mom.say('💛', 1400);
-    all.forEach((d) => d.walk());
-    mom.moveTo(x + 440, G, 3400);
-    babies[0].moveTo(x + 410, G, 3400);
-    babies[1].moveTo(x + 389, G, 3400);
-    babies[2].moveTo(x + 368, G, 3400);
-    await s.t(2800);
+    await s.t(600);
+    await s.walkOff(all, dir);
   },
 
   // A kid blows bubbles and a dog jumps to pop every one.
   async bubbles(s) {
     const G = s.G;
     const x = s.spot(330);
-    const kid = s.actor(personSVG('kid', rnd(48)), x + 40, G, KID);
+    const side = s.near(x + 40);
+    const [kid] = s.walkOn([{ svg: personSVG('kid', rnd(48)), w: KID, x: x + 40 }], side);
     const kh = hand('kid', KID);
     kid.hold(bubbleWandSVG(), 10, kh[0], kh[1] + 5);
+    await kid.there;
+    kid.face(1);
     await s.t(700);
     const bubbles = [];
     for (let i = 0; i < 6; i++) {
@@ -292,14 +309,12 @@ const STORIES = {
       await s.t(330);
     }
     kid.say('😊', 1300);
-    await s.t(900);
-    const dog = s.actor(personSVG('dog', rnd(4)), x + 400, G, DOG);
-    dog.face(-1);
+    await s.t(400);
+    const [dog] = s.walkOn([{ svg: personSVG('dog', rnd(4)), w: DOG, x: x + 340, speed: TROT }], 1);
     dog.sound('dog');
+    await dog.there;
     for (const b of bubbles.sort((p, q) => q.x - p.x)) {
-      dog.walk();
-      await dog.moveTo(b.x + 12, G, 420);
-      dog.walk(false);
+      await dog.walkTo(b.x + 12, 0.25);
       await dog.moveTo(b.x + 12, G - 22, 170, 'ease-out');
       b.setArt('<svg viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><text x="10" y="11" font-size="14" text-anchor="middle" dominant-baseline="central">✨</text></svg>');
       setTimeout(() => b.remove(), 400);
@@ -309,47 +324,44 @@ const STORIES = {
     kid.sound('laugh');
     dog.say('❤️', 1600);
     await dog.hop(10);
-    await s.t(1600);
+    await s.t(1400);
+    await s.walkOff([kid, dog], side);
   },
 
   // The wind blows someone's sun hat away... and it lands on a duck.
   async hat(s) {
     const G = s.G;
     const x = s.spot(340);
-    const who = s.actor(personSVG('adult', bareHead()), x - 20, G, ADULT);
+    const dir = -s.near(x + 70); // which way the wind blows: away from the side they came in
+    const X = (o) => (dir > 0 ? x + o : x + 340 - o);
+    const [who] = s.walkOn([{ svg: personSVG('adult', bareHead()), w: ADULT, x: X(70) }], -dir);
     const [, top] = brim(ADULT);
     const hat = who.hold(sunHatSVG(), 34, 0, top + 4);
-    const duck = s.actor(duckSVG(), x + 400, G, 38);
-    duck.face(-1);
-    who.walk();
-    await who.moveTo(x + 70, G, 2000);
-    who.walk(false);
-    const gust = s.actor(windSVG(), x - 10, G - 94, 50);
-    duck.walk();
-    duck.moveTo(x + 262, G, 3000);
-    await gust.moveTo(x + 90, G - 94, 700, 'ease-in');
+    const duckDue = performance.now() + Math.abs(s.edge(dir) - X(262)) / WADDLE;
+    const [duck] = s.walkOn([{ svg: duckSVG(), w: 38, x: X(262), speed: WADDLE }], dir);
+    await who.there;
+    await s.t(Math.max(0, duckDue - performance.now() - 2600)); // wait till the duck's nearly there
+    const gust = s.actor(windSVG(), s.edge(-dir), G - 94, 50);
+    gust.face(dir);
+    await gust.moveTo(X(90), G - 94, 900, 'ease-in');
     hat.remove();
-    const flying = s.actor(sunHatSVG(), x + 70, G + top + 4, 34);
+    const flying = s.actor(sunHatSVG(), X(70), G + top + 4, 34);
     flying.mood('tumble');
-    gust.moveTo(x + 220, G - 100, 700, 'ease-out').then(() => gust.remove());
+    gust.moveTo(s.edge(dir), G - 110, 1600, 'ease-in').then(() => gust.remove());
     who.say('😮', 1400);
-    await flying.moveTo(x + 190, G - 140, 1000, 'ease-out');
-    await flying.moveTo(x + 266, G - 24, 1100, 'ease-in');
+    await flying.moveTo(X(190), G - 140, 1000, 'ease-out');
+    await duck.there;
+    await flying.moveTo(X(266), G - 24, 1100, 'ease-in');
     flying.remove();
-    duck.walk(false);
     duck.setArt(duckSVG(false, true)); // it fits!
     duck.say('😎', 1700);
     duck.sound('quack');
     await s.t(600);
     who.say('😂', 1600);
     await s.t(1500);
-    duck.face(1);
-    duck.walk();
-    duck.moveTo(x + 470, G, 2800);
+    const off = s.walkOff([duck], dir);
     await s.t(500);
-    who.walk();
-    who.moveTo(x + 420, G, 2800);
-    await s.t(2400);
+    await Promise.all([off, s.walkOff([who], dir)]);
   },
 
   // Rainy days: a kid jumps in a puddle and a dog joins in.
@@ -357,7 +369,7 @@ const STORIES = {
     const G = s.G;
     const x = s.spot(300);
     const spot = x + 150;
-    s.actor(puddleSVG(), spot, G + 6, 96);
+    s.actor(puddleSVG(), spot, G + 6, 96).mood('grow');
     const splash = (cx, n = 7) => {
       for (let i = 0; i < n; i++) {
         const d = s.actor(dropSVG(), cx, G - 2, 6);
@@ -367,10 +379,8 @@ const STORIES = {
           .then(() => d.remove());
       }
     };
-    const kid = s.actor(personSVG('kid', rnd(48)), x + 10, G, KID);
-    kid.walk();
-    await kid.moveTo(x + 112, G, 1600);
-    kid.walk(false);
+    const [kid] = s.walkOn([{ svg: personSVG('kid', rnd(48)), w: KID, x: x + 112 }], -1);
+    await kid.there;
     kid.say('😁', 1000);
     await s.t(1000);
     await kid.moveTo(x + 132, G - 30, 300, 'ease-out');
@@ -378,12 +388,9 @@ const STORIES = {
     splash(spot - 6);
     kid.sound('splash');
     kid.say('😆', 1500);
-    await s.t(1300);
-    const dog = s.actor(personSVG('dog', rnd(4)), x + 380, G, DOG);
-    dog.face(-1);
-    dog.walk();
-    await dog.moveTo(spot + 34, G, 1200);
-    dog.walk(false);
+    await s.t(500);
+    const [dog] = s.walkOn([{ svg: personSVG('dog', rnd(4)), w: DOG, x: spot + 34, speed: TROT }], 1);
+    await dog.there;
     await dog.moveTo(spot + 22, G - 18, 220, 'ease-out');
     await dog.moveTo(spot + 14, G, 220, 'ease-in');
     splash(spot + 14);
@@ -396,7 +403,8 @@ const STORIES = {
     kid.say('😂', 1700);
     kid.sound('laugh');
     await dog.hop(10);
-    await s.t(1600);
+    await s.t(1400);
+    await s.walkOff([kid, dog], 1);
   },
 };
 const SUNNY = ['frisbee', 'balloon', 'sandwich', 'ducks', 'bubbles', 'hat'];
@@ -410,7 +418,11 @@ export class ParkStories {
   constructor(host, { rain = false, tall = false, busy = () => false, blockers = () => [], sound = () => {} } = {}) {
     const v = tall ? PARK_VIEW.tall : PARK_VIEW.wide;
     this.G = v.ground; // the stories stand here: on the lawn between the pond and the path
-    this.k = tall ? 0.85 : 0.92; // story units → park units: a bit smaller than the customers, who are closer
+    this.k = v.story; // story units → park units: a bit smaller than the customers, who are closer
+    // the park bench, in story units: the middle, the ground under it, and its ends
+    const [bx, by] = v.bench;
+    this.bench = { x: bx / this.k, y: this.G + (by - this.G) / this.k, ends: [bx / this.k - BENCH_W / 2, bx / this.k + BENCH_W / 2] };
+    this.bench.inWay = by - BENCH_W * 0.4 * this.k < this.G; // its top comes up past the stories' feet
     host.innerHTML = `<svg class="story-layer" viewBox="0 0 ${v.w} ${v.h}" preserveAspectRatio="xMidYMax slice" xmlns="${NS}"><g transform="translate(0 ${this.G}) scale(${this.k}) translate(0 ${-this.G})"></g></svg>`;
     this.layer = host.firstElementChild;
     this.root = this.layer.firstElementChild;
@@ -452,6 +464,37 @@ export class ParkStories {
     const [a, b] = this.visible();
     this.playSound(name, Math.max(-0.8, Math.min(0.8, ((x - a) / (b - a)) * 2 - 1)));
   }
+  // Just out of sight past the left (side -1) or right (side 1) edge of the screen.
+  edge(side) {
+    const [a, b] = this.visible();
+    return side < 0 ? a - 60 : b + 60;
+  }
+  // The side of the screen x is closer to.
+  near(x) {
+    const [a, b] = this.visible();
+    return x - a < b - x ? -1 : 1;
+  }
+  // A group walks on together from one side of the screen, keeping their spacing, to their spots.
+  // who: [{ svg, w, x, y, speed, stop }]: stop is where to stop if it isn't x (someone who lags behind).
+  // Each actor gets .there, which resolves when they've got there.
+  walkOn(who, side) {
+    const xs = who.map((m) => m.x);
+    const ref = side < 0 ? Math.max(...xs) : Math.min(...xs);
+    const speed = Math.min(...who.map((m) => m.speed || WALK));
+    return who.map((m) => {
+      const a = this.actor(m.svg, this.edge(side) + m.x - ref, m.y ?? this.G, m.w);
+      a.speed = m.speed || WALK;
+      a.there = a.walkTo(m.stop ?? m.x, speed);
+      return a;
+    });
+  }
+  // And off again, together, past one side of the screen.
+  walkOff(actors, side) {
+    const xs = actors.map((a) => a.x);
+    const ref = side > 0 ? Math.min(...xs) : Math.max(...xs);
+    const speed = Math.min(...actors.map((a) => a.speed));
+    return Promise.all(actors.map((a) => a.walkTo(this.edge(side) + a.x - ref, speed).then(() => a.remove())));
+  }
   // The part of the park this screen shows, in story units (the backdrop is cropped at the sides).
   visible() {
     const r = this.layer.getBoundingClientRect();
@@ -475,6 +518,7 @@ export class ParkStories {
       .map((e) => e.getBoundingClientRect())
       .filter((q) => q.width && q.bottom > band[1] && q.top < band[0])
       .map((q) => [a + (q.left - r.left) / u, a + (q.right - r.left) / u]);
+    if (this.bench.inWay) blocks.push(this.bench.ends); // stories behind the bench would have their feet hidden
     const covered = (x) => blocks.reduce((sum, [l, rr]) => sum + Math.max(0, Math.min(rr, x + span) - Math.max(l, x)), 0);
     let best = [];
     let least = Infinity;
@@ -500,7 +544,7 @@ export class ParkStories {
     } catch (e) {
       if (e !== STOP) console.error(e);
     }
-    // whatever is still on the lawn fades away, then a rest before the next story
+    // whatever is still on the lawn (a puddle) fades away, then a rest before the next story
     this.layer.classList.add('fade');
     await wait(600);
     this.root.replaceChildren();

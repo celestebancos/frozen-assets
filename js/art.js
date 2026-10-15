@@ -1024,7 +1024,18 @@ function sky() {
 // each in two layers so the little stories on the lawn go between them: the back (sky, trees, pond, lawn)
 // and the front (flower beds, the lamp and the path), which stands in front of the stories.
 // opts: { tall, front }. Sprites (the cart, people, stands, the swings) are drawn on top by the cart screen.
-export const PARK_VIEW = { wide: { w: 1000, h: 500, ground: 364 }, tall: { w: 360, h: 600, ground: 392 } };
+// ground: where the stories stand. story: how big the stories are drawn (a bit smaller than the customers, who
+// are closer). bench: the park bench by the path (middle, bottom), which the sandwich story uses.
+export const PARK_VIEW = {
+  wide: { w: 1000, h: 500, ground: 364, story: 0.92, bench: [500, 404] },
+  tall: { w: 360, h: 600, ground: 392, story: 0.85, bench: [205, 440] },
+};
+// The park bench, 100 × 40. The stories draw someone sitting on it 116 story units wide.
+export const BENCH_W = 116;
+export function benchSVG() {
+  return `<svg viewBox="0 0 100 40" xmlns="http://www.w3.org/2000/svg"><path d="M12 22 V40 M88 22 V40" stroke="${INK}" stroke-width="4.5" stroke-linecap="round"/><path d="M12 22 V40 M88 22 V40" stroke="#4a4a5a" stroke-width="2.4" stroke-linecap="round"/><rect x="2" y="4" width="96" height="8" rx="3" fill="#a86b3c" stroke="${INK}" stroke-width="1.4" stroke-linejoin="round"/><rect x="2" y="15" width="96" height="8" rx="3" fill="#a86b3c" stroke="${INK}" stroke-width="1.4" stroke-linejoin="round"/><path d="M8 7 H40 M56 18 H90" stroke="#c98a55" stroke-width="1.6" stroke-linecap="round"/></svg>`;
+}
+
 export function parkSVG({ tall = false, front = false } = {}) {
   const W = tall ? 360 : 1000;
   const H = tall ? 600 : 500;
@@ -1093,9 +1104,13 @@ export function parkSVG({ tall = false, front = false } = {}) {
   const open = `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMax slice" class="scene-svg park-scene${front ? ' park-front' : ''}" xmlns="http://www.w3.org/2000/svg">`;
 
   if (front) {
+    const v = tall ? PARK_VIEW.tall : PARK_VIEW.wide;
+    const [bx, by] = v.bench;
+    const bw = BENCH_W * v.story;
+    const parkBench = benchSVG().replace('<svg ', `<svg x="${(bx - bw / 2).toFixed(1)}" y="${(by - bw * 0.4).toFixed(1)}" width="${bw.toFixed(1)}" height="${(bw * 0.4).toFixed(1)}" `);
     const inner = tall
-      ? `${bed(118, 240, pathTop(180) - 6)}${path}`
-      : `${bed(300, 430, pathTop(365) - 6)}${bed(600, 740, pathTop(670) - 6)}${parkLamp(780, pathTop(780) - 2)}${path}`;
+      ? `${parkBench}${bed(118, 240, pathTop(180) - 6)}${path}`
+      : `${parkBench}${bed(300, 430, pathTop(365) - 6)}${bed(600, 740, pathTop(670) - 6)}${parkLamp(780, pathTop(780) - 2)}${path}`;
     return `${open}${inner}</svg>`;
   }
   if (tall) {
@@ -1127,8 +1142,8 @@ export function parkSVG({ tall = false, front = false } = {}) {
     <path d="M0 ${G + 40} Q500 ${G + 30} 1000 ${G + 40} V${G + 70} Q500 ${G + 60} 0 ${G + 70} Z" fill="#fff" opacity=".07"/>
     ${tree(40, 1.3)}${tree(180, 0.95)}${tree(330, 0.8, 'tall')}${tree(670, 0.85, 'tall')}${tree(830, 1.15)}${tree(975, 1.3, 'pine')}
     ${pond(520, 150)}
-    ${bush(250, 70, true, G + 6)}${bush(760, 80, true, G + 6)}${bench(130, G + 12)}${bench(866, G + 14)}
-    ${sign(38, G + 64)}${blanket(160, G + 84)}
+    ${bush(250, 70, true, G + 6)}${bush(760, 80, true, G + 6)}${bench(866, G + 14)}
+    ${sign(38, G + 64)}${blanket(676, G + 78)}
     ${tufts}
     ${fly(240, G + 34, '#ff9fb7', 0)}${fly(720, G + 40, '#ffd23f', -3)}
   </svg>`;

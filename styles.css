@@ -579,7 +579,7 @@ table.books tr.bottom td { font-weight: 800; font-size: 18px; background: #fff3b
 .park .stand-btn { z-index: 1; }
 .park .stand-btn.front { z-index: 3; }
 .park .scene-front { position: absolute; inset: 0; pointer-events: none; z-index: 2; }
-.park .scene-front svg { width: 100%; height: 100%; display: block; }
+.park .scene-front > svg { width: 100%; height: 100%; display: block; }
 /* where the stands and swings go is worked out in placeProps (they sit on spots of the park picture) */
 .stand-btn { position: absolute; border: none; background: none; padding: 0; pointer-events: auto; }
 .stand-btn > svg { width: 100%; height: auto; display: block; }
@@ -632,6 +632,8 @@ table.books tr.bottom td { font-weight: 800; font-size: 18px; background: #fff3b
 .story-layer .tumble { animation: storySpin 0.6s linear infinite; }
 .story-layer .wobble { animation: storyWobble 0.2s ease-in-out infinite alternate; }
 .story-layer .sway { animation: storySway 1.2s ease-in-out infinite alternate; }
+.story-layer .grow { transform-box: fill-box; transform-origin: 50% 100%; animation: storyGrow 0.8s ease-out; }
+@keyframes storyGrow { from { opacity: 0; transform: scale(0.3); } }
 .story-layer .shake { animation: storyShake 0.08s linear infinite alternate; }
 @keyframes storySpin { to { transform: rotate(360deg); } }
 @keyframes storyWobble { to { transform: scaleY(0.6); } }
