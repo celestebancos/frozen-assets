@@ -333,8 +333,8 @@ export function personSVG(kind, look = 0, me = null) {
   if (me?.hat === 'crown') extras += `<path d="M-9 -6 L-10 -17 L-5 -11 L0 -19 L5 -11 L10 -17 L9 -6 Z" fill="#ffd23f" ${OUT}/><circle cx="0" cy="-9" r="1.6" fill="#e5484d"/><circle cx="-5.6" cy="-8.4" r="1.1" fill="#3a8ee6"/><circle cx="5.6" cy="-8.4" r="1.1" fill="#3a8ee6"/>`;
   if (sunhat) extras += `<ellipse cx="0" cy="-6" rx="16.5" ry="3.6" fill="#f7e3b5" ${OUT}/><path d="M-8 -6 Q-8.4 -15.5 0 -15.5 Q8.4 -15.5 8 -6 Z" fill="#f7e3b5" ${OUT}/><path d="M-8 -7.6 Q0 -6 8 -7.6 L8 -6 Q0 -4.4 -8 -6 Z" fill="${shirt}"/>`;
 
-  // tall hats (propeller, crown) poke out above the box, so let them show
-  return `<svg viewBox="0 0 40 84" class="person ${kind}"${me?.hat ? ' style="overflow:visible"' : ''} xmlns="http://www.w3.org/2000/svg">
+  // buns and tall hats (propeller, crown) poke out above the box, so let them show
+  return `<svg viewBox="0 0 40 84" class="person ${kind}" style="overflow:visible" xmlns="http://www.w3.org/2000/svg">
   <g transform="translate(20 ${hy}) scale(${s})">${HAIR_BACK[style](hair)}</g>
   ${legs}${shoe(20 - lx - 0.4, -1)}${shoe(20 + lx + 0.4, 1)}
   ${bottoms}${neck}${arms}${torso}${stripeLines}${neckline}${hands}
