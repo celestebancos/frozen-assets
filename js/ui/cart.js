@@ -327,6 +327,12 @@ export class CartView {
         this.save();
         this.renderHome();
       },
+      // tap a toy and it bounces
+      toy: (t) => {
+        t.classList.remove('boing');
+        void t.offsetWidth;
+        t.classList.add('boing');
+      },
       walletToBox: () => {
         const amt = c.walletTotal;
         if (!amt || !c.move('wallet', 'box', { ...s.money.wallet })) return;
@@ -363,6 +369,10 @@ export class CartView {
           <div class="cart-pic">${cartArt(c)}</div>
           <button class="btn small" data-act="closet">👕 Closet</button>
           ${c.decalsLoose().length ? '<button class="btn small" data-act="stickers">🌟 Stickers</button>' : ''}
+          <div class="toys"><h3>🧸 My toys</h3><div class="toy-shelf">${s.owned
+            .filter((id) => ITEM[id]?.kind === 'toy')
+            .map((id) => `<button class="toy" data-act="toy" aria-label="${esc(ITEM[id].name)}">${ITEM[id].emoji}</button>`)
+            .join('')}</div></div>
         </div>
         ${this.kitchenHTML()}
         <div class="card cash-card">
