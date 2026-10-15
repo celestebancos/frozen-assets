@@ -135,9 +135,6 @@ export function sandwichSVG() {
   return `<svg viewBox="0 0 30 18" class="critter" xmlns="http://www.w3.org/2000/svg"><path d="M3 15 L15 3 L27 15 Z" fill="#f5d08a" ${thin}/><path d="M5.5 12.5 L15 5.5 L24.5 12.5" fill="none" stroke="#8ac926" stroke-width="2.4" stroke-linejoin="round"/><path d="M7 14 L23 14" stroke="#e5484d" stroke-width="2"/><path d="M3 15 L15 3 L27 15" fill="none" ${thin}/></svg>`;
 }
 // A park bench seen from behind: whoever sits on it shows above the backrest.
-export function benchSVG() {
-  return `<svg viewBox="0 0 100 40" class="critter" xmlns="http://www.w3.org/2000/svg"><path d="M12 22 V40 M88 22 V40" stroke="${INK}" stroke-width="4.5" stroke-linecap="round"/><path d="M12 22 V40 M88 22 V40" stroke="#4a4a5a" stroke-width="2.4" stroke-linecap="round"/><rect x="2" y="4" width="96" height="8" rx="3" fill="#a86b3c" ${thin}/><rect x="2" y="15" width="96" height="8" rx="3" fill="#a86b3c" ${thin}/><path d="M8 7 H40 M56 18 H90" stroke="#c98a55" stroke-width="1.6" stroke-linecap="round"/></svg>`;
-}
 export function sunHatSVG() {
   return `<svg viewBox="0 0 40 18" class="critter" xmlns="http://www.w3.org/2000/svg"><ellipse cx="20" cy="13" rx="18" ry="4" fill="#f7e3b5" ${thin}/><path d="M11 13 Q11 2 20 2 Q29 2 29 13 Z" fill="#f7e3b5" ${thin}/><path d="M11 10 Q20 12 29 10" stroke="#e5484d" stroke-width="2.6" fill="none"/></svg>`;
 }
