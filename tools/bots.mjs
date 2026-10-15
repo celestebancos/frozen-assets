@@ -61,6 +61,14 @@ export const BOTS = {
     ads: (g) => (g.week >= 2 && g.cash > 30000 ? 'flyers' : 'none'),
     restock: { days: 3, mixDays: 2.5, preferPack: 1 },
   },
+  // the decent player with every price at about 70% of normal (rounded to 25¢)
+  bargain: {
+    prices: Object.fromEntries(Object.entries(FAIR).map(([id, p]) => [id, Math.max(25, Math.round((p * 0.7) / 25) * 25)])),
+    policies: { outOfStock: 'gift', drop: 'replace', autoGas: true },
+    route: () => SIMPLE_ROUTE,
+    ads: (g) => (g.week >= 2 && g.cash > 30000 ? 'flyers' : 'none'),
+    restock: { days: 3, mixDays: 2.5, preferPack: 1 },
+  },
   smart: {
     prices: FAIR,
     policies: { outOfStock: 'gift', drop: 'replace', autoGas: true },

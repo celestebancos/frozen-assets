@@ -540,6 +540,13 @@ export const CART_CROWD = {
   rainChance: 0.12,
   join: 0.34, // chance someone walking by wants something
   lineJoin: [1, 0.85, 0.65, 0.45, 0.3, 0.15], // fewer people join a longer line
+  // Low prices on the cooler draw people over right away (more stop when the prices look cheap):
+  // join chance × (1 + strength × how far under fair the prices are), between min and max.
+  priceJoin: { strength: 1, min: 0.8, max: 1.4 },
+  // Word of mouth: each night, how good a deal today's sales were sets where the crowd is heading.
+  // target = 1 + strength × (1 − paid ÷ fair), minus a bit for each person who gave up in line or said
+  // "too much". The crowd moves `pull` of the way there each night (so it builds over a few days).
+  word: { strength: 2.5, min: 0.6, max: 2.2, pull: 0.35, leftLine: 0.04, tooMuch: 0.01 },
   // game minutes someone waits in line before giving up. While anyone is at the cart, a game minute takes
   // 3 real seconds, so this is 4 to 7 real minutes (kids counting change take their time).
   patience: [80, 140],

@@ -9,6 +9,8 @@ const BOX_FOR = Object.fromEntries(CART_SHOPS.restaurant.items.filter((i) => i.k
 // smart: a menu of 10 with both fancy treats and both drinks, a napkin with every sale, always quick, and an
 //   umbrella and bell once there's money for them.
 // slow: fair prices and right change, but every sale is slow and the cooler only has the cheap pops.
+// cheap / bargain: the decent player with every price at about 3/4 or 1/2 of fair (word of mouth brings more
+//   people, so there's more to serve and longer lines).
 // pace: how long serving takes compared with a typical kid (see SERVE_SEC). 'hot' on a menu is this game's big seller.
 // food: how they keep from getting too hungry. hotdog: buys one at the stand when hungry. packed: packs a lunch at
 // home every day (sandwich makings from the corner store). snack: one bag of chips from the corner store, so most
@@ -16,6 +18,8 @@ const BOX_FOR = Object.fromEntries(CART_SHOPS.restaurant.items.filter((i) => i.k
 export const CART_BOTS = {
   decent: { food: 'hotdog', fast: 0.5, pace: 1, napkin: false, gear: [], menu: ['rocketPop', 'hot', 'fudgePop', 'freezePop', 'iceCherry', 'iceBlue', 'crunchBar', 'water'] },
   smart: { food: 'packed', fast: 1, pace: 0.75, napkin: true, gear: ['umbrella', 'bell'], menu: ['rocketPop', 'hot', 'fudgePop', 'freezePop', 'iceCherry', 'sandwich', 'crunchBar', 'sundaeCone', 'water', 'punch'] },
+  cheap: { food: 'hotdog', fast: 0.5, pace: 1, napkin: false, gear: [], price: 0.75, menu: ['rocketPop', 'hot', 'fudgePop', 'freezePop', 'iceCherry', 'iceBlue', 'crunchBar', 'water'] },
+  bargain: { food: 'hotdog', fast: 0.5, pace: 1, napkin: false, gear: [], price: 0.5, menu: ['rocketPop', 'hot', 'fudgePop', 'freezePop', 'iceCherry', 'iceBlue', 'crunchBar', 'water'] },
   slow: { food: 'snack', fast: 0, pace: 1.5, napkin: false, gear: [], menu: ['rocketPop', 'freezePop'] },
 };
 const menuOf = (c, bot) => [...new Set(bot.menu.map((id) => (id === 'hot' ? c.state.hot || 'sandwich' : id)))];
@@ -175,6 +179,7 @@ function stockValue(c) {
 export function playCart(name, seed, days = 60, goals = [20000, 30000, 50000, 100000]) {
   const bot = CART_BOTS[name];
   const c = Cart.create({ player: name, seed });
+  if (bot.price) for (const it of CART_ITEMS) c.setPrice(it.id, Math.max(CART.priceStep, Math.round((it.fair * bot.price) / CART.priceStep) * CART.priceStep));
   const rng = makeRng(seed + 1);
   const reached = {};
   const nights = [];
@@ -182,7 +187,7 @@ export function playCart(name, seed, days = 60, goals = [20000, 30000, 50000, 10
     morning(c, bot);
     park(c, bot, rng);
     const money = c.businessMoney + c.walletTotal; // cash box, bank and wallet (tips land in the wallet)
-    nights.push({ day: d, money, stock: Math.round(stockValue(c)), sales: c.state.days.at(-1).revenue, customers: c.state.days.at(-1).customers });
+    nights.push({ day: d, money, stock: Math.round(stockValue(c)), sales: c.state.days.at(-1).revenue, customers: c.state.days.at(-1).customers, leftLine: (c.state.days.at(-1).leftLine || 0) + (c.state.days.at(-1).sawLine || 0), buzz: c.state.buzz });
     for (const g of goals) if (reached[g] == null && money >= g) reached[g] = d;
     c.nextDay();
   }

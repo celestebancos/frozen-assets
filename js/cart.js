@@ -147,6 +147,7 @@ export function newCartState({ player, look, seed }) {
     log: [],
   };
   s.hot = hotFor(s.seed); // this game's other big seller (besides rocket pops)
+  s.buzz = 1; // word of mouth: how many people come by, next to normal
   s.rngState = s.seed;
   return s;
 }
@@ -206,6 +207,7 @@ export class Cart {
       for (const d of state.days || []) for (const [id, n] of Object.entries(d.sold || {})) state.stats.soldItems[id] = (state.stats.soldItems[id] || 0) + n;
     }
     state.napkins ??= 0;
+    state.buzz ??= 1; // older saves: word of mouth starts out normal
     // older saves: pick this game's other big seller
     state.hot ??= hotFor(state.seed);
     state.packs ??= { spoons: 0, napkins: 0 }; // older saves: everything bought was already on the cart
@@ -726,7 +728,18 @@ export class Cart {
     if (this.isWeekend) r *= CR.weekendBoost;
     if (s.weather.rain) r *= CR.rain;
     r *= Math.max(0.5, 1 + (s.weather.temp - 80) * CR.hotPerDegree);
-    return r;
+    return r * (s.buzz ?? 1); // word of mouth
+  }
+  // How cheap the prices on the cooler look (what's in it), next to fair: 1 = fair, 0.5 = half price.
+  priceRatio() {
+    const ids = CART_ITEMS.filter((it) => this.canSell(it.id));
+    if (!ids.length) return 1;
+    return ids.reduce((a, it) => a + this.state.prices[it.id] / it.fair, 0) / ids.length;
+  }
+  // Cheap prices make more people stop.
+  priceAppeal() {
+    const P = CR.priceJoin;
+    return Math.max(P.min, Math.min(P.max, 1 + P.strength * (1 - this.priceRatio())));
   }
 
   makeCustomer(kind, regular = null) {
@@ -895,8 +908,12 @@ export class Cart {
       return;
     }
     const L = s.line.length + (s.window ? 1 : 0);
-    const join = isRegular ? L < 5 : this.rng.chance(CR.join * this.looksBoost() * CR.lineJoin[Math.min(L, CR.lineJoin.length - 1)]);
+    // One draw: below `want × line` they join; between that and `want` they wanted something, but the line put them off.
+    const want = CR.join * this.looksBoost() * this.priceAppeal();
+    const u = isRegular ? 0 : this.rng.next();
+    const join = isRegular ? L < 5 : u < want * CR.lineJoin[Math.min(L, CR.lineJoin.length - 1)];
     if (!join) {
+      if (!isRegular && u < want) s.today.sawLine = (s.today.sawLine || 0) + 1;
       this.emit({ t: 'pass', cust: c, say: isRegular ? 'tooLong' : null });
       return;
     }
@@ -999,6 +1016,9 @@ export class Cart {
     for (const id of w.extras) s.today.given[id] = (s.today.given[id] || 0) + 1;
     // they pay for what they asked for
     w.due = w.order.reduce((a, x) => a + s.prices[x], 0);
+    // for word of mouth: what they paid next to what's fair
+    s.today.dealPaid = (s.today.dealPaid || 0) + w.due;
+    s.today.dealFair = (s.today.dealFair || 0) + w.order.reduce((a, x) => a + CART_ITEM[x].fair, 0);
     w.paid = choosePayment(w.cust.pocket, w.due, this.rng);
     takePile(w.cust.pocket, w.paid);
     addPile(s.money.box, w.paid);
@@ -1126,7 +1146,13 @@ export class Cart {
     addPile(s.money.wallet, s.money.jar);
     s.money.jar = {};
     s.balloon = null;
-    const summary = { day: s.day, weather: s.weather, ...t, endBox: this.boxTotal, tipsToWallet: tips, closed: Math.min(s.minute, K.parkClose, s.tooHungry ?? K.parkClose), tooHungry: s.tooHungry };
+    // word of mouth: good deals bring more people over the next few days; long waits and "too much" fewer
+    const W = CR.word;
+    const buzzBefore = s.buzz ?? 1;
+    let target = t.dealFair > 0 ? 1 + W.strength * (1 - t.dealPaid / t.dealFair) : 1;
+    target = Math.max(W.min, Math.min(W.max, target - W.leftLine * (t.leftLine || 0) - W.tooMuch * (t.tooExpensive || 0)));
+    s.buzz = buzzBefore + (target - buzzBefore) * W.pull;
+    const summary = { day: s.day, weather: s.weather, ...t, endBox: this.boxTotal, tipsToWallet: tips, closed: Math.min(s.minute, K.parkClose, s.tooHungry ?? K.parkClose), tooHungry: s.tooHungry, buzz: s.buzz, buzzChange: s.buzz - buzzBefore };
     s.days.push(summary);
     if (s.days.length > 400) s.days.shift();
     s.phase = 'night';
