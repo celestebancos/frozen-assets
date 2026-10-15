@@ -636,6 +636,36 @@ export class Game {
     this.logAction('moveProfit', { amt, docs: ids.length, grandma });
     return { amt, ids, grandma };
   }
+  // Between summers: pay Grandma for part of her Share (quarters: 1–4; 4 is all of it), from the business's cash.
+  // Her slice of the profit gets smaller by the same part; buying all of it makes the business all yours.
+  buyOutGrandma(quarters) {
+    const s = this.state;
+    const P = s.partner;
+    if (!P || s.phase !== 'won' || !(quarters >= 1 && quarters <= 4)) return { ok: false };
+    const amt = this.buyOutCost(quarters);
+    if (amt > this.cash) return { ok: false, reason: 'cash' };
+    const part = ['', 'a quarter of', 'half of', 'three quarters of', 'all of'][quarters];
+    this.post('grandmaBuyout', [
+      { acct: 'cash', amt: -amt },
+      { acct: 'grandmaIn', amt: -amt },
+    ], { label: `Bought back ${part} Grandma's Share`, amt });
+    if (quarters === 4) {
+      s.partnerWas = { ...P };
+      s.partner = null;
+    } else {
+      const n = P.slice[0] * (4 - quarters);
+      const d = P.slice[1] * 4;
+      const gcd = (a, b) => (b ? gcd(b, a % b) : a);
+      const k = gcd(n, d);
+      P.slice = [n / k, d / k];
+    }
+    this.logAction('buyOutGrandma', { quarters, amt, slice: s.partner?.slice || null });
+    return { ok: true, amt, slice: s.partner?.slice || null };
+  }
+  buyOutCost(quarters) {
+    const theirs = this.state.truth.grandmaIn || 0;
+    return quarters === 4 ? theirs : Math.round((theirs * quarters) / 4);
+  }
   // Grandma's part of the profit moves from your Share to hers, in one set of books (the real ones or yours).
   splitWithGrandma(amt, books) {
     applyEntries(books, [{ acct: 'grandmaIn', amt }, { acct: 'ownerIn', amt: -amt }]);

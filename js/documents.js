@@ -11,6 +11,8 @@ export const DOC_TYPES = {
   grandmaInvest: { title: "Grandma's investment", look: 'receipt', icon: '👵',
     penny: "Grandma put money into the business, so Cash went up. You don't have to pay it back, so it isn't a liability. She owns part of the business now: Grandma's Share went up.",
     caption: "Grandma's money is in the cash box. It's her part of the business." },
+  grandmaBuyout: { title: "Buying back Grandma's share", look: 'receipt', icon: '👵',
+    penny: "You paid Grandma, so Cash went down. That isn't an expense: you didn't use anything up. You bought back part of the business, so Grandma's Share went down." },
   loanPapers: { title: 'Bank loan papers', look: 'bank', icon: '🏦',
     penny: "The bank put money in your account, so Cash went up. But that money isn't yours to keep — you have to pay it back. That's a Business loan, and owing it is a liability.",
     caption: "The bank's money is in the cash box, and the business owes it back." },

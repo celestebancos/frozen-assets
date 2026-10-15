@@ -795,3 +795,35 @@ test('Grandma as a co-owner over a whole summer: the real books split every week
   assert.ok(quarter.r.won);
   assert.ok(half.r.share < quarter.r.share, 'a bigger slice leaves you less');
 });
+
+test("buying out Grandma between summers: pay part of her Share, her slice shrinks; all of it and the truck is yours", async () => {
+  const { ownShare } = await import('../js/ledger.js');
+  const orig = Game.create;
+  let g;
+  Game.create = (o) => (g = orig.call(Game, { ...o, ownerCash: 50000, truckCost: 970000, partner: { put: 950000, slice: [1, 3] } }));
+  playSeason('decent', 7919);
+  Game.create = orig;
+  const s = g.state;
+  assert.equal(s.phase, 'won');
+  const theirs = s.truth.grandmaIn;
+  const mine = ownShare(s.truth);
+  const half = g.buyOutCost(2);
+  assert.equal(half, Math.round(theirs / 2));
+  const r = g.buyOutGrandma(2);
+  assert.ok(r.ok);
+  assert.deepEqual(r.slice, [1, 6], 'half of 1/3');
+  assert.equal(s.truth.grandmaIn, theirs - half);
+  assert.equal(ownShare(s.truth), mine, "buying her out doesn't change your Share: cash turns into ownership");
+  const paper = s.docs.find((d) => d.type === 'grandmaBuyout');
+  assert.ok(paper);
+  // all of the rest, if there's cash for it
+  if (g.buyOutCost(4) <= g.cash) {
+    assert.ok(g.buyOutGrandma(4).ok);
+    assert.equal(s.partner, null);
+    assert.equal(s.truth.grandmaIn, 0);
+  } else assert.equal(g.buyOutGrandma(4).reason, 'cash');
+  // too much: not enough cash
+  s.partner ??= { name: 'Grandma', put: 1, slice: [1, 3] };
+  s.truth.grandmaIn = g.cash + 100000;
+  assert.equal(g.buyOutGrandma(4).reason, 'cash');
+});
