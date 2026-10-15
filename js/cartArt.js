@@ -309,8 +309,8 @@ export function hotdogStandSVG() {
     <ellipse cx="75" cy="167" rx="66" ry="4" fill="${INK}" opacity=".14"/>
     <path d="M75 86 V22" stroke="${INK}" stroke-width="3.4"/><path d="M75 86 V22" stroke="#cfd5de" stroke-width="1.6"/>
     ${cook}
-    <path d="M6 30 Q75 -12 144 30 Z" fill="#ffd23f" ${OUT}/><path d="M40 30 Q57 4 75 -1 Q93 4 110 30" fill="#e5484d"/><path d="M6 30 Q75 -12 144 30" fill="none" ${OUT}/>
-    <path d="M6 30 Q23 37 40 30 Q57 37 75 30 Q93 37 110 30 Q127 37 144 30" fill="none" ${OUT}/><circle cx="75" cy="-1" r="3" fill="#e5484d" ${thin}/>
+    <path d="M6 30 Q75 -12 144 30 Z" fill="#ffd23f" ${OUT}/><path d="M40 30 Q58 13 75 9 Q92 13 110 30" fill="#e5484d"/><path d="M6 30 Q75 -12 144 30" fill="none" ${OUT}/>
+    <path d="M6 30 Q23 37 40 30 Q57 37 75 30 Q93 37 110 30 Q127 37 144 30" fill="none" ${OUT}/><circle cx="75" cy="6.6" r="3" fill="#e5484d" ${thin}/>
     <g ${thin}><path d="M24 84 V70 Q24 66 28 66 H32 Q36 66 36 70 V84 Z" fill="#e5484d"/><path d="M28 66 V61 H32 V66" fill="#fff"/><path d="M114 84 V70 Q114 66 118 66 H122 Q126 66 126 70 V84 Z" fill="#ffd23f"/><path d="M118 66 V61 H122 V66" fill="#fff"/></g>
     <rect x="10" y="84" width="130" height="58" rx="8" fill="#fffaf0" ${OUT}/><rect x="10" y="84" width="130" height="14" rx="6" fill="#e5484d" ${OUT}/>
     <g transform="translate(30 120)"><rect x="-14" y="-6" width="28" height="12" rx="6" fill="#e9b26a" ${thin}/><rect x="-17" y="-3" width="34" height="6" rx="3" fill="#c0503a" ${thin}/><path d="M-12 -1 q3 -2 6 0 t6 0 t6 0 t6 0" stroke="#ffd23f" stroke-width="1.6" fill="none"/></g>
