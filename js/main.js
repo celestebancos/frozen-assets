@@ -351,7 +351,7 @@ class App {
     const card = el(`<div class="morning"><div class="card">
       ${s.phase === 'seasonEnd' ? `<div style="font-size:40px">🌅</div><h2 style="margin:0">Summer's over!</h2>` : s.phase === 'setup' ? `<div style="font-size:40px">🏦➡️💵➡️🚚</div>` : `<h2 style="margin:0">${DAY_NAMES[g.dayOfWeek]} · Week ${g.week}${s.season > 1 ? ` · Summer ${s.season}` : ''}</h2>`}
       <div class="weather">${wIcon} <b style="font-size:30px">${w.temp}°F</b></div>
-      ${last && s.phase !== 'setup' ? `<p class="muted">Yesterday: 🍦 ${Object.values(last.sold).reduce((a, b) => a + b, 0)} · 💵 ${money(last.revenue)}${last.tooExpensive ? ` · 😤 ${last.tooExpensive} said “too expensive”` : ''}${last.broke ? ` · ${coinIcon()} ${last.broke} only had pocket money` : ''}</p>` : ''}
+      ${last && s.phase !== 'setup' ? `<p class="muted">Yesterday: 🍦 ${Object.values(last.sold).reduce((a, b) => a + b, 0)} · 💵 ${money(last.revenue)}${last.tooExpensive ? ` · 😤 ${last.tooExpensive} said “too expensive”` : ''}${last.broke ? ` · ${coinIcon()} ${last.broke} only had pocket money` : ''}${last.lineLeft ? ` · 😩 ${last.lineLeft} left a long line` : ''}</p>` : ''}
       ${s.phase !== 'setup' && s.phase !== 'seasonEnd' && g.plannedRoute() ? `<p class="tiny muted">🗺️ Today's route: <b>${esc(g.plannedRoute().name)}</b></p>` : ''}
       ${needFile ? `<button class="btn big yellow pulse" data-act="file">🗃️ Shoebox (${needFile})</button>` : `<button class="btn big go pulse" data-act="open">🔔 Open for business!</button>`}
     </div></div>`);

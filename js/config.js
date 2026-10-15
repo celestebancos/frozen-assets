@@ -60,6 +60,7 @@ export const CONFIG = {
     dropReplaced: 0.004,
     dropRefused: -0.006,
     giftCardFree: 0.003,
+    lineLeft: -0.002,
     promoCard: 0.003,
   },
 
@@ -97,6 +98,12 @@ export const CONFIG = {
   popWant: { kid: 0.08, teen: 0.05, adult: 0.02 },
   // The game's favorite treat (picked for the park cart, kept on the truck) is wanted as much as rocket pops.
   favoriteWant: 11.5,
+  // The truck window serves about `perMinute` people a minute. A party that would wait more than `patience`
+  // minutes sees the line is too long and leaves (people talk about that a little: `lineLeft` popularity).
+  service: { perMinute: 2, patience: 10 },
+  // Super-low prices draw extra people (word gets around fast): when the menu averages under `below` of the
+  // fair price, arrivals × (1 + strength × how far under), up to `max`. Normal and slightly low prices: no change.
+  dealCrowd: { below: 0.55, strength: 6, max: 3 },
   // Chance each person adds a drink to their order (if drinks are on the menu): more on hot days (per degree over 80°F).
   drink: { base: 0.04, perDegree: 0.005, min: 0.02, max: 0.12 },
 

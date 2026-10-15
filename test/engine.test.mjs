@@ -540,6 +540,7 @@ test('drinks on the truck: some people add one to their order, nobody comes for 
   let drinks = 0, people = 0;
   for (let i = 0; i < 60; i++) {
     const p = { id: i, type: 'adult', together: true, members: [{ kind: 'adult', look: 1 }] };
+    g.state.queue = 0; // everyone gets served (no line)
     g.arrive(p);
     if (p.members[0].result === 'bought') people++;
     if (p.members[0].drink) drinks++;
@@ -548,6 +549,24 @@ test('drinks on the truck: some people add one to their order, nobody comes for 
   assert.ok(drinks > 3 && drinks < people, `${drinks} drinks for ${people} people`);
   assert.equal(g.state.today.sold.water, drinks);
   assert.equal(g.stock('water'), 24 - drinks);
+});
+
+test('a long line at the window sends people away; super-low prices draw a crowd', () => {
+  const g = readyGame(12);
+  g.openDay();
+  const kid = (id) => ({ id, type: 'soloKid', together: true, members: [{ kind: 'kid', look: 1 }] });
+  for (let i = 0; i < 30; i++) g.arrive(kid(i));
+  assert.ok(g.state.today.lineLeft > 0, 'too many at once: some leave');
+  const p = kid(99);
+  g.arrive(p);
+  assert.equal(p.members[0].result, 'lineTooLong');
+  // the window serves the line, a few people a minute
+  for (let i = 0; i < 20; i++) g.step();
+  assert.equal(g.state.queue, 0);
+  // normal or a bit low: no extra crowd; super low: a big one
+  assert.equal(g.dealAppeal(), 1);
+  for (const id of ['cake', 'sugar', 'waffle', 'bowl']) g.setPrice(id, 75);
+  assert.ok(g.dealAppeal() > 2, `crowd ×${g.dealAppeal()}`);
 });
 
 test('staying put long past a sensible stay brings a family or two who already had ice cream; a fresh spot does not', () => {
