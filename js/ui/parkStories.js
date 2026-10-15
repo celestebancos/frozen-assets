@@ -23,7 +23,6 @@ const pick = (xs) => xs[rnd(xs.length)];
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 // grown-ups without a sun hat (the hat story gives them one)
 const bareHead = () => pick([0, 1, 2, 4, 5, 6, 8, 9, 10]);
-let clipN = 0;
 // Where a hand, the top of the head or a dog's mouth is, in an actor's own space (feet at 0, 0), for a sprite w wide.
 const spotIn = (w, [px, py], [vw, vh]) => [-w / 2 + (px * w) / vw, -((vh - py) * w) / vw];
 const HAND = { kid: [30.4, 55], adult: [31.6, 50] };
@@ -98,18 +97,6 @@ class Actor {
     g.innerHTML = place(svg, w, dx, dy).html;
     this.flip.appendChild(g);
     return g;
-  }
-  // Hide everything below y (in the actor's own space), e.g. legs behind a bench.
-  clipBelow(y) {
-    const id = `story-clip-${++clipN}`;
-    const cp = document.createElementNS(NS, 'clipPath');
-    cp.id = id;
-    cp.innerHTML = `<rect x="-60" y="-300" width="120" height="${300 + y}"/>`;
-    this.g.appendChild(cp);
-    this.art.setAttribute('clip-path', `url(#${id})`);
-  }
-  unclip() {
-    this.art.removeAttribute('clip-path');
   }
   // A sound from where this actor stands (a bark, a quack, a laugh).
   sound(name) {
@@ -211,37 +198,42 @@ const STORIES = {
 
   // Someone sits down on the park bench with their lunch, dozes off, and a squirrel sneaks off with it.
   async sandwich(s) {
+    const G = s.G;
     const B = s.bench;
-    const seat = B.y - BENCH_W * 0.37; // just above the bench's top plank, where the sandwich goes
+    const seat = B.y - BENCH_W * 0.19; // the top of the bench's seat, where the sandwich goes beside them
     const side = s.near(B.x);
     const dir = -side; // the squirrel comes from the other side, and runs off that way too
-    const [sitter] = s.walkOn([{ svg: personSVG('adult', rnd(12)), w: ADULT, x: B.x, y: B.y }], side);
+    const look = pick([0, 2, 4, 5, 7, 9, 10]); // no sunglasses or glasses, so you can see their eyes close
+    const person = (pose) => personSVG('adult', look, null, pose);
+    const [sitter] = s.walkOn([{ svg: person(), w: ADULT, x: B.x + side * 80 }], side);
     const carried = sitter.hold(sandwichSVG(), 16, ...hand('adult', ADULT));
     await sitter.there;
+    await sitter.walkTo(B.x, WALK, B.y); // over to the bench, in front of it
     carried.remove();
-    const lunch = s.actor(sandwichSVG(), B.x + dir * 42, seat, 20);
-    await sitter.moveTo(B.x, B.y - 5, 250, 'ease-out'); // sit down
-    sitter.clipBelow(-17); // the bench hides their legs
+    sitter.setArt(person({ sit: true })); // and sit down, facing you
     sitter.face(1);
+    const lunch = s.actor(sandwichSVG(), B.x + dir * 42, seat, 20);
     await s.t(500);
     sitter.say('🥪', 1400);
     await s.t(1800);
+    sitter.setArt(person({ sit: true, sleep: true })); // eyes closed...
     sitter.mood('doze');
     sitter.say('💤', 4200);
-    const [sq] = s.walkOn([{ svg: squirrelSVG(false), w: 30, x: B.x + dir * 210, y: B.y, speed: SCAMPER }], dir);
+    const [sq] = s.walkOn([{ svg: squirrelSVG(false), w: 30, x: B.x + dir * 230, speed: SCAMPER }], dir);
     await sq.there;
-    for (const o of [135, 70]) {
-      await s.t(350);
-      await sq.walkTo(B.x + dir * o);
-    }
-    await sq.moveTo(B.x + dir * 48, seat, 260, 'ease-out'); // up onto the bench
+    await s.t(350);
+    await sq.walkTo(B.x + dir * 140, SCAMPER, B.y); // creeping closer
+    await s.t(350);
+    await sq.walkTo(B.x + dir * 78);
+    await sq.moveTo(B.x + dir * 50, seat, 260, 'ease-out'); // up onto the seat
     lunch.remove();
     sq.setArt(squirrelSVG(true));
     sq.face(dir);
-    await sq.moveTo(B.x + dir * 80, B.y, 260, 'ease-in');
-    await sq.walkTo(B.x + dir * 170);
+    await sq.moveTo(B.x + dir * 85, B.y, 260, 'ease-in');
+    await sq.walkTo(B.x + dir * 180, SCAMPER, G);
     sq.say('😋', 1600);
     sitter.mood('doze', false);
+    sitter.setArt(person({ sit: true }));
     await s.t(500);
     sitter.say('❓', 1300);
     await s.t(1500);
@@ -250,8 +242,8 @@ const STORIES = {
     const gone = s.walkOff([sq], dir);
     sitter.say('😂', 1600);
     await s.t(1700);
-    sitter.unclip();
-    await sitter.moveTo(B.x, B.y, 250, 'ease-in'); // up off the bench
+    sitter.setArt(person()); // up off the bench
+    await sitter.walkTo(B.x + side * 80, WALK, G);
     await Promise.all([gone, s.walkOff([sitter], side)]);
   },
 
@@ -361,6 +353,7 @@ const STORIES = {
     await s.t(1500);
     const off = s.walkOff([duck], dir);
     await s.t(500);
+    who.speed = WADDLE; // following the duck, never overtaking it
     await Promise.all([off, s.walkOff([who], dir)]);
   },
 
