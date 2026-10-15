@@ -14,6 +14,11 @@ function buy(c, shop, basket, from = 'box', complain = false) {
   return c.takeChange(complain);
 }
 
+// Put n of a treat in boxes on the kitchen counter (as if just bought).
+function stock(c, id, n) {
+  c.state.counter.push({ item: id, n });
+}
+
 // Put what they ordered on the counter (and a spoon for each Italian ice), then hand it over.
 function serve(c) {
   const w = c.state.window;
@@ -77,36 +82,90 @@ test('starting money, shopping, change and the freezer', () => {
     assert.equal(c.walletTotal, before - 150, `complaining leaves the right change (${res.result})`);
     c.state.money.wallet = { 500: 1, 100: 5 };
   }
-  // the freezer has a limit
-  const big = Math.ceil(CART.freezerSpace / 50) + 1;
-  c.state.money.box = { 2000: 50 };
-  const chk = c.checkBasket('restaurant', { freezeBox: big });
-  assert.equal(chk.ok, false);
-  assert.equal(chk.reason, 'freezer');
+  // boxes land on the kitchen counter until they're put away
+  assert.equal(c.state.counter.length, 2);
+  assert.equal(c.freeSlots, CART.freezerShelves * CART.shelfSlots);
+  // more boxes than the freezer holds: you can still buy them, but the cashier drops a hint
+  assert.equal(c.checkBasket('restaurant', { freezeBox: 20 }).ok, true);
+  assert.equal(c.roomHint('restaurant', { freezeBox: 2 }), null);
+  assert.equal(c.roomHint('restaurant', { freezeBox: 11 }), 'lots');
+  for (let i = 0; i < 10; i++) c.state.counter.push({ item: 'freezePop', n: 50 });
+  assert.equal(c.roomHint('restaurant', { freezeBox: 1 }), 'room');
+});
+
+test('putting boxes away and moving them around the freezer', () => {
+  const c = Cart.create({ player: 'Test', seed: 5 });
+  buy(c, 'restaurant', { rocketBox: 1, fudgeBox: 1 });
+  assert.equal(c.state.counter.length, 2);
+  assert.ok(c.moveBox('c0', 's1-2'));
+  assert.deepEqual(c.boxAt('s1-2'), { item: 'rocketPop', n: 24 });
+  assert.equal(c.state.counter.length, 1);
+  assert.equal(c.moveBox('c0', 'c0'), false);
+  assert.equal(c.moveBox('c0', 's2-0'), false, 'there are only two shelves');
+  // onto a spot with a box already there: they trade places
+  assert.ok(c.moveBox('c0', 's1-2'));
+  assert.equal(c.boxAt('s1-2').item, 'fudgePop');
+  assert.equal(c.boxAt('c0').item, 'rocketPop');
+  assert.ok(c.moveBox('s1-2', 's0-0'));
+  assert.equal(c.boxAt('s1-2'), null);
+  assert.equal(c.count('freezer', 'rocketPop'), 24);
+  // left on the counter when you go to the park, it melts
+  c.openPark();
+  assert.equal(c.state.counter.length, 0);
+  assert.equal(c.state.today.melted, 24);
+  assert.equal(c.count('freezer', 'rocketPop'), 0);
+  assert.equal(c.count('freezer', 'fudgePop'), 24);
 });
 
 test('packing respects the cooler space', () => {
   const c = Cart.create({ player: 'Test', seed: 7 });
-  c.state.freezer.pops.rocketPop = 100;
-  c.state.freezer.pops.iceBlue = 10;
+  stock(c, 'rocketPop', 100);
+  stock(c, 'iceBlue', 10);
   assert.ok(c.pack('iceBlue', 4).ok);
   const r = c.pack('rocketPop', 100);
   assert.equal(r.n, CART.coolerSpace - 4);
   assert.equal(c.coolerFree, 0);
   assert.equal(c.pack('iceBlue').reason, 'full');
-  assert.ok(c.unpack('iceBlue', 2).ok);
-  assert.equal(c.coolerFree, 2);
+});
+
+test('packing one at a time: first empty spot, two trays, swaps, and back in the box', () => {
+  const c = Cart.create({ player: 'Test', seed: 7 });
+  c.state.freezer.shelves[0][0] = { item: 'rocketPop', n: 24 };
+  c.state.freezer.shelves[0][1] = { item: 'iceBlue', n: 2 };
+  assert.deepEqual(c.packOne('s0-0'), { ok: true, i: 0, emptied: false });
+  assert.equal(c.packOne('s0-1').i, 1);
+  // the last one out of a box: the empty box gets recycled
+  assert.deepEqual(c.packOne('s0-1'), { ok: true, i: 2, emptied: true });
+  assert.equal(c.boxAt('s0-1'), null);
+  // swap spots, and fill the gap first
+  assert.ok(c.moveSpot(0, 7));
+  assert.equal(c.topTray[7], 'rocketPop');
+  assert.equal(c.packOne('s0-0').i, 0);
+  // back in the box: only the same kind, and only if there's room
+  assert.equal(c.unpackOne(1, 's0-0').reason, 'kind');
+  assert.ok(c.unpackOne(7, 's0-0').ok);
+  assert.equal(c.boxAt('s0-0').n, 23);
+  // a full top tray: swap trays to fill the other one
+  while (c.packOne('s0-0').ok);
+  assert.equal(c.packOne('s0-0').reason, 'trayFull');
+  c.swapTrays();
+  assert.equal(c.topTray.filter(Boolean).length, 0);
+  assert.ok(c.packOne('s0-0').ok);
+  assert.equal(c.spaceUsed('cooler'), CART.traySpots + 1);
 });
 
 test('older saves: tubs of scoops become cups, cups become spoons', () => {
   const st = Cart.create({ player: 'Test', seed: 7 }).state;
-  st.freezer.tubs = { iceBlue: [20, 12] };
-  st.cooler.tubs = { iceLemon: [5] };
+  // an old save: counts of each treat, no boxes or spots
+  st.freezer = { pops: {}, tubs: { iceBlue: [20, 12] } };
+  st.cooler = { pops: {}, tubs: { iceLemon: [5] } };
+  delete st.counter;
   st.cups = 30;
   delete st.spoons;
   delete st.napkins;
   const c = new Cart(st);
   assert.equal(c.count('freezer', 'iceBlue'), 32);
+  assert.equal(c.state.freezer.shelves[0].filter(Boolean).length, 2, 'a full box and an open one');
   assert.equal(c.count('cooler', 'iceLemon'), 5);
   assert.equal(c.state.spoons, 30);
   assert.equal(c.state.napkins, 0);
@@ -145,8 +204,8 @@ test('a park day sells, makes change and keeps the money straight', () => {
   assert.equal(c.boxTotal, start + d.revenue);
   assert.equal(d.keptExtra, 0);
   assert.equal(c.state.phase, 'night');
-  // leftovers went back in the freezer, tips went to the wallet
-  assert.equal(c.spaceUsed('cooler'), 0);
+  // leftovers stay in the cooler overnight, tips went to the wallet
+  assert.equal(c.spaceUsed('cooler'), 40 - sold);
   assert.equal(c.jarTotal, 0);
   c.nextDay();
   assert.equal(c.state.day, 2);
@@ -158,7 +217,7 @@ test('too much change: honest customers give it back, others keep it', () => {
   let kept = 0;
   for (let seed = 1; seed < 40 && (honest === 0 || kept === 0); seed++) {
     const c = Cart.create({ player: 'Test', seed });
-    c.state.freezer.pops.rocketPop = 40;
+    stock(c, 'rocketPop', 40);
     c.pack('rocketPop', 40);
     c.state.money.box = { 2000: 2, 1000: 2, 500: 4, 100: 20, 25: 20 };
     c.openPark();
@@ -185,7 +244,7 @@ test('too much change: honest customers give it back, others keep it', () => {
 test('too little change: the customer waits for the rest', () => {
   for (let seed = 1; seed < 40; seed++) {
     const c = Cart.create({ player: 'Test', seed });
-    c.state.freezer.pops.fudgePop = 40;
+    stock(c, 'fudgePop', 40);
     c.pack('fudgePop', 40);
     c.state.money.box = { 2000: 2, 1000: 2, 500: 4, 100: 20, 25: 20 };
     c.openPark();
@@ -207,7 +266,7 @@ test('too little change: the customer waits for the rest', () => {
 
 test('high prices send people away; regulars miss their favorite', () => {
   const c = Cart.create({ player: 'Test', seed: 21 });
-  c.state.freezer.pops.rocketPop = 40;
+  stock(c, 'rocketPop', 40);
   c.pack('rocketPop', 40);
   c.setPrice('rocketPop', 900);
   const d = playDay(c);
@@ -220,7 +279,7 @@ test('regulars stop coming after missing their favorite too often', () => {
   // they've all had their favorites before; now there are only freeze pops
   c.state.stats.soldItems = { rocketPop: 1, fudgePop: 1, freezePop: 1, iceCherry: 1, iceLemon: 1, iceBlue: 1 };
   for (let day = 0; day < 10; day++) {
-    c.state.freezer.pops.freezePop = 40;
+    stock(c, 'freezePop', 40);
     c.pack('freezePop', 40);
     playDay(c);
     c.nextDay();
@@ -241,7 +300,7 @@ test('a payment left unfinished is given back on load', () => {
 
 test('closing up: allowed unless a sale is half done', () => {
   const c = Cart.create({ player: 'Test', seed: 8 });
-  c.state.freezer.pops.rocketPop = 40;
+  stock(c, 'rocketPop', 40);
   c.pack('rocketPop', 40);
   c.state.money.box = { 1000: 2, 500: 2, 100: 10, 25: 12 };
   c.openPark();
@@ -274,7 +333,7 @@ test('every shop item has a price and a kind', () => {
 // Gets the first customer to the window with plenty in the cooler.
 function firstCustomer(seed) {
   const c = Cart.create({ player: 'Test', seed });
-  for (const id of ['rocketPop', 'fudgePop', 'freezePop', 'iceCherry', 'iceLemon', 'iceBlue']) c.state.freezer.pops[id] = 6;
+  for (const id of ['rocketPop', 'fudgePop', 'freezePop', 'iceCherry', 'iceLemon', 'iceBlue']) stock(c, id, 6);
   for (const id of ['rocketPop', 'fudgePop', 'freezePop', 'iceCherry', 'iceLemon', 'iceBlue']) c.pack(id, 6);
   c.state.spoons = 10;
   c.state.napkins = 10;
@@ -365,7 +424,7 @@ test('"no change needed" when they are owed change: they ask for it', () => {
 
 test('regulars: none on the first day, and only for favorites that have been sold', () => {
   const c = Cart.create({ player: 'Test', seed: 12 });
-  c.state.freezer.pops.rocketPop = 40;
+  stock(c, 'rocketPop', 40);
   c.pack('rocketPop', 40);
   c.openPark();
   assert.equal(c.state.schedule.length, 0, 'day 1');
@@ -405,8 +464,11 @@ test('now and then a group orders 3 or more things, and can pay for them', () =>
       assert.ok(total(g.pocket) >= g.members.length * 175, `${kind} has ${total(g.pocket)}`);
     }
   }
-  c.state.freezer.pops = { rocketPop: 10, fudgePop: 10, freezePop: 10, iceCherry: 5, iceBlue: 5 };
-  for (const id of Object.keys(c.state.freezer.pops)) c.pack(id, 10);
+  const want = { rocketPop: 10, fudgePop: 10, freezePop: 10, iceCherry: 5, iceBlue: 5 };
+  for (const [id, n] of Object.entries(want)) {
+    stock(c, id, n);
+    c.pack(id, n);
+  }
   c.openPark();
   const g = c.makeCustomer('family');
   const o = c.orderFor(g);
@@ -418,7 +480,7 @@ test('a slow but steady server (about 30 real seconds a customer) keeps the line
   let customers = 0;
   for (let seed = 1; seed <= 10; seed++) {
     const c = Cart.create({ player: 'Test', seed });
-    for (const id of ['rocketPop', 'fudgePop', 'freezePop', 'iceCherry']) c.state.freezer.pops[id] = 10;
+    for (const id of ['rocketPop', 'fudgePop', 'freezePop', 'iceCherry']) stock(c, id, 10);
     for (const id of ['rocketPop', 'fudgePop', 'freezePop', 'iceCherry']) c.pack(id, 10);
     c.state.spoons = 50;
     c.state.money.box = { 1000: 3, 500: 4, 100: 20, 25: 20 };
@@ -462,4 +524,36 @@ test('stickers can be stuck anywhere on the cart, then stay put; older saves kee
   const back = new Cart(old);
   assert.deepEqual(back.decalsPlaced().map((d) => d.at), [null, null]);
   assert.deepEqual(back.decalsLoose(), ['decalStar', 'decalHeart'], 'old stickers can be stuck on once');
+});
+
+test('serving from a spot in the cooler, and taking it back puts it back there', () => {
+  const c = Cart.create({ player: 'Test', seed: 3 });
+  stock(c, 'rocketPop', 20);
+  stock(c, 'fudgePop', 20);
+  c.pack('rocketPop', 20);
+  c.pack('fudgePop', 20); // fills the other tray
+  c.openPark();
+  for (let i = 0; i < 500 && !c.state.window; i++) c.step();
+  const w = c.state.window;
+  assert.ok(w, 'someone came');
+  assert.equal(c.give('fudgePop', 3).reason, 'out', 'the top tray has rocket pops');
+  assert.ok(c.give('rocketPop', 3).ok);
+  assert.equal(c.topTray[3], null);
+  c.give('napkin'); // none yet, so it doesn't count
+  assert.ok(c.takeBack(0));
+  assert.equal(c.topTray[3], 'rocketPop', 'back in its spot');
+  // without a spot: the first one in the cooler, even on the tray underneath
+  assert.ok(c.give('fudgePop').ok);
+  assert.equal(c.count('cooler', 'fudgePop'), 19);
+});
+
+test('leftovers stay in the cooler overnight', () => {
+  const c = Cart.create({ player: 'Test', seed: 4 });
+  stock(c, 'freezePop', 10);
+  c.pack('freezePop', 10);
+  c.openPark();
+  c.state.minute = CART.parkClose;
+  c.closePark();
+  c.nextDay();
+  assert.equal(c.count('cooler', 'freezePop'), 10);
 });
