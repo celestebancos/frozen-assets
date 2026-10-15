@@ -128,6 +128,11 @@ svg.truck-svg { width: 100%; height: auto; display: block; }
 @keyframes wave { to { transform: translateX(-50%) rotate(-18deg); } }
 @media (prefers-reduced-motion: reduce) { .scene-root.driving .truck-wrap, .party .wave { animation: none; } }
 .rain { position: absolute; inset: 0; pointer-events: none; z-index: 3; overflow: hidden; }
+/* rainy days: a gray sky, gray clouds, no sun, and the birds, kite and butterflies stay home */
+.stage.park.overcast { --sky: #adbbc6; --grass: #7cb85c; }
+.overcast .scene-svg .sun, .overcast .scene-svg .birds, .overcast .scene-svg .kite, .overcast .park-scene .flutter { display: none; }
+.overcast .scene-svg .clouds g > path:first-child { fill: #d5dbe2; }
+.overcast .scene-svg .clouds g > path + path { fill: #aab4c0; opacity: 1; }
 /* two sheets of slanted streaks: a near one (longer, faster) and a far one (shorter, fainter, slower). Each moves
    whole tiles at the same slant as its streaks, so it loops without a jump. */
 .rain::before, .rain::after { content: ''; position: absolute; inset: 0; background-repeat: repeat; }

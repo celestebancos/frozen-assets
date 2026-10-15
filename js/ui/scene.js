@@ -28,6 +28,14 @@ function lerpHex(a, b, t) {
   const ch = (sh) => Math.round(((pa >> sh) & 255) + (((pb >> sh) & 255) - ((pa >> sh) & 255)) * t);
   return '#' + ((ch(16) << 16) | (ch(8) << 8) | ch(0)).toString(16).padStart(6, '0');
 }
+// A rainy-day sky: the same time of day, but gray and a little darker.
+function overcast(hex) {
+  const n = parseInt(hex.slice(1), 16);
+  const [r, g, b] = [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+  const l = 0.3 * r + 0.59 * g + 0.11 * b;
+  const ch = (v) => Math.round((v + (l - v) * 0.7) * 0.9);
+  return '#' + ((ch(r) << 16) | (ch(g) << 8) | ch(b)).toString(16).padStart(6, '0');
+}
 function skyAt(min) {
   for (let i = 0; i < SKY.length - 1; i++) {
     const [m0, s0, u0] = SKY[i];
@@ -174,7 +182,9 @@ export class Scene {
     const dt = Math.min(0.1, Math.max(0, (now - this.lastT) / 1000));
     this.lastT = now;
     const [sky, sun] = skyAt(s.minute);
-    this.root.style.setProperty('--sky', sky);
+    const rain = !!s.weather?.rain;
+    this.root.classList.toggle('overcast', rain); // no sun, gray clouds
+    this.root.style.setProperty('--sky', rain ? overcast(sky) : sky);
     this.root.style.setProperty('--sun', sun);
     const open = s.phase === 'open';
     this.rainEl.classList.toggle('hidden', !s.weather?.rain || !open);

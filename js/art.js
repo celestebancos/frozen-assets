@@ -1023,7 +1023,8 @@ function sky() {
 // The park where the push cart sells. Two layouts: wide (1000 × 500, laptops) and tall (360 × 600, phones),
 // each in two layers so the little stories on the lawn go between them: the back (sky, trees, pond, lawn)
 // and the front (flower beds, the lamp and the path), which stands in front of the stories.
-// opts: { tall, front }. Sprites (the cart, people, stands, the swings) are drawn on top by the cart screen.
+// opts: { tall, front, rain }. Sprites (the cart, people, stands, the swings) are drawn on top by the cart screen.
+// On rainy days more clouds roll in (the stage's .overcast class grays them and hides the sun).
 // ground: where the stories stand. story: how big the stories are drawn (a bit smaller than the customers, who
 // are closer). bench: the park bench by the path (middle, bottom), which the sandwich story uses.
 export const PARK_VIEW = {
@@ -1036,7 +1037,7 @@ export function benchSVG() {
   return `<svg viewBox="0 0 100 40" xmlns="http://www.w3.org/2000/svg"><path d="M12 22 V40 M88 22 V40" stroke="${INK}" stroke-width="4.5" stroke-linecap="round"/><path d="M12 22 V40 M88 22 V40" stroke="#4a4a5a" stroke-width="2.4" stroke-linecap="round"/><rect x="2" y="4" width="96" height="8" rx="3" fill="#a86b3c" stroke="${INK}" stroke-width="1.4" stroke-linejoin="round"/><rect x="2" y="15" width="96" height="8" rx="3" fill="#a86b3c" stroke="${INK}" stroke-width="1.4" stroke-linejoin="round"/><path d="M8 7 H40 M56 18 H90" stroke="#c98a55" stroke-width="1.6" stroke-linecap="round"/></svg>`;
 }
 
-export function parkSVG({ tall = false, front = false } = {}) {
+export function parkSVG({ tall = false, front = false, rain = false } = {}) {
   const W = tall ? 360 : 1000;
   const H = tall ? 600 : 500;
   const G = tall ? 262 : GROUND; // the far edge of the lawn
@@ -1118,7 +1119,7 @@ export function parkSVG({ tall = false, front = false } = {}) {
     const kite = `<g class="kite"><path d="M118 96 Q60 260 -10 420" stroke="${SOFT}" stroke-width="1.2" fill="none"/><path d="M118 70 L136 94 L118 124 L100 94 Z" fill="#ff6f91" ${so(2)}/><path d="M118 70 V124 M100 94 H136" stroke="#ffd23f" stroke-width="2"/><path d="M118 124 q-6 10 2 18 q8 8 0 18" stroke="${SOFT}" stroke-width="1.4" fill="none"/><path d="M114 134 l8 4 M116 152 l8 4" stroke="#3a8ee6" stroke-width="3" stroke-linecap="round"/></g>`;
     return `${open}<rect width="${W}" height="${H}" fill="var(--sky)"/>
       <g class="sun"><circle cx="292" cy="86" r="58" fill="var(--sun)" opacity=".25"/><circle cx="292" cy="86" r="36" fill="var(--sun)"/></g>
-      <g class="clouds">${cloud(110, 54, 0.8)}${cloud(250, 168, 0.6)}</g>
+      <g class="clouds">${cloud(110, 54, 0.8)}${cloud(250, 168, 0.6)}${rain ? `${cloud(300, 70, 1)}${cloud(20, 130, 0.9)}${cloud(190, 110, 0.7)}` : ''}</g>
       <g class="birds">${bird(180, 126, 0.9)}${bird(202, 116, 0.7)}</g>
       <path d="M0 ${G} V196 Q90 168 190 194 T360 186 V${G} Z" fill="var(--grass)" opacity=".45"/>
       <path d="M0 ${G} V226 Q120 204 230 222 T360 220 V${G} Z" fill="var(--grass)" opacity=".75"/>
@@ -1136,6 +1137,7 @@ export function parkSVG({ tall = false, front = false } = {}) {
     </svg>`;
   }
   return `${open}${sky()}
+    ${rain ? `<g class="clouds">${cloud(380, 120, 1.2)}${cloud(880, 70, 1.5)}${cloud(80, 50, 1.1)}${cloud(700, 170, 0.9)}</g>` : ''}
     <g class="birds">${bird(300, 120, 1)}${bird(326, 108, 0.8)}${bird(350, 126, 0.7)}</g>
     <g fill="var(--grass)" opacity=".55">${far}</g><g fill="#2f6b3f" opacity=".12">${far}</g>
     <rect x="0" y="${G - 2}" width="1000" height="210" fill="var(--grass)"/>
