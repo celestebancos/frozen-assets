@@ -38,6 +38,9 @@ export const ACCOUNTS = [
 
   // Money the owner put into the business (from the park cart). It's part of the owner's Share.
   { id: 'ownerIn', section: 'owner', name: "Owner's Share" },
+  // Grandma's part of the business, when she invested in the truck: what she put in, plus her slice of each week's
+  // profit (moved over from the owner's Share at Calculate Profit).
+  { id: 'grandmaIn', section: 'owner', name: "Grandma's Share" },
 ];
 export const ACCOUNT = Object.fromEntries(ACCOUNTS.map((a) => [a.id, a]));
 
@@ -67,6 +70,10 @@ export function sectionTotal(totals, section) {
 
 export function share(totals) {
   return sectionTotal(totals, 'asset') - sectionTotal(totals, 'liability');
+}
+// The player's own Share: everything the owners have, minus Grandma's part (if she's a co-owner).
+export function ownShare(totals) {
+  return share(totals) - (totals.grandmaIn || 0);
 }
 
 // P&L rows. "used" is itemized per supply (detail = supply id).

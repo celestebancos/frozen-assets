@@ -2,7 +2,7 @@
 import { CONFIG, SUPPLIES, SUPPLY, CONTAINERS, FLAVORS, TOPPINGS, POPS, POP, SPOTS, SPOT, FEATURES, TRUCK_COLORS, MARKET_DAYS, destOf } from '../config.js';
 import { DAY_NAMES } from '../engine.js';
 import { TUNES, VOICES } from '../music.js';
-import { ACCOUNTS, ACCOUNT, pnlRowsFor, sectionTotal, share } from '../ledger.js';
+import { ACCOUNTS, ACCOUNT, pnlRowsFor, sectionTotal, share, ownShare } from '../ledger.js';
 import { DOC_TYPES } from '../documents.js';
 import { mapSVG, mapIcon, iceCreamSVG, truckSVG, ROUTE_COLORS } from '../art.js';
 import { esc, money, openModal, onActs, toast, fmtTime, stepper } from './dom.js';
@@ -729,7 +729,13 @@ export function balanceSheet(g, totals) {
     <tr class="sec"><td colspan="2">📝 Liabilities (what the business owes)</td></tr>
     ${line('loan')}${line('giftCards', cards ? ` (${cards} card${cards === 1 ? '' : 's'})` : '')}${line('interestOwed')}${line('billsToPay')}
     <tr class="tot"><td>Total liabilities</td><td>${money(sectionTotal(t, 'liability'))}</td></tr>
-    <tr class="bottom"><td>${esc(s.player)}'s Share (assets minus liabilities)</td><td class="${share(t) < 0 ? 'neg' : ''}">${money(share(t))}</td></tr>
+    ${
+      t.grandmaIn
+        ? `<tr class="tot"><td>Owners' Shares (assets minus liabilities)</td><td>${money(share(t))}</td></tr>
+    <tr><td>👵 Grandma's Share</td><td>${money(t.grandmaIn)}</td></tr>
+    <tr class="bottom"><td>${esc(s.player)}'s Share</td><td class="${ownShare(t) < 0 ? 'neg' : ''}">${money(ownShare(t))}</td></tr>`
+        : `<tr class="bottom"><td>${esc(s.player)}'s Share (assets minus liabilities)</td><td class="${share(t) < 0 ? 'neg' : ''}">${money(share(t))}</td></tr>`
+    }
   </table></div>`;
 }
 

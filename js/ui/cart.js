@@ -384,6 +384,7 @@ export class CartView {
         toast(`🧰 ${money(amt)} is in the cash box now.`);
       },
       truck: () => this.truckLoan(),
+      grandmaOffer: () => this.grandmaOffer(),
       // a pack of spoons or napkins from the shelf goes on the cart
       openPack: (t) => {
         const k = t.dataset.k;
@@ -445,6 +446,7 @@ export class CartView {
           <button class="btn" data-act="corner">🏪 Corner store</button>
           ${s.pantry ? `<button class="btn" data-act="packLunch">${FOOD.lunch.emoji} Pack a lunch <span class="tiny muted">(${s.pantry} left)</span></button>` : ''}
           <button class="btn" data-act="prices">🏷️ Prices</button>
+          ${s.grandma.offer === 'made' ? `<button class="btn yellow" data-act="grandmaOffer">👵 Grandma's offer</button>` : ''}
           <button class="btn" data-act="truck">🏦 Get a truck loan</button>
           ${used && total({ 100: s.money.box[100] || 0, 25: s.money.box[25] || 0 }) < 300 ? `<p class="hint">${coinIcon()} Your cash box has hardly any small money. How will you give change? The corner store has a change machine.</p>` : ''}
           <button class="btn big go" data-act="park">🛒 Go to the park!</button>
@@ -1273,7 +1275,7 @@ export class CartView {
       b('prices', '🏷️', 'Prices') + b('cooler', '🧊', 'Cooler') + b('corner', '🏪', 'Corner store') + b('closet', '👕', 'Closet') + b('packUp', '🧺', 'Pack up') + b('quit', '🏠', 'Save & quit');
   }
   // Lunch at Grandma's: she talks while you eat.
-  grandmaLunch({ lines, gift }) {
+  grandmaLunch({ lines, gift, offer }) {
     const s = this.s;
     const m = openModal({
       title: "🥪 Lunch at Grandma's",
@@ -1287,7 +1289,57 @@ export class CartView {
           <button class="btn big go" data-act="done">Thanks, Grandma! ▶</button>`;
       },
     });
-    onActs(m.body, { done: () => m.close() });
+    onActs(m.body, {
+      done: () => {
+        m.close();
+        if (offer) this.grandmaOffer();
+      },
+    });
+    return m;
+  }
+  // Grandma's offer: she'll put money into a truck, and take a slice of the profit.
+  grandmaOffer() {
+    const c = this.cart;
+    const s = this.s;
+    const T = c.grandmaTerms();
+    const [her, of] = T.slice;
+    const m = openModal({
+      title: '👵 Grandma has an idea',
+      cls: 'narrow',
+      render: (body) => {
+        body.innerHTML = `<div class="gma-lunch"><span class="gma">${personSVG('adult', 7, { ...GRANDMA.look, skin: s.look.skin })}</span>
+          <div class="gma-lines">
+            <div class="say">How would you like an ice cream truck? I'll put in the money for it, up to ${money(T.max).replace('.00', '')}.</div>
+            <div class="say">I won't be your bank. I'll be your partner! You do the work, so you keep most of the profit: of every $${of} the truck makes, you keep $${of - her} and I get $${her}.</div>
+            <div class="say">Your cart money comes too. It's your part of the business.</div>
+          </div></div>
+          <div class="stats"><div class="stat"><div class="k">🛒 Your cart money</div><div class="v">${money(T.money)}</div></div><div class="stat"><div class="k">👵 Grandma's slice</div><div class="v">$${her} of every $${of}</div></div></div>
+          <p class="tiny muted">No loan, and nothing to pay back. But Grandma gets her slice of the profit every week. The bank can lend you money instead, if you'd rather.</p>
+          <div class="row" style="justify-content:space-between"><button class="btn" data-act="no">Not yet</button><button class="btn big go" data-act="yes">Yes, let's do it! ▶</button></div>`;
+      },
+    });
+    onActs(m.body, {
+      no: () => {
+        m.close();
+        toast('👵 "Take your time, dear. Just ask me when you\'re ready."');
+        if (s.phase === 'home') this.renderHome();
+      },
+      yes: () => {
+        m.close();
+        this.stop();
+        this.save();
+        const terms = c.grandmaTerms();
+        this.app.newGame(s.player, {
+          ownerCash: terms.money,
+          partner: terms,
+          onBack: () => this.start(),
+          onStart: () => {
+            c.fundTruck();
+            this.save();
+          },
+        });
+      },
+    });
     return m;
   }
   // What you can eat: your food in the cooler, and how full you are.
@@ -1699,6 +1751,7 @@ export class CartView {
       if (r.reason === 'exactAlready') this.serveMsg = { text: 'But I gave you just the right amount!', cls: 'hint' };
       else if (r.result === 'exact') this.serveMsg = { text: 'Oh! I have exact money. Here.' };
       else this.serveMsg = { text: "Oh well. I'll come back another time.", cls: 'bad' };
+      if (r.grandma?.offer) this.clock.after(1600, () => this.grandmaOffer());
     } else if (act === 'giveChange') {
       this.payBack();
     } else if (act === 'noneNeeded') {
@@ -1736,6 +1789,7 @@ export class CartView {
           ? { text: `${w.napkins ? 'Only one napkin?' : 'No napkins?'} I'm a messy eater, dear!`, cls: 'hint' }
           : { text: 'Thank you, dear. Next time, have my favorite!', cls: 'hint' };
       if (r.tip) this.tipCoin(r.tip);
+      if (r.grandma.offer) this.clock.after(1600, () => this.grandmaOffer());
       return;
     }
     const reg = w.cust.regular ? REG[w.cust.regular] : null;

@@ -607,6 +607,10 @@ export const GRANDMA = {
   tip: { far: 0.25 }, // she mentions a price this far off the fair price
   spend: 800, // she notices if you spent this much on snacks and toys since your last lunch (not counting lunch)
   gift: { feel: 8, chance: 0.3, cash: 500 },
+  // Her offer to invest in a truck, once your money (cash box, bank and wallet) reaches `at`. She puts in what the
+  // truck needs plus startCash for supplies, up to max (so the fanciest trucks are out of reach). Her slice of the
+  // profit: the more you bring and the better she feels, the smaller it is. slices[i] = [her dollars, of every].
+  offer: { at: 50000, max: 950000, startCash: 30000, slices: [[2, 5], [1, 3], [1, 4], [1, 5]] },
   // things Grandma says about the old days (she doesn't repeat one until she's said them all)
   oldDays: [
     'When I was little, I could swing so high I thought I would touch the clouds!',

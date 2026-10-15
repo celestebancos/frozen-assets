@@ -3,14 +3,14 @@
 
 import { CONFIG, SUPPLIES, SUPPLY, SPOTS, SPOT, FEATURES, FEATURE, LOCS, destOf, CONTAINERS, FLAVORS, TOPPINGS, POPS, POP, CROWDS, DROP_BY_PERSON, START_PRICES, MARKET_DAYS, OFFICE_ADULT_PAY, CART, STREET_CROWD, itemKey } from './config.js';
 import { makeRng } from './rng.js';
-import { ACCOUNT, balanceCheck, applyEntries, emptyTotals, share } from './ledger.js';
+import { ACCOUNT, balanceCheck, applyEntries, emptyTotals, share, ownShare, sectionTotal } from './ledger.js';
 import { addToDoc, docLines, docEntryList, checkFiling, DOC_TYPES } from './documents.js';
 
 const C = CONFIG;
 const SEASON_DAYS = C.seasonWeeks * C.daysPerWeek;
 const DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
-export function newGameState({ player, business, color, tune = 'entertainer', seed, loan, truckCost, bling = 0, blingName = '', used = false, ownerCash = 0, favorite = null }) {
+export function newGameState({ player, business, color, tune = 'entertainer', seed, loan, truckCost, bling = 0, blingName = '', used = false, ownerCash = 0, favorite = null, partner = null }) {
   const s = {
     version: 1,
     seed: seed ?? Math.floor(Math.random() * 2 ** 31),
@@ -23,7 +23,10 @@ export function newGameState({ player, business, color, tune = 'entertainer', se
     day: 1,
     minute: C.dayStartMin,
     phase: 'setup', // setup | open | closed | seasonEnd | won | lost
-    loanActive: true,
+    loanActive: !partner, // with Grandma as a co-owner there's no bank loan
+    // Grandma as a co-owner: what she put in, and her slice of the profit ([1, 4]: $1 of every $4)
+    partner: partner ? { name: 'Grandma', put: partner.put, slice: partner.slice, splitUpTo: 0 } : null, // splitUpTo: profit already split
+    seasonStartShare: ownerCash, // your own Share when this summer started (a summer with Grandma is won by growing it)
     loanTerms: loan ? { principal: loan.principal, dailyInterest: loan.dailyInterest } : { principal: C.loan.principal, dailyInterest: C.loan.dailyInterest },
     truckCost: truckCost ?? C.loan.truckCost,
     bling,
@@ -178,7 +181,7 @@ export class Game {
     if (bad !== 0) throw new Error(`Unbalanced ${type}: ${JSON.stringify(entries)}`);
     applyEntries(this.state.truth, entries);
     this.state.cash = this.state.truth.cash;
-    const docWeek = type === 'loanPapers' || type === 'truckBill' || type === 'ownerInvest' ? 0 : this.gw;
+    const docWeek = type === 'loanPapers' || type === 'truckBill' || type === 'ownerInvest' || type === 'grandmaInvest' ? 0 : this.gw;
     addToDoc(this.state.docs, docWeek, type, entries, item);
   }
 
@@ -437,10 +440,17 @@ export class Game {
         { acct: 'ownerIn', amt: s.ownerCash },
       ], { label: 'Cart money put into the business', amt: s.ownerCash });
     }
-    this.post('loanPapers', [
-      { acct: 'cash', amt: principal },
-      { acct: 'loan', amt: principal },
-    ], { label: 'Business loan — due at the end of the summer', amt: principal });
+    if (s.partner) {
+      this.post('grandmaInvest', [
+        { acct: 'cash', amt: s.partner.put },
+        { acct: 'grandmaIn', amt: s.partner.put },
+      ], { label: `Grandma's money for the truck. She gets $${s.partner.slice[0]} of every $${s.partner.slice[1]} of profit.`, amt: s.partner.put });
+    } else {
+      this.post('loanPapers', [
+        { acct: 'cash', amt: principal },
+        { acct: 'loan', amt: principal },
+      ], { label: 'Business loan — due at the end of the summer', amt: principal });
+    }
     const truck = s.truckCost ?? C.loan.truckCost;
     this.post('truckBill', [
       { acct: 'truck', amt: truck },
@@ -614,16 +624,28 @@ export class Game {
   }
 
   // Move this week's profit (or loss) into the player's Share.
+  // With Grandma as a co-owner, her slice of it moves on to Grandma's Share.
   moveProfit() {
+    const s = this.state;
     const amt = this.pendingProfit();
     const ids = this.openProfitDocs().map((d) => d.id);
     for (const d of this.openProfitDocs()) d.closed = true;
-    this.logAction('moveProfit', { amt, docs: ids.length });
-    return { amt, ids };
+    const grandma = s.partner ? Math.round((amt * s.partner.slice[0]) / s.partner.slice[1]) : 0;
+    if (grandma) this.splitWithGrandma(grandma, s.filed);
+    s.lastSplit = { ids, grandma };
+    this.logAction('moveProfit', { amt, docs: ids.length, grandma });
+    return { amt, ids, grandma };
+  }
+  // Grandma's part of the profit moves from your Share to hers, in one set of books (the real ones or yours).
+  splitWithGrandma(amt, books) {
+    applyEntries(books, [{ acct: 'grandmaIn', amt }, { acct: 'ownerIn', amt: -amt }]);
   }
 
   undoMoveProfit(ids) {
-    for (const d of this.state.docs) if (ids.includes(d.id)) delete d.closed;
+    const s = this.state;
+    for (const d of s.docs) if (ids.includes(d.id)) delete d.closed;
+    if (s.lastSplit?.grandma && s.lastSplit.ids.join() === ids.join()) this.splitWithGrandma(-s.lastSplit.grandma, s.filed);
+    s.lastSplit = null;
     this.logAction('undoMoveProfit', { docs: ids.length });
   }
 
@@ -1873,6 +1895,13 @@ export class Game {
     if (endOfWeek) {
       s.adTier = 'none'; // ads are chosen fresh each week
       s.promoWeek = 0;
+      // Grandma's slice of the week's profit moves to her Share in the real books (the kid's books do it at Calculate Profit)
+      if (s.partner) {
+        const profitSoFar = sectionTotal(s.truth, 'income') - sectionTotal(s.truth, 'expense');
+        const amt = Math.round(((profitSoFar - (s.partner.splitUpTo || 0)) * s.partner.slice[0]) / s.partner.slice[1]);
+        s.partner.splitUpTo = profitSoFar;
+        if (amt) this.splitWithGrandma(amt, s.truth);
+      }
       s.lastWeek = { ...s.week, endTotals: { ...s.truth } };
       s.week = null;
       s.needWeekReport = s.lastWeek.gw;
@@ -1927,7 +1956,7 @@ export class Game {
       revenue: t.revenue,
       startCash: t.startCash,
       endCash: this.cash,
-      share: share(s.truth),
+      share: ownShare(s.truth),
       spoiled: t.spoiled || 0,
       popularityStart: +popBefore.toFixed(3),
       popularityEnd: +s.popularity.toFixed(3),
@@ -2032,8 +2061,15 @@ export class Game {
     const s = this.state;
     if (s.phase !== 'seasonEnd') return null;
     const due = this.amountDueToBank();
-    const finalShare = share(s.truth);
-    this.logAction('loanDue', { cash: this.cash, due, share: finalShare, won: !s.loanActive || this.cash >= due });
+    const finalShare = ownShare(s.truth);
+    // with Grandma there's no loan: the summer is won if your Share grew
+    const grew = finalShare > (s.seasonStartShare ?? s.ownerCash ?? 0);
+    this.logAction('loanDue', { cash: this.cash, due, share: finalShare, won: s.partner ? grew : !s.loanActive || this.cash >= due });
+    if (s.partner && s.loanActive === false) {
+      s.phase = grew ? 'won' : 'lost';
+      s.results.push({ season: s.season, share: finalShare, won: grew, partner: true });
+      return { won: grew, share: finalShare, partner: true };
+    }
     if (!s.loanActive) {
       s.phase = 'won';
       s.results.push({ season: s.season, share: finalShare, won: true });
@@ -2061,6 +2097,7 @@ export class Game {
     if (s.phase !== 'won') return;
     this.logAction('nextSeason');
     s.season++;
+    s.seasonStartShare = ownShare(s.truth);
     s.day = 1;
     s.phase = 'closed';
     s.popularity = C.popularity.start + (s.popularity - C.popularity.start) * 0.5;
@@ -2080,7 +2117,7 @@ export class Game {
 
   // ---------- reports ----------
   shareNow() {
-    return share(this.state.truth);
+    return ownShare(this.state.truth);
   }
 }
 
