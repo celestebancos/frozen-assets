@@ -732,9 +732,9 @@ body { position: fixed; inset: 0; }
 .sound-tap[hidden] { display: none; }
 
 /* ---------- the park cart: boxes, the freezer at home and the cooler ---------- */
-.home-grid { grid-template-columns: 200px minmax(0, 1fr) 230px; grid-template-areas: "me kit run" "cash kit run"; }
+.home-grid { grid-template-columns: 200px minmax(0, 1fr) 270px; grid-template-areas: "me kit run" "me kit cash"; }
 .home-grid .me-card { grid-area: me; } .home-grid .kitchen { grid-area: kit; } .home-grid .cash-card { grid-area: cash; } .home-grid .errands { grid-area: run; }
-@media (max-width: 1050px) { .home-grid { grid-template-columns: 1fr 1fr; grid-template-areas: "kit kit" "me run" "cash run"; } }
+@media (max-width: 1050px) { .home-grid { grid-template-columns: 1fr 1fr; grid-template-areas: "kit kit" "me run" "me cash"; } }
 @media (max-width: 640px) { .home-grid { grid-template-columns: 1fr; grid-template-areas: "kit" "run" "me" "cash"; } }
 @keyframes nudge { 50% { transform: translateY(-6px); } }
 @keyframes popIn { from { transform: scale(0.3); } }
@@ -889,3 +889,9 @@ button.co-item { animation: nudge 1.4s ease-in-out infinite; }
   .ct-front { padding: 6px; }
   .ct-front .btn.big { font-size: 18px; padding: 6px 14px; }
 }
+
+/* money at home: stacks with counts, so a full cash box stays short */
+.cash-chip.still { box-shadow: none; padding: 2px 5px; }
+.cash-card .chips { gap: 4px; margin: 4px 0; }
+.cash-card .money-row { margin-top: 4px; }
+.cash-card h3 { margin-bottom: 2px; }

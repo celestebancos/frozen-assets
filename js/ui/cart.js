@@ -95,6 +95,11 @@ function chips(pile, act, where, { except = {}, size = 54 } = {}) {
     .join('');
   return out || '<span class="muted tiny">Empty</span>';
 }
+// Each kind of bill and coin in a pile as a little stack with how many there are (to look at, not tap).
+function stacks(pile, size = 40) {
+  const out = K.denoms.filter((d) => pile[d] > 0).map((d) => `<span class="cash-chip still">${moneySVG(d, size)}<b>×${pile[d]}</b></span>`);
+  return out.join('') || '<span class="muted tiny">Empty</span>';
+}
 // Every bill and coin laid out one by one (tap one to take it back when act is given).
 function pieces(pile, act = null, size = 54) {
   const out = [];
@@ -317,6 +322,11 @@ export class CartView {
       closet: () => this.closet(() => this.renderHome()),
       stickers: () => this.placeStickers(null, () => this.renderHome()),
       moveMoney: () => this.moveMoney(() => this.renderHome()),
+      toBox: (t) => {
+        if (!c.move('wallet', 'box', { [t.dataset.d]: 1 })) return;
+        this.save();
+        this.renderHome();
+      },
       walletToBox: () => {
         const amt = c.walletTotal;
         if (!amt || !c.move('wallet', 'box', { ...s.money.wallet })) return;
@@ -358,11 +368,11 @@ export class CartView {
         <div class="card cash-card">
           <h3>💵 Money</h3>
           <div class="money-row"><span>🧰 Cash box <span class="tiny muted">(the cart's)</span></span><b>${money(c.boxTotal)}</b></div>
-          <div class="pile">${pieces(s.money.box, null, 40)}</div>
+          <div class="chips">${stacks(s.money.box, 34)}</div>
           <div class="money-row"><span>🏦 Bank <span class="tiny muted">(the cart's)</span></span><b>${money(c.bank)}</b></div>
           <div class="money-row"><span>👛 Wallet <span class="tiny muted">(yours)</span></span><b>${money(c.walletTotal)}</b></div>
-          <div class="pile">${pieces(s.money.wallet, null, 40)}</div>
-          <div class="row"><button class="btn small" data-act="moveMoney">↔️ Move money</button>${c.walletTotal ? '<button class="btn small" data-act="walletToBox">👛 → 🧰 All into the cash box</button>' : ''}</div>
+          ${c.walletTotal ? `<div class="tiny muted">Tap one to put it in 🧰</div><div class="chips">${chips(s.money.wallet, 'toBox', 'wallet', { size: 34 })}</div>` : '<div class="tiny muted">Empty</div>'}
+          <div class="row">${c.walletTotal ? '<button class="btn small" data-act="walletToBox">👛 → 🧰 All in the cash box</button>' : ''}<button class="btn small" data-act="moveMoney">↔️ Move money</button></div>
         </div>
         <div class="card errands">
           <h3>🚶 Before the park</h3>
