@@ -1,7 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { Game } from '../js/engine.js';
-import { FEATURE } from '../js/config.js';
+import { FEATURE, POPS as ALL_POPS } from '../js/config.js';
+const POP_DRINK = new Set(ALL_POPS.filter((p) => p.drink).map((p) => p.id));
 import { sectionTotal, share, ACCOUNTS } from '../js/ledger.js';
 import { docLines, checkFiling, pennyComparison, DOC_TYPES } from '../js/documents.js';
 import { playSeason } from '../tools/bots.mjs';
@@ -528,6 +529,25 @@ test('the favorite treat from the park cart carries over, and it and rocket pops
   // no park cart: one is picked anyway
   const g2 = Game.create({ player: 'N', business: 'T', color: 'pink', seed: 5 });
   assert.ok(CART.hotChoices.includes(g2.state.favorite));
+});
+
+test('drinks on the truck: some people add one to their order, nobody comes for just a drink', () => {
+  const g = readyGame(12);
+  g.openDay();
+  g.buy('water', 0, 1);
+  g.state.weather.temp = 95;
+  for (let i = 0; i < 2000; i++) assert.ok(!POP_DRINK.has(g.wants({ kind: 'kid' }).pop), 'nobody wants only a drink');
+  let drinks = 0, people = 0;
+  for (let i = 0; i < 60; i++) {
+    const p = { id: i, type: 'adult', together: true, members: [{ kind: 'adult', look: 1 }] };
+    g.arrive(p);
+    if (p.members[0].result === 'bought') people++;
+    if (p.members[0].drink) drinks++;
+  }
+  assert.ok(people > 20, `${people} bought`);
+  assert.ok(drinks > 3 && drinks < people, `${drinks} drinks for ${people} people`);
+  assert.equal(g.state.today.sold.water, drinks);
+  assert.equal(g.stock('water'), 24 - drinks);
 });
 
 test('staying put long past a sensible stay brings a family or two who already had ice cream; a fresh spot does not', () => {

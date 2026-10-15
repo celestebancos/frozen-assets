@@ -1,5 +1,5 @@
 // Everything a grown-up needs to look at how a kid actually played, in one JSON file.
-import { CONFIG, SUPPLIES, SPOTS, CART, CART_CROWD } from './config.js';
+import { CONFIG, SUPPLIES, SPOTS, CART, CART_CROWD, POPS } from './config.js';
 import { share, sectionTotal } from './ledger.js';
 
 export const EXPORT_VERSION = 1;
@@ -17,7 +17,7 @@ function csvCell(v) {
 }
 
 export function daysCsv(days) {
-  const priceKeys = ['cake', 'sugar', 'waffle', 'bowl', 'chocSprinkles', 'rainbowSprinkles', 'rocketPop', 'fudgePop', 'freezePop', 'pushOrange', 'pushGrape', 'orangeCream', 'shortcake', 'sandwich', 'iceCherry', 'iceStrawberry', 'iceLemon', 'iceBlue'];
+  const priceKeys = ['cake', 'sugar', 'waffle', 'bowl', 'chocSprinkles', 'rainbowSprinkles', ...POPS.map((p) => p.id)];
   const header = [...DAY_COLUMNS, ...SPOTS.map((s) => 'min_' + s.id), ...priceKeys.map((k) => 'price_' + k), ...SUPPLIES.map((s) => 'stock_' + s.id), 'route', 'menuOff', 'policy_outOfStock', 'policy_drop'];
   const rows = days.map((d) => [
     ...DAY_COLUMNS.map((c) => d[c]),

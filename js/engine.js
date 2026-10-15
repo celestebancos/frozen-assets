@@ -355,7 +355,7 @@ export class Game {
     return p[item.container] + (item.topping ? p[item.topping] : 0);
   }
   availablePops() {
-    return POPS.filter((p) => this.popAvail(p.id)).map((p) => ({ pop: p.id }));
+    return POPS.filter((p) => !p.drink && this.popAvail(p.id)).map((p) => ({ pop: p.id }));
   }
   availableItems() {
     const out = [];
@@ -1204,7 +1204,7 @@ export class Game {
 
   wants(m) {
     const r = this.rng;
-    const pops = POPS.filter((p) => this.isOn(p.id));
+    const pops = POPS.filter((p) => !p.drink && this.isOn(p.id));
     if (pops.length && r.chance(C.popWant[m.kind] ?? 0)) return { pop: r.weighted(pops.map((p) => [p.id, p.id === this.state.favorite ? C.favoriteWant : p.want])) };
     const kid = m.kind === 'kid' || m.kind === 'teen';
     const flavor = r.weighted(kid ? [['vanilla', 35], ['chocolate', 40], ['swirl', 25]] : [['vanilla', 40], ['chocolate', 30], ['swirl', 30]]);
@@ -1480,6 +1480,25 @@ export class Game {
       s.week.toppings[item.topping] = (s.week.toppings[item.topping] || 0) + 1;
     }
     party.bill = (party.bill || 0) + price;
+    if (!forDog) this.maybeDrink(party, m);
+  }
+  // Some people add a drink to their order, more on a hot day, if the price is fair to them.
+  maybeDrink(party, m) {
+    const s = this.state;
+    const drinks = POPS.filter((p) => p.drink && this.popAvail(p.id));
+    if (!drinks.length) return;
+    const d = C.drink;
+    if (!this.rng.chance(Math.min(d.max, Math.max(d.min, d.base + (s.weather.temp - 80) * d.perDegree)))) return;
+    const id = this.rng.weighted(drinks.map((p) => [p.id, p.want]));
+    const price = s.prices[id];
+    if (price > C.fairPrice[id] * (m.wtp ?? 1)) return;
+    if (m.cash != null && m.cash - m.paid < price) return;
+    this.makeItem({ pop: id }, 0);
+    m.drink = id;
+    m.paid += price;
+    s.today.sold[id] = (s.today.sold[id] || 0) + 1;
+    s.week.sold[id] = (s.week.sold[id] || 0) + 1;
+    party.bill += price;
   }
 
   applyServiceChoice(party, m, choice) {
@@ -1690,6 +1709,7 @@ export class Game {
         result: m.result,
         mood: m.mood,
         item: m.item,
+        drink: m.drink || null,
         want: m.want,
         dropped: !!m.dropped,
         replaced: m.replaced,

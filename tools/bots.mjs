@@ -1,9 +1,9 @@
 // Simulated players used for tuning and tests.
 import { Game } from '../js/engine.js';
-import { SUPPLIES, SUPPLY, CONFIG, MARKET_DAYS } from '../js/config.js';
+import { SUPPLIES, SUPPLY, CONFIG, MARKET_DAYS, START_PRICES, POPS } from '../js/config.js';
 import { docLines } from '../js/documents.js';
 
-const FAIR = { cake: 300, sugar: 350, waffle: 450, bowl: 300, chocSprinkles: 50, rainbowSprinkles: 50, rocketPop: 100, fudgePop: 125, freezePop: 50, pushOrange: 75, pushGrape: 75, orangeCream: 125, shortcake: 175, sandwich: 150, iceCherry: 150, iceStrawberry: 150, iceLemon: 150, iceBlue: 150 };
+const FAIR = { ...START_PRICES };
 
 function fileAll(g) {
   for (const d of g.docsToFile()) {
@@ -43,8 +43,8 @@ function snapshotStock(g) {
   return Object.fromEntries(SUPPLIES.map((s) => [s.id, g.stock(s.id)]));
 }
 
-const SHARE = { vanilla: 0.6, chocolate: 0.6, cake: 0.3, sugar: 0.25, waffle: 0.25, bowl: 0.25, chocSprinkles: 0.3, rainbowSprinkles: 0.3, spoons: 0.25, napkins: 1.8, rocketPop: 0.045, fudgePop: 0.025, freezePop: 0.025, pushOrange: 0.018, pushGrape: 0.018, orangeCream: 0.018, shortcake: 0.018, sandwich: 0.018, iceCherry: 0.018, iceStrawberry: 0.018, iceLemon: 0.01, iceBlue: 0.018 };
-const POP_IDS = ['rocketPop', 'fudgePop', 'freezePop', 'pushOrange', 'pushGrape', 'orangeCream', 'shortcake', 'sandwich', 'iceCherry', 'iceStrawberry', 'iceLemon', 'iceBlue'];
+const SHARE = { vanilla: 0.6, chocolate: 0.6, cake: 0.3, sugar: 0.25, waffle: 0.25, bowl: 0.25, chocSprinkles: 0.3, rainbowSprinkles: 0.3, spoons: 0.25, napkins: 1.8, rocketPop: 0.045, fudgePop: 0.025, freezePop: 0.025, pushOrange: 0.018, pushGrape: 0.018, orangeCream: 0.018, shortcake: 0.018, sandwich: 0.018, iceCherry: 0.018, iceStrawberry: 0.018, iceLemon: 0.01, iceBlue: 0.018, crunchBar: 0.018, sundaeCone: 0.018, water: 0.03, punch: 0.02 };
+const POP_IDS = POPS.map((p) => p.id);
 
 // A simple 2-stop route: home neighborhood, Riverside (it has the big pool) after lunch, back for the evening.
 const SIMPLE_ROUTE = [

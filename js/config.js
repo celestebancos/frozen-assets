@@ -90,13 +90,15 @@ export const CONFIG = {
   dropChance: 0.02,
 
   // What a typical customer thinks is fair (cents).
-  fairPrice: { cake: 300, sugar: 350, waffle: 450, bowl: 300, rocketPop: 125, fudgePop: 150, freezePop: 60, pushOrange: 100, pushGrape: 100, orangeCream: 150, shortcake: 200, sandwich: 175, iceCherry: 175, iceStrawberry: 175, iceLemon: 175, iceBlue: 175 },
+  fairPrice: { cake: 300, sugar: 350, waffle: 450, bowl: 300, rocketPop: 125, fudgePop: 150, freezePop: 60, pushOrange: 100, pushGrape: 100, orangeCream: 150, shortcake: 200, sandwich: 175, iceCherry: 175, iceStrawberry: 175, iceLemon: 175, iceBlue: 175, crunchBar: 275, sundaeCone: 325, water: 125, punch: 175 },
   fairTopping: 50,
   wtpRange: [0.85, 1.6],
   // How often each kind of person wants a popsicle instead of ice cream (when pops are on the menu).
   popWant: { kid: 0.08, teen: 0.05, adult: 0.02 },
   // The game's favorite treat (picked for the park cart, kept on the truck) is wanted as much as rocket pops.
-  favoriteWant: 10.5,
+  favoriteWant: 11.5,
+  // Chance each person adds a drink to their order (if drinks are on the menu): more on hot days (per degree over 80°F).
+  drink: { base: 0.04, perDegree: 0.005, min: 0.02, max: 0.12 },
 
   // Kids out on their own sometimes only have pocket money. They buy only if something costs that much or less.
   pocket: { chance: 0.18, amounts: [[100, 6], [75, 2], [50, 1]] },
@@ -109,7 +111,7 @@ export const CONFIG = {
 };
 
 // Starting menu prices (cents).
-export const START_PRICES = { cake: 300, sugar: 350, waffle: 450, bowl: 300, chocSprinkles: 50, rainbowSprinkles: 50, rocketPop: 100, fudgePop: 125, freezePop: 50, pushOrange: 75, pushGrape: 75, orangeCream: 125, shortcake: 175, sandwich: 150, iceCherry: 150, iceStrawberry: 150, iceLemon: 150, iceBlue: 150 };
+export const START_PRICES = { cake: 300, sugar: 350, waffle: 450, bowl: 300, chocSprinkles: 50, rainbowSprinkles: 50, rocketPop: 100, fudgePop: 125, freezePop: 50, pushOrange: 75, pushGrape: 75, orangeCream: 125, shortcake: 175, sandwich: 150, iceCherry: 150, iceStrawberry: 150, iceLemon: 150, iceBlue: 150, crunchBar: 250, sundaeCone: 300, water: 100, punch: 150 };
 
 // Supplies. "unit" is what one pack count means. Mix is tracked in half-servings internally.
 export const SUPPLIES = [
@@ -153,6 +155,14 @@ export const SUPPLIES = [
     packs: [{ size: 24, price: 900 }, { size: 100, price: 3200 }, { size: 500, price: 13500 }] },
   { id: 'iceBlue', name: 'Blue ice cups', short: 'Blue ice', unit: 'cups', emoji: '💙', use: 'Italian ice in a cup. Each one needs a spoon! Cups stay frozen all summer.',
     packs: [{ size: 24, price: 900 }, { size: 100, price: 3200 }, { size: 500, price: 13500 }] },
+  { id: 'crunchBar', name: 'Chocolate crunch bars', short: 'Crunch bars', unit: 'bars', emoji: '🍫', use: 'A fancy bar: costs more, sells for more. Sold as is: 1 per sale. Bars stay frozen all summer.',
+    packs: [{ size: 24, price: 2200 }, { size: 100, price: 8000 }, { size: 500, price: 35000 }] },
+  { id: 'sundaeCone', name: 'Sundae cones', short: 'Sundae cones', unit: 'cones', emoji: '🍨', use: 'A fancy cone with chocolate and nuts. Sold as is: 1 per sale. They stay frozen all summer.',
+    packs: [{ size: 24, price: 2700 }, { size: 100, price: 10000 }, { size: 500, price: 45000 }] },
+  { id: 'water', name: 'Water bottles', short: 'Water', unit: 'bottles', emoji: '💧', use: 'Some people want a drink with their treat, more on a hot day. Drinks never go bad.',
+    packs: [{ size: 24, price: 900 }, { size: 100, price: 3200 }, { size: 500, price: 14000 }] },
+  { id: 'punch', name: 'Fruit punch', short: 'Fruit punch', unit: 'bottles', emoji: '🍹', use: 'Some people want a drink with their treat, more on a hot day. Drinks never go bad.',
+    packs: [{ size: 24, price: 1400 }, { size: 100, price: 5000 }, { size: 500, price: 22500 }] },
   { id: 'spoons', name: 'Spoons', short: 'Spoons', unit: 'spoons', emoji: '🥄', use: "Every bowl and Italian ice needs a spoon. No spoons = you can't sell them! (Dogs don't need one.)",
     packs: [{ size: 100, price: 200 }, { size: 1000, price: 1000 }] },
   { id: 'napkins', name: 'Napkins', short: 'Napkins', unit: 'napkins', emoji: '🧻', use: 'Each grown-up takes 1 napkin and each kid takes 1 to 3. No napkins = sticky, grumpy customers.',
@@ -174,7 +184,7 @@ export const CONTAINERS = [
 // Popsicles and other treats sold as is, one supply each. A cheap way to sell to kids with only a little money.
 // spoon: needs a spoon too (Italian ice). plural: when adding an s won't do.
 export const POPS = [
-  { id: 'rocketPop', name: 'Rocket pop', want: 10.5 }, // a big seller: about 1 pop in 5
+  { id: 'rocketPop', name: 'Rocket pop', want: 11.5 }, // a big seller: about 1 pop in 5
   { id: 'fudgePop', name: 'Fudge pop', want: 3 },
   { id: 'freezePop', name: 'Freeze pop', want: 3 },
   { id: 'pushOrange', name: 'Orange push pop', want: 3 },
@@ -186,6 +196,11 @@ export const POPS = [
   { id: 'iceStrawberry', name: 'Strawberry ice', want: 3, spoon: true, plural: 'strawberry ice' },
   { id: 'iceLemon', name: 'Lemon ice', want: 2, spoon: true, plural: 'lemon ice' },
   { id: 'iceBlue', name: 'Blue ice', want: 3, spoon: true, plural: 'blue ice' },
+  { id: 'crunchBar', name: 'Chocolate crunch bar', want: 3 },
+  { id: 'sundaeCone', name: 'Sundae cone', want: 3 },
+  // drinks: nobody wants only a drink; some people add one to their order (more on hot days)
+  { id: 'water', name: 'Water bottle', want: 3, drink: true },
+  { id: 'punch', name: 'Fruit punch', want: 2, drink: true, plural: 'fruit punch' },
 ];
 export const POP = Object.fromEntries(POPS.map((p) => [p.id, p]));
 export const isPop = (item) => !!item?.pop;
@@ -383,7 +398,7 @@ export const CART = {
   vendorMistake: 0.15, // how often a seller gets your change wrong
   // Each game, one of these is a big seller too (as popular as rocket pops, about 1 order in 5). Lemon ice is
   // never one. It stays the favorite on the truck.
-  hotChoices: ['fudgePop', 'freezePop', 'pushOrange', 'pushGrape', 'orangeCream', 'shortcake', 'sandwich', 'iceCherry', 'iceStrawberry', 'iceBlue'],
+  hotChoices: ['fudgePop', 'freezePop', 'pushOrange', 'pushGrape', 'orangeCream', 'shortcake', 'sandwich', 'iceCherry', 'iceStrawberry', 'iceBlue', 'crunchBar', 'sundaeCone'],
   hotWant: 3.35,
 };
 
