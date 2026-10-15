@@ -157,6 +157,8 @@ export class Cart {
       }
     }
     state.counter ??= [];
+    // older saves: smaller trays get the new spots added at the end
+    for (const t of state.cooler.trays || []) while (t.length < K.traySpots) t.push(null);
     if (!state.cooler.trays) {
       const old = state.cooler.pops || {};
       state.cooler = { trays: emptyTrays(), top: 0 };
@@ -282,7 +284,7 @@ export class Cart {
     this.setBox(from, b);
     return true;
   }
-  // The cooler. Spots are numbered 0–19 across and down a tray.
+  // The cooler. Spots are numbered 0–23 across and down a tray.
   get topTray() {
     const c = this.state.cooler;
     return c.trays[c.top];

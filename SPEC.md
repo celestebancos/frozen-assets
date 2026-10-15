@@ -77,7 +77,7 @@ Before the truck, a new player starts small: **selling popsicles and Italian ice
 - **Stock** (popsicles and Italian ice) is bought in bulk at the **restaurant store**, the same store the truck uses later, and kept in the home freezer.
 
 ### Each day
-1. **Pack the cooler.** The cooler has limited space, and the home freezer holds more. Decide what to bring today and what to leave home. More kinds means less of each. On a hot day even a full cooler may sell out. The cooler has a battery that keeps it cold all day, and what's left stays in it overnight. *(Built hands-on: boxes on two freezer shelves, a kitchen counter where shopping melts if it isn't put away, a cooler of two 20-spot trays, and no count lists.)*
+1. **Pack the cooler.** The cooler has limited space, and the home freezer holds more. Decide what to bring today and what to leave home. More kinds means less of each. On a hot day even a full cooler may sell out. The cooler has a battery that keeps it cold all day, and what's left stays in it overnight. *(Built hands-on: boxes on two freezer shelves, a kitchen counter where shopping melts if it isn't put away, a cooler of two 24-spot trays, and no count lists.)*
 2. **Fill the cash box.** Start the day with change: $1 bills and coins. With no change, a customer paying with a $5 can't be served unless they have exact money.
 3. **Set prices.** Too high, and people say "No thanks" and walk on. Low prices sell more but earn less on each one.
 4. **Sell at the park.** Time can be sped up while waiting for customers. When someone walks up, time slows to normal, and **filling the order and making change are always done by hand, in real time**:

@@ -205,7 +205,7 @@ test('a park day sells, makes change and keeps the money straight', () => {
   assert.equal(d.keptExtra, 0);
   assert.equal(c.state.phase, 'night');
   // leftovers stay in the cooler overnight, tips went to the wallet
-  assert.equal(c.spaceUsed('cooler'), 40 - sold);
+  assert.equal(c.spaceUsed('cooler'), 40 - sold); // packed 40
   assert.equal(c.jarTotal, 0);
   c.nextDay();
   assert.equal(c.state.day, 2);
@@ -528,10 +528,10 @@ test('stickers can be stuck anywhere on the cart, then stay put; older saves kee
 
 test('serving from a spot in the cooler, and taking it back puts it back there', () => {
   const c = Cart.create({ player: 'Test', seed: 3 });
-  stock(c, 'rocketPop', 20);
+  stock(c, 'rocketPop', CART.traySpots);
   stock(c, 'fudgePop', 20);
-  c.pack('rocketPop', 20);
-  c.pack('fudgePop', 20); // fills the other tray
+  c.pack('rocketPop', CART.traySpots); // fills the top tray
+  c.pack('fudgePop', 20); // on the other tray
   c.openPark();
   for (let i = 0; i < 500 && !c.state.window; i++) c.step();
   const w = c.state.window;
@@ -556,4 +556,13 @@ test('leftovers stay in the cooler overnight', () => {
   c.closePark();
   c.nextDay();
   assert.equal(c.count('cooler', 'freezePop'), 10);
+});
+
+test('older saves: 20-spot trays grow to the new size', () => {
+  const st = Cart.create({ player: 'Test', seed: 4 }).state;
+  st.cooler.trays = [Array(20).fill('rocketPop'), Array(20).fill(null)];
+  const c = new Cart(st);
+  assert.equal(c.topTray.length, CART.traySpots);
+  assert.equal(c.count('cooler', 'rocketPop'), 20);
+  assert.equal(c.coolerFree, CART.coolerSpace - 20);
 });
