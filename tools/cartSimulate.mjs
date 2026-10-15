@@ -1,5 +1,5 @@
 // Usage: node tools/cartSimulate.mjs [seeds=30] [days=60] [bot ...]
-// How fast each simulated cart player builds up cart money (cash box + bank).
+// How fast each simulated cart player builds up money (cash box + bank + wallet).
 import { CART_BOTS, playCart } from './cartBots.mjs';
 
 const n = Number(process.argv[2] || 30);
