@@ -4,7 +4,7 @@ import { itemName } from './scene.js';
 import { CONFIG, itemFromKey } from '../config.js';
 import { pnlRowsFor } from '../ledger.js';
 import { iceCreamSVG, truckSVG } from '../art.js';
-import { esc, money, openModal, onActs } from './dom.js';
+import { esc, money, openModal, onActs, toast } from './dom.js';
 import { pnlTable, balanceSheet } from './panels.js';
 import { towTruckIcon } from '../icons.js';
 
@@ -156,7 +156,15 @@ function finalScreen(app, res) {
     cls: 'narrow',
     closable: false,
     render(body) {
-      body.innerHTML = `${balanceSheet(g)}
+      const P = g.state.partner;
+      const buy = res.won && P
+        ? `<div class="buyout card"><h3>👵 Buy back Grandma's share?</h3>
+          <p>Grandma's Share is <b>${money(g.state.truth.grandmaIn)}</b>, and she gets <b>$${P.slice[0]} of every $${P.slice[1]}</b> of profit. You can pay her back for part of it from the business's cash (${money(g.cash)}). Then her slice gets smaller. Buy all of it, and the truck is all yours!</p>
+          <div class="row">${[1, 2, 3, 4].map((q) => `<button class="btn ${q === 4 ? 'go' : ''}" data-act="buy" data-q="${q}" ${g.buyOutCost(q) > g.cash ? 'disabled' : ''}>${['', '¼', '½', '¾', 'All'][q]} for ${money(g.buyOutCost(q))}</button>`).join('')}</div>
+          <p class="tiny muted">Leave enough cash for supplies next summer!</p></div>`
+        : res.won && g.state.partnerWas ? '<p>👵 The truck is all yours now. Grandma says: "I knew you could do it!"</p>' : '';
+      // with Grandma, show the real books, so a buyout shows up right away (your books get it when you file its paper)
+      body.innerHTML = `${balanceSheet(g, P || g.state.partnerWas ? g.state.truth : null)}${buy}
         <div class="row center" style="margin-top:14px">
           <button class="btn" data-act="lb">🏆 Leaderboard</button>
           ${res.won ? '<button class="btn big go" data-act="again">☀️ Next summer</button>' : '<button class="btn big pink" data-act="new">🚚 New game</button>'}
@@ -165,6 +173,15 @@ function finalScreen(app, res) {
   });
   onActs(m.body, {
     lb: () => app.showLeaderboard(),
+    buy: (t) => {
+      const q = Number(t.dataset.q);
+      if (!confirm(`Pay Grandma ${money(g.buyOutCost(q))} from the business's cash?`)) return;
+      const r = g.buyOutGrandma(q);
+      if (!r.ok) return toast('Not enough cash!');
+      app.changed();
+      toast(r.slice ? `👵 "Smart move, dear!" Now she gets $${r.slice[0]} of every $${r.slice[1]}.` : '👵 "Look at you, buying out your old Grandma! I\'m so proud."');
+      m.refresh();
+    },
     again: () => {
       g.nextSeason();
       app.changed();
