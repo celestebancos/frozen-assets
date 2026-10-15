@@ -1028,3 +1028,61 @@ test('Grandma calls on day 3', () => {
   assert.equal(c.state.day, 3);
   assert.ok(c.lunchInvite);
 });
+
+test('Grandma over lunch: gear, spending, sticker likes and dislikes, running out, the weather, no repeats', async () => {
+  const { GRANDMA } = await import('../js/config.js');
+  const c = Cart.create({ player: 'Test', seed: 13 });
+  const g = c.state.grandma;
+  const lunch = () => {
+    g.invited = c.state.day;
+    g.answered = null;
+    c.state.phase = 'home';
+    return c.lunchAtGrandmas().lines.join(' | ');
+  };
+  c.state.owned.push('decalStar'); // so the "plain cart" advice is done
+  // no umbrella yet: she suggests one; buy it and she notices
+  let l = lunch();
+  assert.ok(l.includes('umbrella'), l);
+  c.state.owned.push('umbrella');
+  l = lunch();
+  assert.ok(l.includes('new umbrella'), l);
+  // a lot of snacks and toys since last lunch
+  c.state.owned.push('fan');
+  g.spent = GRANDMA.spend + 100;
+  l = lunch();
+  assert.ok(l.includes('snacks and toys'), l);
+  // a sticker she likes: a hint, then she's pleased
+  l = lunch();
+  const hinted = g.advice?.kind === 'stickerHint' ? g.advice.id : null;
+  assert.ok(hinted, l);
+  c.state.owned.push(hinted);
+  g.feel = 5;
+  const before = g.feel;
+  l = lunch();
+  assert.ok(l.includes("You know just what I like"), l);
+  assert.ok(g.feel > before);
+  // a sticker she doesn't like: tut tut, once
+  c.state.owned.push('decalRocket');
+  let tuts = 0;
+  for (let i = 0; i < 12; i++) if (lunch().includes('Tut tut')) tuts++;
+  assert.equal(tuts, 1);
+  // ran out of something yesterday
+  c.state.days.push({ day: c.state.day, weather: { temp: 85, rain: false }, soldOut: ['rocketPop'], sold: { rocketPop: 9 } });
+  g.advice = null;
+  assert.ok(lunch().includes('ran out of rocket pops'));
+  // a rainy day lately
+  c.state.days.push({ day: c.state.day, weather: { temp: 70, rain: true }, soldOut: [], sold: {} });
+  c.state.weather = { temp: 84, rain: false };
+  let rainy = false;
+  for (let i = 0; i < 8; i++) if (/rain/i.test(lunch())) rainy = true;
+  assert.ok(rainy);
+  // the old days don't repeat until she's told them all
+  g.said = [];
+  const told = new Set();
+  for (let i = 0; i < GRANDMA.oldDays.length; i++) {
+    const said = lunch();
+    const line = GRANDMA.oldDays.find((x) => said.includes(x));
+    assert.ok(line && !told.has(line), 'a new one each time');
+    told.add(line);
+  }
+});
