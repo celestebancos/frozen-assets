@@ -395,7 +395,7 @@ export class Scene {
     el.innerHTML = p.members
       .map((m) => {
         const b = comments.find(([x]) => x === m)?.[1];
-        return `<div class="who">${b ? `<div class="bubble ${b.c} hidden">${b.e}</div>` : ''}${personSVG(m.kind, m.look)}<div class="hand hidden">${m.result === 'bought' && m.item && !(m.dropped && !m.replaced) ? iceCreamSVG(m.item.pop === 'freezePop' ? { ...m.item, color: FREEZE_TINTS[(m.look || 0) % FREEZE_TINTS.length] } : m.item, 22) : ''}</div></div>`;
+        return `<div class="who">${b ? `<div class="bubble ${b.c} hidden">${b.e}</div>` : ''}${personSVG(m.kind, m.look)}<div class="hand hidden">${m.result === 'bought' && m.item && !(m.dropped && !m.replaced) ? iceCreamSVG(m.item.pop === 'freezePop' ? { ...m.item, color: FREEZE_TINTS[(m.look || 0) % FREEZE_TINTS.length] } : m.item, 22) : ''}${m.result === 'bought' && m.drink ? iceCreamSVG({ pop: m.drink }, 18) : ''}</div></div>`;
       })
       .join('');
     if (p.curb) el.insertAdjacentHTML('afterbegin', '<div class="wave bubble good">👋</div>');

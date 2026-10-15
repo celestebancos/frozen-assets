@@ -53,7 +53,7 @@ A place is worth stopping at when it's busy: the pool on a hot afternoon, ball f
 Things that teach a lesson without a lecture:
 
 - **Moving on.** A place's crowd thins the longer the truck stays, and time anywhere else in the same neighborhood counts too. When it does, a parent and kids walk up and the parent says *"Sorry bud, we already got ice cream today, remember?"*
-- **Pocket money.** Some kids out on their own only have $1 or less. If nothing costs that little, they say *"I can't buy anything. I only have $1!"* (no grumbling, no popularity hit). Popsicles are the cheap option for them. The truck sells the park cart's popsicles and ices (not yet the fancy treats or drinks): rocket, fudge and freeze pops, orange and grape push pops, orange cream pops, strawberry shortcake bars, ice cream sandwiches, and cherry, strawberry, lemon and blue Italian ice (each ice needs a spoon).
+- **Pocket money.** Some kids out on their own only have $1 or less. If nothing costs that little, they say *"I can't buy anything. I only have $1!"* (no grumbling, no popularity hit). Popsicles are the cheap option for them. The truck sells everything the park cart does: rocket, fudge and freeze pops, orange and grape push pops, orange cream pops, strawberry shortcake bars, ice cream sandwiches, cherry, strawberry, lemon and blue Italian ice (each ice needs a spoon), and the fancy chocolate crunch bars and sundae cones. It also sells water and fruit punch: nobody comes for just a drink, but a few people add one to their order, more on a hot day (`drink` in `CONFIG`).
 
 ## Shared leaderboard (Airtable)
 

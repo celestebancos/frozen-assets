@@ -159,7 +159,13 @@ export function menuPanel(app) {
           ${stepper(s.prices[t.id], 'price', t.id, '+' + money(s.prices[t.id]))}
         </div>`).join('')}
         <h3>Popsicles</h3>
-        ${POPS.map((p) => `<div class="menu-row ${g.isOn(p.id) ? '' : 'off'}">
+        ${POPS.filter((p) => !p.drink).map((p) => `<div class="menu-row ${g.isOn(p.id) ? '' : 'off'}">
+          <span class="nm">${iceCreamSVG({ pop: p.id }, 34)} ${p.name}
+            <button class="chip ${g.isOn(p.id) ? '' : 'off'}" data-act="toggle" data-id="${p.id}">${g.isOn(p.id) ? '✅' : '🚫'}</button></span>
+          ${stepper(s.prices[p.id], 'price', p.id, money(s.prices[p.id]))}
+        </div>`).join('')}
+        <h3>Drinks</h3>
+        ${POPS.filter((p) => p.drink).map((p) => `<div class="menu-row ${g.isOn(p.id) ? '' : 'off'}">
           <span class="nm">${iceCreamSVG({ pop: p.id }, 34)} ${p.name}
             <button class="chip ${g.isOn(p.id) ? '' : 'off'}" data-act="toggle" data-id="${p.id}">${g.isOn(p.id) ? '✅' : '🚫'}</button></span>
           ${stepper(s.prices[p.id], 'price', p.id, money(s.prices[p.id]))}
@@ -175,6 +181,7 @@ export function menuPanel(app) {
           <li>🧻 <b>Napkins</b>: grown-ups take 1, kids take 1 to 3. No napkins and people get sticky and grumpy.</li>
           <li>🌈 <b>1 serving of sprinkles</b> if they want a topping</li>
           <li>🚀 <b>Popsicles</b> are sold as is: 1 pop, plus napkins</li>
+          <li>💧 <b>Drinks</b>: some people add one to their order, more on a hot day</li>
         </ul>
         <p class="tiny muted" style="margin:6px 0 0">Spoons and napkins are free for customers, but they cost you money. That's part of what each ice cream costs to make.</p>
       </details>`;
