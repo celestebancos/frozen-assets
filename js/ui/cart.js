@@ -367,10 +367,12 @@ export class CartView {
       // a pack of spoons or napkins from the shelf goes on the cart
       openPack: (t) => {
         const k = t.dataset.k;
-        if (!c.openPack(k)) return;
+        const r = c.openPack(k);
+        if (r.reason === 'notLow') return oops(k === 'spoons' ? '🥄 The cart has plenty of spoons. Open a pack when it runs low.' : '🧻 The cart has plenty of napkins. Open a pack when it runs low.');
+        if (!r.ok) return;
         this.save();
         this.renderHome();
-        toast(k === 'spoons' ? `🥄 Spoons on the cart: ${s.spoons}` : `🧻 Napkins on the cart: ${s.napkins}`);
+        toast(k === 'spoons' ? '🥄 Spoons on the cart!' : '🧻 Napkins on the cart!');
       },
       park: () => {
         if (!c.spaceUsed('cooler') && !confirm('Your cooler is empty! Go to the park anyway?')) return;
@@ -442,8 +444,8 @@ export class CartView {
     const counter = s.counter
       .map((b, i) => `<button class="cbox ${sel === `c${i}` ? 'sel' : ''} ${!sel && i === 0 && c.freeSlots ? 'nudge' : ''}" data-act="slot" data-loc="c${i}" aria-label="${name(b)}">${boxFrontSVG(b.item, boxSize(b.item))}</button>`)
       .join('');
-    // unopened packs: tap one to put it on the cart
-    const packs = (k, svg) => Array.from({ length: Math.min(3, s.packs[k]) }, () => `<button class="pk" data-act="openPack" data-k="${k}" aria-label="Put ${k} on the cart">${svg}</button>`).join('') + (s.packs[k] > 3 ? `<span class="pk-more">×${s.packs[k]}</span>` : '');
+    // unopened packs: tap one to put it on the cart (once the cart is running low, which makes the first one wiggle)
+    const packs = (k, svg) => Array.from({ length: Math.min(3, s.packs[k]) }, (_, i) => `<button class="pk ${i === 0 && s[k] < K.refillBelow ? 'nudge' : ''}" data-act="openPack" data-k="${k}" aria-label="Put ${k} on the cart">${svg}</button>`).join('') + (s.packs[k] > 3 ? `<span class="pk-more">×${s.packs[k]}</span>` : '');
     const box = sel ? c.boxAt(sel) : null;
     const open = box
       ? `${openBoxHTML(box)}<div class="row box-btns"><button class="btn" data-act="shut">📦 ${sel.startsWith('s') ? 'Back in freezer' : 'Close box'}</button>${box.n ? '' : '<button class="btn" data-act="recycle">♻️ Recycle</button>'}</div>`
