@@ -3,6 +3,7 @@
 // space as the park backdrop (wide or tall), and each one picks a spot you can see on this screen.
 // Everyone walks on from the edge of the screen and walks off again when their story is done.
 // On tall screens the stories are drawn smaller (they're farther away than the customers on the path).
+import { PauseClock } from './clock.js';
 import { personSVG, PARK_VIEW, BENCH_W } from '../art.js';
 import { frisbeeSVG, balloonSVG, squirrelSVG, duckSVG, sandwichSVG, sunHatSVG, butterflySVG, bubbleWandSVG, soapBubbleSVG, puddleSVG, windSVG, dropSVG } from '../cartArt.js';
 
@@ -20,7 +21,6 @@ const SCAMPER = 0.22; // squirrels
 const BALLOONS = ['#e5484d', '#3a8ee6', '#ffd23f', '#3cc6a0', '#b69cff', '#ff8fc7'];
 const rnd = (n) => Math.floor(Math.random() * n);
 const pick = (xs) => xs[rnd(xs.length)];
-const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 // grown-ups without a sun hat (the hat story gives them one)
 const bareHead = () => pick([0, 1, 2, 4, 5, 6, 8, 9, 10]);
 // Where a hand, the top of the head or a dog's mouth is, in an actor's own space (feet at 0, 0), for a sprite w wide.
@@ -81,7 +81,7 @@ class Actor {
     this.g.style.transform = `translate(${x}px, ${y}px)`;
     this.x = x;
     this.y = y;
-    return wait(ms);
+    return this.stage.clock.wait(ms);
   }
   // Walk over to x (and y), facing the way it goes, at its own speed unless one is given.
   async walkTo(x, speed = this.speed, y = this.y) {
@@ -108,7 +108,7 @@ class Actor {
     b.setAttribute('transform', `translate(0 ${(-this.h - 5).toFixed(1)}) scale(${(1 / this.stage.k).toFixed(3)})`); // bubbles stay full size
     b.innerHTML = `<g class="pop"><rect x="-15" y="-27" width="30" height="24" rx="9" fill="#fff" stroke="${INK}" stroke-width="1.6"/><path d="M-4 -3.6 L0 2 L4 -3.6" fill="#fff" stroke="${INK}" stroke-width="1.6" stroke-linejoin="round"/><path d="M-3 -4.4 H3" stroke="#fff" stroke-width="2.4"/><text x="0" y="-14.5" font-size="15" text-anchor="middle" dominant-baseline="central">${text}</text></g>`;
     this.g.appendChild(b);
-    setTimeout(() => b.remove(), ms);
+    this.stage.clock.after(ms, () => b.remove());
   }
   // Up and back down, like a hop or a jump.
   async hop(height = 12, ms = 360) {
@@ -282,7 +282,7 @@ const STORIES = {
     await s.walkOff(all, dir);
   },
 
-  // A kid blows bubbles and a dog jumps to pop every one.
+  // A kid blows bubbles that float away on the breeze, and a dog chases after them, jumping to pop them.
   async bubbles(s) {
     const G = s.G;
     const x = s.spot(330);
@@ -293,24 +293,52 @@ const STORIES = {
     await kid.there;
     kid.face(1);
     await s.t(700);
+    // Every bubble keeps drifting away from the kid at about the same pace, each wobbling on its own, until
+    // it's popped or gone past the edge of the screen.
+    const far = s.visible()[1] + 20;
     const bubbles = [];
+    const float = async (b) => {
+      while (s.alive && !b.popped && b.x < far) {
+        const ms = 450 + rnd(400);
+        const y = Math.max(G - 50, Math.min(G - 24, b.y + rnd(15) - 7.5));
+        await b.moveTo(b.x + ms * (0.034 + Math.random() * 0.012), y, ms, 'ease-in-out');
+      }
+      if (!b.popped) {
+        b.popped = true;
+        b.remove();
+      }
+    };
     for (let i = 0; i < 6; i++) {
-      const b = s.actor(soapBubbleSVG(), x + 50, G - 44, 11 + rnd(7));
-      b.moveTo(x + 90 + i * 32 + rnd(16), G - 30 - rnd(22), 2400 + rnd(700), 'ease-out');
+      const b = s.actor(soapBubbleSVG(), x + 50, G - 40, 11 + rnd(7));
       bubbles.push(b);
-      await s.t(330);
+      float(b);
+      await s.t(380);
     }
     kid.say('😊', 1300);
-    await s.t(400);
-    const [dog] = s.walkOn([{ svg: personSVG('dog', rnd(4)), w: DOG, x: x + 340, speed: TROT }], 1);
+    // the dog runs in from behind the kid and chases the nearest bubble, in short dashes, since they keep moving
+    const dog = s.actor(personSVG('dog', rnd(4)), s.edge(-1), G, DOG);
+    dog.speed = 0.26;
     dog.sound('dog');
-    await dog.there;
-    for (const b of bubbles.sort((p, q) => q.x - p.x)) {
-      await dog.walkTo(b.x + 12, 0.25);
-      await dog.moveTo(b.x + 12, G - 22, 170, 'ease-out');
-      b.setArt('<svg viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><text x="10" y="11" font-size="14" text-anchor="middle" dominant-baseline="central">✨</text></svg>');
-      setTimeout(() => b.remove(), 400);
-      await dog.moveTo(b.x + 12, G, 170, 'ease-in');
+    const reach = mouth(DOG)[0]; // how far in front of the dog its mouth is
+    for (;;) {
+      await s.t(0);
+      const left = bubbles.filter((b) => !b.popped);
+      if (!left.length) break;
+      const b = left.reduce((p, q) => (Math.abs(q.x - dog.x) < Math.abs(p.x - dog.x) ? q : p));
+      const dir = b.x >= dog.x ? 1 : -1;
+      const gap = b.x - dir * reach - dog.x;
+      if (Math.abs(gap) > 10) {
+        await dog.walkTo(dog.x + Math.sign(gap) * Math.min(Math.abs(gap), 45));
+        continue;
+      }
+      dog.face(dir);
+      await dog.moveTo(dog.x, G - 22, 170, 'ease-out');
+      if (!b.popped) {
+        b.popped = true;
+        b.setArt('<svg viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><text x="10" y="11" font-size="14" text-anchor="middle" dominant-baseline="central">✨</text></svg>');
+        s.clock.after(400, () => b.remove());
+      }
+      await dog.moveTo(dog.x, G, 170, 'ease-in');
     }
     kid.say('😆', 1600);
     kid.sound('laugh');
@@ -408,7 +436,9 @@ export class ParkStories {
   // blockers(): elements drawn in front of the lawn (stands, swings, the cart); stories try to play where they aren't.
   // tall: the phone layout of the park.
   // sound(name, pan): plays a sound (see sounds/sounds.json), pan from -1 (left) to 1 (right).
-  constructor(host, { rain = false, tall = false, busy = () => false, blockers = () => [], sound = () => {} } = {}) {
+  // clock: a PauseClock, so the stories freeze while the game is paused.
+  constructor(host, { rain = false, tall = false, busy = () => false, blockers = () => [], sound = () => {}, clock = new PauseClock() } = {}) {
+    this.clock = clock;
     const v = tall ? PARK_VIEW.tall : PARK_VIEW.wide;
     this.G = v.ground; // the stories stand here: on the lawn between the pond and the path
     this.k = v.story; // story units → park units: a bit smaller than the customers, who are closer
@@ -435,18 +465,18 @@ export class ParkStories {
   }
   stop() {
     this.on = false;
-    clearTimeout(this.timer);
+    this.clock.cancel(this.timer);
     this.root.replaceChildren();
   }
   later(ms) {
-    clearTimeout(this.timer);
-    if (this.on) this.timer = setTimeout(() => this.next(), ms);
+    this.clock.cancel(this.timer);
+    if (this.on) this.timer = this.clock.after(ms, () => this.next());
   }
   get alive() {
     return this.on && this.layer.isConnected;
   }
   async t(ms) {
-    await wait(ms);
+    await this.clock.wait(ms);
     if (!this.alive) throw STOP;
   }
   actor(svg, x, y, w) {
@@ -539,7 +569,7 @@ export class ParkStories {
     }
     // whatever is still on the lawn (a puddle) fades away, then a rest before the next story
     this.layer.classList.add('fade');
-    await wait(600);
+    await this.clock.wait(600);
     this.root.replaceChildren();
     this.layer.classList.remove('fade');
     this.later(12000 + Math.random() * 14000);

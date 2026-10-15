@@ -1,4 +1,5 @@
 // Cartoon SVG art: truck, customers, ice cream, and the backdrop for each spot.
+import { emo, emoSVG } from './icons.js';
 
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 
@@ -1200,7 +1201,7 @@ export function streetSVG(area) {
   return wrapScene(`<g class="roll"><g>${strip}</g><g transform="translate(999 0)">${strip}</g></g>`);
 }
 
-const MAP_ICONS = { home: '🏡', school: '🏫', pool: '🏊', office: '🏢', fields: '⚾', playground: '🛝', market: '🍎', zoo: '🦒', park: '🌳', library: '📚' };
+const MAP_ICONS = { home: '🏡', school: '🏫', pool: '🏊', office: '🏢', fields: '⚾', playground: emo('slide'), market: '🍎', zoo: '🦒', park: '🌳', library: '📚' };
 export const mapIcon = (kind) => MAP_ICONS[kind] || '📍';
 
 // ---------- the town map ----------
@@ -1293,7 +1294,7 @@ function mapPlace(f, [x, y]) {
       art = `<rect x="-24" y="-12" width="48" height="26" fill="#e9c891" stroke="#8b5a2b" stroke-width="2"/><path d="M-28 -12 L0 -26 L28 -12 Z" fill="#c08552" stroke="#8b5a2b" stroke-width="1.5"/>${[-16, -8, 8, 16].map((cx) => `<rect x="${cx - 2}" y="-10" width="4" height="22" fill="#fffaf0"/>`).join('')}<text y="10" text-anchor="middle" font-size="13">📚</text>`;
       break;
     case 'playground':
-      art = `<circle r="17" fill="#f0d6a2" stroke="#c9a227" stroke-width="2"/><text y="7" text-anchor="middle" font-size="19">🛝</text>`;
+      art = `<circle r="17" fill="#f0d6a2" stroke="#c9a227" stroke-width="2"/>${emoSVG('slide', 24)}`;
       break;
     case 'office':
       art = f.id === 'cityHall'

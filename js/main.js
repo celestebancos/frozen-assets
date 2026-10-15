@@ -6,7 +6,7 @@ import { Ambience, cashRegister } from './ambience.js';
 import { storage } from './storage.js';
 import { truckSVG, iceCreamSVG } from './art.js';
 import { leaderboardConfig, isConfigured, postScore, fetchScores, flushPending } from './leaderboard.js';
-import { esc, money, el, openModal, onActs, anyModalOpen, closeAllModals, toast, fmtTime } from './ui/dom.js';
+import { esc, money, el, openModal, onActs, anyModalOpen, closeAllModals, toast, fmtTime, PAUSE_ICON } from './ui/dom.js';
 import { Scene } from './ui/scene.js';
 import { shopPanel, menuPanel, mapPanel, giftPanel, inventoryPanel, policyPanel, truckPanel, booksPanel, placesPanel } from './ui/panels.js';
 import { openShoebox } from './ui/filing.js';
@@ -14,6 +14,7 @@ import { seasonEnd } from './ui/reports.js';
 import { showDecision } from './ui/popups.js';
 import { buildExport, exportFileName } from './export.js';
 import { startCart } from './ui/cart.js';
+import { coinIcon, towTruckIcon } from './icons.js';
 
 const C = CONFIG;
 // Real milliseconds per game minute at each speed: ▶ half a second, ▶▶ a bit faster, ▶▶▶ fast.
@@ -47,7 +48,7 @@ class App {
   // Music on or off. Turning it back on mid-day starts the tune again.
   setMusicOn(on) {
     this.music.setTuneOn(on);
-    if (on && this.game?.state.phase === 'open') this.music.play();
+    if (on && this.game?.state.phase === 'open' && this.speed !== 0) this.music.play();
   }
   saveSettings() {
     this.settings.musicVolume = this.music.volume;
@@ -197,10 +198,10 @@ class App {
             <button class="btn big go" data-act="next" ${t ? '' : 'disabled'}>${t ? `Buy it for ${money(price)} ▶` : 'Pick a truck'}</button></div>`;
         return;
       }
-      title.textContent = '🪧 Your sign';
+      title.textContent = '🏷️ Your sign';
       card.innerHTML = `<div style="max-width:420px;margin:0 auto">${truckSVG(t.hex, name, { bling })}</div>
         <div class="row center" style="margin:6px 0">${ownerCash ? `<span class="chip">🛒 Cart money ${money(ownerCash)}</span>` : ''}<span class="chip">🏦 Loan ${money(L.principal)}</span><span class="chip">🚚 Truck −${money(price)}</span><span class="chip">💵 Cash left ${money(have - price)}</span></div>
-        <h3>🪧 Business name</h3><input class="text-in" maxlength="28" value="${esc(name)}" aria-label="Business name">
+        <h3>🏷️ Business name</h3><input class="text-in" maxlength="28" value="${esc(name)}" aria-label="Business name">
         <div class="row" style="justify-content:space-between;margin-top:16px"><button class="btn" data-act="toTruck">◀ Back</button><button class="btn big go" data-act="go">Let's go! ▶</button></div>`;
       card.querySelector('input').addEventListener('input', (e) => {
         name = e.target.value;
@@ -349,7 +350,7 @@ class App {
     const card = el(`<div class="morning"><div class="card">
       ${s.phase === 'seasonEnd' ? `<div style="font-size:40px">🌅</div><h2 style="margin:0">Summer's over!</h2>` : s.phase === 'setup' ? `<div style="font-size:40px">🏦➡️💵➡️🚚</div>` : `<h2 style="margin:0">${DAY_NAMES[g.dayOfWeek]} · Week ${g.week}${s.season > 1 ? ` · Summer ${s.season}` : ''}</h2>`}
       <div class="weather">${wIcon} <b style="font-size:30px">${w.temp}°F</b></div>
-      ${last && s.phase !== 'setup' ? `<p class="muted">Yesterday: 🍦 ${Object.values(last.sold).reduce((a, b) => a + b, 0)} · 💵 ${money(last.revenue)}${last.tooExpensive ? ` · 😤 ${last.tooExpensive} said “too expensive”` : ''}${last.broke ? ` · 🪙 ${last.broke} only had pocket money` : ''}</p>` : ''}
+      ${last && s.phase !== 'setup' ? `<p class="muted">Yesterday: 🍦 ${Object.values(last.sold).reduce((a, b) => a + b, 0)} · 💵 ${money(last.revenue)}${last.tooExpensive ? ` · 😤 ${last.tooExpensive} said “too expensive”` : ''}${last.broke ? ` · ${coinIcon()} ${last.broke} only had pocket money` : ''}</p>` : ''}
       ${s.phase !== 'setup' && s.phase !== 'seasonEnd' && g.plannedRoute() ? `<p class="tiny muted">🗺️ Today's route: <b>${esc(g.plannedRoute().name)}</b></p>` : ''}
       ${needFile ? `<button class="btn big yellow pulse" data-act="file">🗃️ Shoebox (${needFile})</button>` : `<button class="btn big go pulse" data-act="open">🔔 Open for business!</button>`}
     </div></div>`);
@@ -381,6 +382,10 @@ class App {
   // ---------- loop ----------
   setSpeed(sp) {
     this.speed = sp;
+    // ⏸ stops the music and everything moving on the street
+    this.stage?.classList.toggle('paused', sp === 0);
+    if (sp === 0) this.music.stop();
+    else if (this.game?.state.phase === 'open') this.music.play();
     // a little faster music at faster game speeds: noticeable, not frantic
     this.music.setRate({ 2: 1.06, 3: 1.12, 9: 1.12 }[sp] || 1);
     this.music.ensure();
@@ -405,7 +410,8 @@ class App {
   frame(now) {
     const g = this.game;
     if (!g) return;
-    this.ambience.update(g, g.state.phase === 'open' ? this.scene?.view() : null);
+    if (this.speed === 0) this.ambience.play(null); // quiet while paused
+    else this.ambience.update(g, g.state.phase === 'open' ? this.scene?.view() : null);
     // back from another app: sound waits for a tap
     const tap = this.music.needsTap() && (g.state.phase === 'open' || this.music.playing);
     if (this.soundTap && this.soundTap.hidden === tap) this.soundTap.hidden = !tap;
@@ -490,7 +496,7 @@ class App {
         <span class="fuel" title="Gas">⛽<span class="bar"><i></i></span></span>
       </div>
       <div class="speed" role="group" aria-label="Speed">
-        ${['⏸', '▶', '▶▶', '▶▶▶'].map((l, i) => `<button class="${sp === i ? 'on' : ''}" data-act="speed" data-s="${i}" ${open ? '' : 'disabled'} aria-label="Speed ${i}">${l}</button>`).join('')}
+        ${[PAUSE_ICON, '▶', '▶▶', '▶▶▶'].map((l, i) => `<button class="${sp === i ? 'on' : ''}" data-act="speed" data-s="${i}" ${open ? '' : 'disabled'} aria-label="Speed ${i}">${l}</button>`).join('')}
         <button class="${sp === 9 ? 'on' : ''}" data-act="skip" ${open ? '' : 'disabled'} aria-label="Skip to end of day">⏭</button>
       </div>`;
       this.hudEls = {
@@ -624,7 +630,7 @@ class App {
         const src = rows ? '🌐 Shared' : isConfigured(cfg) ? (err ? `⚠️ Couldn't reach the shared board (${esc(err)}). Showing this device.` : '⏳ Loading…') : '📱 This device only (set up the shared board in ⚙️ Settings)';
         body.innerHTML = `<p class="muted tiny">${src}</p>
           ${list.length ? `<table class="books lb-table"><tr><th>#</th><th>Player</th><th>Truck</th><th>Summer</th><th>Share</th><th></th></tr>
-          ${list.slice(0, 30).map((r, i) => `<tr><td>${i + 1}</td><td><b>${esc(r.player)}</b></td><td>${esc(r.business)}</td><td>${r.season}</td><td class="${r.share < 0 ? 'neg' : ''}">${money(r.share)}</td><td>${r.won ? '🏆' : '🛻'}</td></tr>`).join('')}</table>` : '<p>No scores yet. Finish a summer to get on the board!</p>'}`;
+          ${list.slice(0, 30).map((r, i) => `<tr><td>${i + 1}</td><td><b>${esc(r.player)}</b></td><td>${esc(r.business)}</td><td>${r.season}</td><td class="${r.share < 0 ? 'neg' : ''}">${money(r.share)}</td><td>${r.won ? '🏆' : towTruckIcon()}</td></tr>`).join('')}</table>` : '<p>No scores yet. Finish a summer to get on the board!</p>'}`;
       },
     });
     if (isConfigured(cfg)) {
