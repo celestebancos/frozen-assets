@@ -1,7 +1,7 @@
 // The park cart screens: make your character, the morning at home, shops and errands, and the park day
 // where every sale is served and every bit of change is counted by hand.
 import { CART, CART_ITEMS, CART_ITEM, CART_SHOPS, CART_CROWD, REGULARS } from '../config.js';
-import { Cart, total, pileCount, boxSize, CART_DAY_NAMES } from '../cart.js';
+import { Cart, total, pileCount, boxSize, boxTint, CART_DAY_NAMES } from '../cart.js';
 import { personSVG, parkSVG, CHARACTER, PARK_VIEW } from '../art.js';
 import { cartSVG, toyPlaySVG, STICKER_AREA, umbrellaSVG, moneySVG, treatSVG, thingSVG, boxFrontSVG, boxSideSVG, BOX_LOOK, spoonCupSVG, napkinStackSVG, spoonBoxSVG, napkinPackSVG, swingSetSVG, swingSeatSVG, balloonSVG, hotdogStandSVG, balloonSellerSVG, stickerStandSVG } from '../cartArt.js';
 import { ParkStories } from './parkStories.js';
@@ -17,13 +17,14 @@ const REG = Object.fromEntries(REGULARS.map((r) => [r.id, r]));
 const SHOP_ITEMS = Object.values(CART_SHOPS).flatMap((s) => s.items);
 const ITEM = Object.fromEntries(SHOP_ITEMS.map((i) => [i.id, i]));
 
-const a = (id) => `a ${CART_ITEM[id].name.toLowerCase()}`;
+const aOr = (name) => `${/^[aeiou]/.test(name) ? 'an' : 'a'} ${name}`;
+const a = (id) => aOr(CART_ITEM[id].name.toLowerCase());
 const NUM = ['', 'a', 'two', 'three', 'four', 'five'];
 // ['rocketPop', 'iceBlue', 'rocketPop'] → ['two rocket pops', 'a blue ice']
 const counted = (ids) => [...new Set(ids)].map((id) => {
   const n = ids.filter((x) => x === id).length;
   const name = CART_ITEM[id].name.toLowerCase();
-  return n === 1 ? `a ${name}` : `${NUM[n] || n} ${name}s`;
+  return n === 1 ? aOr(name) : `${NUM[n] || n} ${CART_ITEM[id].plural || name + 's'}`;
 });
 const andList = (xs) => (xs.length < 2 ? xs.join('') : `${xs.slice(0, -1).join(', ')} and ${xs[xs.length - 1]}`);
 
@@ -62,11 +63,12 @@ function itemIcon(it, size = 40) {
 // ---------- boxes and the cooler ----------
 const BOX_ITEM = Object.fromEntries(CART_SHOPS.restaurant.items.filter((i) => i.kind === 'stock').map((i) => [i.item, i]));
 // One tray of the cooler seen from above, with the lid open behind it. act: what tapping a spot does.
-function coolerHTML(tray, { act = 'spot', sel = null, fresh = null } = {}) {
+// tints: the color of each freeze pop on the tray.
+function coolerHTML(tray, { act = 'spot', sel = null, fresh = null, tints = [] } = {}) {
   const spots = tray
     .map((id, i) => {
       const cls = `spot${id ? '' : ' empty'}${sel === i ? ' sel' : ''}${fresh === i ? ' fresh' : ''}`;
-      return `<button class="${cls}" data-act="${act}" data-i="${i}" ${id ? `data-id="${id}" aria-label="${esc(CART_ITEM[id].name)}"` : 'aria-label="Empty spot"'}>${id ? treatSVG(id, 48) : ''}</button>`;
+      return `<button class="${cls}" data-act="${act}" data-i="${i}" ${id ? `data-id="${id}" aria-label="${esc(CART_ITEM[id].name)}"` : 'aria-label="Empty spot"'}>${id ? treatSVG(id, 48, tints[i]) : ''}</button>`;
     })
     .join('');
   return `<div class="cooler"><div class="cl-lid"><i></i><i></i></div><div class="cl-body"><div class="cl-tray">${spots}</div></div><button class="btn small cl-swap" data-act="swapTrays">🔄 Swap trays</button></div>`;
@@ -74,7 +76,7 @@ function coolerHTML(tray, { act = 'spot', sel = null, fresh = null } = {}) {
 // Looking down into an open box: the treats that are left, and the gaps where some are gone.
 function openBoxHTML(box) {
   const size = boxSize(box.item);
-  const cells = Array.from({ length: size }, (_, i) => (i < size - box.n ? '<i class="gone"></i>' : `<button class="bt" data-act="takeOne" aria-label="${esc(CART_ITEM[box.item].name)}">${treatSVG(box.item, 40)}</button>`)).join('');
+  const cells = Array.from({ length: size }, (_, i) => (i < size - box.n ? '<i class="gone"></i>' : `<button class="bt" data-act="takeOne" aria-label="${esc(CART_ITEM[box.item].name)}">${treatSVG(box.item, 40, boxTint(box, i))}</button>`)).join('');
   return `<div class="open-box ${size > 24 ? 'big' : ''}" data-act="boxIn" style="--c:${BOX_LOOK[box.item].color}">${cells}</div>`;
 }
 // How full the cup of spoons and the stack of napkins look.
@@ -424,7 +426,7 @@ export class CartView {
           <div class="kit-counter"><div class="kc-boxes">${counter}</div></div>
         </div>
       </div>
-      <div class="kit-pack"><div class="pk-left">${open}</div><div class="pk-right">${coolerHTML(c.topTray, { sel: this.coolSel, fresh: this.fresh })}</div></div>
+      <div class="kit-pack"><div class="pk-left">${open}</div><div class="pk-right">${coolerHTML(c.topTray, { sel: this.coolSel, fresh: this.fresh, tints: c.state.cooler.tints[c.state.cooler.top] })}</div></div>
     </div>`;
     this.fresh = null;
     return html;
@@ -449,7 +451,7 @@ export class CartView {
       render: (body) => {
         const box = at ? c.boxAt(at) : null;
         const left = box ? `<div class="pk-left">${openBoxHTML(box)}<button class="btn" data-act="done">📦 ${at.startsWith('s') ? 'Back in freezer' : 'Close box'}</button></div>` : '';
-        body.innerHTML = `<div class="packing ${box ? '' : 'solo'}">${left}<div class="pk-right">${coolerHTML(c.topTray, { sel, fresh })}${box ? '' : '<button class="btn go" data-act="done">Done ✓</button>'}</div></div>`;
+        body.innerHTML = `<div class="packing ${box ? '' : 'solo'}">${left}<div class="pk-right">${coolerHTML(c.topTray, { sel, fresh, tints: c.state.cooler.tints[c.state.cooler.top] })}${box ? '' : '<button class="btn go" data-act="done">Done ✓</button>'}</div></div>`;
         fresh = null;
       },
     });
@@ -579,8 +581,10 @@ export class CartView {
       onClose,
       render: (body) => {
         const stock = S.items.filter((i) => i.kind === 'stock');
+        // two kinds to a shelf on a phone, three on a wider screen
+        const per = matchMedia('(min-width: 900px)').matches ? 3 : 2;
         const rows = [];
-        for (let i = 0; i < stock.length; i += 2) rows.push(stock.slice(i, i + 2));
+        for (let i = 0; i < stock.length; i += per) rows.push(stock.slice(i, i + per));
         // two boxes of each kind stand on the shelf, with one price tag clipped under them
         const kind = (it) => `<div class="sf-kind">${[0, 1].map(() => `<button class="sf-box" data-act="take" data-id="${it.id}" aria-label="${esc(it.name)}">${storeArt(it)}</button>`).join('')}<span class="tag">${money(it.price)}</span></div>`;
         const dry = S.items
@@ -593,7 +597,7 @@ export class CartView {
         const inCart = Object.entries(basket).flatMap(([id, q]) => Array(q).fill(id));
         const cartItems = inCart.map((id) => `<button class="in-cart ${ITEM[id].kind}" data-act="putBack" data-id="${id}" aria-label="Put back ${esc(ITEM[id].name)}">${storeArt(ITEM[id])}</button>`).join('');
         body.innerHTML = `<div class="store">
-          <div class="store-freezer"><div class="sf-head">❄ FROZEN TREATS ❄</div><div class="sf-glass">${rows.map((r) => `<div class="sf-shelf">${r.map(kind).join('')}</div>`).join('')}</div></div>
+          <div class="store-freezer"><div class="sf-head">❄ FROZEN TREATS ❄</div><div class="sf-glass ${per === 3 ? 'three' : ''}">${rows.map((r) => `<div class="sf-shelf">${r.map(kind).join('')}</div>`).join('')}</div></div>
           <div class="store-side"><div class="dry-shelf">${dry}</div>
             <div class="trolley"><div class="basket">${cartItems}</div><div class="wheels"><i></i><i></i></div></div>
             <button class="btn big go" data-act="checkout" ${inCart.length ? '' : 'disabled'}>Check out ▶</button></div></div>`;
@@ -1311,9 +1315,10 @@ export class CartView {
         const face = { tooLong: '😤', closed: '😴', happy: '😋', kept: '😏', tooMuch: '😕', nothing: '😕', noChange: '😕' }[ev.say];
         // everyone who bought something walks off holding it
         const got = [...(ev.got || [])];
+        const tints = [...(ev.tints || [])];
         e.querySelectorAll('.who').forEach((who) => {
           if (who.querySelector('svg.person.dog') || !got.length) return;
-          who.insertAdjacentHTML('beforeend', `<div class="hand">${treatSVG(got.shift(), 26)}</div>`);
+          who.insertAdjacentHTML('beforeend', `<div class="hand">${treatSVG(got.shift(), 26, tints.shift())}</div>`);
         });
         if (face) this.bubble(e, face, ev.say === 'happy' ? 'good' : 'bad');
         e.classList.add('walking', 'leaving');
@@ -1427,13 +1432,13 @@ export class CartView {
     let main = '';
     if (w.stage === 'order') {
       // the counter: what you've handed over so far, the cup of spoons and the stack of napkins. Then the cooler.
-      const handed = w.handed.map((id, i) => `<button class="on-counter" data-act="takeBack" data-i="${i}" aria-label="Take back">${thingSVG(id, 54)}</button>`).join('');
+      const handed = w.handed.map((id, i) => `<button class="on-counter" data-act="takeBack" data-i="${i}" aria-label="Take back">${thingSVG(id, 54, w.from?.[i]?.tint)}</button>`).join('');
       main = `<div class="serve-scene">
           <div class="srv-counter"><div class="ct-top"><div class="ct-handed">${handed}</div>
               <button class="ct-cup" data-act="give" data-id="spoon" aria-label="Spoon" ${s.spoons ? '' : 'disabled'}>${spoonCupSVG(cupFill(s.spoons))}</button>
               <button class="ct-stack" data-act="give" data-id="napkin" aria-label="Napkin" ${s.napkins ? '' : 'disabled'}>${napkinStackSVG(stackFill(s.napkins))}</button></div>
             <div class="ct-front"><button class="btn big go" data-act="handOver" ${w.handed.length ? '' : 'disabled'}>🤲 Here you go!</button></div></div>
-          ${coolerHTML(c.topTray, { act: 'grab' })}</div>`;
+          ${coolerHTML(c.topTray, { act: 'grab', tints: c.state.cooler.tints[c.state.cooler.top] })}</div>`;
     } else if (w.stage === 'change') {
       const owed = total(w.paid) - w.due;
       const bought = w.order.map((id) => `<span class="bought">${treatSVG(id, 30)} ${money(s.prices[id])}</span>`).join('');
@@ -1452,7 +1457,7 @@ export class CartView {
     const key = JSON.stringify([w.cust.id, w.stage, w.handed, this.tray, this.help, this.serveMsg, s.money.box, s.spoons, s.napkins, w.paid, s.cooler]);
     if (key === this.serveKey) return;
     this.serveKey = key;
-    const holding = w.stage !== 'order' && w.handed.length ? `<span class="holding">${w.handed.map((id) => thingSVG(id, 30)).join('')}</span>` : '';
+    const holding = w.stage !== 'order' && w.handed.length ? `<span class="holding">${w.handed.map((id, i) => thingSVG(id, 30, w.from?.[i]?.tint)).join('')}</span>` : '';
     el2.innerHTML = `<div class="serve-top">${faces}${holding}<div class="say-big ${msgCls}">${reg ? `<b>${esc(reg.name)}:</b> ` : ''}${esc(words)}</div></div>${main}`;
   }
   serveClick(e) {

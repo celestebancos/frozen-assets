@@ -354,10 +354,18 @@ export const CART_ITEMS = [
   { id: 'rocketPop', name: 'Rocket pop', kind: 'pop', fair: 150, want: 4 },
   { id: 'fudgePop', name: 'Fudge pop', kind: 'pop', fair: 175, want: 3 },
   { id: 'freezePop', name: 'Freeze pop', kind: 'pop', fair: 50, want: 3 },
+  { id: 'pushOrange', name: 'Orange push pop', kind: 'pop', fair: 100, want: 3 },
+  { id: 'pushGrape', name: 'Grape push pop', kind: 'pop', fair: 100, want: 3 },
+  { id: 'orangeCream', name: 'Orange cream pop', kind: 'pop', fair: 175, want: 3 },
+  { id: 'shortcake', name: 'Strawberry shortcake', kind: 'pop', fair: 250, want: 3 },
+  { id: 'sandwich', name: 'Ice cream sandwich', plural: 'ice cream sandwiches', kind: 'pop', fair: 200, want: 3 },
   { id: 'iceCherry', name: 'Cherry ice', kind: 'ice', fair: 200, want: 3, color: '#ff4d6d' },
+  { id: 'iceStrawberry', name: 'Strawberry ice', kind: 'ice', fair: 200, want: 3, color: '#ffa3bd', seeds: true },
   { id: 'iceLemon', name: 'Lemon ice', kind: 'ice', fair: 200, want: 2, color: '#ffe066' },
   { id: 'iceBlue', name: 'Blue ice', kind: 'ice', fair: 200, want: 3, color: '#4cc9f0' },
 ];
+// Freeze pops come in a box of assorted colors. The color is just for looks.
+export const FREEZE_TINTS = ['#ff4d6d', '#ff9f1c', '#ffd23f', '#5fd068', '#4cc9f0', '#c08cff'];
 export const CART_ITEM = Object.fromEntries(CART_ITEMS.map((i) => [i.id, i]));
 
 // What the shops sell. kind: stock (goes in the freezer), spoons, napkins, gear (for the cart), decal, balloon,
@@ -369,8 +377,14 @@ export const CART_SHOPS = {
     items: [
       { id: 'rocketBox', name: 'Rocket pops', note: 'box of 24', kind: 'stock', item: 'rocketPop', qty: 24, price: 900 },
       { id: 'fudgeBox', name: 'Fudge pops', note: 'box of 24', kind: 'stock', item: 'fudgePop', qty: 24, price: 1100 },
-      { id: 'freezeBox', name: 'Freeze pops', note: 'box of 50', kind: 'stock', item: 'freezePop', qty: 50, price: 450 },
+      { id: 'freezeBox', name: 'Freeze pops', note: 'box of 50, all colors', kind: 'stock', item: 'freezePop', qty: 50, price: 450 },
+      { id: 'pushOrangeBox', name: 'Orange push pops', note: 'box of 24', kind: 'stock', item: 'pushOrange', qty: 24, price: 700 },
+      { id: 'pushGrapeBox', name: 'Grape push pops', note: 'box of 24', kind: 'stock', item: 'pushGrape', qty: 24, price: 700 },
+      { id: 'orangeCreamBox', name: 'Orange cream pops', note: 'box of 24', kind: 'stock', item: 'orangeCream', qty: 24, price: 1100 },
+      { id: 'shortcakeBox', name: 'Strawberry shortcakes', note: 'box of 24', kind: 'stock', item: 'shortcake', qty: 24, price: 1500 },
+      { id: 'sandwichBox', name: 'Ice cream sandwiches', note: 'box of 24', kind: 'stock', item: 'sandwich', qty: 24, price: 1200 },
       { id: 'cherryCups', name: 'Cherry ice', note: 'box of 24 cups', kind: 'stock', item: 'iceCherry', qty: 24, price: 950 },
+      { id: 'strawberryCups', name: 'Strawberry ice', note: 'box of 24 cups', kind: 'stock', item: 'iceStrawberry', qty: 24, price: 950 },
       { id: 'lemonCups', name: 'Lemon ice', note: 'box of 24 cups', kind: 'stock', item: 'iceLemon', qty: 24, price: 950 },
       { id: 'blueCups', name: 'Blue ice', note: 'box of 24 cups', kind: 'stock', item: 'iceBlue', qty: 24, price: 950 },
       { id: 'spoons', name: 'Spoons', note: 'pack of 100', kind: 'spoons', qty: 100, price: 200 },

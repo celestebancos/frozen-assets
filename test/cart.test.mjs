@@ -571,3 +571,37 @@ test('older saves: 20-spot trays grow to the new size', () => {
   assert.equal(c.count('cooler', 'rocketPop'), 20);
   assert.equal(c.coolerFree, CART.coolerSpace - 20);
 });
+
+test('freeze pops come in mixed colors and keep their color in the cooler and on the counter', () => {
+  const c = Cart.create({ player: 'Test', seed: 4 });
+  buy(c, 'restaurant', { freezeBox: 1 });
+  for (let i = 0; i < 10; i++) assert.ok(c.packOne('c0').ok);
+  const tints = c.topTray.slice(0, 10).map((_, i) => c.tintAt(i));
+  assert.ok(new Set(tints).size >= 3, `colors: ${tints}`);
+  assert.ok(tints.every((t) => t >= 0 && t < 6));
+  // moving a pop moves its color
+  c.moveSpot(0, 20);
+  assert.equal(c.tintAt(20), tints[0]);
+  // handed over and taken back, it's the same pop
+  c.state.spoons = 5;
+  c.openPark();
+  for (let i = 0; i < 600 && !(c.state.window && c.state.window.stage === 'order'); i++) {
+    if (c.state.window) c.dismiss();
+    c.step();
+  }
+  assert.ok(c.give('freezePop', 3).ok);
+  assert.equal(c.state.window.from[0].tint, tints[3]);
+  c.takeBack(0);
+  assert.equal(c.topTray[3], 'freezePop');
+  assert.equal(c.tintAt(3), tints[3]);
+});
+
+test('older saves without freeze pop colors still load', () => {
+  const c = Cart.create({ player: 'Test', seed: 4 });
+  stock(c, 'freezePop', 5);
+  c.pack('freezePop', 5);
+  delete c.state.cooler.tints;
+  const again = new Cart(JSON.parse(JSON.stringify(c.state)));
+  assert.equal(again.state.cooler.tints.length, CART.coolerTrays);
+  assert.ok(again.tintAt(0) != null);
+});

@@ -4,7 +4,7 @@
 // Money here is real bills and coins: every pile of money (cash box, wallet, tip jar, a customer's
 // pocket) is a count of each bill and coin, like { 2000: 1, 100: 3, 25: 2 } for $23.50.
 
-import { CART, CART_ITEMS, CART_ITEM, CART_SHOPS, CART_LOOKS, CART_CROWD, REGULARS } from './config.js';
+import { CART, CART_ITEMS, CART_ITEM, CART_SHOPS, CART_LOOKS, CART_CROWD, REGULARS, FREEZE_TINTS } from './config.js';
 import { makeRng } from './rng.js';
 
 const K = CART;
@@ -83,6 +83,10 @@ const BOX_SIZE = Object.fromEntries(CART_SHOPS.restaurant.items.filter((i) => i.
 export const boxSize = (id) => BOX_SIZE[id] || 24;
 const emptyShelves = () => Array.from({ length: K.freezerShelves }, () => Array(K.shelfSlots).fill(null));
 const emptyTrays = () => Array.from({ length: K.coolerTrays }, () => Array(K.traySpots).fill(null));
+// Freeze pops come in assorted colors, just for looks. Each spot in a box has its own color (from the box's seed),
+// and the pop keeps that color in the cooler and on the counter. A color is an index into FREEZE_TINTS.
+export const boxTint = (box, k) => (Math.imul((box.seed || 0) + k * 7919 + 1, 2654435761) >>> 0) % FREEZE_TINTS.length;
+const newSeed = () => Math.floor(Math.random() * 2 ** 31);
 
 export function newCartState({ player, look, seed }) {
   const s = {
@@ -101,7 +105,8 @@ export function newCartState({ player, look, seed }) {
     freezer: { shelves: emptyShelves() },
     counter: [], // boxes from the store on the kitchen counter, not put away yet (they melt if left out)
     // The cooler: trays of spots, each holding one treat id or null. trays[top] is the one you can see.
-    cooler: { trays: emptyTrays(), top: 0 },
+    // tints: the color of the freeze pop in each spot (the same shape as trays).
+    cooler: { trays: emptyTrays(), tints: emptyTrays(), top: 0 },
     spoons: 0, // every Italian ice needs one
     napkins: 0, // to hand out if you like
     owned: [], // ids of things bought to keep (gear, decals, hats, glasses, shirts, toys)
@@ -158,12 +163,14 @@ export class Cart {
     }
     state.counter ??= [];
     // older saves: smaller trays get the new spots added at the end
-    for (const t of state.cooler.trays || []) while (t.length < K.traySpots) t.push(null);
+    for (const t of [...(state.cooler.trays || []), ...(state.cooler.tints || [])]) while (t.length < K.traySpots) t.push(null);
     if (!state.cooler.trays) {
       const old = state.cooler.pops || {};
-      state.cooler = { trays: emptyTrays(), top: 0 };
+      state.cooler = { trays: emptyTrays(), tints: emptyTrays(), top: 0 };
       for (const [id, n] of Object.entries(old)) for (let i = 0; i < n; i++) this.toCooler(id);
     }
+    // older saves: freeze pops already in the cooler get a color
+    if (!state.cooler.tints) state.cooler.tints = state.cooler.trays.map((t, ti) => t.map((_, i) => boxTint({ seed: ti }, i)));
     if (!state.stats.soldItems) {
       state.stats.soldItems = {};
       for (const d of state.days || []) for (const [id, n] of Object.entries(d.sold || {})) state.stats.soldItems[id] = (state.stats.soldItems[id] || 0) + n;
@@ -298,23 +305,27 @@ export class Cart {
     const t = this.topTray;
     if (!(i in t) || !(j in t) || i === j) return false;
     [t[i], t[j]] = [t[j], t[i]];
+    const tt = this.state.cooler.tints[this.state.cooler.top];
+    [tt[i], tt[j]] = [tt[j], tt[i]];
     return true;
   }
   // Puts a treat in the first empty spot: on the top tray if there's room, otherwise underneath.
-  toCooler(id, from = null) {
+  toCooler(id, from = null, tint = from?.tint ?? null) {
     const c = this.state.cooler;
-    if (from && c.trays[from.t]?.[from.i] === null) {
-      c.trays[from.t][from.i] = id;
-      return from;
+    let at = null;
+    if (from && c.trays[from.t]?.[from.i] === null) at = from;
+    else {
+      const t = [c.top, ...c.trays.keys()].find((k) => c.trays[k].includes(null));
+      if (t != null) at = { t, i: c.trays[t].indexOf(null) };
     }
-    for (const t of [c.top, ...c.trays.keys()]) {
-      const i = c.trays[t].indexOf(null);
-      if (i >= 0) {
-        c.trays[t][i] = id;
-        return { t, i };
-      }
-    }
-    return null;
+    if (!at) return null;
+    c.trays[at.t][at.i] = id;
+    if (tint != null) c.tints[at.t][at.i] = tint;
+    return { t: at.t, i: at.i };
+  }
+  // The color of the freeze pop in spot i of tray t (the top tray if t isn't given).
+  tintAt(i, t = this.state.cooler.top) {
+    return this.state.cooler.tints[t]?.[i] ?? null;
   }
   count(where, id) {
     if (where === 'cooler') return this.state.cooler.trays.flat().filter((x) => x === id).length;
@@ -337,6 +348,7 @@ export class Cart {
     const i = this.topTray.indexOf(null);
     if (i < 0) return { ok: false, reason: this.coolerFree ? 'trayFull' : 'full' };
     this.topTray[i] = box.item;
+    this.state.cooler.tints[this.state.cooler.top][i] = boxTint(box, boxSize(box.item) - box.n);
     box.n--;
     const emptied = box.n <= 0;
     if (emptied) this.setBox(loc, null);
@@ -363,7 +375,7 @@ export class Cart {
     while (done < n && this.coolerFree > 0) {
       const from = this.homeBoxes().filter((x) => x.box.item === id).sort((a, b) => a.box.n - b.box.n)[0];
       if (!from) break;
-      this.toCooler(id);
+      this.toCooler(id, null, boxTint(from.box, boxSize(id) - from.box.n));
       from.box.n--;
       if (from.box.n <= 0) this.setBox(from.loc, null);
       done++;
@@ -483,7 +495,8 @@ export class Cart {
     const s = this.state;
     switch (it.kind) {
       case 'stock':
-        s.counter.push({ item: it.item, n: it.qty }); // on the kitchen counter, to put away
+        // on the kitchen counter, to put away (a box of freeze pops gets its own mix of colors)
+        s.counter.push(it.item === 'freezePop' ? { item: it.item, n: it.qty, seed: newSeed() } : { item: it.item, n: it.qty });
         break;
       case 'spoons':
       case 'napkins':
@@ -812,12 +825,13 @@ export class Cart {
     } else if (spot != null) {
       if (this.topTray[spot] !== id) return { ok: false, reason: 'out' };
       this.topTray[spot] = null;
-      from = { t: s.cooler.top, i: spot };
+      from = { t: s.cooler.top, i: spot, tint: this.tintAt(spot) };
     } else {
       const c = s.cooler;
       const t = [c.top, ...c.trays.keys()].find((k) => c.trays[k].includes(id));
       if (t == null) return { ok: false, reason: 'out' };
       from = { t, i: c.trays[t].indexOf(id) };
+      from.tint = this.tintAt(from.i, t);
       c.trays[t][from.i] = null;
     }
     w.handed.push(id);
@@ -962,7 +976,10 @@ export class Cart {
     const w = s.window;
     if (w.stage === 'order' || w.stage === 'change') return; // still being served
     const done = w.stage === 'done';
-    this.emit({ t: 'leave', id: w.cust.id, say: done ? (w.result === 'kept' ? 'kept' : 'happy') : w.no, got: done ? [...w.order] : [] });
+    // what they walk off with, and the color of each freeze pop they were handed
+    const left = w.handed.map((id, k) => ({ id, tint: w.from?.[k]?.tint ?? null }));
+    const tints = done ? w.order.map((id) => left.splice(left.findIndex((x) => x.id === id), 1)[0]?.tint ?? null) : [];
+    this.emit({ t: 'leave', id: w.cust.id, say: done ? (w.result === 'kept' ? 'kept' : 'happy') : w.no, got: done ? [...w.order] : [], tints });
     s.window = null;
     this.nextToWindow();
   }
