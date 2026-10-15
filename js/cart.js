@@ -89,6 +89,8 @@ const emptyTrays = () => Array.from({ length: K.coolerTrays }, () => Array(K.tra
 // and the pop keeps that color in the cooler and on the counter. A color is an index into FREEZE_TINTS.
 export const boxTint = (box, k) => (Math.imul((box.seed || 0) + k * 7919 + 1, 2654435761) >>> 0) % FREEZE_TINTS.length;
 const newSeed = () => Math.floor(Math.random() * 2 ** 31);
+// Each game's other big seller, picked from the game's seed.
+const hotFor = (seed) => K.hotChoices[Math.abs(seed | 0) % K.hotChoices.length];
 
 export function newCartState({ player, look, seed }) {
   const s = {
@@ -128,6 +130,7 @@ export function newCartState({ player, look, seed }) {
     stats: { sold: 0, revenue: 0, tips: 0, keptExtra: 0, toTruck: 0, soldItems: {} }, // soldItems: how many of each, ever
     log: [],
   };
+  s.hot = hotFor(s.seed); // this game's other big seller (besides rocket pops)
   s.rngState = s.seed;
   return s;
 }
@@ -181,6 +184,8 @@ export class Cart {
       for (const d of state.days || []) for (const [id, n] of Object.entries(d.sold || {})) state.stats.soldItems[id] = (state.stats.soldItems[id] || 0) + n;
     }
     state.napkins ??= 0;
+    // older saves: pick this game's other big seller
+    state.hot ??= hotFor(state.seed);
     state.packs ??= { spoons: 0, napkins: 0 }; // older saves: everything bought was already on the cart
     state.decalSpots ??= {}; // older saves: stickers go in their usual spots until they're moved
     if (state.window && state.window.v !== 2) state.window = null; // a sale from an older version: they wander off
@@ -241,6 +246,15 @@ export class Cart {
     addPile(this.pile(to), what);
     this.logAction('move', { from, to, amt: total(what) });
     return true;
+  }
+
+  // How much people like a treat: the cart's own big seller this game is as popular as rocket pops.
+  wantOf(id) {
+    return id === this.state.hot ? K.hotWant : CART_ITEM[id]?.want || 0;
+  }
+  // How many boxes of a treat stand on the store shelf: the big sellers get two, as a hint.
+  shelfRoom(it) {
+    return it.shelf || (it.item && it.item === this.state.hot ? 2 : 1);
   }
 
   // ---------- stock ----------
@@ -702,7 +716,7 @@ export class Cart {
     const wantFor = () => {
       const [a, b] = CR.wtp[payer] || CR.wtp.adult;
       const f = rng.range(a, b) * (regular ? CR.regular.wtp : 1);
-      const order = CART_ITEMS.map((it) => [it.id, it.want * rng.range(0.4, 1.6)]).sort((x, y) => y[1] - x[1]).map((x) => x[0]);
+      const order = CART_ITEMS.map((it) => [it.id, this.wantOf(it.id) * rng.range(0.4, 1.6)]).sort((x, y) => y[1] - x[1]).map((x) => x[0]);
       if (regular) order.unshift(...order.splice(order.indexOf(regular.fav), 1));
       return { f, order };
     };

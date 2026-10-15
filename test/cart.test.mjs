@@ -640,3 +640,22 @@ test('older saves without freeze pop colors still load', () => {
   assert.equal(again.state.cooler.tints.length, CART.coolerTrays);
   assert.ok(again.tintAt(0) != null);
 });
+
+test('each game has one more big seller besides rocket pops, with two boxes on the store shelf', () => {
+  const hots = new Set();
+  for (let seed = 1; seed <= 40; seed++) {
+    const c = Cart.create({ player: 'Test', seed });
+    const hot = c.state.hot;
+    hots.add(hot);
+    assert.ok(CART.hotChoices.includes(hot));
+    assert.notEqual(hot, 'iceLemon');
+    assert.equal(c.wantOf(hot), CART.hotWant);
+    const shelf = Object.fromEntries(CART_SHOPS.restaurant.items.filter((i) => i.kind === 'stock').map((i) => [i.item, c.shelfRoom(i)]));
+    assert.deepEqual(Object.keys(shelf).filter((id) => shelf[id] === 2).sort(), ['rocketPop', hot].sort());
+  }
+  assert.ok(hots.size >= 5, 'it changes from game to game');
+  // older saves get one too
+  const c = Cart.create({ player: 'Test', seed: 7 });
+  delete c.state.hot;
+  assert.ok(new Cart(JSON.parse(JSON.stringify(c.state))).state.hot);
+});

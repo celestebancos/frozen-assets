@@ -90,7 +90,7 @@ export const CONFIG = {
   dropChance: 0.02,
 
   // What a typical customer thinks is fair (cents).
-  fairPrice: { cake: 300, sugar: 350, waffle: 450, bowl: 300, rocketPop: 125, fudgePop: 150, freezePop: 60, pushOrange: 100, pushGrape: 100, orangeCream: 150, shortcake: 200, sandwich: 175, iceStrawberry: 175 },
+  fairPrice: { cake: 300, sugar: 350, waffle: 450, bowl: 300, rocketPop: 125, fudgePop: 150, freezePop: 60, pushOrange: 100, pushGrape: 100, orangeCream: 150, shortcake: 200, sandwich: 175, iceCherry: 175, iceStrawberry: 175, iceLemon: 175, iceBlue: 175 },
   fairTopping: 50,
   wtpRange: [0.85, 1.6],
   // How often each kind of person wants a popsicle instead of ice cream (when pops are on the menu).
@@ -107,7 +107,7 @@ export const CONFIG = {
 };
 
 // Starting menu prices (cents).
-export const START_PRICES = { cake: 300, sugar: 350, waffle: 450, bowl: 300, chocSprinkles: 50, rainbowSprinkles: 50, rocketPop: 100, fudgePop: 125, freezePop: 50, pushOrange: 75, pushGrape: 75, orangeCream: 125, shortcake: 175, sandwich: 150, iceStrawberry: 150 };
+export const START_PRICES = { cake: 300, sugar: 350, waffle: 450, bowl: 300, chocSprinkles: 50, rainbowSprinkles: 50, rocketPop: 100, fudgePop: 125, freezePop: 50, pushOrange: 75, pushGrape: 75, orangeCream: 125, shortcake: 175, sandwich: 150, iceCherry: 150, iceStrawberry: 150, iceLemon: 150, iceBlue: 150 };
 
 // Supplies. "unit" is what one pack count means. Mix is tracked in half-servings internally.
 export const SUPPLIES = [
@@ -143,7 +143,13 @@ export const SUPPLIES = [
     packs: [{ size: 24, price: 1200 }, { size: 100, price: 4200 }, { size: 500, price: 17500 }] },
   { id: 'sandwich', name: 'Ice cream sandwiches', short: 'Sandwiches', unit: 'sandwiches', emoji: '🍪', use: 'Vanilla between two cookies. Sold as is: 1 per sale. They stay frozen all summer.',
     packs: [{ size: 24, price: 1080 }, { size: 100, price: 3800 }, { size: 500, price: 16000 }] },
+  { id: 'iceCherry', name: 'Cherry ice cups', short: 'Cherry ice', unit: 'cups', emoji: '🍒', use: 'Italian ice in a cup. Each one needs a spoon! Cups stay frozen all summer.',
+    packs: [{ size: 24, price: 900 }, { size: 100, price: 3200 }, { size: 500, price: 13500 }] },
   { id: 'iceStrawberry', name: 'Strawberry ice cups', short: 'Strawberry ice', unit: 'cups', emoji: '🍧', use: 'Italian ice in a cup. Each one needs a spoon! Cups stay frozen all summer.',
+    packs: [{ size: 24, price: 900 }, { size: 100, price: 3200 }, { size: 500, price: 13500 }] },
+  { id: 'iceLemon', name: 'Lemon ice cups', short: 'Lemon ice', unit: 'cups', emoji: '🍋', use: 'Italian ice in a cup. Each one needs a spoon! Cups stay frozen all summer.',
+    packs: [{ size: 24, price: 900 }, { size: 100, price: 3200 }, { size: 500, price: 13500 }] },
+  { id: 'iceBlue', name: 'Blue ice cups', short: 'Blue ice', unit: 'cups', emoji: '💙', use: 'Italian ice in a cup. Each one needs a spoon! Cups stay frozen all summer.',
     packs: [{ size: 24, price: 900 }, { size: 100, price: 3200 }, { size: 500, price: 13500 }] },
   { id: 'spoons', name: 'Spoons', short: 'Spoons', unit: 'spoons', emoji: '🥄', use: "Every bowl and Italian ice needs a spoon. No spoons = you can't sell them! (Dogs don't need one.)",
     packs: [{ size: 100, price: 200 }, { size: 1000, price: 1000 }] },
@@ -164,7 +170,7 @@ export const CONTAINERS = [
   { id: 'bowl', name: 'Bowl' },
 ];
 // Popsicles and other treats sold as is, one supply each. A cheap way to sell to kids with only a little money.
-// spoon: needs a spoon too (Italian ice).
+// spoon: needs a spoon too (Italian ice). plural: when adding an s won't do.
 export const POPS = [
   { id: 'rocketPop', name: 'Rocket pop', want: 4 },
   { id: 'fudgePop', name: 'Fudge pop', want: 3 },
@@ -173,8 +179,11 @@ export const POPS = [
   { id: 'pushGrape', name: 'Grape push pop', want: 3 },
   { id: 'orangeCream', name: 'Orange cream pop', want: 3 },
   { id: 'shortcake', name: 'Strawberry shortcake', want: 3 },
-  { id: 'sandwich', name: 'Ice cream sandwich', want: 3 },
-  { id: 'iceStrawberry', name: 'Strawberry ice', want: 3, spoon: true },
+  { id: 'sandwich', name: 'Ice cream sandwich', want: 3, plural: 'ice cream sandwiches' },
+  { id: 'iceCherry', name: 'Cherry ice', want: 3, spoon: true, plural: 'cherry ice' },
+  { id: 'iceStrawberry', name: 'Strawberry ice', want: 3, spoon: true, plural: 'strawberry ice' },
+  { id: 'iceLemon', name: 'Lemon ice', want: 2, spoon: true, plural: 'lemon ice' },
+  { id: 'iceBlue', name: 'Blue ice', want: 3, spoon: true, plural: 'blue ice' },
 ];
 export const POP = Object.fromEntries(POPS.map((p) => [p.id, p]));
 export const isPop = (item) => !!item?.pop;
@@ -367,6 +376,9 @@ export const CART = {
   shelfSlots: 6,
   priceStep: 25,
   vendorMistake: 0.15, // how often a seller gets your change wrong
+  // Each game, one of these is a big seller too (as popular as rocket pops). Lemon ice is never one.
+  hotChoices: ['fudgePop', 'freezePop', 'pushOrange', 'pushGrape', 'orangeCream', 'shortcake', 'sandwich', 'iceCherry', 'iceStrawberry', 'iceBlue'],
+  hotWant: 4,
 };
 
 export const CART_ITEMS = [
@@ -394,7 +406,8 @@ export const CART_SHOPS = {
     name: 'Restaurant store',
     icon: '🏬',
     items: [
-      // shelf: how many boxes of it stand on the store shelf (the big seller gets more room, as a hint)
+      // shelf: how many boxes of it stand on the store shelf. The big sellers get two, as a hint: rocket pops,
+      // and one more that changes from game to game (CART.hotChoices).
       { id: 'rocketBox', name: 'Rocket pops', note: 'box of 24', kind: 'stock', item: 'rocketPop', qty: 24, price: 900, shelf: 2 },
       { id: 'fudgeBox', name: 'Fudge pops', note: 'box of 24', kind: 'stock', item: 'fudgePop', qty: 24, price: 1100 },
       { id: 'freezeBox', name: 'Freeze pops', note: 'box of 50, all colors', kind: 'stock', item: 'freezePop', qty: 50, price: 450 },

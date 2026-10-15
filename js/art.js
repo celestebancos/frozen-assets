@@ -498,7 +498,10 @@ const POP_ART = {
   // strawberry shortcake bar: cake crumbs all over, pink and white
   shortcake: `${STICK}<rect x="11" y="3" width="18" height="26" rx="8" fill="#fff1f4" ${ICE_OUT}/>${[[14.5, 8, '#ff7aa2'], [19, 6, '#f2c27a'], [24.5, 8.5, '#ff7aa2'], [15.5, 13.5, '#f2c27a'], [21, 11, '#ff7aa2'], [26, 14, '#f2c27a'], [14, 19, '#ff7aa2'], [19.5, 16.5, '#fff'], [24, 19.5, '#ff7aa2'], [17, 23.5, '#f2c27a'], [22.5, 24.5, '#ff7aa2'], [20, 21, '#f2c27a'], [16.5, 10.5, '#fff']].map(([x, y, c]) => `<circle cx="${x}" cy="${y}" r="1.6" fill="${c}" stroke="#c9577c" stroke-width=".5"/>`).join('')}`,
   // two chocolate cookies with vanilla in between
+  iceCherry: iceCupArt('#ff4d6d'),
   iceStrawberry: iceCupArt('#ffa3bd', true),
+  iceLemon: iceCupArt('#ffe066'),
+  iceBlue: iceCupArt('#4cc9f0'),
   sandwich: `<g transform="rotate(-8 20 22)"><rect x="5" y="23" width="30" height="7" rx="2" fill="#4a2a1a" ${ICE_OUT}/><rect x="6" y="17" width="28" height="7" fill="#fffaf0" ${ICE_OUT}/><rect x="5" y="11" width="30" height="7" rx="2" fill="#5a3322" ${ICE_OUT}/>${[9, 15, 21, 27, 31].map((x, i) => `<circle cx="${x}" cy="${i % 2 ? 13.6 : 15.4}" r=".9" fill="#2e1a10"/>`).join('')}<path d="M8 12.6 H18" stroke="#8a5a40" stroke-width="1.2" stroke-linecap="round"/></g>`,
 };
 // One freeze pop of a given color.
