@@ -82,3 +82,6 @@ export function fmtTime(min) {
 export function stepper(value, act, id, label) {
   return `<span class="stepper"><button data-act="${act}" data-id="${id}" data-d="-25" aria-label="Lower">−</button><span class="v">${label ?? value}</span><button data-act="${act}" data-id="${id}" data-d="25" aria-label="Raise">+</button></span>`;
 }
+
+// Two bars for the pause button (the ⏸ emoji shows up as a box on some computers).
+export const PAUSE_ICON = '<svg viewBox="0 0 10 12" width="10" height="12" aria-hidden="true" style="display:inline-block;vertical-align:-1px"><rect width="3.5" height="12" rx="1" fill="currentColor"/><rect x="6.5" width="3.5" height="12" rx="1" fill="currentColor"/></svg>';

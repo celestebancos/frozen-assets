@@ -20,8 +20,9 @@ const STICKER_SPOTS = [[52, 112], [148, 112], [100, 140], [36, 146], [164, 146],
 export const stickerXY = ([u, v]) => [STICKER_AREA.x + u * STICKER_AREA.w, STICKER_AREA.y + v * STICKER_AREA.h];
 
 // opts: { decals: [{ id, at: [u, v] | null }] (or plain ids), umbrella, fan, bell, balloon: color, pick: id to highlight,
-// tight: leave off the empty space above the cart (where the umbrella goes) }
-export function cartSVG({ decals = [], umbrella = false, fan = false, bell = false, balloon = null, pick = null, tight = false } = {}) {
+// tight: leave off the empty space above the cart (where the umbrella goes), jar: cents in the tip jar on the lid
+// (at the park; null for no jar) }
+export function cartSVG({ decals = [], umbrella = false, fan = false, bell = false, balloon = null, pick = null, tight = false, jar = null } = {}) {
   const dec = decals
     .map((d, i) => {
       const { id, at } = typeof d === 'string' ? { id: d, at: null } : d;
@@ -41,6 +42,10 @@ export function cartSVG({ decals = [], umbrella = false, fan = false, bell = fal
   const fanArt = fan
     ? `<g transform="translate(36 84)"><path d="M0 8 V0" stroke="${INK}" stroke-width="3"/><circle r="11" fill="#e8f7ff" ${thin}/><g class="spin"><path d="M0 0 L-3 -9 Q0 -11 3 -9 Z M0 0 L9 -3 Q11 0 9 3 Z M0 0 L3 9 Q0 11 -3 9 Z M0 0 L-9 3 Q-11 0 -9 -3 Z" fill="#7cc8ff" ${thin}/></g><circle r="2" fill="${INK}"/></g>`
     : '';
+  // the glass tip jar on the lid, filling up with coins (full at $3)
+  const glass = 'M150 69 Q146 72 146 77 V89 Q146 92 149 92 H167 Q170 92 170 89 V77 Q170 72 166 69 Z';
+  const coins = jar == null ? '' : Array.from({ length: Math.min(12, Math.ceil(jar / 25)) }, (_, i) => `<ellipse cx="${158 + ((i * 5) % 7) - 3}" cy="${89 - i * 1.6}" rx="6.2" ry="2.2" fill="${i % 3 === 1 ? '#ffd23f' : '#d9dee5'}" stroke="#8a93a0" stroke-width=".8"/>`).join('');
+  const jarArt = jar == null ? '' : `<g class="tip-jar"><path d="${glass}" fill="#e6f4fb" fill-opacity=".8"/>${coins}<path d="${glass}" fill="none" ${thin}/><path d="M149.6 76 V86" stroke="#fff" stroke-width="2" stroke-linecap="round" opacity=".85"/><rect x="148.5" y="66.5" width="19" height="3.4" rx="1.4" fill="#e6f4fb" ${thin}/>${label(158, 101, 'TIPS', 9, '#fff')}</g>`;
   const bellArt = bell ? `<g transform="translate(196 92)"><path d="M-6 6 Q-6 -6 0 -6 Q6 -6 6 6 Z" fill="#ffd23f" ${thin}/><circle cy="7.5" r="1.8" fill="#c98f3e"/></g>` : '';
   // overflow: the balloon bobs up past the top of the picture
   return `<svg viewBox="${tight ? '0 70 230 130' : '0 0 230 200'}" class="cart-svg" overflow="visible" xmlns="http://www.w3.org/2000/svg">
@@ -50,7 +55,7 @@ export function cartSVG({ decals = [], umbrella = false, fan = false, bell = fal
     <rect x="12" y="92" width="184" height="18" rx="8" fill="#7cc8ff" ${OUT}/>
     <path d="M22 160 H186" stroke="#7cc8ff" stroke-width="6"/>
     <text x="104" y="129" font-family="Baloo 2, sans-serif" font-weight="800" font-size="19" text-anchor="middle" fill="${INK}">ICE POPS</text>
-    ${dec}${fanArt}${bellArt}
+    ${dec}${fanArt}${bellArt}${jarArt}
     <circle cx="48" cy="178" r="16" fill="#4a4a5a" ${OUT}/><circle cx="48" cy="178" r="6" fill="#cfd6df"/>
     <circle cx="160" cy="178" r="16" fill="#4a4a5a" ${OUT}/><circle cx="160" cy="178" r="6" fill="#cfd6df"/>
   </svg>`;
@@ -103,10 +108,12 @@ export function moneySVG(d, w = 54) {
   d = Number(d);
   if (d >= 100) {
     const label = '$' + d / 100;
-    return `<svg viewBox="0 0 70 34" width="${w}" height="${(w * 34) / 70}" class="money bill" xmlns="http://www.w3.org/2000/svg"><rect x="1.5" y="1.5" width="67" height="31" rx="4" fill="${BILL[d] || '#cdeed4'}" ${thin}/><rect x="6" y="5.5" width="58" height="23" rx="3" fill="none" stroke="#5c9a6b" stroke-width="1.2"/><ellipse cx="35" cy="17" rx="9" ry="9" fill="#e6f5ea" stroke="#5c9a6b" stroke-width="1.2"/><text x="35" y="18" font-family="Baloo 2, sans-serif" font-weight="800" font-size="${label.length > 2 ? 12 : 14}" text-anchor="middle" dominant-baseline="central" fill="#2f6b3f">${label}</text><text x="12" y="11" font-size="7" font-weight="800" fill="#2f6b3f" font-family="Baloo 2, sans-serif">${label}</text><text x="58" y="27" font-size="7" font-weight="800" fill="#2f6b3f" text-anchor="end" font-family="Baloo 2, sans-serif">${label}</text></svg>`;
+    // the amount big and dark in the middle (and in two corners), so it's easy to tell bills apart at a glance
+    const k = label.length > 2 ? 17 : 20;
+    return `<svg viewBox="0 0 70 34" width="${w}" height="${(w * 34) / 70}" class="money bill" xmlns="http://www.w3.org/2000/svg"><rect x="1.5" y="1.5" width="67" height="31" rx="4" fill="${BILL[d] || '#cdeed4'}" ${thin}/><rect x="5" y="4.5" width="60" height="25" rx="3" fill="none" stroke="#5c9a6b" stroke-width="1.2"/><ellipse cx="35" cy="17" rx="16" ry="11.5" fill="#fbfff9" stroke="#2f6b3f" stroke-width="1.4"/><text x="35" y="18" font-family="Baloo 2, sans-serif" font-weight="800" font-size="${k}" text-anchor="middle" dominant-baseline="central" fill="#0f2e19">${label}</text><text x="10" y="10.5" font-size="8.5" font-weight="800" fill="#0f2e19" font-family="Baloo 2, sans-serif">${label.slice(1)}</text><text x="60" y="27.5" font-size="8.5" font-weight="800" fill="#0f2e19" text-anchor="end" font-family="Baloo 2, sans-serif">${label.slice(1)}</text></svg>`;
   }
   const s = Math.round(w * 0.6);
-  return `<svg viewBox="0 0 34 34" width="${s}" height="${s}" class="money coin" xmlns="http://www.w3.org/2000/svg"><circle cx="17" cy="17" r="15.5" fill="#d9dee5" ${thin}/><circle cx="17" cy="17" r="12" fill="none" stroke="#aab3c0" stroke-width="1.2" stroke-dasharray="2 2"/><text x="17" y="18" font-family="Baloo 2, sans-serif" font-weight="800" font-size="11" text-anchor="middle" dominant-baseline="central" fill="#4a4a5a">${d}¢</text></svg>`;
+  return `<svg viewBox="0 0 34 34" width="${s}" height="${s}" class="money coin" xmlns="http://www.w3.org/2000/svg"><circle cx="17" cy="17" r="15.5" fill="#d9dee5" ${thin}/><circle cx="17" cy="17" r="12" fill="none" stroke="#aab3c0" stroke-width="1.2" stroke-dasharray="2 2"/><text x="17" y="18" font-family="Baloo 2, sans-serif" font-weight="800" font-size="13" text-anchor="middle" dominant-baseline="central" fill="#1f1f2a">${d}¢</text></svg>`;
 }
 
 // ---------- treats ----------
@@ -202,6 +209,14 @@ export function boxFrontSVG(id, qty) {
     <rect width="96" height="78" rx="5" fill="#fffaf0" ${OUT}/><rect width="96" height="18" rx="5" fill="${b.color}" ${OUT}/>
     ${label(48, 9.5, b.name, 10.5, '#fff')}${nest(treatSVG(id, 44), 6, 22, 44)}
     <circle cx="72" cy="46" r="17" fill="#ffd23f" ${thin}/>${label(72, 47, qty, 17)}</svg>`;
+}
+// The blue recycling bin in the kitchen, with the recycling arrows on the front.
+export function recyclingBinSVG() {
+  return `<svg viewBox="-2 -2 84 96" class="recycle-bin" xmlns="http://www.w3.org/2000/svg">
+    <path d="M6 14 H74 L68 92 H12 Z" fill="#3a8ee6" ${OUT}/>
+    <rect x="1" y="4" width="78" height="12" rx="4" fill="#2f78c4" ${OUT}/>
+    <path d="M18 24 L22 84 M40 24 V84 M62 24 L58 84" stroke="#2f78c4" stroke-width="3" stroke-linecap="round"/>
+    <g transform="translate(40 52)"><circle r="17" fill="#3a8ee6"/><circle r="11" fill="none" stroke="#fff" stroke-width="4" stroke-dasharray="15 8"/>${[0, 120, 240].map((r) => `<g transform="rotate(${r + 40}) translate(0 -11) rotate(90)"><path d="M-4 -5 L4 0 L-4 5 Z" fill="#fff"/></g>`).join('')}</g></svg>`;
 }
 // The side of a box standing on a freezer shelf, with its label running up it. An open box has its flap up.
 export function boxSideSVG(id, open = false) {
