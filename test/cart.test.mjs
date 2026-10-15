@@ -181,8 +181,10 @@ test('ATM and change machine', () => {
   assert.equal(c.boxTotal, 4000);
   assert.deepEqual(c.breakBill('box', 2000), { 500: 4 });
   assert.deepEqual(c.breakBill('box', 500), { 100: 5 });
+  c.state.money.box[1000] = (c.state.money.box[1000] || 0) + 1;
+  assert.deepEqual(c.breakBill('box', 1000), { 500: 2 }); // a ten gives two fives
   assert.deepEqual(c.breakBill('box', 100), { 25: 4 });
-  assert.equal(c.boxTotal, 4000);
+  assert.equal(c.boxTotal, 5000); // the $40 plus the $10 we slipped in
 });
 
 test('a park day sells, makes change and keeps the money straight', () => {

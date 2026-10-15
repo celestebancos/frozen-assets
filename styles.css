@@ -521,6 +521,8 @@ table.books tr.bottom td { font-weight: 800; font-size: 18px; background: #fff3b
 @media (max-width: 640px) { .home-grid { grid-template-columns: 1fr; } }
 .me-card { display: flex; flex-direction: column; align-items: center; gap: 6px; }
 .me-pic { width: 90px; } .me-pic svg { width: 100%; height: auto; display: block; }
+/* with no umbrella or balloon the top of the cart picture is empty, so stand a bit lower (in the middle) */
+.me-card.low .me-pic { margin: 28px 0 -28px; }
 .cart-pic { width: 100%; max-width: 200px; } .cart-pic svg { width: 100%; height: auto; display: block; }
 /* sticking stickers on the cart */
 .sticker-pick { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 6px; }
