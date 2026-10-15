@@ -90,7 +90,7 @@ export const CONFIG = {
   dropChance: 0.02,
 
   // What a typical customer thinks is fair (cents).
-  fairPrice: { cake: 300, sugar: 350, waffle: 450, bowl: 300, rocketPop: 125, fudgePop: 150, freezePop: 60 },
+  fairPrice: { cake: 300, sugar: 350, waffle: 450, bowl: 300, rocketPop: 125, fudgePop: 150, freezePop: 60, pushOrange: 100, pushGrape: 100, orangeCream: 150, shortcake: 200, sandwich: 175, iceStrawberry: 175 },
   fairTopping: 50,
   wtpRange: [0.85, 1.6],
   // How often each kind of person wants a popsicle instead of ice cream (when pops are on the menu).
@@ -107,7 +107,7 @@ export const CONFIG = {
 };
 
 // Starting menu prices (cents).
-export const START_PRICES = { cake: 300, sugar: 350, waffle: 450, bowl: 300, chocSprinkles: 50, rainbowSprinkles: 50, rocketPop: 100, fudgePop: 125, freezePop: 50 };
+export const START_PRICES = { cake: 300, sugar: 350, waffle: 450, bowl: 300, chocSprinkles: 50, rainbowSprinkles: 50, rocketPop: 100, fudgePop: 125, freezePop: 50, pushOrange: 75, pushGrape: 75, orangeCream: 125, shortcake: 175, sandwich: 150, iceStrawberry: 150 };
 
 // Supplies. "unit" is what one pack count means. Mix is tracked in half-servings internally.
 export const SUPPLIES = [
@@ -133,7 +133,19 @@ export const SUPPLIES = [
     packs: [{ size: 24, price: 840 }, { size: 100, price: 3000 }, { size: 500, price: 12500 }] },
   { id: 'freezePop', name: 'Freeze pops', short: 'Freeze pops', unit: 'pops', emoji: '🧊', use: 'Little ice tubes. Cheap! Sold as is: 1 per sale. Pops stay frozen all summer.',
     packs: [{ size: 50, price: 400 }, { size: 250, price: 1500 }, { size: 1000, price: 5000 }] },
-  { id: 'spoons', name: 'Spoons', short: 'Spoons', unit: 'spoons', emoji: '🥄', use: "Every bowl needs a spoon. No spoons = you can't sell bowls! (Dogs don't need one.)",
+  { id: 'pushOrange', name: 'Orange push pops', short: 'Orange push pops', unit: 'pops', emoji: '🍊', use: 'Orange sherbet you push up. Sold as is: 1 per sale. Pops stay frozen all summer.',
+    packs: [{ size: 24, price: 600 }, { size: 100, price: 2000 }, { size: 500, price: 8000 }] },
+  { id: 'pushGrape', name: 'Grape push pops', short: 'Grape push pops', unit: 'pops', emoji: '🍇', use: 'Grape sherbet you push up. Sold as is: 1 per sale. Pops stay frozen all summer.',
+    packs: [{ size: 24, price: 600 }, { size: 100, price: 2000 }, { size: 500, price: 8000 }] },
+  { id: 'orangeCream', name: 'Orange cream pops', short: 'Orange cream', unit: 'pops', emoji: '🍦', use: 'Orange outside, vanilla inside. Sold as is: 1 per sale. Pops stay frozen all summer.',
+    packs: [{ size: 24, price: 840 }, { size: 100, price: 3000 }, { size: 500, price: 12500 }] },
+  { id: 'shortcake', name: 'Strawberry shortcake bars', short: 'Shortcake bars', unit: 'bars', emoji: '🍓', use: 'Ice cream with cake crumbs. Sold as is: 1 per sale. Bars stay frozen all summer.',
+    packs: [{ size: 24, price: 1200 }, { size: 100, price: 4200 }, { size: 500, price: 17500 }] },
+  { id: 'sandwich', name: 'Ice cream sandwiches', short: 'Sandwiches', unit: 'sandwiches', emoji: '🍪', use: 'Vanilla between two cookies. Sold as is: 1 per sale. They stay frozen all summer.',
+    packs: [{ size: 24, price: 1080 }, { size: 100, price: 3800 }, { size: 500, price: 16000 }] },
+  { id: 'iceStrawberry', name: 'Strawberry ice cups', short: 'Strawberry ice', unit: 'cups', emoji: '🍧', use: 'Italian ice in a cup. Each one needs a spoon! Cups stay frozen all summer.',
+    packs: [{ size: 24, price: 900 }, { size: 100, price: 3200 }, { size: 500, price: 13500 }] },
+  { id: 'spoons', name: 'Spoons', short: 'Spoons', unit: 'spoons', emoji: '🥄', use: "Every bowl and Italian ice needs a spoon. No spoons = you can't sell them! (Dogs don't need one.)",
     packs: [{ size: 100, price: 200 }, { size: 1000, price: 1000 }] },
   { id: 'napkins', name: 'Napkins', short: 'Napkins', unit: 'napkins', emoji: '🧻', use: 'Each grown-up takes 1 napkin and each kid takes 1 to 3. No napkins = sticky, grumpy customers.',
     packs: [{ size: 100, price: 200 }, { size: 1000, price: 1000 }] },
@@ -151,11 +163,18 @@ export const CONTAINERS = [
   { id: 'waffle', name: 'Waffle cone' },
   { id: 'bowl', name: 'Bowl' },
 ];
-// Popsicles: sold as is, one supply each. A cheap way to sell to kids with only a little money.
+// Popsicles and other treats sold as is, one supply each. A cheap way to sell to kids with only a little money.
+// spoon: needs a spoon too (Italian ice).
 export const POPS = [
   { id: 'rocketPop', name: 'Rocket pop', want: 4 },
   { id: 'fudgePop', name: 'Fudge pop', want: 3 },
   { id: 'freezePop', name: 'Freeze pop', want: 3 },
+  { id: 'pushOrange', name: 'Orange push pop', want: 3 },
+  { id: 'pushGrape', name: 'Grape push pop', want: 3 },
+  { id: 'orangeCream', name: 'Orange cream pop', want: 3 },
+  { id: 'shortcake', name: 'Strawberry shortcake', want: 3 },
+  { id: 'sandwich', name: 'Ice cream sandwich', want: 3 },
+  { id: 'iceStrawberry', name: 'Strawberry ice', want: 3, spoon: true },
 ];
 export const POP = Object.fromEntries(POPS.map((p) => [p.id, p]));
 export const isPop = (item) => !!item?.pop;
@@ -375,7 +394,8 @@ export const CART_SHOPS = {
     name: 'Restaurant store',
     icon: '🏬',
     items: [
-      { id: 'rocketBox', name: 'Rocket pops', note: 'box of 24', kind: 'stock', item: 'rocketPop', qty: 24, price: 900 },
+      // shelf: how many boxes of it stand on the store shelf (the big seller gets more room, as a hint)
+      { id: 'rocketBox', name: 'Rocket pops', note: 'box of 24', kind: 'stock', item: 'rocketPop', qty: 24, price: 900, shelf: 2 },
       { id: 'fudgeBox', name: 'Fudge pops', note: 'box of 24', kind: 'stock', item: 'fudgePop', qty: 24, price: 1100 },
       { id: 'freezeBox', name: 'Freeze pops', note: 'box of 50, all colors', kind: 'stock', item: 'freezePop', qty: 50, price: 450 },
       { id: 'pushOrangeBox', name: 'Orange push pops', note: 'box of 24', kind: 'stock', item: 'pushOrange', qty: 24, price: 700 },

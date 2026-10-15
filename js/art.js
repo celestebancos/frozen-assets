@@ -477,6 +477,12 @@ function freezeTube(x, color, w) {
 function pushPop(color, light) {
   return `<path d="M18.5 34 H21.5 V39 H18.5 Z" fill="#fffaf0" ${ICE_OUT}/><path d="M13 13 Q13 2.5 20 2.5 Q27 2.5 27 13 Z" fill="${color}" ${ICE_OUT}/><path d="M16 9 Q16.4 5.6 19 5" stroke="${light}" stroke-width="2" fill="none" stroke-linecap="round"/><rect x="12" y="12" width="16" height="23" rx="1.5" fill="#fffaf0" ${ICE_OUT}/><path d="M12.8 18 H27.2 M12.8 29 H27.2" stroke="${color}" stroke-width="3"/><path d="M12.8 23.5 H27.2" stroke="${light}" stroke-width="2.4"/>`;
 }
+// A paper cup of Italian ice. seeds: little flecks of fruit (strawberry).
+export function iceCupArt(color, seeds = false) {
+  const flecks = seeds ? [[14, 13], [18.5, 9], [23, 12.5], [26.5, 9.5], [20, 14], [16, 8.5]].map(([x, y]) => `<ellipse cx="${x}" cy="${y}" rx=".9" ry="1.3" fill="#d6336c"/>`).join('') : '';
+  const out = `stroke="${INK}" stroke-width="1.4" stroke-linejoin="round"`;
+  return `<path d="M9 16 Q9 4 20 4 Q31 4 31 16 Z" fill="${color}" ${out}/>${flecks}<path d="M13 12 Q14 7 19 6.5" stroke="#fff" stroke-width="2" opacity=".6" fill="none" stroke-linecap="round"/><path d="M7 15 H33 L29.5 37 H10.5 Z" fill="#fffaf0" ${out}/><path d="M9 21 H31 M9.8 27 H30.2" stroke="#ff6f91" stroke-width="2"/>`;
+}
 // Popsicles on a stick, in the same 40 × 40 box as the ice creams.
 const STICK = `<path d="M18 27 H22 V37.5 Q22 39.5 20 39.5 Q18 39.5 18 37.5 Z" fill="#ecc993" ${ICE_OUT}/>`;
 const POP_ART = {
@@ -492,6 +498,7 @@ const POP_ART = {
   // strawberry shortcake bar: cake crumbs all over, pink and white
   shortcake: `${STICK}<rect x="11" y="3" width="18" height="26" rx="8" fill="#fff1f4" ${ICE_OUT}/>${[[14.5, 8, '#ff7aa2'], [19, 6, '#f2c27a'], [24.5, 8.5, '#ff7aa2'], [15.5, 13.5, '#f2c27a'], [21, 11, '#ff7aa2'], [26, 14, '#f2c27a'], [14, 19, '#ff7aa2'], [19.5, 16.5, '#fff'], [24, 19.5, '#ff7aa2'], [17, 23.5, '#f2c27a'], [22.5, 24.5, '#ff7aa2'], [20, 21, '#f2c27a'], [16.5, 10.5, '#fff']].map(([x, y, c]) => `<circle cx="${x}" cy="${y}" r="1.6" fill="${c}" stroke="#c9577c" stroke-width=".5"/>`).join('')}`,
   // two chocolate cookies with vanilla in between
+  iceStrawberry: iceCupArt('#ffa3bd', true),
   sandwich: `<g transform="rotate(-8 20 22)"><rect x="5" y="23" width="30" height="7" rx="2" fill="#4a2a1a" ${ICE_OUT}/><rect x="6" y="17" width="28" height="7" fill="#fffaf0" ${ICE_OUT}/><rect x="5" y="11" width="30" height="7" rx="2" fill="#5a3322" ${ICE_OUT}/>${[9, 15, 21, 27, 31].map((x, i) => `<circle cx="${x}" cy="${i % 2 ? 13.6 : 15.4}" r=".9" fill="#2e1a10"/>`).join('')}<path d="M8 12.6 H18" stroke="#8a5a40" stroke-width="1.2" stroke-linecap="round"/></g>`,
 };
 // One freeze pop of a given color.

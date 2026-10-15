@@ -1,5 +1,5 @@
 // Cartoon SVG art for the park cart: the cart, bills and coins, Italian ice, the swings, critters and stands.
-import { iceCreamSVG, personSVG } from './art.js';
+import { iceCreamSVG, iceCupArt, personSVG } from './art.js';
 import { CART_ITEM, CART_SHOPS, FREEZE_TINTS } from './config.js';
 
 const INK = '#2e2a45';
@@ -119,8 +119,7 @@ export function moneySVG(d, w = 54) {
 // ---------- treats ----------
 // seeds: little flecks of fruit (strawberry).
 export function iceCupSVG(color, size = 34, seeds = false) {
-  const flecks = seeds ? [[14, 13], [18.5, 9], [23, 12.5], [26.5, 9.5], [20, 14], [16, 8.5]].map(([x, y]) => `<ellipse cx="${x}" cy="${y}" rx=".9" ry="1.3" fill="#d6336c"/>`).join('') : '';
-  return `<svg viewBox="0 0 40 40" width="${size}" height="${size}" class="icecream" xmlns="http://www.w3.org/2000/svg"><path d="M9 16 Q9 4 20 4 Q31 4 31 16 Z" fill="${color}" ${thin}/>${flecks}<path d="M13 12 Q14 7 19 6.5" stroke="#fff" stroke-width="2" opacity=".6" fill="none" stroke-linecap="round"/><path d="M7 15 H33 L29.5 37 H10.5 Z" fill="#fffaf0" ${thin}/><path d="M9 21 H31 M9.8 27 H30.2" stroke="#ff6f91" stroke-width="2"/></svg>`;
+  return `<svg viewBox="0 0 40 40" width="${size}" height="${size}" class="icecream" xmlns="http://www.w3.org/2000/svg">${iceCupArt(color, seeds)}</svg>`;
 }
 // A white plastic spoon lying on the counter.
 export function spoonSVG(size = 34) {

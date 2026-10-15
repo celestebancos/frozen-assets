@@ -896,14 +896,10 @@ body { position: fixed; inset: 0; }
 .store-freezer { flex: 1.5 1 420px; background: #cfd6df; border: 3px solid var(--ink); border-radius: 14px; overflow: hidden; }
 .sf-head { background: var(--blue); color: #fff; font-weight: 800; font-size: 22px; text-align: center; padding: 6px; border-bottom: 3px solid var(--ink); }
 .sf-glass { position: relative; margin: 10px; border: 2px solid var(--ink); border-radius: 6px; padding: 10px 0 0; background: linear-gradient(135deg, rgba(255, 255, 255, 0.6), rgba(255, 255, 255, 0.05) 45%, rgba(255, 255, 255, 0.3) 55%, rgba(255, 255, 255, 0.05)), #e9f6ff; }
-.sf-glass::after { content: ''; position: absolute; top: 0; bottom: 0; left: 50%; border-left: 2px solid var(--ink); pointer-events: none; }
-.sf-glass.three::after { left: 33.33%; }
-.sf-glass.three::before { content: ''; position: absolute; top: 0; bottom: 0; left: 66.67%; border-left: 2px solid var(--ink); pointer-events: none; }
-.sf-glass.three .sf-shelf { grid-template-columns: repeat(3, 1fr); }
-.sf-shelf { display: grid; grid-template-columns: 1fr 1fr; margin-bottom: 36px; border-bottom: 12px solid #9aa4b2; box-shadow: 0 2px 0 var(--ink), 0 -2px 0 var(--ink) inset; position: relative; }
+.sf-shelf { display: grid; grid-template-columns: repeat(var(--per, 4), minmax(0, 1fr)); margin-bottom: 36px; border-bottom: 12px solid #9aa4b2; box-shadow: 0 2px 0 var(--ink), 0 -2px 0 var(--ink) inset; position: relative; }
 .sf-shelf::after { content: ''; position: absolute; left: 0; right: 0; bottom: -12px; border-top: 2px solid var(--ink); }
-.sf-kind { position: relative; display: flex; gap: 6px; padding: 0 10px; }
-.sf-kind .tag { top: auto; bottom: -38px; right: 14px; }
+.sf-kind { position: relative; display: flex; gap: 6px; padding: 0 5px; }
+.sf-kind .tag { top: auto; bottom: -38px; left: 50%; transform: translateX(-50%); }
 .sf-box { flex: 1; border: none; background: none; padding: 0; min-width: 0; }
 .sf-box > svg { width: 100%; height: auto; display: block; }
 .sf-box:active > svg, .dry-btn:active > svg, .in-cart:active > svg { transform: translateY(2px); }

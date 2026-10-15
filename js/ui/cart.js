@@ -612,12 +612,18 @@ export class CartView {
       onClose,
       render: (body) => {
         const stock = S.items.filter((i) => i.kind === 'stock');
-        // two kinds to a shelf on a phone, three on a wider screen
-        const per = matchMedia('(min-width: 900px)').matches ? 3 : 2;
-        const rows = [];
-        for (let i = 0; i < stock.length; i += per) rows.push(stock.slice(i, i + per));
-        // two boxes of each kind stand on the shelf, with one price tag clipped under them
-        const kind = (it) => `<div class="sf-kind">${[0, 1].map(() => `<button class="sf-box" data-act="take" data-id="${it.id}" aria-label="${esc(it.name)}">${storeArt(it)}</button>`).join('')}<span class="tag">${money(it.price)}</span></div>`;
+        // One box of each kind on the shelf (the big sellers get more room: a hint). Four boxes to a shelf
+        // on a phone, seven on a wider screen.
+        const per = matchMedia('(min-width: 900px)').matches ? 7 : 4;
+        const rows = [[]];
+        let used = 0;
+        for (const it of stock) {
+          const w = it.shelf || 1;
+          if (used + w > per) rows.push([]), (used = 0);
+          rows[rows.length - 1].push(it);
+          used += w;
+        }
+        const kind = (it) => `<div class="sf-kind" style="grid-column: span ${it.shelf || 1}">${Array.from({ length: it.shelf || 1 }, () => `<button class="sf-box" data-act="take" data-id="${it.id}" aria-label="${esc(it.name)}">${storeArt(it)}</button>`).join('')}<span class="tag">${money(it.price)}</span></div>`;
         const dry = S.items
           .filter((i) => i.kind !== 'stock')
           .map((it) => {
@@ -628,7 +634,7 @@ export class CartView {
         const inCart = Object.entries(basket).flatMap(([id, q]) => Array(q).fill(id));
         const cartItems = inCart.map((id) => `<button class="in-cart ${ITEM[id].kind}" data-act="putBack" data-id="${id}" aria-label="Put back ${esc(ITEM[id].name)}">${storeArt(ITEM[id])}</button>`).join('');
         body.innerHTML = `<div class="store">
-          <div class="store-freezer"><div class="sf-head">❄ FROZEN TREATS ❄</div><div class="sf-glass ${per === 3 ? 'three' : ''}">${rows.map((r) => `<div class="sf-shelf">${r.map(kind).join('')}</div>`).join('')}</div></div>
+          <div class="store-freezer"><div class="sf-head">❄ FROZEN TREATS ❄</div><div class="sf-glass">${rows.map((r) => `<div class="sf-shelf" style="--per: ${per}">${r.map(kind).join('')}</div>`).join('')}</div></div>
           <div class="store-side"><div class="dry-shelf">${dry}</div>
             <div class="trolley"><div class="basket">${cartItems}</div><div class="wheels"><i></i><i></i></div></div>
             <button class="btn big go" data-act="checkout" ${inCart.length ? '' : 'disabled'}>Check out ▶</button></div></div>`;
