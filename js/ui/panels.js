@@ -571,6 +571,7 @@ export function truckPanel(app) {
         <div class="row">${TUNES.map((t) => `<button class="btn small ${s.tune === t.id ? 'on' : ''}" data-act="tune" data-id="${t.id}">${t.name}</button>`).join('')}</div>
         <div class="row" style="margin-top:6px"><span class="tiny muted">Sound:</span>${VOICES.map((v) => `<button class="btn small ${app.music.voice === v.id ? 'on' : ''}" data-act="voice" data-id="${v.id}">${v.name}</button>`).join('')}</div>
         <div class="row" style="margin-top:6px"><label class="row">🔈 <input type="range" min="0" max="1" step="0.05" value="${app.music.volume}" data-chg="vol"></label>
+          <button class="btn small ${app.music.tuneOn ? 'on' : ''}" data-act="musicOn">${app.music.tuneOn ? '🎵 Music on' : '🎵 Music off'}</button>
           <button class="btn small ${app.music.muted ? 'on' : ''}" data-act="mute">${app.music.muted ? '🔇 Muted' : '🔊 Sound on'}</button>
           <button class="btn small ${app.ambience.on ? 'on' : ''}" data-act="street">${app.ambience.on ? '🐦 Street sounds on' : '🐦 Street sounds off'}</button></div>
         <h3>🎨 Truck</h3>
@@ -599,6 +600,11 @@ export function truckPanel(app) {
     },
     street: () => {
       app.ambience.setOn(!app.ambience.on);
+      app.saveSettings();
+      m.refresh();
+    },
+    musicOn: () => {
+      app.setMusicOn(!app.music.tuneOn);
       app.saveSettings();
       m.refresh();
     },

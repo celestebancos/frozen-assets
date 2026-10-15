@@ -79,6 +79,7 @@ export class Music {
     this.rate = 1;
     this.volume = 0.5;
     this.muted = false;
+    this.tuneOn = true; // the truck's music; off leaves street sounds and the ka-ching playing
     this.playing = false;
     this.timer = null;
     this.away = false; // the page was hidden (another app); sound needs a tap to come back
@@ -107,6 +108,11 @@ export class Music {
     this.muted = m;
     if (this.master) this.master.gain.value = m ? 0 : this.volume * 0.25;
   }
+  // Music on or off. Off stops the tune only; street sounds and the ka-ching keep playing.
+  setTuneOn(on) {
+    this.tuneOn = on;
+    if (!on) this.stop();
+  }
   setVoice(v) {
     if (VOICES.some((x) => x.id === v)) this.voice = v;
   }
@@ -125,7 +131,7 @@ export class Music {
   }
 
   play() {
-    if (this.playing || !this.ensure()) return;
+    if (!this.tuneOn || this.playing || !this.ensure()) return;
     this.playing = true;
     this.next = this.ctx.currentTime + 0.1;
     this.i = 0;
