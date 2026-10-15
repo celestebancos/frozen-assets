@@ -208,6 +208,10 @@ export const BOX_LOOK = {
   iceStrawberry: { color: '#f06595', name: 'STRAWBERRY' },
   iceLemon: { color: '#e9b800', name: 'LEMON ICE' },
   iceBlue: { color: '#1fa6d6', name: 'BLUE ICE' },
+  crunchBar: { color: '#6b3d24', name: 'CRUNCH BARS' },
+  sundaeCone: { color: '#c97a2b', name: 'SUNDAE CONES' },
+  water: { color: '#3a8ee6', name: 'WATER' },
+  punch: { color: '#e5484d', name: 'FRUIT PUNCH' },
 };
 // The front of a box at the store: a picture of what's inside and how many.
 export function boxFrontSVG(id, qty) {
