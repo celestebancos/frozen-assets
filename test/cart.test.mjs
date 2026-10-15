@@ -707,3 +707,44 @@ test('older saves get prices for treats added since', () => {
   assert.equal(again.state.prices.crunchBar, 300);
   assert.equal(again.state.prices.water, 100);
 });
+
+test('3 boxes of a kind cost less at the restaurant store; small boxes at the corner store hold 12', async () => {
+  const { bulkPrice, capOf } = await import('../js/cart.js');
+  const c = Cart.create({ player: 'Test', seed: 2 });
+  const rocket = c.shopItem('restaurant', 'rocketBox');
+  assert.equal(bulkPrice(rocket), 2150); // $27 less 20%, to the quarter
+  assert.equal(c.basketCost('restaurant', { rocketBox: 3 }), 2150);
+  assert.equal(c.basketCost('restaurant', { rocketBox: 4 }), 2150 + 900);
+  assert.equal(c.basketCost('restaurant', { rocketBox: 2, fudgeBox: 1 }), 900 * 2 + 1100, 'the deal is 3 of the same kind');
+  assert.equal(c.basketCost('corner', { rocketSmall: 3 }), 1800, 'no deal at the corner store');
+  // a small box bought at home lands on the counter and holds 12
+  c.state.money.box = { 2000: 2 };
+  buy(c, 'corner', { rocketSmall: 1 });
+  const box = c.state.counter.at(-1);
+  assert.equal(capOf(box), 12);
+  assert.equal(box.n, 12);
+  c.moveBox('c0', 's0-0');
+  c.pack('rocketPop', 2);
+  assert.equal(c.unpackOne(c.topTray.indexOf('rocketPop'), 's0-0').ok, true);
+  c.unpackOne(c.topTray.indexOf('rocketPop'), 's0-0');
+  assert.equal(c.boxAt('s0-0').n, 12);
+  c.pack('rocketPop', 1);
+  c.boxAt('s0-0').n = 12;
+  assert.equal(c.unpackOne(c.topTray.indexOf('rocketPop'), 's0-0').reason, 'boxFull', 'a full small box takes no more');
+});
+
+test('at the park, a small box goes right into the cooler, if it fits', () => {
+  const c = Cart.create({ player: 'Test', seed: 2 });
+  c.state.money.box = { 2000: 2 };
+  stock(c, 'freezePop', 40);
+  c.pack('freezePop', 40);
+  c.state.counter = [];
+  c.openPark();
+  assert.equal(c.checkBasket('corner', { rocketSmall: 1 }).reason, 'cooler', 'only 8 spots left');
+  const tray = c.state.cooler.trays[0];
+  for (let i = 0; i < 4; i++) tray[tray.indexOf('freezePop')] = null;
+  assert.ok(c.checkBasket('corner', { rocketSmall: 1 }).ok);
+  buy(c, 'corner', { rocketSmall: 1 });
+  assert.equal(c.count('cooler', 'rocketPop'), 12);
+  assert.equal(c.state.counter.length, 0);
+});

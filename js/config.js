@@ -376,6 +376,8 @@ export const CART = {
   freezerShelves: 2,
   shelfSlots: 6,
   priceStep: 25,
+  // Buying in bulk at the restaurant store: 3 boxes of the same kind cost 20% less. They still take 3 freezer spots.
+  bulk: { boxes: 3, off: 0.2 },
   vendorMistake: 0.15, // how often a seller gets your change wrong
   // Each game, one of these is a big seller too (as popular as rocket pops). Lemon ice is never one.
   hotChoices: ['fudgePop', 'freezePop', 'pushOrange', 'pushGrape', 'orangeCream', 'shortcake', 'sandwich', 'iceCherry', 'iceStrawberry', 'iceBlue'],
@@ -445,6 +447,11 @@ export const CART_SHOPS = {
       { id: 'gum', name: 'Bubble gum', kind: 'snack', price: 100 }, // drawn: gumIcon in js/icons.js
       { id: 'chips', name: 'Chips', kind: 'snack', price: 150, emoji: '🥔' },
       { id: 'juice', name: 'Juice box', kind: 'snack', price: 125, emoji: '🧃' },
+      // Small boxes, handy near the park but they cost more per treat than at the restaurant store. Bought at
+      // the park, they go right into the cooler.
+      { id: 'rocketSmall', name: 'Rocket pops', note: 'box of 12', kind: 'stock', item: 'rocketPop', qty: 12, price: 600 },
+      { id: 'fudgeSmall', name: 'Fudge pops', note: 'box of 12', kind: 'stock', item: 'fudgePop', qty: 12, price: 750 },
+      { id: 'pushSmall', name: 'Orange push pops', note: 'box of 12', kind: 'stock', item: 'pushOrange', qty: 12, price: 500 },
       { id: 'ball', name: 'Bouncy ball', kind: 'toy', price: 100, emoji: '🔴' },
       { id: 'car', name: 'Toy car', kind: 'toy', price: 250, emoji: '🏎️' },
       { id: 'yoyo', name: 'Yo-yo', kind: 'toy', price: 300, emoji: '🪀' },
