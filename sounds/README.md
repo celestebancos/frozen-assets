@@ -23,7 +23,7 @@ How the files here were made (ffmpeg):
 - Far-away sounds (`voices`, `murmur`, `traffic`) are low-passed so you hear people and cars, not words.
 - `bell.mp3` is one bicycle-bell ring played twice: ding ding.
 - `bat-2` is the same hit as `bat-1`, made to sound farther away (muffled, with a little echo off the stands).
-- The `gain` numbers in `sounds.json` balance the sounds against the music. They were set by playing everything through the game's own volume chain in an OfflineAudioContext and comparing it with The Entertainer at the same volume: street sounds peak about 4 dB or more under the music, and the ka-ching about 2 dB over it (the cart's bell is about level with the music).
+- The `gain` numbers in `sounds.json` balance the sounds against the music. They were set by playing everything through the game's own volume chain in an OfflineAudioContext and comparing it with The Entertainer on the truck speaker (the default music voice) at the same volume: street sounds sit about 7–12 dB under the music on average, with their peaks no louder than the music's; the ka-ching peaks a little over it, and the cart's bell is about level with it.
 
 ## Credits
 
