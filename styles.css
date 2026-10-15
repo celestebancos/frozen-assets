@@ -1006,3 +1006,12 @@ button.co-item { animation: nudge 1.4s ease-in-out infinite; }
 .food-row > b { flex: 1; }
 .food-ic { display: inline-flex; align-items: center; justify-content: center; line-height: 1; }
 .food-ic .ico { width: 1.2em; height: auto; }
+/* Grandma: her phone call on the home screen, and lunch at her place */
+.grandma-call { display: flex; gap: 10px; align-items: center; background: #f3ecff; border: 2px solid var(--ink); border-radius: 12px; padding: 8px 10px; margin-bottom: 10px; }
+.grandma-call .row { margin-top: 6px; gap: 6px; }
+.gma { flex: none; display: inline-block; width: 52px; }
+.gma > svg { width: 100%; height: auto; display: block; }
+.gma-lunch { display: flex; gap: 12px; align-items: flex-start; }
+.gma-lunch .gma { width: 70px; }
+.gma-lines { display: flex; flex-direction: column; gap: 8px; flex: 1; }
+.gma-lines .say { background: #fff; border: 2px solid var(--ink); border-radius: 12px; padding: 6px 10px; }
