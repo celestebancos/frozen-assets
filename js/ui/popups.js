@@ -3,7 +3,7 @@ import { FLAVORS, CONTAINERS, TOPPINGS, POPS } from '../config.js';
 import { personSVG, iceCreamSVG } from '../art.js';
 import { esc, money, openModal, onActs } from './dom.js';
 
-const NAMES = Object.fromEntries([...FLAVORS, ...CONTAINERS, ...TOPPINGS, ...POPS].map((x) => [x.id, x.name.toLowerCase() + (x.want ? 's' : '')]));
+const NAMES = Object.fromEntries([...FLAVORS, ...CONTAINERS, ...TOPPINGS, ...POPS].map((x) => [x.id, x.plural || x.name.toLowerCase() + (x.want ? 's' : '')]));
 
 function partyRow(party, idx, extra = '') {
   return `<div class="who-big">${party.members

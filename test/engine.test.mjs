@@ -508,6 +508,12 @@ test('strawberry ice on the truck needs a spoon', () => {
   assert.equal(g.stock('spoons'), 99);
 });
 
+test('every Italian ice on the truck needs a spoon', async () => {
+  const { POPS } = await import('../js/config.js');
+  const ices = POPS.filter((p) => p.spoon).map((p) => p.id).sort();
+  assert.deepEqual(ices, ['iceBlue', 'iceCherry', 'iceLemon', 'iceStrawberry']);
+});
+
 test('staying put long past a sensible stay brings a family or two who already had ice cream; a fresh spot does not', () => {
   const run = (route) => {
     const g = readyGame(41, [['vanilla', 2], ['chocolate', 2], ['cake', 2], ['bowl', 2], ['spoons', 1], ['napkins', 1]]);

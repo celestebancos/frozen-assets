@@ -4,8 +4,6 @@ import { CART_ITEMS, CART_SHOPS } from '../js/config.js';
 import { makeRng } from '../js/rng.js';
 
 const BOX_FOR = Object.fromEntries(CART_SHOPS.restaurant.items.filter((i) => i.kind === 'stock').map((i) => [i.item, i]));
-const WANT = Object.fromEntries(CART_ITEMS.map((i) => [i.id, i.want]));
-const WANT_SUM = CART_ITEMS.reduce((a, i) => a + i.want, 0);
 
 // decent: fair prices, keeps the cooler stocked, right change, a quick sale about half the time.
 // smart: also a napkin with every sale, always quick, and an umbrella and bell once there's money for them.
@@ -60,10 +58,10 @@ function morning(c, bot) {
   if (c.state.spoons < 30) buy(c, { spoons: 1 });
   if (bot.napkin && c.state.napkins < 30) buy(c, { napkins: 1 });
   // a box of anything running low (cooler + freezer under a day's worth), keeping $15 for change
-  const wantSum = bot.items.reduce((a, id) => a + WANT[id], 0);
+  const wantSum = bot.items.reduce((a, id) => a + c.wantOf(id), 0);
   const basket = {};
   for (const id of bot.items) {
-    const day = Math.ceil((14 * WANT[id]) / wantSum) + 2;
+    const day = Math.ceil((14 * c.wantOf(id)) / wantSum) + 2;
     if (c.count('cooler', id) + c.count('freezer', id) < day) basket[BOX_FOR[id].id] = 1;
   }
   while (Object.keys(basket).length && (c.basketCost('restaurant', basket) > c.boxTotal - 1500 || Object.keys(basket).length > c.freeSlots)) {
@@ -77,7 +75,7 @@ function morning(c, bot) {
   // fill the cooler by how much people want each thing
   for (let round = 0; round < 3 && c.coolerFree > 0; round++) {
     for (const id of bot.items) {
-      const target = Math.round((48 * WANT[id]) / wantSum);
+      const target = Math.round((48 * c.wantOf(id)) / wantSum);
       const need = target - c.count('cooler', id);
       if (need > 0) c.pack(id, need);
     }

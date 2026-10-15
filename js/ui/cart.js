@@ -620,12 +620,12 @@ export class CartView {
         const rows = [[]];
         let used = 0;
         for (const it of stock) {
-          const w = it.shelf || 1;
+          const w = c.shelfRoom(it);
           if (used + w > per) rows.push([]), (used = 0);
           rows[rows.length - 1].push(it);
           used += w;
         }
-        const kind = (it) => `<div class="sf-kind" style="grid-column: span ${it.shelf || 1}">${Array.from({ length: it.shelf || 1 }, () => `<button class="sf-box" data-act="take" data-id="${it.id}" aria-label="${esc(it.name)}">${storeArt(it)}</button>`).join('')}<span class="tag">${money(it.price)}</span></div>`;
+        const kind = (it) => `<div class="sf-kind" style="grid-column: span ${c.shelfRoom(it)}">${Array.from({ length: c.shelfRoom(it) }, () => `<button class="sf-box" data-act="take" data-id="${it.id}" aria-label="${esc(it.name)}">${storeArt(it)}</button>`).join('')}<span class="tag">${money(it.price)}</span></div>`;
         const dry = S.items
           .filter((i) => i.kind !== 'stock')
           .map((it) => {
