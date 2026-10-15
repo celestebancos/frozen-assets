@@ -1,7 +1,7 @@
 // The park cart screens: make your character, the morning at home, shops and errands, and the park day
 // where every sale is served and every bit of change is counted by hand.
 import { CART, CART_ITEMS, CART_ITEM, CART_SHOPS, CART_CROWD, REGULARS } from '../config.js';
-import { Cart, total, pileCount, boxSize, boxTint, CART_DAY_NAMES } from '../cart.js';
+import { Cart, total, pileCount, pileOf, boxSize, boxTint, CART_DAY_NAMES } from '../cart.js';
 import { personSVG, parkSVG, CHARACTER, PARK_VIEW } from '../art.js';
 import { cartSVG, toyPlaySVG, STICKER_AREA, umbrellaSVG, moneySVG, treatSVG, thingSVG, boxFrontSVG, boxSideSVG, BOX_LOOK, spoonCupSVG, napkinStackSVG, spoonBoxSVG, napkinPackSVG, recyclingBinSVG, swingSetSVG, swingSeatSVG, balloonSVG, hotdogStandSVG, balloonSellerSVG, stickerStandSVG } from '../cartArt.js';
 import { ParkStories } from './parkStories.js';
@@ -1454,10 +1454,12 @@ export class CartView {
     });
   }
   // A tip: a coin drops into the tip jar on the cart, and the jar fills up a bit.
-  tipCoin() {
+  // A tip flies into the jar: a coin, or for a big tip, a bill.
+  tipCoin(tip = 25) {
     const cart = this.stage.querySelector('.the-cart');
     if (!cart) return;
-    const e = el(`<div class="tip-coin">${moneySVG(25, 30)}</div>`);
+    const d = Math.max(...Object.keys(pileOf(tip)).map(Number));
+    const e = el(`<div class="tip-coin">${moneySVG(d, d >= 100 ? 44 : 30)}</div>`);
     cart.appendChild(e);
     this.clock.after(900, () => {
       e.remove();
@@ -1602,8 +1604,8 @@ export class CartView {
     if (r.result === 'honest') this.serveMsg = { text: `${yum}You gave me too much change! Here's the extra back.`, cls: 'hint' };
     else if (r.result === 'kept') {
       this.serveMsg = { text: `${yum}Thanks! Bye!`, cls: '' };
-    } else this.serveMsg = { text: `${yum}Thank you!`, cls: 'good' };
-    if (r.tip) this.tipCoin();
+    } else this.serveMsg = { text: `${yum}${r.tip >= 300 ? "You're the best! This is for you." : 'Thank you!'}`, cls: 'good' };
+    if (r.tip) this.tipCoin(r.tip);
   }
 
   // ---------- end of the day ----------

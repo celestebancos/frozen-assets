@@ -8,11 +8,17 @@ const BOX_FOR = Object.fromEntries(CART_SHOPS.restaurant.items.filter((i) => i.k
 // decent: fair prices, keeps the cooler stocked, right change, a quick sale about half the time.
 // smart: also a napkin with every sale, always quick, and an umbrella and bell once there's money for them.
 // slow: fair prices and right change, but every sale is slow and the cooler only gets the cheap pops.
+// pace: how long serving takes compared with a typical kid (see serveSeconds).
 export const CART_BOTS = {
-  decent: { fast: 0.5, napkin: false, gear: [], items: CART_ITEMS.map((i) => i.id) },
-  smart: { fast: 1, napkin: true, gear: ['umbrella', 'bell'], items: CART_ITEMS.map((i) => i.id) },
-  slow: { fast: 0, napkin: false, gear: [], items: ['rocketPop', 'freezePop'] },
+  decent: { fast: 0.5, pace: 1, napkin: false, gear: [], items: CART_ITEMS.map((i) => i.id) },
+  smart: { fast: 1, pace: 0.75, napkin: true, gear: ['umbrella', 'bell'], items: CART_ITEMS.map((i) => i.id) },
+  slow: { fast: 0, pace: 1.5, napkin: false, gear: [], items: ['rocketPop', 'freezePop'] },
 };
+
+// Real seconds a typical kid takes: finding each treat, then counting out change (a few seconds a bill or coin).
+// The game clock keeps running at the serving pace meanwhile, so the line waits.
+const SERVE_SEC = { start: 6, perItem: 4, change: 8, perPiece: 2, exact: 3, goodbye: 2 };
+const SERVE_PACE_MS = 3000; // a game minute while serving (PACE.serve in js/ui/cart.js)
 
 function buy(c, basket) {
   const cost = c.basketCost('restaurant', basket);
@@ -86,6 +92,11 @@ function morning(c, bot) {
   if ((box[2000] || 0) > 3) c.deposit('box', { 2000: box[2000] - 3 });
 }
 
+// Let game minutes go by while the kid works.
+function spend(c, bot, seconds) {
+  for (let m = Math.round((seconds * bot.pace * 1000) / SERVE_PACE_MS); m > 0; m--) if (!c.step()) break;
+}
+
 function park(c, bot, rng) {
   c.openPark();
   let guard = 0;
@@ -93,6 +104,7 @@ function park(c, bot, rng) {
     const w = c.state.window;
     if (w) {
       if (w.stage === 'order') {
+        spend(c, bot, SERVE_SEC.start + SERVE_SEC.perItem * w.order.length);
         for (const id of w.order) {
           c.give(id);
           if (c.isIce(id)) c.give('spoon');
@@ -103,9 +115,13 @@ function park(c, bot, rng) {
       } else if (w.stage === 'change') {
         const owed = total(w.paid) - w.due;
         const ch = owed ? makeAmount(c.state.money.box, owed) : {};
+        spend(c, bot, ch && owed ? SERVE_SEC.change + SERVE_SEC.perPiece * Object.values(ch).reduce((a, b) => a + b, 0) : SERVE_SEC.exact);
         if (ch) c.giveChange(ch, { fast: rng.chance(bot.fast) });
         else c.noChange();
-      } else c.dismiss();
+      } else {
+        spend(c, bot, SERVE_SEC.goodbye);
+        c.dismiss();
+      }
       continue;
     }
     if (!c.step() && !c.state.window) c.closePark();
