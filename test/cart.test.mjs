@@ -303,7 +303,7 @@ test('too little change: the customer waits for the rest', () => {
     serve(c);
     if (w.stage !== 'change') continue;
     const owed = total(w.paid) - w.due;
-    if (owed < 25) continue;
+    if (owed <= 25) continue; // a quarter has to be too little
     const r = c.giveChange({ 25: 1 });
     assert.equal(r.ok, false);
     assert.equal(r.reason, 'short');
