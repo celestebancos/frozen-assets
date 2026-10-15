@@ -3,7 +3,7 @@
 import { CART, CART_ITEMS, CART_ITEM, CART_SHOPS, CART_CROWD, REGULARS } from '../config.js';
 import { Cart, total, pileCount, boxSize, CART_DAY_NAMES } from '../cart.js';
 import { personSVG, parkSVG, CHARACTER, PARK_VIEW } from '../art.js';
-import { cartSVG, STICKER_AREA, umbrellaSVG, moneySVG, treatSVG, thingSVG, boxFrontSVG, boxSideSVG, BOX_LOOK, spoonCupSVG, napkinStackSVG, spoonBoxSVG, napkinPackSVG, swingSetSVG, swingSeatSVG, balloonSVG, hotdogStandSVG, balloonSellerSVG, stickerStandSVG } from '../cartArt.js';
+import { cartSVG, toyPlaySVG, STICKER_AREA, umbrellaSVG, moneySVG, treatSVG, thingSVG, boxFrontSVG, boxSideSVG, BOX_LOOK, spoonCupSVG, napkinStackSVG, spoonBoxSVG, napkinPackSVG, swingSetSVG, swingSeatSVG, balloonSVG, hotdogStandSVG, balloonSellerSVG, stickerStandSVG } from '../cartArt.js';
 import { ParkStories } from './parkStories.js';
 import { Ambience, cashRegister, gameSound } from '../ambience.js';
 import { storage } from '../storage.js';
@@ -1207,6 +1207,7 @@ export class CartView {
     this.lastFrame = now;
     this.app.ambience.play(Ambience.cartMix(c)); // the sounds of the park around the cart
     if (s.phase !== 'park' || anyModalOpen()) return;
+    this.renderToys(now);
     const w = s.window;
     if (w && (w.stage === 'done' || w.stage === 'leaving')) {
       if (!this.dismissAt) this.dismissAt = now + (w.stage === 'done' ? 1500 : 2300);
@@ -1237,6 +1238,35 @@ export class CartView {
     }
     this.renderHUD();
     if (now - this.lastSave > 15000) this.save();
+  }
+
+  // While nobody's at the window, you play with a toy you bought (a different one every so often). It goes
+  // away when a customer walks up.
+  renderToys(now) {
+    const spot = this.stage?.querySelector('.cart-spot');
+    if (!spot) return;
+    const s = this.s;
+    const toys = [...new Set(s.owned)].filter((id) => ITEM[id]?.kind === 'toy' && !(id === 'kite' && s.weather.rain)); // no kites in the rain
+    const idle = !s.window && !this.closing && toys.length > 0;
+    if (idle && (!this.toyIdle || now - this.toySince > 20000)) {
+      this.toyPick = (this.toyPick ?? -1) + 1;
+      this.toySince = now;
+    }
+    this.toyIdle = idle;
+    const toy = idle ? toys[this.toyPick % toys.length] : '';
+    const key = toy && `${toy}${this.tall ? ':tall' : ''}`; // the kite flies higher on phones
+    if (spot.dataset.toyKey === key && (!toy || spot.querySelector('.toy-play:not(.away)'))) return;
+    spot.dataset.toyKey = key;
+    spot.dataset.toy = toy;
+    spot.classList.toggle('playing', !!toy);
+    for (const old of spot.querySelectorAll('.toy-play:not(.away)')) {
+      old.classList.add('away');
+      setTimeout(() => old.remove(), 400);
+    }
+    if (toy) {
+      const skin = CHARACTER.skin[s.look.skin % CHARACTER.skin.length];
+      spot.insertAdjacentHTML('beforeend', `<div class="toy-play">${toyPlaySVG(toy, { skin, tall: this.tall })}</div>`);
+    }
   }
 
   // ---------- people ----------

@@ -55,6 +55,44 @@ export function cartSVG({ decals = [], umbrella = false, fan = false, bell = fal
   </svg>`;
 }
 
+// ---------- playing with toys ----------
+// A toy being played with at the park, drawn over the cart in the cart's own units (230 × 200: the cooler's lid
+// is at y 92, and the kid stands behind it with their head around (108, 37)). CSS in styles.css moves it.
+// toy: ball | car | yoyo | kite. skin: the kid's skin color (for the hand on the yo-yo). tall: the phone layout,
+// where the cart is drawn smaller, so the kite has to fly higher to be up in the sky.
+let toyN = 0;
+export function toyPlaySVG(toy, { skin = '#f1c27d', tall = false } = {}) {
+  const id = `toy-lid-${++toyN}`;
+  let art = '';
+  if (toy === 'ball') {
+    // tossed up beside the kid's head and caught again behind the lid
+    art = `<defs><clipPath id="${id}"><rect x="-100" y="-300" width="430" height="392"/></clipPath></defs>
+      <g clip-path="url(#${id})"><g class="toss"><g class="roll"><circle cx="138" cy="100" r="8.5" fill="#e5484d" ${thin}/>
+        <path d="M131.5 100 Q138 93.5 144.5 100" stroke="#ffd23f" stroke-width="2.4" fill="none"/><circle cx="134.6" cy="96.6" r="2" fill="#fff" opacity=".8"/></g></g></g>`;
+  } else if (toy === 'yoyo') {
+    // a hand over the edge of the lid, and the yo-yo running down the string and back up, spinning
+    art = `<rect class="yy-string" x="149.6" y="95" width="0.9" height="55" fill="${INK}"/>
+      <g class="yy-drop"><g transform="translate(150 150)"><g class="yy-spin"><circle r="10" fill="#3cc6a0" ${thin}/><path d="M-9.5 0 H9.5 M0 -9.5 V9.5" stroke="#2a9d80" stroke-width="1.8"/><circle r="3" fill="#fff" ${thin}/></g></g></g>
+      <ellipse cx="150" cy="92.5" rx="7" ry="5.2" fill="${skin}" ${thin}/><path d="M146 95 v2 M149.5 95.6 v2.2 M153 95 v2" stroke="${INK}" stroke-width="1" stroke-linecap="round"/>`;
+  } else if (toy === 'car') {
+    // zooming back and forth along the top of the lid, turning around at each end
+    const wheel = (x) => `<g transform="translate(${x} -3.5)"><g class="wheel"><circle r="3.6" fill="#4a4a5a" ${thin}/><path d="M-2.4 0 H2.4 M0 -2.4 V2.4" stroke="#cfd6df" stroke-width="1"/></g></g>`;
+    art = `<g transform="translate(0 92)"><g class="drive"><g transform="scale(1.45)">
+      <path d="M-24 -9 H-18 M-26 -5 H-19 M-23 -1 H-18" stroke="#9aa4b2" stroke-width="1.4" stroke-linecap="round" class="zoom"/>
+      <path d="M-13 -4 V-9 Q-12 -12 -7 -12 L-4 -17 H5 L9 -12 Q13 -12 13 -8 V-4 Z" fill="#3a8ee6" ${thin}/>
+      <path d="M-2.6 -15.5 H4.4 L7 -12 H-4.6 Z" fill="#cfefff" stroke="${INK}" stroke-width="1"/><circle cx="12" cy="-8.5" r="1.3" fill="#ffd23f"/>
+      ${wheel(-7)}${wheel(7)}</g></g></g>`;
+  } else if (toy === 'kite') {
+    // flying high over the cart on a long string from the kid's hand
+    const bow = (x, y, c) => `<path d="M${x - 3} ${y - 2} L${x + 3} ${y + 2} M${x - 3} ${y + 2} L${x + 3} ${y - 2}" stroke="${c}" stroke-width="2.4" stroke-linecap="round"/>`;
+    const up = tall ? 300 : 0;
+    art = `<g class="kite-sway"><path d="M128 92 Q215 ${10 - up / 2} 236 ${-128 - up}" stroke="${INK}" stroke-width=".9" fill="none"/>
+      <g transform="translate(0 ${-up})"><g class="kite-bob"><path d="M236 -196 L256 -162 L236 -126 L216 -162 Z" fill="#9b7be0" ${thin}/><path d="M236 -196 V-126 M216 -162 H256" stroke="#ffd23f" stroke-width="2"/>
+        <path d="M236 -126 Q228 -112 238 -100 T234 -76" stroke="${INK}" stroke-width=".9" fill="none"/>${bow(231, -113, '#3a8ee6')}${bow(237, -100, '#ffd23f')}${bow(235, -86, '#3cc6a0')}</g></g></g>`;
+  }
+  return `<svg viewBox="0 0 230 200" class="toy-svg toy-${toy}" overflow="visible" xmlns="http://www.w3.org/2000/svg">${art}</svg>`;
+}
+
 // ---------- money ----------
 const BILL = { 2000: '#8fd19e', 1000: '#a8dcb8', 500: '#b9e4c4', 100: '#cdeed4' };
 export function moneySVG(d, w = 54) {
