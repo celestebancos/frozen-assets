@@ -734,7 +734,6 @@ body { position: fixed; inset: 0; }
 .kit-pack { display: flex; gap: 18px; align-items: flex-start; justify-content: center; flex-wrap: wrap; padding-top: 12px; border-top: 3px dashed #e3c9a6; }
 .kit-pack .pk-left { flex: 0 1 220px; }
 .kit-pack .pk-right { flex: 1 1 300px; max-width: 400px; }
-.pk-hint { margin: 24px 0 0; text-align: center; color: #7a6a5a; font-weight: 700; }
 .fridge { flex: 2.3 1 0; display: flex; min-width: 0; position: relative; z-index: 0; }
 .fz-box { flex: 1; min-width: 0; background: #f7f9fb; border: 3px solid var(--ink); border-radius: 18px; padding: 10px; }
 .fz-in { background: #e3f2fb; border: 2px solid var(--ink); border-radius: 10px; padding: 6px 6px 4px; }

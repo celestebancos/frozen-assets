@@ -394,7 +394,7 @@ export class CartView {
     const box = sel ? c.boxAt(sel) : null;
     const open = box
       ? `${openBoxHTML(box)}<button class="btn" data-act="shut">📦 ${sel.startsWith('s') ? 'Back in freezer' : 'Close box'}</button>`
-      : `<p class="pk-hint">${c.spaceUsed('freezer') || s.counter.length ? '👆 Tap a box to open it. Then tap treats to pack the cooler.' : 'Buy treats at the 🏬 restaurant store.'}</p>`;
+      : '';
     const html = `<div class="card kitchen">
       <div class="kit-top">
         <div class="fridge"><div class="fz-door"><i class="hinge"></i><i class="hinge low"></i></div><div class="fz-box"><div class="fz-in">${shelves}</div></div></div>
