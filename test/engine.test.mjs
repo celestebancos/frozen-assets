@@ -722,3 +722,13 @@ test("Penny's weekly bill: a flat fee plus each paper she filed", async () => {
   assert.equal(g.state.pennyPapers, 0);
   assert.equal(share(g.state.truth), profit(g.state.truth));
 });
+
+test('a used truck: half the price, and the bill of sale says used', () => {
+  const g = Game.create({ player: 'N', business: 'T', color: 'pink', seed: 7, truckCost: 485000, used: true });
+  assert.equal(g.state.truckUsed, true);
+  const truck = g.docsToFile().find((d) => d.type === 'truckBill');
+  assert.match(truck.items[0].label, /used ice cream truck/);
+  assert.equal(g.state.truth.truck, 485000);
+  const fresh = Game.create({ player: 'N', business: 'T', color: 'pink', seed: 7 });
+  assert.ok(!fresh.state.truckUsed);
+});

@@ -10,7 +10,7 @@ const C = CONFIG;
 const SEASON_DAYS = C.seasonWeeks * C.daysPerWeek;
 const DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
-export function newGameState({ player, business, color, tune = 'entertainer', seed, loan, truckCost, bling = 0, blingName = '', ownerCash = 0, favorite = null }) {
+export function newGameState({ player, business, color, tune = 'entertainer', seed, loan, truckCost, bling = 0, blingName = '', used = false, ownerCash = 0, favorite = null }) {
   const s = {
     version: 1,
     seed: seed ?? Math.floor(Math.random() * 2 ** 31),
@@ -28,6 +28,7 @@ export function newGameState({ player, business, color, tune = 'entertainer', se
     truckCost: truckCost ?? C.loan.truckCost,
     bling,
     blingName,
+    truckUsed: used, // a used truck: cheaper, and it looks it
     ownerCash, // money brought from the park cart
     favorite, // the treat people want most besides rocket pops (from the park cart, or picked below)
     cash: 0,
@@ -444,7 +445,7 @@ export class Game {
     this.post('truckBill', [
       { acct: 'truck', amt: truck },
       { acct: 'cash', amt: -truck },
-    ], { label: `One ice cream truck${s.blingName ? ` with ${s.blingName.toLowerCase()}` : ''}`, amt: truck });
+    ], { label: `One ${s.truckUsed ? 'used ' : ''}ice cream truck${s.blingName ? ` with ${s.blingName.toLowerCase()}` : ''}`, amt: truck });
     s.phase = 'setup';
     this.rollWeather();
     this.sync();

@@ -1,5 +1,5 @@
 // Frozen Assets — app controller: title screen, setup, the game loop, HUD, and wiring of panels.
-import { CONFIG, TRUCK_COLORS, TRUCK_PRICE, BLING, SPOT, FLAVORS, itemKey, itemFromKey } from './config.js';
+import { CONFIG, TRUCK_COLORS, TRUCK_PRICE, USED_TRUCK, BLING, SPOT, FLAVORS, itemKey, itemFromKey } from './config.js';
 import { Game, DAY_NAMES } from './engine.js';
 import { Music } from './music.js';
 import { Ambience, cashRegister } from './ambience.js';
@@ -137,8 +137,10 @@ class App {
     document.body.innerHTML = '';
     let step = 'bank';
     let loan = null;
+    let pick = null; // which truck on the lot
     let color = null;
     let bling = 0;
+    let used = false;
     let name = `${player}'s Ice Cream`;
     // The lot: one truck in each color with random bling, and at least one truck at every price.
     const levels = [...BLING.map((b) => b.level), ...TRUCK_COLORS.slice(BLING.length).map(() => Math.floor(Math.random() * BLING.length))];
@@ -146,7 +148,10 @@ class App {
       const j = Math.floor(Math.random() * (i + 1));
       [levels[i], levels[j]] = [levels[j], levels[i]];
     }
-    const lot = TRUCK_COLORS.map((c, i) => ({ color: c.id, bling: levels[i] })).sort((a, b) => a.bling - b.bling); // cheapest first
+    // ...plus a couple of used trucks: about half price, no bling, and a bit worn
+    const usedColors = [...TRUCK_COLORS].sort(() => Math.random() - 0.5).slice(0, USED_TRUCK.usedOnLot);
+    const lot = [...usedColors.map((c) => ({ color: c.id, bling: 0, used: true })), ...TRUCK_COLORS.map((c, i) => ({ color: c.id, bling: levels[i], used: false })).sort((a, b) => a.bling - b.bling)]; // cheapest first
+    const priceOf = (x) => (x.used ? USED_TRUCK.price : TRUCK_PRICE + BLING[x.bling].price);
     const scr = el(`<div class="screen"><h1 class="logo" style="font-size:44px"></h1><div class="setup-card"></div></div>`);
     document.body.appendChild(scr);
     const title = scr.querySelector('h1');
@@ -179,19 +184,18 @@ class App {
       const L = C.loans.find((l) => l.id === loan);
       const have = L.principal + ownerCash;
       const maxTruck = have - C.minStartCash;
-      if (TRUCK_PRICE + BLING[bling].price > maxTruck) color = null;
+      if (pick != null && priceOf(lot[pick]) > maxTruck) pick = color = null;
       const t = color && truckFor(color);
-      const price = TRUCK_PRICE + BLING[bling].price;
+      const price = pick != null ? priceOf(lot[pick]) : 0;
       if (step === 'truck') {
         title.textContent = '🚚 Truck lot';
-        card.innerHTML = `<div class="truck-lot">${lot.map((x) => {
+        card.innerHTML = `<div class="truck-lot">${lot.map((x, i) => {
             const c = truckFor(x.color);
-            const b = BLING[x.bling];
-            const total = TRUCK_PRICE + b.price;
+            const total = priceOf(x);
             const can = total <= maxTruck;
-            return `<button class="lot-truck ${color === x.color ? 'on' : ''}" data-act="pickTruck" data-c="${x.color}" data-l="${x.bling}" ${can ? '' : 'disabled'}>
-              ${truckSVG(c.hex, c.name, { bling: x.bling })}
-              <b>${c.name}</b>
+            return `<button class="lot-truck ${pick === i ? 'on' : ''}" data-act="pickTruck" data-i="${i}" ${can ? '' : 'disabled'}>
+              ${truckSVG(c.hex, c.name, { bling: x.bling, used: x.used })}
+              <b>${x.used ? `Used ${c.name}` : c.name}</b>
               <div class="price">${money(total)}</div><div class="tiny">${can ? `${money(have - total)} left over` : 'Too much for this loan'}</div></button>`;
           }).join('')}</div>
           <div class="row" style="justify-content:space-between;margin-top:16px"><button class="btn" data-act="toBank">◀ Back to the bank</button>
@@ -199,13 +203,13 @@ class App {
         return;
       }
       title.textContent = '🏷️ Your sign';
-      card.innerHTML = `<div style="max-width:420px;margin:0 auto">${truckSVG(t.hex, name, { bling })}</div>
+      card.innerHTML = `<div style="max-width:420px;margin:0 auto">${truckSVG(t.hex, name, { bling, used })}</div>
         <div class="row center" style="margin:6px 0">${ownerCash ? `<span class="chip">🛒 Cart money ${money(ownerCash)}</span>` : ''}<span class="chip">🏦 Loan ${money(L.principal)}</span><span class="chip">🚚 Truck −${money(price)}</span><span class="chip">💵 Cash left ${money(have - price)}</span></div>
         <h3>🏷️ Business name</h3><input class="text-in" maxlength="28" value="${esc(name)}" aria-label="Business name">
         <div class="row" style="justify-content:space-between;margin-top:16px"><button class="btn" data-act="toTruck">◀ Back</button><button class="btn big go" data-act="go">Let's go! ▶</button></div>`;
       card.querySelector('input').addEventListener('input', (e) => {
         name = e.target.value;
-        card.querySelector('div').innerHTML = truckSVG(t.hex, name, { bling });
+        card.querySelector('div').innerHTML = truckSVG(t.hex, name, { bling, used });
       });
     };
     render();
@@ -215,8 +219,8 @@ class App {
         render();
       },
       pickTruck: (t) => {
-        color = t.dataset.c;
-        bling = Number(t.dataset.l);
+        pick = Number(t.dataset.i);
+        ({ color, bling, used } = lot[pick]);
         render();
       },
       next: () => {
@@ -236,7 +240,7 @@ class App {
         if (!name.trim()) return toast('Your truck needs a name!');
         const L = C.loans.find((l) => l.id === loan);
         const B = BLING[bling];
-        this.game = Game.create({ player, business: name.trim(), color, tune: 'entertainer', loan: L, truckCost: TRUCK_PRICE + B.price, bling, blingName: bling ? B.name : '', ownerCash, favorite: storage.loadCart(player)?.hot || storage.loadGame(player)?.favorite });
+        this.game = Game.create({ player, business: name.trim(), color, tune: 'entertainer', loan: L, truckCost: used ? USED_TRUCK.price : TRUCK_PRICE + B.price, bling, blingName: bling ? B.name : '', used, ownerCash, favorite: storage.loadCart(player)?.hot || storage.loadGame(player)?.favorite });
         onStart?.();
         this.save();
         this.startGameView();

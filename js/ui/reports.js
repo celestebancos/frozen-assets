@@ -119,12 +119,12 @@ function seasonResult(app, res) {
     render(body) {
       body.innerHTML = res.won
         ? `<div class="end-scene"><div class="confetti">🎉🍦🎉</div>
-            <div class="trucky">${truckSVG(hex, s.business, { bling: s.bling || 0 })}</div>
+            <div class="trucky">${truckSVG(hex, s.business, { bling: s.bling || 0, used: !!s.truckUsed })}</div>
             <p style="font-size:20px">${s.loanActive ? '' : 'The loan is paid off. The truck is all yours!'}</p>
             <div class="stat" style="max-width:320px;margin:0 auto"><div class="k">${esc(s.player)}'s Share</div><div class="v pos">${money(res.share)}</div></div>
             <div class="row center" style="margin-top:14px"><button class="btn big go" data-act="next">📁 File the last papers</button></div></div>`
         : `<div class="end-scene"><div style="font-size:20px;margin-bottom:8px">Not enough cash to pay back the loan.</div>
-            <div class="trucky tow">${truckSVG(hex, s.business, { bling: s.bling || 0 })}<div style="font-size:50px;position:absolute;right:-62px;bottom:0;line-height:1">${towTruckIcon()}</div></div>
+            <div class="trucky tow">${truckSVG(hex, s.business, { bling: s.bling || 0, used: !!s.truckUsed })}<div style="font-size:50px;position:absolute;right:-62px;bottom:0;line-height:1">${towTruckIcon()}</div></div>
             <p>The bank takes the truck.</p>
             <div class="stat" style="max-width:320px;margin:0 auto"><div class="k">${esc(s.player)}'s Share</div><div class="v ${res.share < 0 ? 'neg' : ''}">${money(res.share)}</div></div>
             <div class="row center" style="margin-top:14px"><button class="btn big pink" data-act="next">OK</button></div></div>`;
