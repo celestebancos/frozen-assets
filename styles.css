@@ -641,7 +641,7 @@ table.books tr.bottom td { font-weight: 800; font-size: 18px; background: #fff3b
 .story-layer.fade { opacity: 0; }
 .story-layer .walking { animation: storyStep 0.3s ease-in-out infinite alternate; }
 @keyframes storyStep { from { transform: translateY(0) rotate(-2deg); } to { transform: translateY(-2px) rotate(2deg); } }
-.story-layer .doze { transform: rotate(-6deg); transition: transform 0.8s; }
+.story-layer .doze { transform: rotate(-6deg); transform-origin: 0 -28px; transition: transform 0.8s; } /* nodding off, from the hips */
 .story-layer .body { transition: transform 0.4s; }
 .story-layer .tumble, .story-layer .wobble { transform-box: fill-box; transform-origin: 50% 50%; }
 .story-layer .tumble { animation: storySpin 0.6s linear infinite; }

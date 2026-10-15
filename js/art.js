@@ -230,10 +230,12 @@ const GIRL_STYLES = ['long', 'ponytail', 'pigtails', 'bun', 'bob', 'curls'];
 const BOY_STYLES = ['short', 'spiky', 'curly', 'buzz', 'short', 'spiky'];
 const EARS_SHOW = new Set(['short', 'spiky', 'curly', 'buzz', 'ponytail', 'bun', 'pigtails']);
 
-function face(kind, look, skin, hair, girl) {
+function face(kind, look, skin, hair, girl, sleep = false) {
   const big = kind === 'kid' ? 1.15 : 1;
   const eye = (x) =>
-    `<ellipse cx="${x}" cy="1.2" rx="${(1.2 * big).toFixed(2)}" ry="${(1.55 * big).toFixed(2)}" fill="${INK}"/><circle cx="${x + 0.45}" cy="0.55" r="${(0.5 * big).toFixed(2)}" fill="#fff"/>`;
+    sleep
+      ? `<path d="M${x - 1.6} 1 Q${x} 2.6 ${x + 1.6} 1" stroke="${INK}" stroke-width="0.95" fill="none" stroke-linecap="round"/>` // closed, fast asleep
+      : `<ellipse cx="${x}" cy="1.2" rx="${(1.2 * big).toFixed(2)}" ry="${(1.55 * big).toFixed(2)}" fill="${INK}"/><circle cx="${x + 0.45}" cy="0.55" r="${(0.5 * big).toFixed(2)}" fill="#fff"/>`;
   const brow = shade(hair === '#9a9a9a' ? '#777777' : hair, -0.1);
   const open = kind !== 'adult' && look % 3 === 0;
   let out = `${eye(-3.7)}${eye(3.7)}
@@ -252,8 +254,10 @@ export const CHARACTER = { skin: SKIN, hair: HAIR, girlStyles: GIRL_STYLES, boyS
 
 // look: a number that picks everything for a customer. me: the player's own character, chosen piece by
 // piece: { girl, skin, hair, style, shirt, pants, hat: 'cap'|'sunhat'|'beanie'|'crown'|null, shades, stars }.
+// pose: { sit, sleep }. Sitting, the lap is at the hips and the lower legs hang down to the feet, so the picture is
+// shorter (its bottom is still the feet); sleeping, the eyes are closed.
 let shirtN = 0; // each striped shirt gets its own cut-out shape
-export function personSVG(kind, look = 0, me = null) {
+export function personSVG(kind, look = 0, me = null, { sit = false, sleep = false } = {}) {
   if (kind === 'dog') return dogSVG(look);
   if (!BUILD[kind]) kind = 'adult';
   const B = BUILD[kind];
@@ -277,14 +281,23 @@ export function personSVG(kind, look = 0, me = null) {
   const { hy, hr, sh, hip, sw, hw, aw, lw } = B;
   const s = hr / 10;
   const knee = hip + (FOOT - hip) * 0.42;
-  const ankle = FOOT - 3;
+  // sitting: the feet come up, since only the lower legs hang down from the seat
+  const foot = sit ? hip + (FOOT - hip) * 0.68 : FOOT;
+  const ankle = foot - 3;
   const lx = 3.7; // legs sit this far either side of the middle
 
-  const legs = limb(`M${20 - lx} ${hip} L${20 - lx - 0.4} ${ankle} M${20 + lx} ${hip} L${20 + lx + 0.4} ${ankle}`, dress || shorts ? skin : pants, lw);
+  const legs = sit
+    ? limb(`M${20 - lx} ${hip + 4} L${20 - lx} ${ankle} M${20 + lx} ${hip + 4} L${20 + lx} ${ankle}`, dress || shorts ? skin : pants, lw)
+    : limb(`M${20 - lx} ${hip} L${20 - lx - 0.4} ${ankle} M${20 + lx} ${hip} L${20 + lx + 0.4} ${ankle}`, dress || shorts ? skin : pants, lw);
   const shoe = (x, dir) =>
-    `<path d="M${x - 3.4 * dir} ${FOOT} Q${x - 4.2 * dir} ${FOOT - 5.6} ${x + 0.4 * dir} ${FOOT - 5.6} Q${x + 5 * dir} ${FOOT - 5.4} ${x + 5 * dir} ${FOOT - 1.2} Q${x + 5 * dir} ${FOOT} ${x + 3.6 * dir} ${FOOT} Z" fill="${shoes}" ${OUT}/><path d="M${x - 3.2 * dir} ${FOOT - 1.3} H${x + 4.6 * dir}" stroke="${shoes === '#ffffff' ? '#aab3c0' : '#fff'}" stroke-width="1" opacity=".75"/>`;
+    `<path d="M${x - 3.4 * dir} ${foot} Q${x - 4.2 * dir} ${foot - 5.6} ${x + 0.4 * dir} ${foot - 5.6} Q${x + 5 * dir} ${foot - 5.4} ${x + 5 * dir} ${foot - 1.2} Q${x + 5 * dir} ${foot} ${x + 3.6 * dir} ${foot} Z" fill="${shoes}" ${OUT}/><path d="M${x - 3.2 * dir} ${foot - 1.3} H${x + 4.6 * dir}" stroke="${shoes === '#ffffff' ? '#aab3c0' : '#fff'}" stroke-width="1" opacity=".75"/>`;
   let bottoms = '';
-  if (dress) {
+  if (sit) {
+    // the lap, seen from the front: the thighs come toward you, so it's just a short rounded band
+    const lap = (w, y0, y1) =>
+      `<path d="M${20 - w} ${y0} H${20 + w} Q${20 + w + 1.4} ${y1} ${20 + w - 1.6} ${y1 + 0.6} Q${20 + lx} ${y1 + 2} 20.4 ${y1} Q20 ${y1 - 0.6} 19.6 ${y1} Q${20 - lx} ${y1 + 2} ${20 - w + 1.6} ${y1 + 0.6} Q${20 - w - 1.4} ${y1} ${20 - w} ${y0} Z" fill="${dress ? shirt : pants}" ${OUT}/>`; // with a knee on each side
+    bottoms = dress ? lap(hw + 1.6, hip - 4, hip + 6.5) : lap(hw + 0.6, hip - 2, hip + 5.5);
+  } else if (dress) {
     const hem = hip + (FOOT - hip) * 0.4;
     bottoms = `<path d="M${20 - hw + 0.5} ${hip - 4} H${20 + hw - 0.5} L${20 + hw + 3.6} ${hem} Q20 ${hem + 2} ${20 - hw - 3.6} ${hem} Z" fill="${shirt}" ${OUT}/><path d="M${20 - hw - 2.4} ${hem - 2.4} Q20 ${hem - 0.6} ${20 + hw + 2.4} ${hem - 2.4}" stroke="#fff" stroke-width="1" opacity=".6" fill="none"/>`;
   } else if (shorts) {
@@ -325,7 +338,7 @@ export function personSVG(kind, look = 0, me = null) {
   const ears = EARS_SHOW.has(style) && !sunhat ? `<circle cx="-9.6" cy="1.8" r="2.6" fill="${skin}" ${OUT}/><circle cx="9.6" cy="1.8" r="2.6" fill="${skin}" ${OUT}/>` : '';
   let extras = '';
   if (beard) extras += `<path d="M-9.4 1 Q-9.6 11.5 0 11.5 Q9.6 11.5 9.4 1 Q8 6.4 3 6.6 Q0 5.4 -3 6.6 Q-8 6.4 -9.4 1 Z" fill="${hair}" ${OUT}/>`;
-  extras += face(kind, look, skin, hair, girl);
+  extras += face(kind, look, skin, hair, girl, sleep);
   if (glasses) extras += `<g fill="#fff" fill-opacity=".3" stroke="${INK}" stroke-width="0.9"><circle cx="-3.7" cy="1.2" r="2.7"/><circle cx="3.7" cy="1.2" r="2.7"/></g><path d="M-1 1 Q0 0.2 1 1" stroke="${INK}" stroke-width="0.9" fill="none"/>`;
   if (shades) extras += `<g fill="${INK}"><rect x="-6.9" y="-1" width="5.6" height="4" rx="1.8"/><rect x="1.3" y="-1" width="5.6" height="4" rx="1.8"/></g><path d="M-1.4 0 H1.4" stroke="${INK}" stroke-width="1"/><path d="M-5.6 -0.1 l1.6 0 M2.6 -0.1 l1.6 0" stroke="#fff" stroke-width="0.8" opacity=".6"/>`;
   if (cap) extras += `<path d="M-10.6 -3 Q-11 -13.4 0 -13.4 Q11 -13.4 10.6 -3 Z" fill="#e5484d" ${OUT}/><path d="M-11.4 -3.6 Q0 -6.4 11.4 -3.6 Q12 -1 10 -0.6 Q0 -2.8 -10 -0.6 Q-12 -1 -11.4 -3.6 Z" fill="#c3423f" ${OUT}/><circle cx="0" cy="-13" r="1.2" fill="#c3423f"/>`;
@@ -334,7 +347,7 @@ export function personSVG(kind, look = 0, me = null) {
   if (sunhat) extras += `<ellipse cx="0" cy="-6" rx="16.5" ry="3.6" fill="#f7e3b5" ${OUT}/><path d="M-8 -6 Q-8.4 -15.5 0 -15.5 Q8.4 -15.5 8 -6 Z" fill="#f7e3b5" ${OUT}/><path d="M-8 -7.6 Q0 -6 8 -7.6 L8 -6 Q0 -4.4 -8 -6 Z" fill="${shirt}"/>`;
 
   // buns and tall hats (propeller, crown) poke out above the box, so let them show
-  return `<svg viewBox="0 0 40 84" class="person ${kind}" style="overflow:visible" xmlns="http://www.w3.org/2000/svg">
+  return `<svg viewBox="0 0 40 ${sit ? (foot + 1).toFixed(1) : 84}" class="person ${kind}" style="overflow:visible" xmlns="http://www.w3.org/2000/svg">
   <g transform="translate(20 ${hy}) scale(${s})">${HAIR_BACK[style](hair)}</g>
   ${legs}${shoe(20 - lx - 0.4, -1)}${shoe(20 + lx + 0.4, 1)}
   ${bottoms}${neck}${arms}${torso}${stripeLines}${neckline}${hands}
@@ -1028,13 +1041,15 @@ function sky() {
 // ground: where the stories stand. story: how big the stories are drawn (a bit smaller than the customers, who
 // are closer). bench: the park bench by the path (middle, bottom), which the sandwich story uses.
 export const PARK_VIEW = {
-  wide: { w: 1000, h: 500, ground: 364, story: 0.92, bench: [500, 404] },
+  wide: { w: 1000, h: 500, ground: 364, story: 0.92, bench: [500, 410] },
   tall: { w: 360, h: 600, ground: 392, story: 0.85, bench: [205, 440] },
 };
 // The park bench, 100 × 40. The stories draw someone sitting on it 116 story units wide.
 export const BENCH_W = 116;
 export function benchSVG() {
-  return `<svg viewBox="0 0 100 40" xmlns="http://www.w3.org/2000/svg"><path d="M12 22 V40 M88 22 V40" stroke="${INK}" stroke-width="4.5" stroke-linecap="round"/><path d="M12 22 V40 M88 22 V40" stroke="#4a4a5a" stroke-width="2.4" stroke-linecap="round"/><rect x="2" y="4" width="96" height="8" rx="3" fill="#a86b3c" stroke="${INK}" stroke-width="1.4" stroke-linejoin="round"/><rect x="2" y="15" width="96" height="8" rx="3" fill="#a86b3c" stroke="${INK}" stroke-width="1.4" stroke-linejoin="round"/><path d="M8 7 H40 M56 18 H90" stroke="#c98a55" stroke-width="1.6" stroke-linecap="round"/></svg>`;
+  // the back posts run from the backrest down to the ground; the seat is at about knee height
+  const t = `stroke="${INK}" stroke-width="1.4" stroke-linejoin="round"`;
+  return `<svg viewBox="0 0 100 40" xmlns="http://www.w3.org/2000/svg"><path d="M12 8 V40 M88 8 V40" stroke="${INK}" stroke-width="4.5" stroke-linecap="round"/><path d="M12 8 V40 M88 8 V40" stroke="#4a4a5a" stroke-width="2.4" stroke-linecap="round"/><rect x="2" y="3" width="96" height="7" rx="3" fill="#a86b3c" ${t}/><rect x="2" y="12" width="96" height="6" rx="3" fill="#a86b3c" ${t}/><rect x="1" y="21" width="98" height="6.5" rx="3" fill="#b8784a" ${t}/><path d="M8 5.8 H40 M56 14.4 H90 M6 23.6 H44" stroke="#c98a55" stroke-width="1.6" stroke-linecap="round"/></svg>`;
 }
 
 export function parkSVG({ tall = false, front = false, rain = false } = {}) {
@@ -1104,14 +1119,16 @@ export function parkSVG({ tall = false, front = false, rain = false } = {}) {
   const path = `<path d="${pathD} V${H} H0 Z" fill="#ead9b8" ${so(2)}/>${pebbles}${stones}<path d="${pathD}" transform="translate(0 30)" stroke="#d9c49c" stroke-width="3" fill="none" stroke-dasharray="14 18"/>`;
   const open = `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMax slice" class="scene-svg park-scene${front ? ' park-front' : ''}" xmlns="http://www.w3.org/2000/svg">`;
 
+  // the bench by the path: behind the stories, so someone can sit on it facing you
+  const v = tall ? PARK_VIEW.tall : PARK_VIEW.wide;
+  const [bx, by] = v.bench;
+  const bw = BENCH_W * v.story;
+  const parkBench = `<g transform="translate(${(bx - bw / 2).toFixed(1)} ${(by - bw * 0.4).toFixed(1)}) scale(${(bw / 100).toFixed(4)})">${benchSVG().replace(/^<svg[^>]*>|<\/svg>$/g, '')}</g>`;
+
   if (front) {
-    const v = tall ? PARK_VIEW.tall : PARK_VIEW.wide;
-    const [bx, by] = v.bench;
-    const bw = BENCH_W * v.story;
-    const parkBench = benchSVG().replace('<svg ', `<svg x="${(bx - bw / 2).toFixed(1)}" y="${(by - bw * 0.4).toFixed(1)}" width="${bw.toFixed(1)}" height="${(bw * 0.4).toFixed(1)}" `);
     const inner = tall
-      ? `${parkBench}${bed(118, 240, pathTop(180) - 6)}${path}`
-      : `${parkBench}${bed(300, 430, pathTop(365) - 6)}${bed(600, 740, pathTop(670) - 6)}${parkLamp(780, pathTop(780) - 2)}${path}`;
+      ? `${bed(118, 240, pathTop(180) - 6)}${path}`
+      : `${bed(300, 430, pathTop(365) - 6)}${bed(600, 740, pathTop(670) - 6)}${parkLamp(780, pathTop(780) - 2)}${path}`;
     return `${open}${inner}</svg>`;
   }
   if (tall) {
@@ -1131,7 +1148,7 @@ export function parkSVG({ tall = false, front = false, rain = false } = {}) {
       ${pond(184, 132)}
       ${tree(4, 1.45, 'round', G + 40)}${tree(352, 1.35, 'pine', G + 44)}
       ${bush(300, 54, true, G + 46)}
-      ${tufts}
+      ${tufts}${parkBench}
       ${blanket(10, G + 116)}
       ${fly(90, G + 92, '#ff9fb7', 0)}${fly(230, G + 150, '#ffd23f', -3)}
     </svg>`;
@@ -1146,7 +1163,7 @@ export function parkSVG({ tall = false, front = false, rain = false } = {}) {
     ${pond(520, 150)}
     ${bush(250, 70, true, G + 6)}${bush(760, 80, true, G + 6)}${bench(866, G + 14)}
     ${sign(38, G + 64)}${blanket(676, G + 78)}
-    ${tufts}
+    ${tufts}${parkBench}
     ${fly(240, G + 34, '#ff9fb7', 0)}${fly(720, G + 40, '#ffd23f', -3)}
   </svg>`;
 }
