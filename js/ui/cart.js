@@ -664,8 +664,8 @@ export class CartView {
             <div class="stats"><div class="stat"><div class="k">It costs</div><div class="v">${money(t.cost)}</div></div><div class="stat"><div class="k">You gave</div><div class="v">${money(total(t.given))}</div></div></div>
             ${t.due ? `<div class="tray"><div class="tiny">Your change:</div><div class="pieces">${pieces(t.change)}</div></div>
             <p><b>Count it! Is your change right?</b></p>
-            <div class="row" style="justify-content:center"><button class="btn big go" data-act="right">✅ That's right</button><button class="btn big yellow" data-act="wrong">🤔 That's not right</button></div>`
-              : '<div class="row" style="justify-content:center"><button class="btn big go" data-act="right">👍 OK</button></div>'}`;
+            <div class="row" style="justify-content:space-between"><button class="btn big yellow" data-act="wrong">🤔 That's not right</button><button class="btn big go" data-act="right" style="margin-left:auto">✅ That's right</button></div>`
+              : '<div class="row" style="justify-content:flex-end"><button class="btn big go" data-act="right">👍 OK</button></div>'}`;
         } else {
           const r = result;
           const amt = money(Math.abs(r.wrong));
@@ -677,7 +677,7 @@ export class CartView {
             extra: `Later you noticed you got ${amt} too much.`,
           }[r.result];
           body.innerHTML = `<div class="pay-top"><span class="big">${seller}</span><div class="say">${msg}</div></div>
-            <div class="row" style="justify-content:center"><button class="btn big go" data-act="ok">OK</button></div>`;
+            <div class="row" style="justify-content:flex-end"><button class="btn big go" data-act="ok">OK</button></div>`;
         }
       },
     });
