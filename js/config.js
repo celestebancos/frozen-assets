@@ -572,7 +572,7 @@ export const REGULARS = [
   { id: 'maya', name: 'Maya', kind: 'kid', look: 1, fav: 'iceCherry' },
   { id: 'jayden', name: 'Jayden', kind: 'kid', look: 4, fav: 'rocketPop' },
   { id: 'ortiz', name: 'Mr. Ortiz', kind: 'adult', look: 10, fav: 'fudgePop' },
-  { id: 'lou', name: 'Grandma Lou', kind: 'adult', look: 7, fav: 'iceLemon' },
+  { id: 'lou', name: 'Grandma Lou', kind: 'adult', look: 327, fav: 'iceLemon' }, // gray bun and glasses
   { id: 'priya', name: 'Priya', kind: 'teen', look: 3, fav: 'iceBlue' },
   { id: 'theo', name: 'Theo', kind: 'kid', look: 6, fav: 'freezePop' },
 ];

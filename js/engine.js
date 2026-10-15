@@ -1156,7 +1156,7 @@ export class Game {
     let type = forceType || r.weighted(weights);
     let members = [];
     const add = (k, n = 1) => {
-      for (let i = 0; i < n; i++) members.push({ kind: k, look: r.int(0, 11) });
+      for (let i = 0; i < n; i++) members.push({ kind: k, look: r.int(0, 9999) }); // art.js LOOKS: thousands of looks, so few repeats
     };
     switch (type) {
       case 'soloAdult': add('adult'); break;

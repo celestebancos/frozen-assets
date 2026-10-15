@@ -182,9 +182,25 @@ export function truckSVG(color, name, { width = 300, wheelsSpin = false, bling =
 
 const SKIN = ['#ffdbb5', '#f1c27d', '#c68642', '#8d5524', '#e0ac69', '#ffe0bd'];
 const HAIR = ['#2b1b0e', '#6b3e1e', '#e8c15a', '#b5532a', '#1a1a1a', '#9a9a9a'];
-const SHIRT = ['#ff6f91', '#5bc0eb', '#9bc53d', '#fde74c', '#c3423f', '#7d5ba6', '#ff9f1c', '#2ec4b6', '#e76f51', '#4361ee', '#f72585', '#06d6a0'];
-const PANTS = ['#355070', '#4a6fa5', '#6d597a', '#264653', '#c8a97e'];
-const SHOES = ['#2e2a45', '#ffffff', '#e5484d', '#3a8ee6', '#7a4a2a', '#ff6f91'];
+const SHIRT = ['#ff6f91', '#5bc0eb', '#9bc53d', '#fde74c', '#c3423f', '#7d5ba6', '#ff9f1c', '#2ec4b6', '#e76f51', '#4361ee', '#f72585', '#06d6a0',
+  '#ffffff', '#3d5a80', '#8ecae6', '#ffb4a2', '#b5e48c', '#cdb4db', '#ffc8dd', '#e9c46a', '#a8dadc', '#6c757d'];
+const PANTS = ['#355070', '#4a6fa5', '#6d597a', '#264653', '#c8a97e', '#3a3a48', '#7f8c8d', '#5c4033', '#6b7f3a', '#1d3557', '#8d99ae'];
+const KID_SHORTS = ['#e5484d', '#ff8fab', '#7d5ba6', '#2ec4b6', '#ffd23f']; // kids' shorts can be bright too
+const SHOES = ['#2e2a45', '#ffffff', '#e5484d', '#3a8ee6', '#7a4a2a', '#ff6f91', '#ffd23f', '#2ec4b6', '#9aa4b2'];
+const CAPS = ['#e5484d', '#3a8ee6', '#2f9e44', '#ffd23f', '#2e2a45', '#ff9f1c', '#7d5ba6'];
+const PRINTS = ['#ffffff', '#ffffff', '#2e2a45', '#ffd23f', '#3a8ee6', '#e5484d']; // stripes and polka dots
+// Customers' looks are numbers from 0 to LOOKS - 1. Each thing about them (shirt, pants, hair...) is its own pick from
+// the number, so two people with the same shirt rarely match in anything else. Odd looks are girls.
+export const LOOKS = 10000;
+function trait(look, k, n) {
+  let x = Math.imul((look | 0) ^ 0x5bd1e995, 0x27d4eb2d) ^ Math.imul(k + 1, 0x165667b1);
+  x ^= x >>> 15;
+  x = Math.imul(x, 0x85ebca6b);
+  x ^= x >>> 13;
+  x = Math.imul(x, 0xc2b2ae35);
+  x ^= x >>> 16;
+  return (x >>> 0) % n;
+}
 
 // Body shapes. Head center y and radius, shoulder and hip heights, shoulder and hip half widths,
 // arm and leg thickness. Kids have bigger heads for their size. Shoes sit on y 81.
@@ -238,7 +254,7 @@ function face(kind, look, skin, hair, girl, sleep = false) {
       ? `<path d="M${x - 1.6} 1 Q${x} 2.6 ${x + 1.6} 1" stroke="${INK}" stroke-width="0.95" fill="none" stroke-linecap="round"/>` // closed, fast asleep
       : `<ellipse cx="${x}" cy="1.2" rx="${(1.2 * big).toFixed(2)}" ry="${(1.55 * big).toFixed(2)}" fill="${INK}"/><circle cx="${x + 0.45}" cy="0.55" r="${(0.5 * big).toFixed(2)}" fill="#fff"/>`;
   const brow = shade(hair === '#9a9a9a' ? '#777777' : hair, -0.1);
-  const open = kind !== 'adult' && look % 3 === 0;
+  const open = kind !== 'adult' && trait(look, 18, 3) === 0;
   let out = `${eye(-3.7)}${eye(3.7)}
     <path d="M-5.3 -2.4 Q-3.8 -3.5 -2.3 -2.6 M5.3 -2.4 Q3.8 -3.5 2.3 -2.6" stroke="${brow}" stroke-width="0.95" fill="none" stroke-linecap="round"/>
     <ellipse cx="-6.2" cy="4.2" rx="1.9" ry="1.1" fill="#ff7f96" opacity="${skin === '#8d5524' ? 0.35 : 0.45}"/><ellipse cx="6.2" cy="4.2" rx="1.9" ry="1.1" fill="#ff7f96" opacity="${skin === '#8d5524' ? 0.35 : 0.45}"/>
@@ -255,30 +271,36 @@ export const CHARACTER = { skin: SKIN, hair: HAIR, girlStyles: GIRL_STYLES, boyS
 
 // look: a number that picks everything for a customer. me: the player's own character, chosen piece by
 // piece: { girl, skin, hair, style, shirt, pants, hat: 'cap'|'sunhat'|'beanie'|'crown'|null, shades, stars }.
-// pose: { sit, sleep }. Sitting, the lap is at the hips and the lower legs hang down to the feet, so the picture is
-// shorter (its bottom is still the feet); sleeping, the eyes are closed.
+// pose: { sit, sleep, plain }. Sitting, the lap is at the hips and the lower legs hang down to the feet, so the picture
+// is shorter (its bottom is still the feet); sleeping, the eyes are closed; plain: no hat, sunglasses or glasses.
 let shirtN = 0; // each striped shirt gets its own cut-out shape
-export function personSVG(kind, look = 0, me = null, { sit = false, sleep = false } = {}) {
+export function personSVG(kind, look = 0, me = null, { sit = false, sleep = false, plain = false } = {}) {
   if (kind === 'dog') return dogSVG(look);
   if (!BUILD[kind]) kind = 'adult';
   const B = BUILD[kind];
-  const skin = me ? SKIN[me.skin % SKIN.length] : SKIN[look % SKIN.length];
-  let hair = me ? HAIR[me.hair % HAIR.length] : HAIR[(look * 7) % HAIR.length];
+  const t = (k, n) => trait(look, k, n);
+  const skin = me ? SKIN[me.skin % SKIN.length] : SKIN[t(1, SKIN.length)];
+  let hair = me ? HAIR[me.hair % HAIR.length] : HAIR[t(2, HAIR.length)];
   if (kind !== 'adult' && hair === '#9a9a9a') hair = '#6b3e1e'; // no gray hair on kids
-  const shirt = me ? me.shirt : SHIRT[(look * 5) % SHIRT.length];
-  const pants = me ? me.pants : PANTS[look % PANTS.length];
-  const shoes = SHOES[(look * 5 + (kind === 'kid' ? 2 : 0)) % SHOES.length];
+  const shirt = me ? me.shirt : SHIRT[t(3, SHIRT.length)];
+  const shoes = SHOES[t(5, SHOES.length)];
   const girl = me ? !!me.girl : look % 2 === 1;
-  const style = me ? me.style : (girl ? GIRL_STYLES : BOY_STYLES)[Math.floor(look / 2) % 6];
-  const dress = !me && girl && look % 4 === 1;
-  const shorts = !dress && (kind === 'kid' || look % 3 !== 0);
-  const tank = !me && kind !== 'kid' && look % 6 === 4;
-  const stripes = !me && !dress && look % 5 === 2;
-  const cap = me ? me.hat === 'cap' : !girl && kind !== 'adult' && look % 4 === 0;
-  const sunhat = me ? me.hat === 'sunhat' : girl && kind === 'adult' && look % 4 === 3;
-  const shades = me ? !!me.shades : kind !== 'kid' && !cap && look % 5 === 3;
-  const glasses = !me && kind === 'adult' && !shades && look % 5 === 1;
-  const beard = !me && kind === 'adult' && !girl && (look === 4 || look === 10);
+  const style = me ? me.style : (girl ? GIRL_STYLES : BOY_STYLES)[t(6, 6)];
+  const dress = !me && girl && t(7, 3) === 0;
+  const shorts = !dress && (kind === 'kid' || t(8, 3) !== 0);
+  const kidShorts = kind === 'kid' && t(19, 3) === 0;
+  const pants = me ? me.pants : kidShorts ? KID_SHORTS[t(4, KID_SHORTS.length)] : PANTS[t(4, PANTS.length)];
+  const tank = !me && kind !== 'kid' && t(9, 6) === 0;
+  const print = me || dress ? 9 : t(10, 10); // 0-1 stripes, 2 polka dots, 3 a star, the rest plain
+  const stripes = print < 2;
+  let ink = PRINTS[t(11, PRINTS.length)];
+  if (ink === shirt || (ink === '#ffffff' && ['#ffffff', '#ffc8dd', '#a8dadc', '#fde74c'].includes(shirt))) ink = '#2e2a45'; // stripes you can see
+  const cap = !plain && (me ? me.hat === 'cap' : !girl && kind !== 'adult' && t(12, 4) === 0);
+  const capColor = me ? '#e5484d' : CAPS[t(13, CAPS.length)];
+  const sunhat = !plain && (me ? me.hat === 'sunhat' : girl && kind === 'adult' && t(14, 4) === 0);
+  const shades = !plain && (me ? !!me.shades : kind !== 'kid' && !cap && t(15, 5) === 0);
+  const glasses = !plain && !me && kind === 'adult' && !shades && t(16, 5) === 0;
+  const beard = !me && kind === 'adult' && !girl && t(17, 6) === 0;
   const { hy, hr, sh, hip, sw, hw, aw, lw } = B;
   const s = hr / 10;
   const knee = hip + (FOOT - hip) * 0.42;
@@ -327,10 +349,16 @@ export function personSVG(kind, look = 0, me = null, { sit = false, sleep = fals
     const id = `shirt${++shirtN}`;
     const lines = [];
     for (let y = sh + 4.5; y < top - 2; y += 7.5) {
-      for (const [dy, w] of [[0, 1.1], [1.6, 0.5], [3.1, 1.1]]) lines.push(`<path d="M${20 - sw - 6} ${(y + dy).toFixed(2)} H${20 + sw + 6}" stroke="#fff" stroke-width="${w}" opacity=".9"/>`);
+      for (const [dy, w] of [[0, 1.1], [1.6, 0.5], [3.1, 1.1]]) lines.push(`<path d="M${20 - sw - 6} ${(y + dy).toFixed(2)} H${20 + sw + 6}" stroke="${ink}" stroke-width="${w}" opacity=".9"/>`);
     }
     stripeLines = `<clipPath id="${id}"><path d="${torsoD}"/></clipPath><g clip-path="url(#${id})">${lines.join('')}</g><path d="${torsoD}" fill="none" ${OUT}/>`;
-  } else if ((me ? me.stars : look % 4 === 2) && !dress) stripeLines = star(20, sh + 10, 3.4, '#fff', 'none');
+  } else if (print === 2) {
+    // polka dots, cut to the shirt's shape like the stripes
+    const id = `shirt${++shirtN}`;
+    const dots = [];
+    for (let y = sh + 3, row = 0; y < top; y += 4.6, row++) for (let x = 20 - sw - 4 + (row % 2) * 2.6; x < 20 + sw + 5; x += 5.2) dots.push(`<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="1.1"/>`);
+    stripeLines = `<clipPath id="${id}"><path d="${torsoD}"/></clipPath><g clip-path="url(#${id})" fill="${ink}" opacity=".9">${dots.join('')}</g><path d="${torsoD}" fill="none" ${OUT}/>`;
+  } else if ((me ? me.stars : print === 3) && !dress) stripeLines = star(20, sh + 10, 3.4, me ? '#fff' : ink, 'none');
   const neckline = tank
     ? `<path d="M${20 - 4} ${sh} Q20 ${sh + 5} ${20 + 4} ${sh}" fill="${skin}" stroke="${INK}" stroke-width="0.9"/>`
     : `<path d="M${20 - 3.2} ${sh} Q20 ${sh + 3} ${20 + 3.2} ${sh}" fill="${skin}" stroke="${INK}" stroke-width="0.9"/>`;
@@ -342,7 +370,7 @@ export function personSVG(kind, look = 0, me = null, { sit = false, sleep = fals
   extras += face(kind, look, skin, hair, girl, sleep);
   if (glasses) extras += `<g fill="#fff" fill-opacity=".3" stroke="${INK}" stroke-width="0.9"><circle cx="-3.7" cy="1.2" r="2.7"/><circle cx="3.7" cy="1.2" r="2.7"/></g><path d="M-1 1 Q0 0.2 1 1" stroke="${INK}" stroke-width="0.9" fill="none"/>`;
   if (shades) extras += `<g fill="${INK}"><rect x="-6.9" y="-1" width="5.6" height="4" rx="1.8"/><rect x="1.3" y="-1" width="5.6" height="4" rx="1.8"/></g><path d="M-1.4 0 H1.4" stroke="${INK}" stroke-width="1"/><path d="M-5.6 -0.1 l1.6 0 M2.6 -0.1 l1.6 0" stroke="#fff" stroke-width="0.8" opacity=".6"/>`;
-  if (cap) extras += `<path d="M-10.6 -3 Q-11 -13.4 0 -13.4 Q11 -13.4 10.6 -3 Z" fill="#e5484d" ${OUT}/><path d="M-11.4 -3.6 Q0 -6.4 11.4 -3.6 Q12 -1 10 -0.6 Q0 -2.8 -10 -0.6 Q-12 -1 -11.4 -3.6 Z" fill="#c3423f" ${OUT}/><circle cx="0" cy="-13" r="1.2" fill="#c3423f"/>`;
+  if (cap) extras += `<path d="M-10.6 -3 Q-11 -13.4 0 -13.4 Q11 -13.4 10.6 -3 Z" fill="${capColor}" ${OUT}/><path d="M-11.4 -3.6 Q0 -6.4 11.4 -3.6 Q12 -1 10 -0.6 Q0 -2.8 -10 -0.6 Q-12 -1 -11.4 -3.6 Z" fill="${shade(capColor, -0.15)}" ${OUT}/><circle cx="0" cy="-13" r="1.2" fill="${shade(capColor, -0.15)}"/>`;
   if (me?.hat === 'beanie') extras += `<path d="M-10.4 -2 Q-11 -13 0 -13 Q11 -13 10.4 -2 Z" fill="#3a8ee6" ${OUT}/><path d="M-10.4 -2 Q0 -5 10.4 -2" stroke="#ffd23f" stroke-width="2.4" fill="none"/><path d="M0 -13 V-17" stroke="${INK}" stroke-width="1.4"/><g class="prop" style="transform-origin:0px -17.5px"><path d="M-8 -17.5 Q-4 -20.5 0 -17.5 Q4 -14.5 8 -17.5 Q4 -20.5 0 -17.5 Q-4 -14.5 -8 -17.5 Z" fill="#e5484d" ${OUT}/></g>`;
   if (me?.hat === 'crown') extras += `<path d="M-9 -6 L-10 -17 L-5 -11 L0 -19 L5 -11 L10 -17 L9 -6 Z" fill="#ffd23f" ${OUT}/><circle cx="0" cy="-9" r="1.6" fill="#e5484d"/><circle cx="-5.6" cy="-8.4" r="1.1" fill="#3a8ee6"/><circle cx="5.6" cy="-8.4" r="1.1" fill="#3a8ee6"/>`;
   if (sunhat) extras += `<ellipse cx="0" cy="-6" rx="16.5" ry="3.6" fill="#f7e3b5" ${OUT}/><path d="M-8 -6 Q-8.4 -15.5 0 -15.5 Q8.4 -15.5 8 -6 Z" fill="#f7e3b5" ${OUT}/><path d="M-8 -7.6 Q0 -6 8 -7.6 L8 -6 Q0 -4.4 -8 -6 Z" fill="${shirt}"/>`;
