@@ -339,8 +339,13 @@ export const CART = {
   parkClose: 16 * 60,
   // Minutes each errand takes. From the park, the corner store means closing the cart for a bit.
   errand: { restaurant: 45, corner: 15, cornerFromPark: 20 },
-  coolerSpace: 40, // every pop or cup of Italian ice takes 1 space
-  freezerSpace: 300, // the freezer at home, which holds everything that isn't in the cooler
+  // The cooler has two trays of 20 spots (5 × 4), one on top of the other. Each pop or cup takes a spot.
+  coolerTrays: 2,
+  traySpots: 20,
+  coolerSpace: 40,
+  // The freezer at home has two shelves, each with room for 6 boxes standing side by side.
+  freezerShelves: 2,
+  shelfSlots: 6,
   priceStep: 25,
   vendorMistake: 0.15, // how often a seller gets your change wrong
 };

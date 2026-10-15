@@ -69,13 +69,107 @@ export function moneySVG(d, w = 54) {
 
 // ---------- treats ----------
 export function iceCupSVG(color, size = 34) {
-  return `<svg viewBox="0 0 40 40" width="${size}" height="${size}" class="icecream" xmlns="http://www.w3.org/2000/svg"><path d="M9 16 Q9 4 20 4 Q31 4 31 16 Z" fill="${color}" ${thin}/><path d="M13 12 Q14 7 19 6.5" stroke="#fff" stroke-width="2" opacity=".6" fill="none" stroke-linecap="round"/><path d="M27 2 L23 13" stroke="#fff" stroke-width="2.6" stroke-linecap="round"/><path d="M27 2 L23 13" stroke="${INK}" stroke-width="0.8" stroke-linecap="round" fill="none"/><path d="M7 15 H33 L29.5 37 H10.5 Z" fill="#fffaf0" ${thin}/><path d="M9 21 H31 M9.8 27 H30.2" stroke="#ff6f91" stroke-width="2"/></svg>`;
+  return `<svg viewBox="0 0 40 40" width="${size}" height="${size}" class="icecream" xmlns="http://www.w3.org/2000/svg"><path d="M9 16 Q9 4 20 4 Q31 4 31 16 Z" fill="${color}" ${thin}/><path d="M13 12 Q14 7 19 6.5" stroke="#fff" stroke-width="2" opacity=".6" fill="none" stroke-linecap="round"/><path d="M7 15 H33 L29.5 37 H10.5 Z" fill="#fffaf0" ${thin}/><path d="M9 21 H31 M9.8 27 H30.2" stroke="#ff6f91" stroke-width="2"/></svg>`;
 }
+// A white plastic spoon lying on the counter.
 export function spoonSVG(size = 34) {
-  return `<svg viewBox="0 0 40 40" width="${size}" height="${size}" class="thing" xmlns="http://www.w3.org/2000/svg"><g transform="rotate(35 20 20)"><ellipse cx="20" cy="9" rx="6" ry="8" fill="#fffaf0" ${thin}/><path d="M18.4 16 H21.6 V36 Q21.6 38 20 38 Q18.4 38 18.4 36 Z" fill="#fffaf0" ${thin}/></g></svg>`;
+  return `<svg viewBox="0 0 40 40" width="${size}" height="${size}" class="thing" xmlns="http://www.w3.org/2000/svg"><g transform="translate(9 33) rotate(48)">${spoon(0, 0, 0, 34, 0.75)}</g></svg>`;
 }
+// One paper napkin, folded into a triangle, with a printed border.
 export function napkinSVG(size = 34) {
-  return `<svg viewBox="0 0 40 40" width="${size}" height="${size}" class="thing" xmlns="http://www.w3.org/2000/svg"><path d="M6 10 L30 6 L34 30 L10 34 Z" fill="#fff" ${thin}/><path d="M6 10 L30 6 L22 18 Z" fill="#e8f7ff" ${thin}/><path d="M12 28 L28 25" stroke="#7cc8ff" stroke-width="1.6"/></svg>`;
+  return `<svg viewBox="0 0 40 40" width="${size}" height="${size}" class="thing" xmlns="http://www.w3.org/2000/svg"><path d="M3 32 H37 L20 10 Z" fill="#fff" ${thin}/><path d="M8.5 29.5 H31.5 L20 14.5 Z" fill="none" stroke="#ff8fb1" stroke-width="1.5" stroke-dasharray="3 2.4"/></svg>`;
+}
+
+// ---------- spoons and napkins on the cart ----------
+// A spoon, bowl up, its handle ending at (x, y).
+function spoon(x, y, angle = 0, len = 58, k = 1) {
+  return `<g transform="translate(${x} ${y}) rotate(${angle})">
+    <path d="M${-2.4 * k} 0 L${-2 * k} ${-len + 16 * k} Q0 ${-len + 13 * k} ${2 * k} ${-len + 16 * k} L${2.4 * k} 0 Q0 ${2 * k} ${-2.4 * k} 0 Z" fill="#fbfbfd" ${thin}/>
+    <ellipse cx="0" cy="${-len + 6 * k}" rx="${8 * k}" ry="${11 * k}" fill="#fbfbfd" ${thin}/>
+    <ellipse cx="${-1.6 * k}" cy="${-len + 3 * k}" rx="${3 * k}" ry="${5 * k}" fill="#e6ebf2"/></g>`;
+}
+// The paper cup of spoons on the cart's counter, with n spoons standing in it (0–7). It empties as you use them.
+export function spoonCupSVG(n = 7) {
+  const angles = [-16, 10, -6, 18, 2, -12, 7].slice(0, Math.max(0, Math.min(7, n)));
+  const m = angles.length;
+  const spoons = angles.map((a, i) => spoon(25 + (i - (m - 1) / 2) * 6, -8, a, 70 + (i % 3) * 5)).join('');
+  return `<svg viewBox="-9 -100 68 102" class="spoon-cup" xmlns="http://www.w3.org/2000/svg">${spoons}
+    <path d="M-5 -58 H55 L50 0 H0 Z" fill="#3cc6a0" ${OUT}/>
+    <path d="M-3.3 -40 H53.3 L52 -30 H-2 Z" fill="#fff" opacity=".9"/>
+    <path d="M-6 -60 H56" stroke="${INK}" stroke-width="4" stroke-linecap="round"/></svg>`;
+}
+// The stack of paper napkins on the counter, seen from a little above: `layers` napkins high (0–10). The top one
+// has a printed border, a fold line and a corner turned up.
+export function napkinStackSVG(layers = 9) {
+  const n = Math.max(0, Math.min(10, layers));
+  const w = 78;
+  const d = 26;
+  const t = 2.6;
+  if (!n) return `<svg viewBox="-3 -56 110 58" class="napkin-stack" xmlns="http://www.w3.org/2000/svg"></svg>`;
+  let rows = '';
+  for (let i = 0; i < n; i++) rows += `<path d="M0 ${-i * t} H${w} V${-i * t - t} H0 Z" fill="${i % 2 ? '#ffffff' : '#f1f4f8'}" stroke="#c9d3df" stroke-width=".8"/>`;
+  const top = -n * t;
+  return `<svg viewBox="-3 -56 110 58" class="napkin-stack" xmlns="http://www.w3.org/2000/svg">
+    <path d="M0 0 H${w} L${w + 16} ${-d} V${top - d} L${w} ${top} V0 Z" fill="#e3e9f1" ${thin}/>${rows}
+    <path d="M0 0 H${w} V${top} H0 Z" fill="none" ${thin}/>
+    <path d="M0 ${top} L16 ${top - d} H${w + 16} L${w} ${top} Z" fill="#fff" ${thin}/>
+    <path d="M6 ${top - 3} L19 ${top - d + 3} H${w + 10} L${w - 3} ${top - 3} Z" fill="none" stroke="#ff8fb1" stroke-width="2" stroke-dasharray="4 3"/>
+    <path d="M8 ${top - 1.5} L${w + 8} ${top - d + 1.5}" stroke="#d7dee8" stroke-width="1.6"/>
+    <path d="M${w - 24} ${top} H${w} L${w + 7} ${top - 9} Z" fill="#f1f4f8"/>
+    <path d="M${w - 24} ${top} Q${w - 12} ${top - 4} ${w - 6} ${top - 20} Q${w + 2} ${top - 10} ${w + 7} ${top - 9}" fill="#fff" ${thin}/>
+    <path d="M${w - 18} ${top - 2} Q${w - 10} ${top - 6} ${w - 7} ${top - 15}" fill="none" stroke="#ff8fb1" stroke-width="1.6" stroke-dasharray="3 2.5"/></svg>`;
+}
+// What spoons and napkins come in at the store (and how they sit on the shelf at home).
+export function spoonBoxSVG() {
+  const win = [0, 1, 2, 3].map((i) => spoon(16 + i * 10, 70, -12, 40, 0.8)).join('');
+  return `<svg viewBox="-2 -2 80 74" class="supply-pack" xmlns="http://www.w3.org/2000/svg"><rect width="76" height="70" rx="5" fill="#fffaf0" ${OUT}/><rect width="76" height="18" rx="5" fill="#3cc6a0" ${OUT}/>${label(38, 9.5, 'SPOONS', 11, '#fff')}
+    <clipPath id="spoon-win"><rect x="6" y="24" width="46" height="40" rx="4"/></clipPath><rect x="6" y="24" width="46" height="40" rx="4" fill="#e9f6ff" ${thin}/><g clip-path="url(#spoon-win)">${win}</g><rect x="6" y="24" width="46" height="40" rx="4" fill="none" ${thin}/>
+    <circle cx="62" cy="50" r="12" fill="#ffd23f" ${thin}/>${label(62, 51, '100', 10)}</svg>`;
+}
+export function napkinPackSVG() {
+  let lines = '';
+  for (let i = 0; i < 12; i++) lines += `<path d="M3 ${18 + i * 4.2} H73" stroke="#d7dee8" stroke-width="1"/>`;
+  return `<svg viewBox="-3 -2 92 74" class="supply-pack" xmlns="http://www.w3.org/2000/svg"><rect y="14" width="76" height="56" rx="6" fill="#fff" ${OUT}/>${lines}
+    <path d="M6 14 L22 0 H86 L76 14 Z" fill="#fff" ${thin}/>
+    <rect x="-1" y="32" width="78" height="20" fill="#ff8fb1" ${thin}/>${label(38, 42.5, 'NAPKINS', 11, '#fff')}
+    <circle cx="64" cy="60" r="12" fill="#ffd23f" ${thin}/>${label(64, 61, '100', 10)}</svg>`;
+}
+
+// The cooler with its lid shut, sitting on the floor at home.
+export function coolerSVG() {
+  return `<svg viewBox="0 0 120 92" class="cooler-shut" xmlns="http://www.w3.org/2000/svg"><rect x="6" y="26" width="108" height="62" rx="10" fill="#7cc8ff" ${OUT}/><rect x="2" y="12" width="116" height="20" rx="8" fill="#a9dcff" ${OUT}/><path d="M44 12 V4 H76 V12" fill="none" stroke="${INK}" stroke-width="4" stroke-linejoin="round"/><path d="M14 46 H106" stroke="#5fb2ee" stroke-width="3"/><rect x="48" y="54" width="24" height="10" rx="3" fill="#e3e8ee" ${thin}/></svg>`;
+}
+
+// ---------- boxes of treats ----------
+const label = (x, y, t, size = 16, fill = INK, extra = '') => `<text x="${x}" y="${y}" font-size="${size}" font-family="Baloo 2, sans-serif" font-weight="800" fill="${fill}" text-anchor="middle" dominant-baseline="central" ${extra}>${t}</text>`;
+// Put one of these <svg> drawings inside another at x, y.
+const nest = (svg, x, y, w, h = w) => svg.replace(/^<svg /, `<svg x="${x}" y="${y}" `).replace(/ width="[\d.]+" height="[\d.]+"/, ` width="${w}" height="${h}"`);
+export const BOX_LOOK = {
+  rocketPop: { color: '#3a8ee6', name: 'ROCKET POPS' },
+  fudgePop: { color: '#7b4a2e', name: 'FUDGE POPS' },
+  freezePop: { color: '#9b6cf0', name: 'FREEZE POPS' },
+  iceCherry: { color: '#e5484d', name: 'CHERRY ICE' },
+  iceLemon: { color: '#e9b800', name: 'LEMON ICE' },
+  iceBlue: { color: '#1fa6d6', name: 'BLUE ICE' },
+};
+// The front of a box at the store: a picture of what's inside and how many.
+export function boxFrontSVG(id, qty) {
+  const b = BOX_LOOK[id];
+  return `<svg viewBox="-2 -2 100 82" class="box-front" xmlns="http://www.w3.org/2000/svg">
+    <rect width="96" height="78" rx="5" fill="#fffaf0" ${OUT}/><rect width="96" height="18" rx="5" fill="${b.color}" ${OUT}/>
+    ${label(48, 9.5, b.name, 10.5, '#fff')}${nest(treatSVG(id, 44), 6, 22, 44)}
+    <circle cx="72" cy="46" r="17" fill="#ffd23f" ${thin}/>${label(72, 47, qty, 17)}</svg>`;
+}
+// The side of a box standing on a freezer shelf, with its label running up it. An open box has its flap up.
+export function boxSideSVG(id, open = false) {
+  const b = BOX_LOOK[id];
+  const w = 70;
+  const h = 118;
+  return `<svg viewBox="-8 -28 86 150" class="box-side" xmlns="http://www.w3.org/2000/svg">
+    ${open ? `<path d="M3 0 L-4 -22 L${w - 12} -24 L${w - 3} 0 Z" fill="#fff3d6" ${thin}/>` : ''}
+    <rect width="${w}" height="${h}" rx="3" fill="#fffaf0" ${OUT}/><rect x="1.5" y="1.5" width="14" height="${h - 3}" fill="${b.color}"/>
+    ${nest(treatSVG(id, 34), 22, 8, 34)}
+    ${label(w / 2 + 7, h / 2 + 22, b.name, 11, b.color, `transform="rotate(-90 ${w / 2 + 7} ${h / 2 + 22})"`)}</svg>`;
 }
 // Anything that goes on the counter: a treat, 'spoon' or 'napkin'.
 export function thingSVG(id, size = 34) {

@@ -78,6 +78,12 @@ export function choosePayment(pocket, due, rng) {
 }
 
 // ---------- state ----------
+// How many treats come in a box from the restaurant store.
+const BOX_SIZE = Object.fromEntries(CART_SHOPS.restaurant.items.filter((i) => i.kind === 'stock').map((i) => [i.item, i.qty]));
+export const boxSize = (id) => BOX_SIZE[id] || 24;
+const emptyShelves = () => Array.from({ length: K.freezerShelves }, () => Array(K.shelfSlots).fill(null));
+const emptyTrays = () => Array.from({ length: K.coolerTrays }, () => Array(K.traySpots).fill(null));
+
 export function newCartState({ player, look, seed }) {
   const s = {
     version: 1,
@@ -91,9 +97,11 @@ export function newCartState({ player, look, seed }) {
     weather: null,
     money: { box: { ...K.start.box }, wallet: { ...K.start.wallet }, jar: {}, bank: 0 },
     prices: Object.fromEntries(CART_ITEMS.map((i) => [i.id, i.fair])),
-    // how many of each treat (pops and little cups of Italian ice)
-    freezer: { pops: {} },
-    cooler: { pops: {} },
+    // The freezer at home: shelves of box spots. A box is { item, n } (n: how many treats are left in it).
+    freezer: { shelves: emptyShelves() },
+    counter: [], // boxes from the store on the kitchen counter, not put away yet (they melt if left out)
+    // The cooler: trays of spots, each holding one treat id or null. trays[top] is the one you can see.
+    cooler: { trays: emptyTrays(), top: 0 },
     spoons: 0, // every Italian ice needs one
     napkins: 0, // to hand out if you like
     owned: [], // ids of things bought to keep (gear, decals, hats, glasses, shirts, toys)
@@ -132,6 +140,28 @@ export class Cart {
       delete state.cups;
     }
     state.spoons ??= 0;
+    // older saves: a count of each treat in the freezer and the cooler, with no boxes or spots
+    if (!state.freezer.shelves) {
+      const old = state.freezer.pops || {};
+      state.freezer = { shelves: emptyShelves() };
+      state.counter = [];
+      for (const it of CART_ITEMS) {
+        let n = old[it.id] || 0;
+        while (n > 0) {
+          const b = { item: it.id, n: Math.min(n, boxSize(it.id)) };
+          n -= b.n;
+          const spot = this.emptySlot();
+          if (spot) this.setBox(spot, b);
+          else state.counter.push(b);
+        }
+      }
+    }
+    state.counter ??= [];
+    if (!state.cooler.trays) {
+      const old = state.cooler.pops || {};
+      state.cooler = { trays: emptyTrays(), top: 0 };
+      for (const [id, n] of Object.entries(old)) for (let i = 0; i < n; i++) this.toCooler(id);
+    }
     if (!state.stats.soldItems) {
       state.stats.soldItems = {};
       for (const d of state.days || []) for (const [id, n] of Object.entries(d.sold || {})) state.stats.soldItems[id] = (state.stats.soldItems[id] || 0) + n;
@@ -202,44 +232,142 @@ export class Cart {
   isIce(id) {
     return CART_ITEM[id]?.kind === 'ice';
   }
-  count(where, id) {
-    return this.state[where].pops[id] || 0;
+  // Every box at home: on the freezer shelves and on the kitchen counter, with where it is.
+  // Where a box is: 's0-3' (top shelf, 4th spot), 's1-0' (bottom shelf, 1st spot), 'c2' (3rd box on the counter).
+  homeBoxes() {
+    const s = this.state;
+    const out = [];
+    s.freezer.shelves.forEach((shelf, r) => shelf.forEach((b, i) => b && out.push({ loc: `s${r}-${i}`, box: b })));
+    s.counter.forEach((b, i) => out.push({ loc: `c${i}`, box: b }));
+    return out;
   }
-  // Every treat takes one space.
+  boxAt(loc) {
+    const s = this.state;
+    const m = /^s(\d+)-(\d+)$/.exec(loc || '');
+    if (m) return s.freezer.shelves[m[1]]?.[m[2]] ?? null;
+    const c = /^c(\d+)$/.exec(loc || '');
+    if (c) return s.counter[c[1]] ?? null;
+    return null;
+  }
+  isSlot(loc) {
+    const m = /^s(\d+)-(\d+)$/.exec(loc || '');
+    return !!m && Number(m[1]) < K.freezerShelves && Number(m[2]) < K.shelfSlots;
+  }
+  // Puts a box (or null) at a spot. On the counter, null takes the box away.
+  setBox(loc, box) {
+    const s = this.state;
+    const m = /^s(\d+)-(\d+)$/.exec(loc);
+    if (m) s.freezer.shelves[m[1]][m[2]] = box;
+    else {
+      const i = Number(loc.slice(1));
+      if (box) s.counter[i] = box;
+      else s.counter.splice(i, 1);
+    }
+  }
+  emptySlot() {
+    for (let r = 0; r < K.freezerShelves; r++) for (let i = 0; i < K.shelfSlots; i++) if (!this.state.freezer.shelves[r][i]) return `s${r}-${i}`;
+    return null;
+  }
+  get freeSlots() {
+    return this.state.freezer.shelves.flat().filter((b) => !b).length;
+  }
+  // Move a box to a spot in the freezer. If there's a box there already, they trade places.
+  moveBox(from, to) {
+    const s = this.state;
+    if (s.phase !== 'home' || from === to || !this.isSlot(to)) return false;
+    const a = this.boxAt(from);
+    if (!a) return false;
+    const b = this.boxAt(to);
+    this.setBox(to, a);
+    this.setBox(from, b);
+    return true;
+  }
+  // The cooler. Spots are numbered 0–19 across and down a tray.
+  get topTray() {
+    const c = this.state.cooler;
+    return c.trays[c.top];
+  }
+  swapTrays() {
+    const c = this.state.cooler;
+    c.top = (c.top + 1) % c.trays.length;
+  }
+  // Swap two spots on the top tray (either can be empty).
+  moveSpot(i, j) {
+    const t = this.topTray;
+    if (!(i in t) || !(j in t) || i === j) return false;
+    [t[i], t[j]] = [t[j], t[i]];
+    return true;
+  }
+  // Puts a treat in the first empty spot: on the top tray if there's room, otherwise underneath.
+  toCooler(id, from = null) {
+    const c = this.state.cooler;
+    if (from && c.trays[from.t]?.[from.i] === null) {
+      c.trays[from.t][from.i] = id;
+      return from;
+    }
+    for (const t of [c.top, ...c.trays.keys()]) {
+      const i = c.trays[t].indexOf(null);
+      if (i >= 0) {
+        c.trays[t][i] = id;
+        return { t, i };
+      }
+    }
+    return null;
+  }
+  count(where, id) {
+    if (where === 'cooler') return this.state.cooler.trays.flat().filter((x) => x === id).length;
+    return this.homeBoxes().reduce((a, { box }) => a + (box.item === id ? box.n : 0), 0);
+  }
+  // Treats in the cooler (where === 'cooler'), or boxes at home.
   spaceUsed(where) {
-    return Object.values(this.state[where].pops).reduce((a, b) => a + b, 0);
+    if (where === 'cooler') return this.state.cooler.trays.flat().filter(Boolean).length;
+    return this.homeBoxes().length;
   }
   get coolerFree() {
     return K.coolerSpace - this.spaceUsed('cooler');
   }
-  // The freezer at home holds everything, including what's packed in the cooler.
-  get freezerFree() {
-    return K.freezerSpace - this.spaceUsed('freezer') - this.spaceUsed('cooler');
+  // Take one treat out of a box and put it in the first empty spot on the top tray. An empty box gets recycled.
+  packOne(loc) {
+    const s = this.state;
+    if (s.phase !== 'home') return { ok: false, reason: 'notHome' };
+    const box = this.boxAt(loc);
+    if (!box || box.n <= 0) return { ok: false, reason: 'none' };
+    const i = this.topTray.indexOf(null);
+    if (i < 0) return { ok: false, reason: this.coolerFree ? 'trayFull' : 'full' };
+    this.topTray[i] = box.item;
+    box.n--;
+    const emptied = box.n <= 0;
+    if (emptied) this.setBox(loc, null);
+    return { ok: true, i, emptied };
   }
-  // Freezer → cooler.
+  // Put a treat from the top tray back in its box (if it's the same kind and there's room).
+  unpackOne(i, loc) {
+    const s = this.state;
+    if (s.phase !== 'home') return { ok: false, reason: 'notHome' };
+    const id = this.topTray[i];
+    const box = this.boxAt(loc);
+    if (!id || !box) return { ok: false };
+    if (box.item !== id) return { ok: false, reason: 'kind' };
+    if (box.n >= boxSize(id)) return { ok: false, reason: 'boxFull' };
+    box.n++;
+    this.topTray[i] = null;
+    return { ok: true };
+  }
+  // Pack n of a treat from whatever boxes have it (open boxes first), on whichever tray has room.
   pack(id, n = 1) {
     const s = this.state;
     if (s.phase !== 'home') return { ok: false, reason: 'notHome' };
-    n = Math.min(n, s.freezer.pops[id] || 0, this.coolerFree);
-    if (n <= 0) return { ok: false, reason: s.freezer.pops[id] || 0 ? 'full' : 'none' };
-    s.freezer.pops[id] -= n;
-    s.cooler.pops[id] = (s.cooler.pops[id] || 0) + n;
-    return { ok: true, n };
-  }
-  unpack(id, n = 1) {
-    const s = this.state;
-    if (s.phase !== 'home') return { ok: false, reason: 'notHome' };
-    n = Math.min(n, s.cooler.pops[id] || 0);
-    if (n <= 0) return { ok: false };
-    s.cooler.pops[id] -= n;
-    s.freezer.pops[id] = (s.freezer.pops[id] || 0) + n;
-    return { ok: true, n };
-  }
-  // Everything left in the cooler goes back in the freezer (each night).
-  unpackAll() {
-    const s = this.state;
-    for (const [id, n] of Object.entries(s.cooler.pops)) s.freezer.pops[id] = (s.freezer.pops[id] || 0) + n;
-    s.cooler = { pops: {} };
+    let done = 0;
+    while (done < n && this.coolerFree > 0) {
+      const from = this.homeBoxes().filter((x) => x.box.item === id).sort((a, b) => a.box.n - b.box.n)[0];
+      if (!from) break;
+      this.toCooler(id);
+      from.box.n--;
+      if (from.box.n <= 0) this.setBox(from.loc, null);
+      done++;
+    }
+    if (!done) return { ok: false, reason: this.count('freezer', id) ? 'full' : 'none' };
+    return { ok: true, n: done };
   }
   // Is there one in the cooler?
   canSell(id) {
@@ -268,18 +396,25 @@ export class Cart {
   shopItem(shop, id) {
     return CART_SHOPS[shop]?.items.find((i) => i.id === id);
   }
-  // Does a basket fit and make sense? basket: { itemId: qty }
+  // Does a basket make sense? basket: { itemId: qty }. (Whether it fits in the freezer is up to you.)
   checkBasket(shop, basket) {
-    let space = 0;
     for (const [id, q] of Object.entries(basket)) {
       const it = this.shopItem(shop, id);
       if (!it || q <= 0) continue;
-      if (it.kind === 'stock') space += it.qty * q;
       if (['gear', 'decal', 'hat', 'glasses', 'shirt'].includes(it.kind) && this.state.owned.includes(it.id)) return { ok: false, reason: 'owned', item: it };
       if (it.kind === 'balloon' && this.state.phase !== 'park') return { ok: false, reason: 'park', item: it };
     }
-    if (space > this.freezerFree) return { ok: false, reason: 'freezer', space };
-    return { ok: true, space };
+    return { ok: true };
+  }
+  boxesIn(shop, basket) {
+    return Object.entries(basket).reduce((a, [id, q]) => a + (this.shopItem(shop, id)?.kind === 'stock' ? q : 0), 0);
+  }
+  // Will these boxes fit in the freezer at home (with what's already on the counter)? If not, the cashier drops a
+  // hint: 'room' for a box or two ("Do you have room in your freezer for that?"), 'lots' for more.
+  roomHint(shop, basket) {
+    const boxes = this.boxesIn(shop, basket);
+    if (!boxes || boxes <= this.freeSlots - this.state.counter.length) return null;
+    return boxes <= 2 ? 'room' : 'lots';
   }
   basketCost(shop, basket) {
     return Object.entries(basket).reduce((s, [id, q]) => s + (this.shopItem(shop, id)?.price || 0) * q, 0);
@@ -346,7 +481,7 @@ export class Cart {
     const s = this.state;
     switch (it.kind) {
       case 'stock':
-        s.freezer.pops[it.item] = (s.freezer.pops[it.item] || 0) + it.qty;
+        s.counter.push({ item: it.item, n: it.qty }); // on the kitchen counter, to put away
         break;
       case 'spoons':
       case 'napkins':
@@ -441,7 +576,10 @@ export class Cart {
     s.minute = Math.max(s.minute, K.parkOpen);
     s.line = [];
     s.window = null;
-    s.today = { sold: {}, revenue: 0, customers: 0, tooExpensive: 0, leftLine: 0, missedFav: 0, tips: 0, keptExtra: 0, returned: 0, noChange: 0, given: {}, napkins: 0, startBox: this.boxTotal, opened: s.minute };
+    // anything left out on the kitchen counter melts
+    const melted = s.counter.reduce((a, b) => a + b.n, 0);
+    s.counter = [];
+    s.today = { sold: {}, revenue: 0, customers: 0, tooExpensive: 0, leftLine: 0, missedFav: 0, tips: 0, keptExtra: 0, returned: 0, noChange: 0, given: {}, napkins: 0, melted, startBox: this.boxTotal, opened: s.minute };
     // regulars who'll come by today
     s.schedule = [];
     // Regulars are people who liked something you sold: none on the first day, and only ones whose
@@ -657,34 +795,46 @@ export class Cart {
     this.emit({ t: 'window', cust: c });
   }
 
-  // The player puts something on the counter for this customer: a treat from the cooler, a spoon or a napkin.
-  give(id) {
+  // The player puts something on the counter for this customer: a spoon, a napkin, or a treat from the cooler.
+  // spot: which spot on the top tray it came from (without one, the first one found in the cooler).
+  give(id, spot = null) {
     const s = this.state;
     const w = s.window;
     if (!w || w.stage !== 'order') return { ok: false };
+    w.from ??= w.handed.map(() => null);
+    let from = null;
     if (id === 'spoon' || id === 'napkin') {
       const k = id + 's';
       if (s[k] <= 0) return { ok: false, reason: 'out' };
       s[k]--;
+    } else if (spot != null) {
+      if (this.topTray[spot] !== id) return { ok: false, reason: 'out' };
+      this.topTray[spot] = null;
+      from = { t: s.cooler.top, i: spot };
     } else {
-      if (!this.canSell(id)) return { ok: false, reason: 'out' };
-      s.cooler.pops[id]--;
+      const c = s.cooler;
+      const t = [c.top, ...c.trays.keys()].find((k) => c.trays[k].includes(id));
+      if (t == null) return { ok: false, reason: 'out' };
+      from = { t, i: c.trays[t].indexOf(id) };
+      c.trays[t][from.i] = null;
     }
     w.handed.push(id);
+    w.from.push(from);
     return { ok: true };
   }
-  // Take something back off the counter.
+  // Take something back off the counter (a treat goes back to its spot in the cooler).
   takeBack(i) {
     const s = this.state;
     const w = s.window;
     if (!w || w.stage !== 'order' || !(i in w.handed)) return false;
-    this.putBack(w.handed.splice(i, 1)[0]);
+    const from = w.from?.splice(i, 1)[0];
+    this.putBack(w.handed.splice(i, 1)[0], from);
     return true;
   }
-  putBack(id) {
+  putBack(id, from = null) {
     const s = this.state;
     if (id === 'spoon' || id === 'napkin') s[id + 's']++;
-    else s.cooler.pops[id] = (s.cooler.pops[id] || 0) + 1;
+    else this.toCooler(id, from);
   }
   // "Here you go!" The customer checks what's on the counter. If it's all there, they pay.
   // Anything extra (a napkin, a free treat) makes them happy.
@@ -798,7 +948,7 @@ export class Cart {
       return { ok: true, result: 'exact' };
     }
     // they give everything back
-    for (const id of w.handed) this.putBack(id);
+    w.handed.forEach((id, k) => this.putBack(id, w.from?.[k]));
     w.stage = 'leaving';
     w.no = 'noChange';
     return { ok: true, result: 'left' };
@@ -819,7 +969,7 @@ export class Cart {
     const w = this.state.window;
     return !w || w.stage === 'done' || w.stage === 'leaving' || (w.stage === 'order' && !w.handed.length);
   }
-  // Close up for the day: back home, the tip jar goes in your wallet, the cooler goes in the freezer.
+  // Close up for the day: back home, and the tip jar goes in your wallet. Leftovers stay in the cooler overnight.
   closePark() {
     const s = this.state;
     if (s.phase !== 'park') return null;
@@ -831,7 +981,6 @@ export class Cart {
     const tips = this.jarTotal;
     addPile(s.money.wallet, s.money.jar);
     s.money.jar = {};
-    this.unpackAll();
     s.balloon = null;
     const summary = { day: s.day, weather: s.weather, ...t, endBox: this.boxTotal, tipsToWallet: tips, closed: Math.min(s.minute, K.parkClose) };
     s.days.push(summary);
