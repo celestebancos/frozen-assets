@@ -95,6 +95,8 @@ export const CONFIG = {
   wtpRange: [0.85, 1.6],
   // How often each kind of person wants a popsicle instead of ice cream (when pops are on the menu).
   popWant: { kid: 0.08, teen: 0.05, adult: 0.02 },
+  // The game's favorite treat (picked for the park cart, kept on the truck) is wanted as much as rocket pops.
+  favoriteWant: 10.5,
 
   // Kids out on their own sometimes only have pocket money. They buy only if something costs that much or less.
   pocket: { chance: 0.18, amounts: [[100, 6], [75, 2], [50, 1]] },
@@ -172,7 +174,7 @@ export const CONTAINERS = [
 // Popsicles and other treats sold as is, one supply each. A cheap way to sell to kids with only a little money.
 // spoon: needs a spoon too (Italian ice). plural: when adding an s won't do.
 export const POPS = [
-  { id: 'rocketPop', name: 'Rocket pop', want: 4 },
+  { id: 'rocketPop', name: 'Rocket pop', want: 10.5 }, // a big seller: about 1 pop in 5
   { id: 'fudgePop', name: 'Fudge pop', want: 3 },
   { id: 'freezePop', name: 'Freeze pop', want: 3 },
   { id: 'pushOrange', name: 'Orange push pop', want: 3 },
@@ -379,13 +381,14 @@ export const CART = {
   // Buying in bulk at the restaurant store: 3 boxes of the same kind cost 20% less. They still take 3 freezer spots.
   bulk: { boxes: 3, off: 0.2 },
   vendorMistake: 0.15, // how often a seller gets your change wrong
-  // Each game, one of these is a big seller too (as popular as rocket pops). Lemon ice is never one.
+  // Each game, one of these is a big seller too (as popular as rocket pops, about 1 order in 5). Lemon ice is
+  // never one. It stays the favorite on the truck.
   hotChoices: ['fudgePop', 'freezePop', 'pushOrange', 'pushGrape', 'orangeCream', 'shortcake', 'sandwich', 'iceCherry', 'iceStrawberry', 'iceBlue'],
-  hotWant: 4,
+  hotWant: 3.35,
 };
 
 export const CART_ITEMS = [
-  { id: 'rocketPop', name: 'Rocket pop', kind: 'pop', fair: 150, want: 4 },
+  { id: 'rocketPop', name: 'Rocket pop', kind: 'pop', fair: 150, want: 3.35 }, // a big seller: about 1 order in 5
   { id: 'fudgePop', name: 'Fudge pop', kind: 'pop', fair: 175, want: 3 },
   { id: 'freezePop', name: 'Freeze pop', kind: 'pop', fair: 50, want: 3 },
   { id: 'pushOrange', name: 'Orange push pop', kind: 'pop', fair: 100, want: 3 },

@@ -236,7 +236,7 @@ class App {
         if (!name.trim()) return toast('Your truck needs a name!');
         const L = C.loans.find((l) => l.id === loan);
         const B = BLING[bling];
-        this.game = Game.create({ player, business: name.trim(), color, tune: 'entertainer', loan: L, truckCost: TRUCK_PRICE + B.price, bling, blingName: bling ? B.name : '', ownerCash });
+        this.game = Game.create({ player, business: name.trim(), color, tune: 'entertainer', loan: L, truckCost: TRUCK_PRICE + B.price, bling, blingName: bling ? B.name : '', ownerCash, favorite: storage.loadCart(player)?.hot || storage.loadGame(player)?.favorite });
         onStart?.();
         this.save();
         this.startGameView();
@@ -247,6 +247,7 @@ class App {
   loadGame(player) {
     const st = storage.loadGame(player);
     if (!st) return this.newGame(player);
+    st.favorite ||= storage.loadCart(player)?.hot; // the park cart's favorite treat carries over to the truck
     this.game = new Game(st);
     this.music.setTune(st.tune);
     this.startGameView();

@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { Cart, total, makeAmount, pileOf, choosePayment, takePile } from '../js/cart.js';
-import { CART, CART_SHOPS } from '../js/config.js';
+import { CART, CART_SHOPS, CART_ITEMS } from '../js/config.js';
 import { makeRng } from '../js/rng.js';
 
 // Buy a basket at a shop, paying with whatever covers it, and accept the change.
@@ -665,6 +665,18 @@ test('each game has one more big seller besides rocket pops, with two boxes on t
     assert.deepEqual(Object.keys(shelf).filter((id) => shelf[id] === 2).sort(), ['rocketPop', hot].sort());
   }
   assert.ok(hots.size >= 5, 'it changes from game to game');
+  // it and rocket pops each get about 1 order in 5 (everything in the cooler)
+  let rocket = 0, hot = 0, all = 0;
+  for (let seed = 1; seed <= 10; seed++) {
+    const c = Cart.create({ player: 'Test', seed });
+    for (const it of CART_ITEMS) (c.state.counter.push({ item: it.id, n: 4 }), c.pack(it.id, 4));
+    c.openPark();
+    for (let i = 0; i < 300; i++) {
+      for (const id of c.orderFor(c.makeCustomer(['kid', 'teen', 'adult', 'family'][i % 4])).items || []) (all++, (rocket += id === 'rocketPop'), (hot += id === c.state.hot));
+    }
+  }
+  assert.ok(Math.abs(rocket / all - 0.2) < 0.05, `rocket ${rocket / all}`);
+  assert.ok(Math.abs(hot / all - 0.2) < 0.05, `favorite ${hot / all}`);
   // older saves get one too
   const c = Cart.create({ player: 'Test', seed: 7 });
   delete c.state.hot;
