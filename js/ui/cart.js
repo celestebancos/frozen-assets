@@ -1267,20 +1267,29 @@ export class CartView {
       onClose: () => this.renderHUD(true),
       render: (body) => {
         const have = Object.keys(FOOD).map((id) => [id, c.count('cooler', id)]).filter(([, n]) => n);
+        const stock = CART_ITEMS.map((it) => [it.id, c.count('cooler', it.id)]).filter(([, n]) => n);
         const h = Math.round(c.hunger);
         body.innerHTML = `<div class="tummy-big ${h < K.hunger.low ? 'low' : ''}"><span>${h < K.hunger.low ? 'Hungry!' : h < 60 ? 'A little hungry' : 'Full'}</span><i class="bar"><b style="width:${h}%"></b></i></div>
           ${have.length
             ? `<div class="food-list">${have.map(([id, n]) => `<div class="food-row">${treatSVG(id, 44)}<b>${esc(FOOD[id].name)}</b><span class="tiny muted">×${n}</span><button class="btn go small" data-act="eat" data-id="${id}">Eat</button></div>`).join('')}</div>`
             : '<p>No food in the cooler.</p>'}
+          ${stock.length && c.state.phase === 'park'
+            ? `<h3>From what you sell</h3><p class="tiny muted">A little bit fills you up. Too much ice cream gives you a tummy ache!</p><div class="food-list">${stock.map(([id, n]) => `<div class="food-row">${treatSVG(id, 44)}<b>${esc(CART_ITEM[id].name)}</b><span class="tiny muted">×${n} · sells for ${money(c.state.prices[id])}</span><button class="btn small" data-act="eat" data-id="${id}" ${c.state.window ? 'disabled' : ''}>Eat</button></div>`).join('')}</div>`
+            : ''}
           <p class="tiny muted">The hot dog stand and the corner store sell food. Packing a lunch at home costs less.</p>
           <button class="btn" data-act="done">Done</button>`;
       },
     });
     onActs(m.body, {
       eat: (t) => {
-        if (c.eat(t.dataset.id).ok) toast('😋 Yum!');
+        const r = c.eat(t.dataset.id);
+        if (r.ok && r.ache) {
+          m.close();
+          this.handleEvents();
+        } else if (r.ok) toast('😋 Yum!');
+        else if (r.reason === 'busy') toast('Finish with this customer first!');
         this.save();
-        m.refresh();
+        if (!r.ache) m.refresh();
       },
       done: () => m.close(),
     });
@@ -1456,6 +1465,12 @@ export class CartView {
         this.clock.after(2600, () => e.remove());
       } else if (ev.t === 'hungry') {
         toast('🍎 Your tummy is rumbling! Time for something to eat.');
+      } else if (ev.t === 'tummyAche') {
+        this.app.music.sfx('oops');
+        toast('🤢 Too much ice cream! Your tummy hurts. You sit on the bench for a while.');
+        const me = this.stage.querySelector('.cart-spot .me');
+        me?.classList.add('gone');
+        this.clock.after(2500, () => me?.classList.remove('gone'));
       } else if (ev.t === 'tooHungry') {
         this.app.music.sfx('oops');
         toast("😩 You're too hungry to keep going. Time to go home!");
@@ -1709,6 +1724,8 @@ export class CartView {
           <div class="sold-grid">${sold.map(([id, v]) => `<span class="chip">${treatSVG(id, 26)} ${v}</span>`).join('')}</div>
           <ul class="tiny" style="margin-top:8px">
             ${sum.tooHungry != null ? `<li>😩 You got too hungry and went home at ${fmtTime(sum.tooHungry)}.</li>` : ''}
+            ${sum.ate ? `<li>😋 You ate ${andList(counted(Object.entries(sum.ate).flatMap(([id, n]) => Array(n).fill(id))))}. You could have sold ${Object.values(sum.ate).reduce((x, y) => x + y, 0) === 1 ? 'it' : 'them'} for ${money(sum.ateValue)}.</li>` : ''}
+            ${sum.tummyAches ? `<li>🤢 Too much ice cream gave you a tummy ache${sum.tummyAches > 1 ? ` ${sum.tummyAches} times` : ''}.</li>` : ''}
             <li>🧰 The cash box started the day with ${money(sum.startBox)}.</li>
             ${sum.keptExtra ? `<li>😬 Someone kept ${money(sum.keptExtra)} of extra change.</li>` : ''}
             ${sum.returned ? `<li>🙂 Honest customers gave back ${money(sum.returned)} of extra change.</li>` : ''}

@@ -864,3 +864,39 @@ test('snacks wait in the cooler; a packed lunch comes from the pantry; food is n
   const h = buy(c, 'hotdog', { hotdog: 1 }, 'wallet');
   assert.deepEqual(h.stashed, []);
 });
+
+test('eating your own treats: a little food, what it could have sold for, and tummy aches', () => {
+  const c = Cart.create({ player: 'Test', seed: 4 });
+  stock(c, 'rocketPop', 24);
+  stock(c, 'water', 24);
+  c.pack('rocketPop', 24);
+  c.pack('water', 24);
+  assert.equal(c.eat('rocketPop').reason, 'notPark', 'only at the park');
+  c.state.weather = { temp: 85, rain: false };
+  c.openPark();
+  c.state.minute = 13 * 60;
+  const h = c.hunger;
+  const first = c.eat('rocketPop');
+  assert.ok(first.ok && !first.ache, 'the first one never hurts');
+  assert.ok(Math.abs(c.hunger - (h + 6)) < 0.01);
+  assert.equal(c.state.today.ateValue, c.state.prices.rocketPop);
+  // drinks fill a little and never give a tummy ache
+  for (let i = 0; i < 6; i++) assert.equal(c.eat('water').ache, false);
+  // by the fifth treat, a tummy ache for sure: no food, and the cart closes for a while
+  let aches = 0;
+  for (let i = 0; i < 4; i++) {
+    const before = c.state.minute;
+    const r = c.eat('rocketPop');
+    if (r.ache) {
+      aches++;
+      assert.equal(c.state.minute, before + CART.ownTreats.benchMinutes);
+      assert.equal(c.state.line.length, 0);
+    }
+    if (i === 3) assert.ok(r.ache, 'the 5th always hurts');
+  }
+  assert.equal(c.state.today.tummyAches, aches);
+  assert.equal(c.state.today.ate.rocketPop, 5);
+  assert.equal(c.state.today.ateValue, c.state.prices.rocketPop * 5 + c.state.prices.water * 6);
+  const sum = c.closePark();
+  assert.equal(sum.ate.water, 6);
+});

@@ -111,6 +111,7 @@ Before the truck, a new player starts small: **selling popsicles and Italian ice
 - **Corner store snacks** can be eaten right away or stashed in the cooler for later, where each one takes a treat spot.
 - **The hot dog stand** is eaten right away.
 - **Planning ahead saves money:** pack a lunch from home before leaving (cheaper than buying, takes a cooler spot).
+- **Eating your own stock** fills you a little (3–10, drinks 3) and is never a plan: from the second treat in a day there's a rising chance of a tummy ache (no food, 15 minutes on the bench with the cart closed), and the day's summary says what you could have sold it for. *(Built.)* A kid who eats rocket pops instead of buying lunch ends 30 days about $170 behind one who buys a hot dog.
 - **Lunch at Grandma's** (see below) is free but takes time.
 
 ### Grandma

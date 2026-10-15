@@ -1193,6 +1193,7 @@ export class Cart {
   // Eat something from the cooler. Too late once you've gone home hungry.
   eat(id) {
     const s = this.state;
+    if (CART_ITEM[id]) return this.eatTreat(id);
     if (!isFood(id) || s.tooHungry != null) return { ok: false };
     const c = s.cooler;
     const t = [c.top, ...c.trays.keys()].find((k) => c.trays[k].includes(id));
@@ -1200,6 +1201,40 @@ export class Cart {
     c.trays[t][c.trays[t].indexOf(id)] = null;
     this.eatNow(id);
     return { ok: true, hunger: this.hunger };
+  }
+  // Eat something from your own stock, at the park, between customers. It fills you a little, it costs what you
+  // could have sold it for, and the more ice cream you eat, the likelier a tummy ache (drinks are fine).
+  eatTreat(id) {
+    const s = this.state;
+    const O = K.ownTreats;
+    if (s.phase !== 'park' || s.tooHungry != null) return { ok: false, reason: 'notPark' };
+    if (s.window) return { ok: false, reason: 'busy' };
+    const c = s.cooler;
+    const t = [c.top, ...c.trays.keys()].find((k) => c.trays[k].includes(id));
+    if (t == null) return { ok: false, reason: 'none' };
+    c.trays[t][c.trays[t].indexOf(id)] = null;
+    const T = s.today;
+    T.ate ??= {};
+    T.ate[id] = (T.ate[id] || 0) + 1;
+    T.ateValue = (T.ateValue || 0) + s.prices[id];
+    const drink = this.isDrink(id);
+    let ache = false;
+    if (!drink) {
+      T.treatsEaten = (T.treatsEaten || 0) + 1;
+      ache = this.rng.chance(O.ache[Math.min(T.treatsEaten, O.ache.length) - 1]);
+    }
+    this.logAction('eatTreat', { id, ache });
+    if (ache) {
+      // too much ice cream: sit on the bench for a bit, and the line goes home
+      T.tummyAches = (T.tummyAches || 0) + 1;
+      for (const p of s.line) this.emit({ t: 'leave', id: p.id, say: 'gone' });
+      s.line = [];
+      s.minute = Math.min(K.parkClose, s.minute + O.benchMinutes);
+      this.emit({ t: 'tummyAche', minutes: O.benchMinutes });
+      return { ok: true, ache: true, hunger: this.hunger };
+    }
+    this.fill(drink ? O.food.drink : O.food[id] ?? O.food.other);
+    return { ok: true, ache: false, hunger: this.hunger };
   }
   // Make a lunch at home and put it in the cooler.
   packLunch() {
