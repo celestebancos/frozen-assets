@@ -25,6 +25,7 @@ class App {
     this.music = new Music();
     this.music.setVolume(this.settings.musicVolume);
     this.music.setMuted(this.settings.muted);
+    this.music.setTuneOn(this.settings.musicOn !== false);
     this.music.setVoice(this.settings.musicVoice || 'truck');
     this.ambience = new Ambience(this.music);
     this.ambience.setOn(this.settings.streetSounds !== false);
@@ -43,9 +44,15 @@ class App {
   truckHex(id = this.game?.state.color) {
     return TRUCK_COLORS.find((c) => c.id === id)?.hex || '#ff8fc7';
   }
+  // Music on or off. Turning it back on mid-day starts the tune again.
+  setMusicOn(on) {
+    this.music.setTuneOn(on);
+    if (on && this.game?.state.phase === 'open') this.music.play();
+  }
   saveSettings() {
     this.settings.musicVolume = this.music.volume;
     this.settings.muted = this.music.muted;
+    this.settings.musicOn = this.music.tuneOn;
     this.settings.musicVoice = this.music.voice;
     this.settings.streetSounds = this.ambience.on;
     storage.saveSettings(this.settings);
@@ -650,7 +657,8 @@ class App {
           <div class="row">${storage.players().map((n) => `<button class="btn small" data-act="export" data-n="${esc(n)}">📤 ${esc(n)}</button>`).join('') || '<span class="muted">No saved games yet</span>'}</div>
           <h3>🔊 Sound</h3>
           <label class="row">Volume <input type="range" min="0" max="1" step="0.05" value="${this.music.volume}" data-k="vol"></label>
-          <label class="row"><input type="checkbox" data-k="mute" ${this.music.muted ? 'checked' : ''}> Mute</label>
+          <label class="row"><input type="checkbox" data-k="mute" ${this.music.muted ? 'checked' : ''}> Mute (all sounds)</label>
+          <label class="row"><input type="checkbox" data-k="musicOn" ${this.music.tuneOn ? 'checked' : ''}> Music</label>
           <label class="row"><input type="checkbox" data-k="street" ${this.ambience.on ? 'checked' : ''}> Street sounds (birds, kids, traffic…)</label>`;
       },
     });
@@ -698,6 +706,10 @@ class App {
     m.body.addEventListener('change', (e) => {
       if (e.target.dataset.k === 'street') {
         this.ambience.setOn(e.target.checked);
+        this.saveSettings();
+      }
+      if (e.target.dataset.k === 'musicOn') {
+        this.setMusicOn(e.target.checked);
         this.saveSettings();
       }
       if (e.target.dataset.k === 'mute') {
