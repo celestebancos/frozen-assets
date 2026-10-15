@@ -176,6 +176,8 @@ Today's loans run about 11–20% a year, which is realistic. The down payment ad
 - **New paper:** "Grandma's investment". Penny explains: Cash went up, nobody has to pay it back, so it's Grandma's share, not a debt.
 - **Advice and comments** keep coming while she's a co-owner, helpful and annoying.
 
+*Built:* the offer comes at lunch the day after you reach $500 (or at the cart if you skip lunch) and stays open from home. Her limit is $9,500 (truck + $300 for supplies), so chrome and deluxe trucks are out of reach. Her slice is one of 2/5, 1/3, 1/4 or 1/5, from your cart money above $500 (each $100 a step) and her good feelings. No loan; a "Grandma's investment" paper; Grandma's Share on the balance sheet; her slice moves over at Calculate Profit; a summer is won if your own Share grew. The leaderboard marks Grandma games with 🤝 after the business name (no new Airtable field). Buying her out is next.
+
 ### End of summer
 - **With a loan:** as today. Pay the bank or the truck is towed.
 - **With Grandma only:** you win if the business made a profit. Nothing is due.

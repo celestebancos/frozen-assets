@@ -732,3 +732,66 @@ test('a used truck: half the price, and the bill of sale says used', () => {
   const fresh = Game.create({ player: 'N', business: 'T', color: 'pink', seed: 7 });
   assert.ok(!fresh.state.truckUsed);
 });
+
+test('Grandma as a co-owner: her money, her slice of each week, and a summer won by growing your Share', async () => {
+  const { ownShare } = await import('../js/ledger.js');
+  const g = Game.create({ player: 'N', business: 'T', color: 'pink', seed: 7, truckCost: 970000, ownerCash: 50000, partner: { put: 950000, slice: [1, 4] } });
+  const s = g.state;
+  assert.equal(s.loanActive, false);
+  const types = g.docsToFile().map((d) => d.type).sort();
+  assert.deepEqual(types, ['grandmaInvest', 'ownerInvest', 'truckBill']);
+  assert.equal(s.truth.grandmaIn, 950000);
+  assert.equal(s.truth.loan, 0);
+  assert.equal(ownShare(s.truth), 50000);
+  fileAllCorrectly(g);
+  // a week's sales: $40 of profit, and Grandma gets $1 of every $4
+  g.post('registerTape', [{ acct: 'cash', amt: 4000 }, { acct: 'salesCash', amt: 4000 }], { label: 'Sales', amt: 4000 });
+  for (const d of s.docs) if (!d.filed) g.fileDoc(d.id, Object.fromEntries(docLines(d).map((l) => [l.acct, l.dir])));
+  const r = g.moveProfit();
+  assert.equal(r.amt, 4000);
+  assert.equal(r.grandma, 1000);
+  assert.equal(s.filed.grandmaIn, 951000, 'your books: at Calculate Profit');
+  assert.equal(ownShare(s.filed), 53000);
+  // undo puts it back
+  g.undoMoveProfit(r.ids);
+  assert.equal(s.filed.grandmaIn, 950000);
+  g.moveProfit();
+  // the real books split at the end of each week (see the next test)
+  assert.equal(s.truth.grandmaIn, 950000);
+  // end of summer: no loan to pay, and the summer is won because your Share grew
+  s.phase = 'seasonEnd';
+  const end = g.payLoan();
+  assert.equal(end.won, true);
+  assert.equal(end.share, 54000, 'the real books have not split the week yet');
+  assert.equal(end.partner, true);
+});
+
+test('Grandma as a co-owner: a summer that loses money is lost, but nothing gets towed', () => {
+  const g = Game.create({ player: 'N', business: 'T', color: 'pink', seed: 7, truckCost: 970000, ownerCash: 50000, partner: { put: 950000, slice: [1, 3] } });
+  g.post('gas', [{ acct: 'gas', amt: 3000 }, { acct: 'cash', amt: -3000 }], { label: 'Gas', amt: 3000 });
+  g.state.phase = 'seasonEnd';
+  const end = g.payLoan();
+  assert.equal(end.won, false);
+  assert.equal(g.state.phase, 'lost');
+});
+
+test('Grandma as a co-owner over a whole summer: the real books split every week, and a bigger slice leaves you less', async () => {
+  const { ownShare } = await import('../js/ledger.js');
+  const orig = Game.create;
+  const run = (slice) => {
+    let g;
+    Game.create = (o) => (g = orig.call(Game, { ...o, ownerCash: 50000, truckCost: 970000, partner: { put: 950000, slice } }));
+    const r = playSeason('decent', 7919);
+    Game.create = orig;
+    return { r, g };
+  };
+  const quarter = run([1, 4]);
+  const half = run([1, 2]);
+  const t = quarter.g.state.truth;
+  const profit = sectionTotal(t, 'income') - sectionTotal(t, 'expense');
+  assert.ok(profit > 0);
+  assert.ok(Math.abs(t.grandmaIn - (950000 + profit / 4)) < 100, `Grandma has her quarter: ${t.grandmaIn}`);
+  assert.equal(quarter.r.share, ownShare(t));
+  assert.ok(quarter.r.won);
+  assert.ok(half.r.share < quarter.r.share, 'a bigger slice leaves you less');
+});

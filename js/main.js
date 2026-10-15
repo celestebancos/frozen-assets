@@ -130,12 +130,13 @@ class App {
 
   // ---------- setup ----------
   // opts.ownerCash: money from the park cart, put in as the owner's share. onBack: where ◀ at the bank goes.
-  // onStart: runs once the truck is bought.
-  newGame(player, { ownerCash = 0, onBack = null, onStart = null } = {}) {
+  // onStart: runs once the truck is bought. partner: Grandma is putting in the money instead of the bank:
+  // { max, startCash, slice } (she covers the truck plus startCash for supplies, up to max).
+  newGame(player, { ownerCash = 0, onBack = null, onStart = null, partner = null } = {}) {
     closeAllModals();
     this.stopLoop();
     document.body.innerHTML = '';
-    let step = 'bank';
+    let step = partner ? 'truck' : 'bank';
     let loan = null;
     let pick = null; // which truck on the lot
     let color = null;
@@ -181,9 +182,11 @@ class App {
           <div class="row" style="justify-content:space-between;margin-top:16px"><button class="btn" data-act="back">◀ Back</button><button class="btn big go" data-act="next" ${loan ? '' : 'disabled'}>Borrow it ▶</button></div>`;
         return;
       }
-      const L = C.loans.find((l) => l.id === loan);
-      const have = L.principal + ownerCash;
+      const L = partner ? null : C.loans.find((l) => l.id === loan);
+      const have = partner ? ownerCash + partner.max : L.principal + ownerCash;
       const maxTruck = have - C.minStartCash;
+      // Grandma puts in what the truck needs plus a little for supplies, up to her limit
+      const gPut = (price) => Math.max(0, Math.min(partner.max, price + partner.startCash - ownerCash));
       if (pick != null && priceOf(lot[pick]) > maxTruck) pick = color = null;
       const t = color && truckFor(color);
       const price = pick != null ? priceOf(lot[pick]) : 0;
@@ -196,15 +199,16 @@ class App {
             return `<button class="lot-truck ${pick === i ? 'on' : ''}" data-act="pickTruck" data-i="${i}" ${can ? '' : 'disabled'}>
               ${truckSVG(c.hex, c.name, { bling: x.bling, used: x.used })}
               <b>${x.used ? `Used ${c.name}` : c.name}</b>
-              <div class="price">${money(total)}</div><div class="tiny">${can ? `${money(have - total)} left over` : 'Too much for this loan'}</div></button>`;
+              <div class="price">${money(total)}</div><div class="tiny">${can ? `${money(partner ? ownerCash + gPut(total) - total : have - total)} left over` : partner ? 'More than Grandma can put in' : 'Too much for this loan'}</div></button>`;
           }).join('')}</div>
-          <div class="row" style="justify-content:space-between;margin-top:16px"><button class="btn" data-act="toBank">◀ Back to the bank</button>
+          ${partner ? `<p class="tiny muted">👵 Grandma will put in up to ${money(partner.max)}. Your cart money comes too: ${money(ownerCash)}.</p>` : ''}
+          <div class="row" style="justify-content:space-between;margin-top:16px"><button class="btn" data-act="${partner ? 'back' : 'toBank'}">◀ ${partner ? 'Back' : 'Back to the bank'}</button>
             <button class="btn big go" data-act="next" ${t ? '' : 'disabled'}>${t ? `Buy it for ${money(price)} ▶` : 'Pick a truck'}</button></div>`;
         return;
       }
       title.textContent = '🏷️ Your sign';
       card.innerHTML = `<div style="max-width:420px;margin:0 auto">${truckSVG(t.hex, name, { bling, used })}</div>
-        <div class="row center" style="margin:6px 0">${ownerCash ? `<span class="chip">🛒 Cart money ${money(ownerCash)}</span>` : ''}<span class="chip">🏦 Loan ${money(L.principal)}</span><span class="chip">🚚 Truck −${money(price)}</span><span class="chip">💵 Cash left ${money(have - price)}</span></div>
+        <div class="row center" style="margin:6px 0">${ownerCash ? `<span class="chip">🛒 Cart money ${money(ownerCash)}</span>` : ''}${partner ? `<span class="chip">👵 Grandma ${money(gPut(price))}</span>` : `<span class="chip">🏦 Loan ${money(L.principal)}</span>`}<span class="chip">🚚 Truck −${money(price)}</span><span class="chip">💵 Cash left ${money(partner ? ownerCash + gPut(price) - price : have - price)}</span></div>
         <h3>🏷️ Business name</h3><input class="text-in" maxlength="28" value="${esc(name)}" aria-label="Business name">
         <div class="row" style="justify-content:space-between;margin-top:16px"><button class="btn" data-act="toTruck">◀ Back</button><button class="btn big go" data-act="go">Let's go! ▶</button></div>`;
       card.querySelector('input').addEventListener('input', (e) => {
@@ -238,9 +242,11 @@ class App {
       back: () => (onBack ? onBack() : this.showTitle()),
       go: () => {
         if (!name.trim()) return toast('Your truck needs a name!');
-        const L = C.loans.find((l) => l.id === loan);
+        const L = partner ? null : C.loans.find((l) => l.id === loan);
         const B = BLING[bling];
-        this.game = Game.create({ player, business: name.trim(), color, tune: 'entertainer', loan: L, truckCost: used ? USED_TRUCK.price : TRUCK_PRICE + B.price, bling, blingName: bling ? B.name : '', used, ownerCash, favorite: storage.loadCart(player)?.hot || storage.loadGame(player)?.favorite });
+        const truckCost = used ? USED_TRUCK.price : TRUCK_PRICE + B.price;
+        const withGrandma = partner && { put: Math.max(0, Math.min(partner.max, truckCost + partner.startCash - ownerCash)), slice: partner.slice };
+        this.game = Game.create({ player, business: name.trim(), color, tune: 'entertainer', loan: L, truckCost, bling, blingName: bling ? B.name : '', used, ownerCash, partner: withGrandma, favorite: storage.loadCart(player)?.hot || storage.loadGame(player)?.favorite });
         onStart?.();
         this.save();
         this.startGameView();
@@ -605,7 +611,8 @@ class App {
   // ---------- leaderboard ----------
   recordScore(res) {
     const s = this.game.state;
-    const rec = { player: s.player, business: s.business, season: s.season, share: res.share, won: res.won, color: s.color, finished: new Date().toISOString() };
+    // the score is your own Share; a business co-owned with Grandma gets a 🤝 after its name
+    const rec = { player: s.player, business: s.partner ? `${s.business} 🤝` : s.business, season: s.season, share: res.share, won: res.won, color: s.color, finished: new Date().toISOString() };
     storage.addLocalScore(rec);
     this.save();
     const cfg = leaderboardConfig(this.settings);

@@ -42,7 +42,7 @@ function split(doc) {
     const sec = SEC_OF(acct);
     if (sec === 'asset') L[acct] = amt;
     else if (sec === 'liability') R[acct] = amt;
-    else if (sec === 'owner') R.share = (R.share || 0) + amt;
+    else if (sec === 'owner') R[acct === 'grandmaIn' ? 'gshare' : 'share'] = (R[acct === 'grandmaIn' ? 'gshare' : 'share'] || 0) + amt;
     else R.pending = (R.pending || 0) + (sec === 'income' ? amt : -amt);
   }
   return [L, R];
@@ -97,7 +97,8 @@ export function openShoebox(app, onDone) {
 
   const f = s.filed;
   const pending = g.pendingProfit();
-  const bs0 = { cash: f.cash, supplies: f.supplies, truck: f.truck, loan: f.loan, giftCards: f.giftCards, interestOwed: f.interestOwed, billsToPay: f.billsToPay, pending, share: share(f) - pending };
+  const gshare = f.grandmaIn || 0; // Grandma's Share, when she's a co-owner
+  const bs0 = { cash: f.cash, supplies: f.supplies, truck: f.truck, loan: f.loan, giftCards: f.giftCards, interestOwed: f.interestOwed, billsToPay: f.billsToPay, pending, share: share(f) - pending - gshare, gshare };
 
   let st = {
     pnl: pnl0,
@@ -214,7 +215,7 @@ export function openShoebox(app, onDone) {
   };
 
   const shareName = `${player}'s Share`;
-  const rowName = (id) => (id === 'pending' ? 'Profit this week' : id === 'share' ? shareName : ACCOUNT[id].name);
+  const rowName = (id) => (id === 'pending' ? 'Profit this week' : id === 'share' ? shareName : id === 'gshare' ? "Grandma's Share" : ACCOUNT[id].name);
   const bankLabel = (v) => (v >= 0 ? `➕ Move profit to ${shareName}` : `➖ Take the loss from ${shareName}`);
   const hasPnl = () => st.pnl.inc.length > 0 || st.pnl.exp.length > 0;
   const reportOn = () => !!reportWeek && st.close === 'banked' && !st.keep.pending;
@@ -540,7 +541,8 @@ export function openShoebox(app, onDone) {
 
   function move() {
     const v = st.bs.pending;
-    const { ids } = g.moveProfit();
+    const { ids, grandma } = g.moveProfit();
+    const P = s.partner;
     app.save();
     snap({ moved: ids });
     bankPt = ptTo(v < 0);
@@ -550,9 +552,16 @@ export function openShoebox(app, onDone) {
       app.music.sfx('ching');
       setState((p) => ({ close: 'banked', bs: { ...p.bs, share: p.bs.share + v }, shown: { pending: -v, share: v } }));
     });
-    later(2200, () => {
+    if (grandma) {
+      // then Grandma's slice moves on to her Share
+      later(2200, () => {
+        setState((p) => ({ bs: { ...p.bs, share: p.bs.share - grandma, gshare: (p.bs.gshare || 0) + grandma }, shown: { share: v - grandma, gshare: grandma } }));
+      });
+    }
+    later(grandma ? 3100 : 2200, () => {
       app.changed();
-      setState({ keep: {}, busy: false, shown: { share: v }, caption: v >= 0 ? `This week's profit is now part of ${shareName}.` : `The week's loss came out of ${shareName}.` });
+      const gm = grandma ? ` Grandma gets $${P.slice[0]} of every $${P.slice[1]}: ${money(Math.abs(grandma))}${grandma < 0 ? ' of the loss' : ''}.` : '';
+      setState({ keep: {}, busy: false, shown: grandma ? { share: v - grandma, gshare: grandma } : { share: v }, caption: (v >= 0 ? `This week's profit is now part of the Shares.` : `The week's loss came out of the Shares.`).replace(/the Shares/, grandma ? 'the Shares' : shareName) + gm });
     });
   }
 

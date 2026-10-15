@@ -730,7 +730,10 @@ export class Cart {
     }
     // Grandma comes by now and then (not on a day you had lunch with her)
     const g = s.grandma;
-    if (g.lunches > 0 && g.answered !== 'yes' && this.rng.chance(G.visit.chance)) {
+    if (g.offer === 'due' && g.offerDay === s.day && g.answered !== 'yes') {
+      // no lunch today: she comes to the cart to make her offer
+      s.schedule.push({ id: 'grandma', minute: Math.min(K.parkClose - 30, s.minute + 25) });
+    } else if (g.lunches > 0 && g.answered !== 'yes' && this.rng.chance(G.visit.chance)) {
       const m = this.rng.int(s.minute + 30, K.parkClose - 40);
       if (m > s.minute) s.schedule.push({ id: 'grandma', minute: m });
     }
@@ -1109,6 +1112,10 @@ export class Cart {
       this.feel((fav ? G.feel.fav : G.feel.noFav) + (napkins ? 0 : G.feel.fewNapkins));
       s.grandma.visits++;
       w.grandma = { fav, napkins };
+      if (s.grandma.offer === 'due') {
+        s.grandma.offer = 'made';
+        w.grandma.offer = true;
+      }
     } else if (result !== 'kept' && this.rng.chance(tipChance)) {
       tip = w.happy && fast && this.rng.chance(CR.tip.big) ? this.rng.pick(CR.tip.bigAmounts) : this.rng.pick(CR.tip.amounts);
     }
@@ -1196,6 +1203,8 @@ export class Cart {
     s.days.push(summary);
     if (s.days.length > 400) s.days.shift();
     s.phase = 'night';
+    // made enough money: Grandma wants to talk to you about a truck
+    if (!s.grandma.offer && this.businessMoney + this.walletTotal >= G.offer.at) s.grandma.offer = 'due';
     this.logAction('closePark', { revenue: t.revenue, sold: Object.values(t.sold).reduce((a, b) => a + b, 0) });
     return summary;
   }
@@ -1213,6 +1222,7 @@ export class Cart {
     g.answered = null;
     // the first invitation comes on day firstDay; after that, now and then
     g.invited = s.day === G.lunch.firstDay || (s.day > G.lunch.firstDay && this.rng.chance(G.lunch.chance)) ? s.day : null;
+    if (g.offer === 'due') g.invited = g.offerDay = s.day; // she has something to talk about
     this.rollWeather();
   }
 
@@ -1336,6 +1346,12 @@ export class Cart {
     // Then a few more things, but lunch stays short (G.lunch.lines at most): on your first lunch, her favorite and
     // a hint that she's a messy eater; a gift if she's feeling generous; then chit-chat and a story about the old days.
     const more = [];
+    let offer = false;
+    if (g.offer === 'due') {
+      offer = true;
+      g.offer = 'made';
+      more.push("I've been watching you, dear. You work so hard, and you're smart with your money. I have an idea...");
+    }
     if (g.lunches === 1) {
       const fav = CART_ITEM[g.fav];
       more.push(`Do you sell ${fav.plural || fav.name.toLowerCase() + 's'}? They're my favorite! Oops, I spilled again. I always need a stack of napkins!`);
@@ -1363,8 +1379,17 @@ export class Cart {
     g.spent = 0;
     g.spentSnacks = 0;
     g.spentToys = 0;
-    this.logAction('grandmaLunch', { yes: true, feel: g.feel, gift });
-    return { lines, gift };
+    this.logAction('grandmaLunch', { yes: true, feel: g.feel, gift, offer });
+    return { lines, gift, offer };
+  }
+  // Grandma's offer to invest in a truck: her limit, and her slice of the profit, from how much you'd bring and how
+  // she feels about you. { max, startCash, slice: [hers, of every], money }
+  grandmaTerms() {
+    const g = this.state.grandma;
+    const money = this.businessMoney;
+    const pts = Math.floor((money - G.offer.at) / 10000) + Math.round(g.feel - G.start);
+    const i = pts <= -2 ? 0 : pts <= 1 ? 1 : pts <= 4 ? 2 : 3;
+    return { max: G.offer.max, startCash: G.offer.startCash, slice: G.offer.slices[i], money };
   }
   // Grandma checks on the advice she gave you last time. Returns a line, or null.
   grandmaFollowUp(a) {

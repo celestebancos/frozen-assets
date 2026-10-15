@@ -1103,3 +1103,61 @@ test('Grandma over lunch: gear, spending, sticker likes and dislikes, running ou
     told.add(line);
   }
 });
+
+test("Grandma's offer: once you have $500 she calls; at lunch, or at the cart if you say no to lunch", async () => {
+  const { GRANDMA } = await import('../js/config.js');
+  const setup = () => {
+    const c = Cart.create({ player: 'Test', seed: 21 });
+    for (let d = 1; d < 5; d++) {
+      c.state.phase = 'night';
+      c.nextDay();
+    }
+    c.state.money.bank = 45000; // with the $40 cash box and $10 wallet: $500
+    c.openPark();
+    c.closePark();
+    assert.equal(c.state.grandma.offer, 'due');
+    c.nextDay();
+    assert.ok(c.lunchInvite, 'she calls the next morning');
+    return c;
+  };
+  // at lunch
+  const a = setup();
+  const r = a.lunchAtGrandmas();
+  assert.equal(r.offer, true);
+  assert.ok(r.lines.some((l) => l.includes('I have an idea')));
+  assert.ok(r.lines.length <= GRANDMA.lunch.lines);
+  assert.equal(a.state.grandma.offer, 'made');
+  // the terms: her limit, and a slice that shrinks with more money and better feelings
+  const t = a.grandmaTerms();
+  assert.equal(t.max, GRANDMA.offer.max);
+  assert.equal(t.money, a.businessMoney);
+  a.state.grandma.feel = 10;
+  a.state.money.bank += 50000;
+  const better = a.grandmaTerms();
+  assert.ok(better.slice[0] / better.slice[1] < t.slice[0] / t.slice[1], 'a smaller slice');
+  // no lunch: she comes to the cart, and makes the offer after buying her treat
+  const b = setup();
+  b.declineLunch();
+  b.openPark();
+  assert.ok(b.state.schedule.some((x) => x.id === 'grandma'));
+  const fav = b.state.grandma.fav;
+  b.state.counter.push({ item: fav, n: 6 });
+  b.state.phase = 'home';
+  b.pack(fav, 6);
+  b.state.phase = 'park';
+  b.state.line = [b.makeGrandma()];
+  b.nextToWindow();
+  for (const id of b.state.window.order) b.give(id);
+  b.state.napkins = 5;
+  b.give('napkin');
+  b.give('napkin');
+  b.state.spoons = 5;
+  if (b.state.window.order.some((id) => b.isIce(id))) b.give('spoon');
+  assert.ok(b.handOver().ok);
+  const w = b.state.window;
+  const owed = total(w.paid) - w.due;
+  b.state.money.box = { 1000: 2, 500: 2, 100: 10, 25: 12 };
+  const done = owed ? b.giveChange(makeAmount(b.state.money.box, owed)) : b.giveChange({});
+  assert.equal(done.grandma.offer, true);
+  assert.equal(b.state.grandma.offer, 'made');
+});
