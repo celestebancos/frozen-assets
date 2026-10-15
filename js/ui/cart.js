@@ -74,7 +74,7 @@ function coolerHTML(tray, { act = 'spot', sel = null, fresh = null, tints = [] }
       return `<button class="${cls}" data-act="${act}" data-i="${i}" ${id ? `data-id="${id}" aria-label="${esc(CART_ITEM[id].name)}"` : 'aria-label="Empty spot"'}>${id ? treatSVG(id, 48, tints[i]) : ''}</button>`;
     })
     .join('');
-  return `<div class="cooler"><div class="cl-lid"><i></i><i></i></div><div class="cl-body"><div class="cl-tray">${spots}</div></div><button class="btn small cl-swap" data-act="swapTrays">🔄 Swap trays</button></div>`;
+  return `<div class="cooler"><div class="cl-lid"><i></i><i></i></div><div class="cl-body"><div class="cl-tray" style="--cols:${K.trayCols}">${spots}</div></div><button class="btn small cl-swap" data-act="swapTrays">🔄 Swap trays</button></div>`;
 }
 // Looking down into an open box: the treats that are left, and the gaps where some are gone.
 function openBoxHTML(box) {

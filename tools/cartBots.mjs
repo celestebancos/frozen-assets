@@ -1,6 +1,6 @@
 // Simulated park cart players, for tuning how fast the cart earns.
 import { Cart, total, makeAmount, choosePayment } from '../js/cart.js';
-import { CART_ITEMS, CART_SHOPS } from '../js/config.js';
+import { CART, CART_ITEMS, CART_SHOPS } from '../js/config.js';
 import { makeRng } from '../js/rng.js';
 
 const BOX_FOR = Object.fromEntries(CART_SHOPS.restaurant.items.filter((i) => i.kind === 'stock').map((i) => [i.item, i]));
@@ -92,7 +92,7 @@ function morning(c, bot) {
   // fill the cooler by how much people want each thing
   for (let round = 0; round < 3 && c.coolerFree > 0; round++) {
     for (const id of items) {
-      const target = Math.round((48 * c.wantOf(id)) / wantSum);
+      const target = Math.round((CART.coolerSpace * c.wantOf(id)) / wantSum);
       const need = target - c.count('cooler', id);
       if (need > 0) c.pack(id, need);
     }
