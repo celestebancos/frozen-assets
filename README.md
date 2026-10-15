@@ -19,7 +19,7 @@ New players start small, at the park, with a push cart cooler of popsicles and I
 9. **The park.** Tap the hot dog stand, the sticker stand or the balloon seller to buy things. You hand over money and they make change, but sometimes they get it wrong, so count it! Stickers, an umbrella, a bell and a balloon make the cart look nicer and bring a few more people over.
 9. **Moving up.** Play the cart as long as you like. 🏦 *Get a truck loan* takes you to the bank any time. The cart's money (cash box and bank) goes into the new truck business as the owner's share, and the first paper in the shoebox is "Money you put in". The wallet stays yours, and the cart stays playable from the title screen.
 
-Experienced players can press **Skip to a truck** on the title screen.
+Experienced players can press **Buy a Truck** on the title screen to go straight to the bank.
 
 ## How a game goes
 
@@ -111,6 +111,13 @@ Tuning targets: a **decent** player (fair prices, keeps stocked, a simple 2-stop
 
 The park cart's numbers are in the same file: `CART` (starting money, cooler trays and freezer shelves, errand times), `CART_ITEMS` (fair prices), `CART_SHOPS` (everything for sale), `CART_LOOKS`, `CART_CROWD` (people walking by, what they'll pay, honesty, tips, regulars) and `REGULARS`. Tuning target: serving well, a typical day (noon to 4pm) has about a dozen customers and around $20 of sales, and a fair price rarely gets "too much".
 
+```sh
+node tools/cartSimulate.mjs 30 60          # cart bots: 30 players, 60 days each
+TRACE=1 node tools/cartSimulate.mjs 5 90 decent  # cart money every 5 days
+```
+
+The cart bots (`tools/cartBots.mjs`) are *decent* (fair prices, keeps stocked, right change), *smart* (also napkins, quick sales, umbrella and bell) and *slow* (only the cheap pops, slow sales). They report how much the cart earns a day and which day it reaches $200, $300, $500 and $1,000.
+
 ## Developing
 
 No build step: it's plain HTML, CSS and JavaScript modules. Serve the folder with any static server, for example `python3 -m http.server`, and open `index.html`.
@@ -131,3 +138,4 @@ node --test test/*.test.mjs   # engine, accounting and leaderboard tests
 | `js/ui/statements.js` | Layout math for the P&L blocks and balance sheet bars (no DOM) |
 | `js/ui/*` | Screens and panels |
 | `tools/bots.mjs` | Simulated players used for tuning and tests |
+| `tools/cartBots.mjs` | Simulated park cart players (`tools/cartSimulate.mjs` runs them) |

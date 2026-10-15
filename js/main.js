@@ -98,7 +98,7 @@ class App {
             ${ct ? `<div class="sub">🛒 Cooler · Day ${ct.day}</div>` : ''}${info ? `<div class="sub">${info}</div>` : ''}${!ct && !st ? '<div class="sub">No game yet</div>' : ''}
             <div class="stack">${truckOn ? `<button class="btn go" data-act="cont" data-n="${esc(n)}">🚚 Truck</button>` : ''}
             <button class="btn ${truckOn ? '' : ct ? 'go' : 'pink'}" data-act="cart" data-n="${esc(n)}">🛒 ${ct ? 'Cooler' : 'Start at the park'}</button>
-            ${!truckOn ? `<button class="link tiny" data-act="new" data-n="${esc(n)}">Skip to a truck</button>` : ''}</div></div>`;
+            ${!truckOn ? `<button class="link tiny" data-act="new" data-n="${esc(n)}">Buy a Truck</button>` : ''}</div></div>`;
         })
         .join('')}
         <div class="player-card"><div class="name">➕</div><div class="sub">${names.length ? 'Someone new' : 'Add a player'}</div>
