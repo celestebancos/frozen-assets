@@ -959,3 +959,8 @@ button.co-item { animation: nudge 1.4s ease-in-out infinite; }
 .toy.boing { animation: boing 0.6s ease-out; }
 @keyframes boing { 30% { transform: translateY(-18px) rotate(-10deg); } 60% { transform: translateY(0) rotate(6deg); } 80% { transform: translateY(-5px); } }
 @media (max-width: 640px) { .me-card .toys { flex-basis: 100%; } }
+/* the three columns at home all end at the same line; the player and cart sit lower in their card */
+@media (min-width: 641px) {
+  .home-grid .kitchen, .home-grid .cash-card { align-self: stretch; }
+  .home-grid .me-card .me-pic { margin-top: auto; }
+}
