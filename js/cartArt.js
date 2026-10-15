@@ -75,9 +75,9 @@ export function iceCupSVG(color, size = 34) {
 export function spoonSVG(size = 34) {
   return `<svg viewBox="0 0 40 40" width="${size}" height="${size}" class="thing" xmlns="http://www.w3.org/2000/svg"><g transform="translate(9 33) rotate(48)">${spoon(0, 0, 0, 34, 0.75)}</g></svg>`;
 }
-// One paper napkin, folded into a triangle, with a printed border.
+// One paper napkin, folded into a little square, with a printed border and a crease.
 export function napkinSVG(size = 34) {
-  return `<svg viewBox="0 0 40 40" width="${size}" height="${size}" class="thing" xmlns="http://www.w3.org/2000/svg"><path d="M3 32 H37 L20 10 Z" fill="#fff" ${thin}/><path d="M8.5 29.5 H31.5 L20 14.5 Z" fill="none" stroke="#ff8fb1" stroke-width="1.5" stroke-dasharray="3 2.4"/></svg>`;
+  return `<svg viewBox="0 0 40 40" width="${size}" height="${size}" class="thing" xmlns="http://www.w3.org/2000/svg"><rect x="6" y="6" width="28" height="28" rx="2" fill="#fff" ${thin}/><path d="M20 7 V33" stroke="#dfe5ee" stroke-width="1.2"/><rect x="9.5" y="9.5" width="21" height="21" rx="1" fill="none" stroke="#ff8fb1" stroke-width="1.5" stroke-dasharray="3 2.4"/></svg>`;
 }
 
 // ---------- spoons and napkins on the cart ----------
@@ -90,9 +90,10 @@ function spoon(x, y, angle = 0, len = 58, k = 1) {
 }
 // The paper cup of spoons on the cart's counter, with n spoons standing in it (0–7). It empties as you use them.
 export function spoonCupSVG(n = 7) {
-  const angles = [-16, 10, -6, 18, 2, -12, 7].slice(0, Math.max(0, Math.min(7, n)));
+  // a gentle fan, so the outside spoons stay inside the picture
+  const angles = [-9, 6, -3, 9, 1, -6, 7].slice(0, Math.max(0, Math.min(7, n)));
   const m = angles.length;
-  const spoons = angles.map((a, i) => spoon(25 + (i - (m - 1) / 2) * 6, -8, a, 70 + (i % 3) * 5)).join('');
+  const spoons = angles.map((a, i) => spoon(25 + (i - (m - 1) / 2) * 5, -8, a, 70 + (i % 3) * 5)).join('');
   return `<svg viewBox="-9 -100 68 102" class="spoon-cup" xmlns="http://www.w3.org/2000/svg">${spoons}
     <path d="M-5 -58 H55 L50 0 H0 Z" fill="#3cc6a0" ${OUT}/>
     <path d="M-3.3 -40 H53.3 L52 -30 H-2 Z" fill="#fff" opacity=".9"/>

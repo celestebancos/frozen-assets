@@ -222,18 +222,26 @@ export class CartView {
     this.renderHome();
     this.sel = null; // the box you've picked up
     onActs(scr, {
-      // Tap a box to pick it up, then a spot in the freezer to put it there (boxes trade places).
+      // Tap a box on the counter and it goes in the first open spot in the freezer. Tap a box in the freezer to
+      // pick it up, then another spot to move it there (boxes trade places) or the cooler to pack from it.
       slot: (t) => {
         const loc = t.dataset.loc;
-        if (this.sel === loc) this.sel = null;
+        const spot = loc.startsWith('c') && c.emptySlot();
+        if (spot) {
+          c.moveBox(loc, spot);
+          this.sel = null;
+          this.save();
+        } else if (this.sel === loc) this.sel = null;
         else if (this.sel && c.isSlot(loc)) {
           c.moveBox(this.sel, loc);
           this.sel = null;
           this.save();
-        } else if (c.boxAt(loc)) this.sel = loc;
+        } else if (c.boxAt(loc)) {
+          this.sel = loc;
+          if (loc.startsWith('c')) toast('The freezer is full! Tap the cooler to pack from this box.');
+        }
         this.renderHome();
       },
-      open: () => this.packView(this.sel),
       cooler: () => this.packView(this.sel),
       restaurant: () => {
         c.errand('restaurant');
@@ -252,6 +260,13 @@ export class CartView {
       closet: () => this.closet(() => this.renderHome()),
       stickers: () => this.placeStickers(null, () => this.renderHome()),
       moveMoney: () => this.moveMoney(() => this.renderHome()),
+      walletToBox: () => {
+        const amt = c.walletTotal;
+        if (!amt || !c.move('wallet', 'box', { ...s.money.wallet })) return;
+        this.save();
+        this.renderHome();
+        toast(`🧰 ${money(amt)} is in the cash box now.`);
+      },
       truck: () => this.truckLoan(),
       park: () => {
         if (!c.spaceUsed('cooler') && !confirm('Your cooler is empty! Go to the park anyway?')) return;
@@ -276,7 +291,7 @@ export class CartView {
         <button class="btn small" data-act="quit" style="margin-left:auto">🏠 Save & quit</button>
       </div>
       <div class="home-grid">
-        <div class="card me-card">
+        <div class="card me-card ${c.has('umbrella') || s.balloon ? '' : 'low'}">
           <div class="me-pic">${meSVG(s.look, s.wearing)}</div>
           <div class="cart-pic">${cartArt(c)}</div>
           <button class="btn small" data-act="closet">👕 Closet</button>
@@ -290,7 +305,7 @@ export class CartView {
           <div class="money-row"><span>🏦 Bank <span class="tiny muted">(the cart's)</span></span><b>${money(c.bank)}</b></div>
           <div class="money-row"><span>👛 Wallet <span class="tiny muted">(yours)</span></span><b>${money(c.walletTotal)}</b></div>
           <div class="pile">${pieces(s.money.wallet, null, 40)}</div>
-          <button class="btn small" data-act="moveMoney">↔️ Move money</button>
+          <div class="row"><button class="btn small" data-act="moveMoney">↔️ Move money</button>${c.walletTotal ? '<button class="btn small" data-act="walletToBox">👛 → 🧰 All into the cash box</button>' : ''}</div>
         </div>
         <div class="card errands">
           <h3>🚶 Before the park</h3>
@@ -324,7 +339,7 @@ export class CartView {
       <div class="kit-side">
         <div class="supplies">${packs(s.spoons, spoonBoxSVG())}${packs(s.napkins, napkinPackSVG())}</div>
         <div class="kit-counter"><div class="kc-boxes">${counter}</div></div>
-        <div class="kit-floor">${sel ? '<button class="btn go" data-act="open">📦 Open</button>' : ''}<button class="cooler-btn ${sel ? 'nudge' : ''}" data-act="cooler" aria-label="Cooler">${coolerSVG()}</button></div>
+        <div class="kit-floor"><button class="cooler-btn ${sel ? 'nudge' : ''}" data-act="cooler" aria-label="Cooler">${coolerSVG()}</button></div>
       </div></div>`;
   }
   // Pack the cooler from an open box: tap a treat and it goes in the first empty spot. Tap a treat in the cooler,
@@ -676,7 +691,7 @@ export class CartView {
         } else if (tab === 'change') {
           const breaks = [
             [2000, '4 × $5'],
-            [1000, '10 × $1'],
+            [1000, '2 × $5'],
             [500, '5 × $1'],
             [100, '4 × 25¢'],
           ];
@@ -750,6 +765,7 @@ export class CartView {
           <p class="tiny muted">${from === 'box' ? "The cash box is the cart's money. Taking it out makes it yours, and the cart has less." : 'Your wallet is your own money. Putting it in the cash box makes it cart money.'}</p>
           <div class="chips">${chips(c.pile(from), 'give', from, { except: tray })}</div>
           <div class="tray"><div class="pieces">${pieces(tray, 'untray')}</div></div>
+          <button class="btn small" data-act="all" ${total(c.pile(from)) ? '' : 'disabled'}>All of it</button>
           <button class="btn go" data-act="move" ${total(tray) ? '' : 'disabled'}>Move ${money(total(tray))} to ${to === 'box' ? '🧰 cash box' : '👛 wallet'}</button>`;
       },
     });
@@ -765,6 +781,10 @@ export class CartView {
       },
       untray: (t) => {
         tray = takeOne(tray, t.dataset.d);
+        m.refresh();
+      },
+      all: () => {
+        tray = { ...c.pile(from) };
         m.refresh();
       },
       move: () => {

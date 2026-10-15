@@ -555,7 +555,7 @@ export class Cart {
   }
   // The change machine: one bill in, smaller money out. $20 → 4 × $5, $10 → 10 × $1, $5 → 5 × $1, $1 → 4 quarters.
   breakBill(where, denom) {
-    const out = { 2000: { 500: 4 }, 1000: { 100: 10 }, 500: { 100: 5 }, 100: { 25: 4 } }[denom];
+    const out = { 2000: { 500: 4 }, 1000: { 500: 2 }, 500: { 100: 5 }, 100: { 25: 4 } }[denom];
     if (!out || !takePile(this.pile(where), { [denom]: 1 })) return false;
     addPile(this.pile(where), out);
     this.logAction('breakBill', { where, denom });
