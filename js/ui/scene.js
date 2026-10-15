@@ -2,6 +2,7 @@
 import { SPOT, FEATURE, FLAVORS, CONTAINERS, TOPPINGS, POPS, POP, CONFIG, MARKET_DAYS, FREEZE_TINTS } from '../config.js';
 import { skySVG, tileSVG, truckSVG, personSVG, iceCreamSVG } from '../art.js';
 import { esc, money } from './dom.js';
+import { coinIcon, emo } from '../icons.js';
 
 const NAMES = Object.fromEntries([...FLAVORS, ...CONTAINERS, ...TOPPINGS, ...POPS].map((x) => [x.id, x.name.toLowerCase()]));
 
@@ -282,7 +283,7 @@ export class Scene {
     switch (m.result) {
       case 'broke': {
         const cash = m.cash >= 100 ? money(m.cash).replace('.00', '') : `${m.cash}¢`;
-        return { t: `I can't buy anything. I only have ${cash}!`, c: 'meh', e: '🪙' };
+        return { t: `I can't buy anything. I only have ${cash}!`, c: 'meh', e: coinIcon() };
       }
       case 'tooExpensive': {
         return bad(`${money(m.askedPrice || 0)} for ${itemName(m.askedItem || m.want)}? Too expensive!`, '💸');
@@ -296,7 +297,7 @@ export class Scene {
       case 'none':
         return null;
       case 'bought': {
-        if (m.dropped) return m.replaced ? good('💥 Thank you for a new one!!', '🥹') : bad('💥 I dropped it! 😭', '😭');
+        if (m.dropped) return m.replaced ? good('💥 Thank you for a new one!!', emo('teary')) : bad('💥 I dropped it! 😭', '😭');
         if (m.mood === 'greatDeal') return good('What a great deal!', '🤩');
         if (m.mood === 'noTopping') return bad('No sprinkles? 😕');
         if (m.mood === 'noNapkin') return bad('No napkins? Sticky hands! 🧻', '🧻');

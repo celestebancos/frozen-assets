@@ -8,6 +8,7 @@ import { iceCreamSVG } from '../art.js';
 import { esc, money, openModal, onActs, toast } from './dom.js';
 import { STAGE_W, buildStage, chooseScale, blocks, makeSep, LEFT, RIGHT } from './statements.js';
 import { profitChart, tooExpensiveList } from './reports.js';
+import { coinIcon } from '../icons.js';
 
 const SEC_OF = (acct) => ACCOUNT[acct].section;
 const isPnl = (acct) => SEC_OF(acct) === 'income' || SEC_OF(acct) === 'expense';
@@ -455,7 +456,7 @@ export function openShoebox(app, onDone) {
       }).join('')}
       ${TOPPINGS.filter((t) => lw.toppings?.[t.id]).map((t) => `<span class="chip">${iceCreamSVG({ flavor: 'vanilla', container: 'cake', topping: t.id }, 26)} +${lw.toppings[t.id]}</span>`).join('')}
       </div>
-      <div class="row tiny muted" style="margin-top:4px">🚶 ${(lw.customers || 0).toLocaleString()} people · 😤 ${lw.tooExpensive || 0} said “too expensive” · 😠 ${lw.outOfStock || 0} found something sold out${lw.broke ? ` · 🪙 ${lw.broke} kids only had pocket money` : ''}</div>
+      <div class="row tiny muted" style="margin-top:4px">🚶 ${(lw.customers || 0).toLocaleString()} people · 😤 ${lw.tooExpensive || 0} said “too expensive” · 😠 ${lw.outOfStock || 0} found something sold out${lw.broke ? ` · ${coinIcon()} ${lw.broke} kids only had pocket money` : ''}</div>
       ${tooExpensiveList(lw.tooExpensiveWants)}
       <h3>Profit this summer</h3>
       ${profitChart(g)}

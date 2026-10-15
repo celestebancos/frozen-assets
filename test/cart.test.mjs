@@ -72,7 +72,13 @@ test('starting money, shopping, change and the freezer', () => {
   // the seller can get it wrong, but complaining always fixes it
   assert.equal(c.count('freezer', 'rocketPop'), 24);
   assert.equal(c.count('freezer', 'iceCherry'), 24);
+  // spoons wait on the shelf at home until a pack is opened onto the cart
+  assert.equal(c.state.spoons, 0);
+  assert.equal(c.state.packs.spoons, 1);
+  assert.ok(c.openPack('spoons'));
   assert.equal(c.state.spoons, 100);
+  assert.equal(c.state.packs.spoons, 0);
+  assert.ok(!c.openPack('spoons'), 'no packs left');
   const expected = 4000 - r.cost + (r.result === 'shortChanged' ? r.wrong : r.result === 'extra' ? r.wrong : 0);
   assert.equal(c.boxTotal, expected);
   // a complaint about right change is harmless; about wrong change gets it fixed
@@ -134,9 +140,20 @@ test('packing one at a time: first empty spot, two trays, swaps, and back in the
   c.state.freezer.shelves[0][1] = { item: 'iceBlue', n: 2 };
   assert.deepEqual(c.packOne('s0-0'), { ok: true, i: 0, emptied: false });
   assert.equal(c.packOne('s0-1').i, 1);
-  // the last one out of a box: the empty box gets recycled
+  // the last one out of a box: the empty box stays, so a treat can still go back in
   assert.deepEqual(c.packOne('s0-1'), { ok: true, i: 2, emptied: true });
+  assert.deepEqual(c.boxAt('s0-1'), { item: 'iceBlue', n: 0 });
+  assert.equal(c.packOne('s0-1').reason, 'none');
+  assert.ok(c.unpackOne(2, 's0-1').ok);
+  assert.ok(!c.recycle('s0-1'), 'only empty boxes go in the bin');
+  assert.equal(c.packOne('s0-1').i, 2);
+  // into the recycling bin, back out again, and back in
+  assert.ok(c.recycle('s0-1'));
   assert.equal(c.boxAt('s0-1'), null);
+  assert.deepEqual(c.state.recycling, ['iceBlue']);
+  assert.deepEqual(c.unrecycle(0), { ok: true, spot: 's0-1' });
+  assert.deepEqual(c.boxAt('s0-1'), { item: 'iceBlue', n: 0 });
+  assert.ok(c.recycle('s0-1'));
   // swap spots, and fill the gap first
   assert.ok(c.moveSpot(0, 7));
   assert.equal(c.topTray[7], 'rocketPop');
@@ -152,6 +169,24 @@ test('packing one at a time: first empty spot, two trays, swaps, and back in the
   assert.equal(c.topTray.filter(Boolean).length, 0);
   assert.ok(c.packOne('s0-0').ok);
   assert.equal(c.spaceUsed('cooler'), CART.traySpots + 1);
+});
+
+test('the recycling bin goes out when you leave home', () => {
+  const c = Cart.create({ player: 'Test', seed: 7 });
+  c.state.freezer.shelves[0][0] = { item: 'rocketPop', n: 0 };
+  assert.ok(c.recycle('s0-0'));
+  c.errand('corner');
+  assert.deepEqual(c.state.recycling, []);
+  c.state.freezer.shelves[0][0] = { item: 'rocketPop', n: 0 };
+  assert.ok(c.recycle('s0-0'));
+  c.openPark();
+  assert.deepEqual(c.state.recycling, []);
+  const old = Cart.create({ player: 'Old', seed: 1 }).state;
+  delete old.recycling;
+  delete old.packs;
+  const o = new Cart(old);
+  assert.deepEqual(o.state.recycling, []);
+  assert.deepEqual(o.state.packs, { spoons: 0, napkins: 0 });
 });
 
 test('older saves: tubs of scoops become cups, cups become spoons', () => {

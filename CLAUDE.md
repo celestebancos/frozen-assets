@@ -5,7 +5,7 @@ A browser game (plain HTML/CSS/JS modules, no build step) that teaches kids inco
 ## Workflow
 
 - **Merging to `main` is pre-approved.** When a change is done and checked, open a PR and merge it without asking first. Pushing to `main` deploys the site to GitHub Pages.
-- The deploy (`.github/workflows/pages.yml`) publishes only `index.html`, `styles.css`, `js/` and `sounds/`. A new file or folder the game loads must be added there too, or it 404s on the live site.
+- The deploy (`.github/workflows/pages.yml`) publishes only `index.html`, `styles.css`, `js/`, `sounds/` and `img/`. A new file or folder the game loads must be added there too, or it 404s on the live site.
 - Before merging, run `node --test test/*.test.mjs`. If you changed anything in `js/config.js` or the engine, also run `node tools/simulate.mjs 60` and compare the bots with the targets in README.md.
 - For UI changes, play it in a headless browser at phone and laptop sizes. Serve the folder with `python3 -m http.server`; Playwright and Chromium are preinstalled in cloud sessions.
 
@@ -15,3 +15,4 @@ A browser game (plain HTML/CSS/JS modules, no build step) that teaches kids inco
 - All balance numbers live in `js/config.js`.
 - `js/engine.js` (the truck) and `js/cart.js` (the park cart) are pure logic with no DOM, so tests and bots run them in Node. Game state is plain JSON and is saved as-is, so new fields need a fallback for older saves.
 - The players are kids: keep on-screen text short and plain.
+- No emojis newer than 2019 (older computers show a blank box): draw it in `js/icons.js` instead. `test/emoji.test.mjs` checks.

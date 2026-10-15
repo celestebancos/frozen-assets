@@ -6,6 +6,7 @@ import { ACCOUNTS, ACCOUNT, pnlRowsFor, sectionTotal, share } from '../ledger.js
 import { DOC_TYPES } from '../documents.js';
 import { mapSVG, mapIcon, iceCreamSVG, truckSVG, ROUTE_COLORS } from '../art.js';
 import { esc, money, openModal, onActs, toast, fmtTime, stepper } from './dom.js';
+import { coinIcon } from '../icons.js';
 
 const C = CONFIG;
 
@@ -163,7 +164,7 @@ export function menuPanel(app) {
             <button class="chip ${g.isOn(p.id) ? '' : 'off'}" data-act="toggle" data-id="${p.id}">${g.isOn(p.id) ? '✅' : '🚫'}</button></span>
           ${stepper(s.prices[p.id], 'price', p.id, money(s.prices[p.id]))}
         </div>`).join('')}
-        <p class="tiny" style="margin:4px 0 0;color:#f3e9d2">🪙 Some kids only have $1 or less. A cheap pop is something they can buy.</p>
+        <p class="tiny" style="margin:4px 0 0;color:#f3e9d2">${coinIcon()} Some kids only have $1 or less. A cheap pop is something they can buy.</p>
       </div>
       <details class="card2" style="margin-top:10px" open>
         <summary><b>🍦 What goes into each ice cream?</b></summary>
@@ -218,7 +219,7 @@ function placeNote(f) {
 }
 function spotNote(sp) {
   if (sp.pay >= 1.1) return '💰 People here tend to have a bit more money to spend';
-  if (sp.pay < 0.97) return '🪙 People here tend to have a bit less money to spend';
+  if (sp.pay < 0.97) return `${coinIcon()} People here tend to have a bit less money to spend`;
   return '';
 }
 
@@ -427,7 +428,7 @@ function promotionHTML(g) {
   const note = paid ? 'Paid for this week.' : s.phase === 'closed' ? 'Ads bring more people this week.' : 'Pick ads in the morning, before you open.';
   return `<p class="tiny muted" style="margin:0 0 6px">${note}</p>
     <div class="ad-choices">${C.ads.map((a) => {
-      const e = { none: '🤐', flyers: '📄', radio: '📻', billboard: '🪧' }[a.id];
+      const e = { none: '🤐', flyers: '📄', radio: '📻', billboard: '🏷️' }[a.id];
       return `<button data-act="ad" data-id="${a.id}" class="${s.adTier === a.id ? 'on' : ''}" ${!canPick || a.cost > g.cash ? 'disabled' : ''}><span class="e">${e}</span>${a.name}<br><span class="muted">${a.cost ? money(a.cost) : 'Free'}</span></button>`;
     }).join('')}</div>`;
 }
@@ -579,7 +580,7 @@ export function truckPanel(app) {
         <div class="swatches">${TRUCK_COLORS.map((c) => `<button class="swatch ${color === c.id ? 'on' : ''}" style="background:${c.hex}" data-act="color" data-id="${c.id}" aria-label="${c.name}"></button>`).join('')}</div>
         <div style="margin-top:8px"><input class="text-in" maxlength="28" value="${esc(name)}" data-chg="name" aria-label="Business name"></div>
         <div class="row" style="margin-top:8px">
-          ${paint ? `<span class="chip">🎨 Paint ${money(C.rebrand.paint)}</span>` : ''}${sign ? `<span class="chip">🪧 New sign ${money(C.rebrand.sign)}</span>` : ''}
+          ${paint ? `<span class="chip">🎨 Paint ${money(C.rebrand.paint)}</span>` : ''}${sign ? `<span class="chip">🏷️ New sign ${money(C.rebrand.sign)}</span>` : ''}
           <button class="btn go" data-act="apply" ${cost ? '' : 'disabled'}>Do it${cost ? ' — ' + money(cost) : ''}</button>
         </div>`;
     },

@@ -79,6 +79,8 @@ export function choosePayment(pocket, due, rng) {
 
 // ---------- state ----------
 // How many treats come in a box from the restaurant store.
+// how many spoons or napkins come in a pack
+const PACK_QTY = Object.fromEntries(CART_SHOPS.restaurant.items.filter((i) => i.kind === 'spoons' || i.kind === 'napkins').map((i) => [i.kind, i.qty]));
 const BOX_SIZE = Object.fromEntries(CART_SHOPS.restaurant.items.filter((i) => i.kind === 'stock').map((i) => [i.item, i.qty]));
 export const boxSize = (id) => BOX_SIZE[id] || 24;
 const emptyShelves = () => Array.from({ length: K.freezerShelves }, () => Array(K.shelfSlots).fill(null));
@@ -104,11 +106,13 @@ export function newCartState({ player, look, seed }) {
     // The freezer at home: shelves of box spots. A box is { item, n } (n: how many treats are left in it).
     freezer: { shelves: emptyShelves() },
     counter: [], // boxes from the store on the kitchen counter, not put away yet (they melt if left out)
+    recycling: [], // empty boxes in the recycling bin (ids of what was in them): taken out with the trash when you leave
     // The cooler: trays of spots, each holding one treat id or null. trays[top] is the one you can see.
     // tints: the color of the freeze pop in each spot (the same shape as trays).
     cooler: { trays: emptyTrays(), tints: emptyTrays(), top: 0 },
-    spoons: 0, // every Italian ice needs one
-    napkins: 0, // to hand out if you like
+    spoons: 0, // on the cart: every Italian ice needs one
+    napkins: 0, // on the cart: to hand out if you like
+    packs: { spoons: 0, napkins: 0 }, // packs from the store, still on the shelf at home
     owned: [], // ids of things bought to keep (gear, decals, hats, glasses, shirts, toys)
     decalSpots: {}, // where each sticker is stuck on the cart: { id: [u, v] }, 0–1 across and down the cart's side
     wearing: { hat: null, glasses: null, shirt: null },
@@ -162,6 +166,7 @@ export class Cart {
       }
     }
     state.counter ??= [];
+    state.recycling ??= [];
     // older saves: smaller trays get the new spots added at the end
     for (const t of [...(state.cooler.trays || []), ...(state.cooler.tints || [])]) while (t.length < K.traySpots) t.push(null);
     if (!state.cooler.trays) {
@@ -176,6 +181,7 @@ export class Cart {
       for (const d of state.days || []) for (const [id, n] of Object.entries(d.sold || {})) state.stats.soldItems[id] = (state.stats.soldItems[id] || 0) + n;
     }
     state.napkins ??= 0;
+    state.packs ??= { spoons: 0, napkins: 0 }; // older saves: everything bought was already on the cart
     state.decalSpots ??= {}; // older saves: stickers go in their usual spots until they're moved
     if (state.window && state.window.v !== 2) state.window = null; // a sale from an older version: they wander off
     // a payment that was never finished (the page closed): the money goes back where it came from
@@ -339,7 +345,8 @@ export class Cart {
   get coolerFree() {
     return K.coolerSpace - this.spaceUsed('cooler');
   }
-  // Take one treat out of a box and put it in the first empty spot on the top tray. An empty box gets recycled.
+  // Take one treat out of a box and put it in the first empty spot on the top tray. An empty box stays where it
+  // is (open, so treats can go back in) until it's put in the recycling bin.
   packOne(loc) {
     const s = this.state;
     if (s.phase !== 'home') return { ok: false, reason: 'notHome' };
@@ -350,9 +357,25 @@ export class Cart {
     this.topTray[i] = box.item;
     this.state.cooler.tints[this.state.cooler.top][i] = boxTint(box, boxSize(box.item) - box.n);
     box.n--;
-    const emptied = box.n <= 0;
-    if (emptied) this.setBox(loc, null);
-    return { ok: true, i, emptied };
+    return { ok: true, i, emptied: box.n <= 0 };
+  }
+  // An empty box goes in the recycling bin.
+  recycle(loc) {
+    const s = this.state;
+    const box = this.boxAt(loc);
+    if (s.phase !== 'home' || !box || box.n > 0) return false;
+    this.setBox(loc, null);
+    s.recycling.push(box.item);
+    return true;
+  }
+  // Take box i back out of the recycling bin, into the first open spot in the freezer.
+  unrecycle(i) {
+    const s = this.state;
+    if (s.phase !== 'home' || !(i in s.recycling)) return { ok: false };
+    const spot = this.emptySlot();
+    if (!spot) return { ok: false, reason: 'full' };
+    this.setBox(spot, { item: s.recycling.splice(i, 1)[0], n: 0 });
+    return { ok: true, spot };
   }
   // Put a treat from the top tray back in its box (if it's the same kind and there's room).
   unpackOne(i, loc) {
@@ -373,7 +396,7 @@ export class Cart {
     if (s.phase !== 'home') return { ok: false, reason: 'notHome' };
     let done = 0;
     while (done < n && this.coolerFree > 0) {
-      const from = this.homeBoxes().filter((x) => x.box.item === id).sort((a, b) => a.box.n - b.box.n)[0];
+      const from = this.homeBoxes().filter((x) => x.box.item === id && x.box.n > 0).sort((a, b) => a.box.n - b.box.n)[0];
       if (!from) break;
       this.toCooler(id, null, boxTint(from.box, boxSize(id) - from.box.n));
       from.box.n--;
@@ -382,6 +405,14 @@ export class Cart {
     }
     if (!done) return { ok: false, reason: this.count('freezer', id) ? 'full' : 'none' };
     return { ok: true, n: done };
+  }
+  // Open a pack of spoons or napkins from the shelf at home onto the cart.
+  openPack(kind) {
+    const s = this.state;
+    if (s.phase !== 'home' || !['spoons', 'napkins'].includes(kind) || !(s.packs[kind] > 0)) return false;
+    s.packs[kind]--;
+    s[kind] += PACK_QTY[kind];
+    return true;
   }
   // Is there one in the cooler?
   canSell(id) {
@@ -395,6 +426,7 @@ export class Cart {
     const s = this.state;
     if (s.phase === 'home') {
       s.minute += K.errand[where] || 0;
+      s.recycling = []; // the recycling goes out while you're away
     } else if (s.phase === 'park' && where === 'corner') {
       if (s.window) return { ok: false, reason: 'busy' };
       for (const c of s.line) this.emit({ t: 'leave', id: c.id, say: 'gone' });
@@ -500,7 +532,7 @@ export class Cart {
         break;
       case 'spoons':
       case 'napkins':
-        s[it.kind] += it.qty;
+        s.packs[it.kind]++; // on the shelf at home until it's opened onto the cart
         break;
       case 'balloon':
         s.balloon = it.color;
@@ -589,6 +621,7 @@ export class Cart {
     if (s.phase !== 'home') return false;
     s.phase = 'park';
     s.minute = Math.max(s.minute, K.parkOpen);
+    s.recycling = []; // the recycling goes out while you're away
     s.line = [];
     s.window = null;
     // anything left out on the kitchen counter melts

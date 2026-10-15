@@ -127,6 +127,11 @@ svg.truck-svg { width: 100%; height: auto; display: block; }
 .party .wave { animation: wave 0.5s ease-in-out infinite alternate; }
 @keyframes wave { to { transform: translateX(-50%) rotate(-18deg); } }
 @media (prefers-reduced-motion: reduce) { .scene-root.driving .truck-wrap, .party .wave { animation: none; } }
+/* little drawings and pictures used in text in place of emojis (js/icons.js) */
+.ico { display: inline-block; width: 1.25em; height: 1.25em; vertical-align: -0.28em; }
+.emo { display: inline-block; width: 1.15em; height: 1.15em; vertical-align: -0.22em; }
+/* ⏸ at the park (and the truck): everything that moves stops where it is */
+.stage.paused *, .stage.paused *::before, .stage.paused *::after, .stage.paused::before, .stage.paused::after { animation-play-state: paused !important; }
 .rain { position: absolute; inset: 0; pointer-events: none; z-index: 3; overflow: hidden; }
 /* rainy days: a gray sky, gray clouds, no sun, and the birds, kite and butterflies stay home */
 .stage.park.overcast { --sky: #adbbc6; --grass: #7cb85c; }
@@ -562,6 +567,8 @@ table.books tr.bottom td { font-weight: 800; font-size: 18px; background: #fff3b
 .chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0; }
 .cash-chip { display: flex; align-items: center; gap: 4px; border: 2px solid var(--ink); border-radius: 12px; background: #fff; padding: 4px 6px; box-shadow: var(--shadow); }
 .cash-chip:active { transform: translateY(2px); box-shadow: none; }
+.cash-chip.none { opacity: 0.28; box-shadow: none; border-style: dashed; filter: grayscale(1); }
+.cash-chip.none b { visibility: hidden; }
 .tray { background: #f3fbff; border: 2px dashed var(--blue); border-radius: 12px; padding: 6px; margin: 6px 0; }
 .pieces { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; min-height: 30px; }
 .piece { border: none; background: none; padding: 0; }
@@ -756,8 +763,10 @@ table.books tr.bottom td { font-weight: 800; font-size: 18px; background: #fff3b
 @keyframes meToss { 0%, 70%, 100% { transform: translateY(0); } 25% { transform: translateY(-3%); } }
 @keyframes meWatch { 0%, 100% { transform: rotate(-2.5deg); } 47% { transform: rotate(2.5deg); } }
 @media (prefers-reduced-motion: reduce) { .toy-svg *, .park .cart-spot.playing .me { animation: none !important; } }
-.park .tip-coin { position: absolute; left: 70%; bottom: 60%; z-index: 2; animation: tipHop 1.3s ease-out forwards; pointer-events: none; }
-@keyframes tipHop { 0% { transform: translateY(0) scale(0.6); opacity: 0; } 25% { opacity: 1; transform: translateY(-40px) scale(1); } 100% { transform: translateY(-90px) scale(0.8); opacity: 0; } }
+/* a tip drops into the jar: its mouth is at (158, 67) of the cart's 230 × 200 picture */
+.park .the-cart { position: relative; }
+.park .cart-spot .tip-coin { position: absolute; left: 68.7%; top: 33.5%; width: 8%; z-index: 2; animation: tipDrop 0.9s ease-in forwards; pointer-events: none; }
+@keyframes tipDrop { 0% { transform: translate(-50%, -260%) scale(0.9); opacity: 0; } 20% { opacity: 1; } 75% { transform: translate(-50%, -60%) scale(0.75); opacity: 1; } 100% { transform: translate(-50%, 10%) scale(0.5); opacity: 0; } }
 /* the change buttons sit in one row, Give change included */
 .money-btns { display: flex; gap: 6px; align-items: stretch; margin-top: 6px; }
 .money-btns .btn { flex: 1 1 0; min-width: 0; padding: 4px 6px; font-size: 15px; line-height: 1.1; }
@@ -766,8 +775,10 @@ table.books tr.bottom td { font-weight: 800; font-size: 18px; background: #fff3b
   .money-btns { gap: 4px; }
   .money-btns .btn { font-size: 12px; padding: 2px 3px; min-height: 42px; border-width: 2px; border-radius: 10px; }
   .money-btns .btn.go { font-size: 14px; }
-  .park .serve .chips { gap: 4px; margin: 4px 0; }
-  .park .serve .cash-chip { padding: 2px 4px; }
+  /* the cash box in one row of five spots, each kind of money always in the same one */
+  .park .serve .chips { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 4px; margin: 4px 0; }
+  .park .serve .cash-chip { flex-direction: column; justify-content: center; gap: 0; padding: 3px 2px; min-width: 0; }
+  .park .serve .cash-chip svg { max-width: 100%; height: auto; }
 }
 /* iPhone Safari: the page itself never scrolls or rubber-bands; screens and modals scroll inside */
 body { position: fixed; inset: 0; }
@@ -800,6 +811,17 @@ body { position: fixed; inset: 0; }
 .kit-pack { display: flex; gap: 18px; align-items: flex-start; justify-content: center; flex-wrap: wrap; padding-top: 12px; border-top: 3px dashed #e3c9a6; }
 .kit-pack .pk-left { flex: 0 1 220px; }
 .kit-pack .pk-right { flex: 1 1 300px; max-width: 400px; }
+.box-btns { justify-content: center; gap: 6px; }
+.kit-floor { display: flex; align-items: flex-end; gap: 10px; margin-top: auto; }
+.kit-floor .kit-counter { flex: 1 1 0; min-width: 0; }
+.bin-spot { display: flex; flex-direction: column; align-items: center; flex: none; }
+.binned-row { display: flex; justify-content: center; margin-bottom: -26px; position: relative; z-index: 0; min-height: 10px; }
+.binned { width: 44px; margin: 0 -6px; border: none; background: none; padding: 0; transform: rotate(var(--r)); }
+.binned > svg { width: 100%; height: auto; display: block; }
+.bin { width: 70px; border: none; background: none; padding: 0; position: relative; z-index: 1; }
+.bin > svg { width: 100%; height: auto; display: block; }
+.bin.target { animation: pulse 1.2s infinite; }
+.slot.spent { opacity: 0.55; }
 .fridge { flex: 2.3 1 0; display: flex; min-width: 0; position: relative; z-index: 0; }
 .fz-box { flex: 1; min-width: 0; background: #f7f9fb; border: 3px solid var(--ink); border-radius: 18px; padding: 10px; }
 .fz-in { background: #e3f2fb; border: 2px solid var(--ink); border-radius: 10px; padding: 6px 6px 4px; }
@@ -817,7 +839,10 @@ body { position: fixed; inset: 0; }
 .fz-door .hinge.low { top: auto; bottom: 10%; }
 .kit-side { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; gap: 10px; }
 .supplies { display: flex; flex-wrap: wrap; gap: 4px; align-items: flex-end; min-height: 50px; padding: 0 6px; border-bottom: 10px solid #c98a4b; box-shadow: 0 2px 0 var(--ink); }
-.supplies .pk { width: 54px; } .supplies .pk > svg { width: 100%; height: auto; display: block; }
+.supplies .pk { width: 54px; border: none; background: none; padding: 0; } .supplies .pk > svg { width: 100%; height: auto; display: block; }
+.supplies .pk:active { transform: translateY(2px); }
+.supplies .pk-more { font-weight: 800; align-self: center; }
+.kit-side .on-cart { margin-top: 2px; }
 .kc-boxes { display: flex; flex-wrap: wrap-reverse; gap: 6px 4px; align-items: flex-end; min-height: 70px; padding: 0 6px; }
 .kit-counter::after { content: ''; display: block; height: 46px; background: #e0b277; border: 3px solid var(--ink); border-top: 12px solid #c98a4b; border-radius: 3px; }
 .cbox { border: none; background: none; padding: 0; width: 80px; }
@@ -924,7 +949,8 @@ button.co-item { animation: nudge 1.4s ease-in-out infinite; }
 .park .serve { width: min(740px, calc(100% - 20px)); }
 .serve-scene { display: flex; gap: 10px; align-items: flex-end; }
 .srv-counter { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; }
-.ct-top { display: flex; align-items: flex-end; gap: 6px; background: #fffaf0; border: 3px solid var(--ink); border-radius: 8px 8px 0 0; padding: 8px; min-height: 140px; }
+.srv-supplies { display: flex; align-items: flex-end; justify-content: center; gap: 18px; padding: 0 10px; margin: 0 12px 8px; border-bottom: 5px solid #c9a76a; border-radius: 0 0 3px 3px; }
+.ct-top { display: flex; align-items: flex-end; gap: 6px; background: #fffaf0; border: 3px solid var(--ink); border-radius: 8px 8px 0 0; padding: 8px; min-height: 86px; }
 .ct-handed { flex: 1; display: flex; flex-wrap: wrap; align-items: flex-end; gap: 2px; min-width: 0; }
 .on-counter { border: none; background: none; padding: 0; }
 .on-counter > svg { display: block; }
@@ -940,7 +966,8 @@ button.co-item { animation: nudge 1.4s ease-in-out infinite; }
   .serve-scene .cl-lid { height: 16px; margin-bottom: 4px; } .serve-scene .cl-lid i { height: 10px; bottom: -8px; }
   .serve-scene .cl-body { padding: 5px 5px 18px; }
   .serve-scene .cl-tray { padding: 4px; gap: 3px; }
-  .ct-top { min-height: 0; padding: 4px 6px; }
+  .ct-top { min-height: 46px; padding: 4px 6px; }
+  .srv-supplies { margin-bottom: 4px; gap: 14px; }
   .ct-cup { width: 36px; } .ct-stack { width: 56px; }
   .on-counter > svg { width: 34px; height: 34px; }
   .ct-front { padding: 6px; }

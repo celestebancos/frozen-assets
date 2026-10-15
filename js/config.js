@@ -398,7 +398,7 @@ export const CART_SHOPS = {
     name: 'Corner store',
     icon: '🏪',
     items: [
-      { id: 'gum', name: 'Bubble gum', kind: 'snack', price: 100, emoji: '🫧' },
+      { id: 'gum', name: 'Bubble gum', kind: 'snack', price: 100 }, // drawn: gumIcon in js/icons.js
       { id: 'chips', name: 'Chips', kind: 'snack', price: 150, emoji: '🥔' },
       { id: 'juice', name: 'Juice box', kind: 'snack', price: 125, emoji: '🧃' },
       { id: 'ball', name: 'Bouncy ball', kind: 'toy', price: 100, emoji: '🔴' },
