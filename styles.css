@@ -752,7 +752,6 @@ table.books tr.bottom td { font-weight: 800; font-size: 18px; background: #fff3b
 .park .cart-spot.playing .me { transform-origin: 50% 100%; }
 .park .cart-spot[data-toy='ball'] .me { animation: meToss 1.2s ease-in-out infinite; }
 .park .cart-spot[data-toy='car'] .me { animation: meWatch 6s ease-in-out infinite; }
-.park .cart-spot[data-toy='yoyo'] .me { animation: meToss 1.8s ease-in-out infinite; }
 .park .cart-spot[data-toy='kite'] .me { animation: meWatch 8s ease-in-out infinite; }
 @keyframes meToss { 0%, 70%, 100% { transform: translateY(0); } 25% { transform: translateY(-3%); } }
 @keyframes meWatch { 0%, 100% { transform: rotate(-2.5deg); } 47% { transform: rotate(2.5deg); } }

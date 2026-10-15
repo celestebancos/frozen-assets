@@ -71,8 +71,11 @@ export function toyPlaySVG(toy, { skin = '#f1c27d', tall = false } = {}) {
       <g clip-path="url(#${id})"><g class="toss"><g class="roll"><circle cx="138" cy="100" r="8.5" fill="#e5484d" ${thin}/>
         <path d="M131.5 100 Q138 93.5 144.5 100" stroke="#ffd23f" stroke-width="2.4" fill="none"/><circle cx="134.6" cy="96.6" r="2" fill="#fff" opacity=".8"/></g></g></g>`;
   } else if (toy === 'yoyo') {
-    // a hand over the edge of the lid, and the yo-yo running down the string and back up, spinning
-    art = `<rect class="yy-string" x="149.6" y="95" width="0.9" height="55" fill="${INK}"/>
+    // your arm resting along the lid (from where it comes down beside you, at x 124) out to a hand over the edge,
+    // and the yo-yo running down the string and back up, spinning
+    const fore = 'M124 88.5 Q134 91 144 92';
+    art = `<path d="${fore}" stroke="${INK}" stroke-width="9" stroke-linecap="round" fill="none"/><path d="${fore}" stroke="${skin}" stroke-width="6.3" stroke-linecap="round" fill="none"/>
+      <rect class="yy-string" x="149.6" y="95" width="0.9" height="55" fill="${INK}"/>
       <g class="yy-drop"><g transform="translate(150 150)"><g class="yy-spin"><circle r="10" fill="#3cc6a0" ${thin}/><path d="M-9.5 0 H9.5 M0 -9.5 V9.5" stroke="#2a9d80" stroke-width="1.8"/><circle r="3" fill="#fff" ${thin}/></g></g></g>
       <ellipse cx="150" cy="92.5" rx="7" ry="5.2" fill="${skin}" ${thin}/><path d="M146 95 v2 M149.5 95.6 v2.2 M153 95 v2" stroke="${INK}" stroke-width="1" stroke-linecap="round"/>`;
   } else if (toy === 'car') {
