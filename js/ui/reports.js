@@ -113,7 +113,7 @@ function seasonResult(app, res) {
   const s = g.state;
   const hex = app.truckHex();
   const m = openModal({
-    title: res.won ? '🎉 You did it!' : '🚛 Uh oh…',
+    title: res.won ? '🎉 You did it!' : `${towTruckIcon()} Uh oh…`,
     cls: 'narrow',
     closable: false,
     render(body) {
