@@ -6,7 +6,7 @@ import { personSVG, parkSVG, CHARACTER, PARK_VIEW } from '../art.js';
 import { cartSVG, toyPlaySVG, STICKER_AREA, umbrellaSVG, moneySVG, treatSVG, thingSVG, boxFrontSVG, boxSideSVG, BOX_LOOK, spoonCupSVG, napkinStackSVG, spoonBoxSVG, napkinPackSVG, recyclingBinSVG, swingSetSVG, balloonSVG, hotdogStandSVG, balloonSellerSVG, stickerStandSVG } from '../cartArt.js';
 import { ParkStories } from './parkStories.js';
 import { PauseClock } from './clock.js';
-import { coinIcon, jarIcon, walletIcon, fanIcon, gumIcon, cartIcon, emo } from '../icons.js';
+import { coinIcon, jarIcon, walletIcon, fanIcon, gumIcon, cartIcon, cashBoxIcon, propellerHatIcon, emo } from '../icons.js';
 import { Ambience, cashRegister, gameSound } from '../ambience.js';
 import { storage } from '../storage.js';
 import { esc, money, el, openModal, onActs, anyModalOpen, closeAllModals, toast, fmtTime, SPEED_ICONS, askYes } from './dom.js';
@@ -63,6 +63,7 @@ function itemIcon(it, size = 40) {
   if (it.id === 'gum') return `<span style="font-size:${size * 0.7}px">${gumIcon()}</span>`;
   if (it.kind === 'balloon') return balloonSVG(it.color).replace('<svg ', `<svg width="${size * 0.5}" height="${size}" `);
   if (it.kind === 'shirt') return `<span class="swatch" style="background:${it.color}">${it.stars ? '⭐' : ''}</span>`;
+  if (it.id === 'beanie') return `<span style="font-size:${size * 0.7}px">${propellerHatIcon()}</span>`; // the 🌀 emoji is just a swirl
   return `<span style="font-size:${size * 0.7}px">${it.emoji || '🛍️'}</span>`;
 }
 
@@ -390,7 +391,7 @@ export class CartView {
         if (!amt || !c.move('wallet', 'box', { ...s.money.wallet })) return;
         this.save();
         this.renderHome();
-        toast(`🧰 ${money(amt)} is in the cash box now.`);
+        toast(`${cashBoxIcon()} ${money(amt)} is in the cash box now.`);
       },
       truck: () => this.truckLoan(),
       grandmaOffer: () => this.grandmaOffer(),
@@ -442,12 +443,12 @@ export class CartView {
         ${this.kitchenHTML()}
         <div class="card cash-card">
           <h3>💵 Money</h3>
-          <div class="money-row"><span>🧰 Cash box <span class="tiny muted">(the cart's)</span></span><b>${money(c.boxTotal)}</b></div>
+          <div class="money-row"><span>${cashBoxIcon()} Cash box <span class="tiny muted">(the cart's)</span></span><b>${money(c.boxTotal)}</b></div>
           <div class="chips">${stacks(s.money.box, 34)}</div>
           <div class="money-row"><span>🏦 Bank <span class="tiny muted">(the cart's)</span></span><b>${money(c.bank)}</b></div>
           <div class="money-row"><span>${walletIcon()} Wallet <span class="tiny muted">(yours)</span></span><b>${money(c.walletTotal)}</b></div>
-          ${c.walletTotal ? `<div class="tiny muted">Tap one to put it in 🧰</div><div class="chips">${chips(s.money.wallet, 'toBox', 'wallet', { size: 34 })}</div>` : '<div class="tiny muted">Empty</div>'}
-          <div class="row">${c.walletTotal ? `<button class="btn small" data-act="walletToBox">${walletIcon()} → 🧰 All in the cash box</button>` : ''}<button class="btn small" data-act="moveMoney">↔️ Move money</button></div>
+          ${c.walletTotal ? `<div class="tiny muted">Tap one to put it in ${cashBoxIcon()}</div><div class="chips">${chips(s.money.wallet, 'toBox', 'wallet', { size: 34 })}</div>` : '<div class="tiny muted">Empty</div>'}
+          <div class="row">${c.walletTotal ? `<button class="btn small" data-act="walletToBox">${walletIcon()} → ${cashBoxIcon()} All in the cash box</button>` : ''}<button class="btn small" data-act="moveMoney">↔️ Move money</button></div>
         </div>
         <div class="card errands">
           ${c.lunchInvite ? `<div class="grandma-call"><span class="gma">${personSVG('adult', 7, { ...GRANDMA.look, skin: s.look.skin })}</span><div><b>Grandma called!</b><div>"Come have lunch with me today?"</div><div class="row"><button class="btn go small" data-act="lunchYes">Yes, please!</button><button class="btn small" data-act="lunchNo">Not today</button></div></div></div>` : ''}
@@ -756,7 +757,7 @@ export class CartView {
               ${back.length ? `<div class="co-back"><span class="tiny">Put back</span>${back.map((id) => thing(id, 'unret')).join('')}</div>` : ''}</div>`;
           }
           body.innerHTML = `${top}
-            <div class="tabs"><button class="btn small ${from === 'box' ? 'on' : ''}" data-act="from" data-w="box">🧰 Cash box ${money(c.boxTotal)}</button><button class="btn small ${from === 'wallet' ? 'on' : ''}" data-act="from" data-w="wallet">${walletIcon()} Wallet ${money(c.walletTotal)}</button></div>
+            <div class="tabs"><button class="btn small ${from === 'box' ? 'on' : ''}" data-act="from" data-w="box">${cashBoxIcon()} Cash box ${money(c.boxTotal)}</button><button class="btn small ${from === 'wallet' ? 'on' : ''}" data-act="from" data-w="wallet">${walletIcon()} Wallet ${money(c.walletTotal)}</button></div>
             ${from === 'box' ? '<div class="tiny muted">Cart money, for cart things.</div>' : '<div class="tiny muted">Your own money.</div>'}
             ${have < cost && !store ? '<p class="warn">Not enough money here.</p>' : ''}
             <div class="tiny">Tap money to hand it over:</div>
@@ -859,7 +860,7 @@ export class CartView {
       onClose,
       render: (body) => {
         const tabs = `<div class="tabs"><button class="btn small ${tab === 'change' ? 'on' : ''}" data-act="tab" data-t="change">${coinIcon()} Change machine</button><button class="btn small ${tab === 'atm' ? 'on' : ''}" data-act="tab" data-t="atm">🏧 ATM</button><button class="btn small" data-act="tab" data-t="shop">🛍️ Snacks, toys & clothes</button></div>`;
-        const fromTabs = `<div class="tabs"><button class="btn small ${from === 'box' ? 'on' : ''}" data-act="from" data-w="box">🧰 Cash box ${money(c.boxTotal)}</button><button class="btn small ${from === 'wallet' ? 'on' : ''}" data-act="from" data-w="wallet">${walletIcon()} Wallet ${money(c.walletTotal)}</button></div>`;
+        const fromTabs = `<div class="tabs"><button class="btn small ${from === 'box' ? 'on' : ''}" data-act="from" data-w="box">${cashBoxIcon()} Cash box ${money(c.boxTotal)}</button><button class="btn small ${from === 'wallet' ? 'on' : ''}" data-act="from" data-w="wallet">${walletIcon()} Wallet ${money(c.walletTotal)}</button></div>`;
         if (tab === 'atm') {
           const bills = Object.fromEntries(Object.entries(c.pile(from)).filter(([d]) => Number(d) >= 100));
           body.innerHTML = `${tabs}<div class="atm"><div class="atm-screen">🏦 The cart's bank account<br><b style="font-size:28px">${money(c.bank)}</b></div>
@@ -868,7 +869,7 @@ export class CartView {
             <div class="tray"><div class="pieces">${pieces(tray, 'untray')}</div></div>
             <button class="btn go" data-act="deposit" ${total(tray) ? '' : 'disabled'}>⬇️ Put in ${money(total(tray))}</button>
             <h3>Take money out</h3><div class="tiny muted">The ATM gives $20 bills.</div>
-            <div class="tabs"><button class="btn small ${to === 'box' ? 'on' : ''}" data-act="to" data-w="box">into 🧰 Cash box</button><button class="btn small ${to === 'wallet' ? 'on' : ''}" data-act="to" data-w="wallet">into ${walletIcon()} Wallet</button></div>
+            <div class="tabs"><button class="btn small ${to === 'box' ? 'on' : ''}" data-act="to" data-w="box">into ${cashBoxIcon()} Cash box</button><button class="btn small ${to === 'wallet' ? 'on' : ''}" data-act="to" data-w="wallet">into ${walletIcon()} Wallet</button></div>
             <div class="row">${[2000, 4000, 6000, 10000].map((v) => `<button class="btn" data-act="withdraw" data-v="${v}" ${v <= c.bank ? '' : 'disabled'}>${money(v)}</button>`).join('')}</div></div>`;
         } else if (tab === 'change') {
           const breaks = [
@@ -943,12 +944,12 @@ export class CartView {
       onClose,
       render: (body) => {
         const to = from === 'box' ? 'wallet' : 'box';
-        body.innerHTML = `<div class="tabs"><button class="btn small ${from === 'box' ? 'on' : ''}" data-act="from" data-w="box">🧰 → ${walletIcon()} Take out of the cart</button><button class="btn small ${from === 'wallet' ? 'on' : ''}" data-act="from" data-w="wallet">${walletIcon()} → 🧰 Put into the cart</button></div>
+        body.innerHTML = `<div class="tabs"><button class="btn small ${from === 'box' ? 'on' : ''}" data-act="from" data-w="box">${cashBoxIcon()} → ${walletIcon()} Take out of the cart</button><button class="btn small ${from === 'wallet' ? 'on' : ''}" data-act="from" data-w="wallet">${walletIcon()} → ${cashBoxIcon()} Put into the cart</button></div>
           <p class="tiny muted">${from === 'box' ? "The cash box is the cart's money. Taking it out makes it yours, and the cart has less." : 'Your wallet is your own money. Putting it in the cash box makes it cart money.'}</p>
           <div class="chips">${chips(c.pile(from), 'give', from, { except: tray })}</div>
           <div class="tray"><div class="pieces">${pieces(tray, 'untray')}</div></div>
           <button class="btn small" data-act="all" ${total(c.pile(from)) ? '' : 'disabled'}>All of it</button>
-          <button class="btn go" data-act="move" ${total(tray) ? '' : 'disabled'}>Move ${money(total(tray))} to ${to === 'box' ? '🧰 cash box' : `${walletIcon()} wallet`}</button>`;
+          <button class="btn go" data-act="move" ${total(tray) ? '' : 'disabled'}>Move ${money(total(tray))} to ${to === 'box' ? `${cashBoxIcon()} cash box` : `${walletIcon()} wallet`}</button>`;
       },
     });
     onActs(m.body, {
@@ -1260,7 +1261,7 @@ export class CartView {
       cls: 'narrow',
       render: (body) => {
         body.innerHTML = `<div class="penny"><div class="face">🧑‍💼</div><div class="say">Want an ice cream truck? The bank can lend you the money. Your cart money comes with you: it's <b>your share</b> of the new business.</div></div>
-          <div class="stats"><div class="stat"><div class="k">🧰 Cash box</div><div class="v">${money(c.boxTotal)}</div></div><div class="stat"><div class="k">🏦 Bank</div><div class="v">${money(c.bank)}</div></div><div class="stat"><div class="k">🚚 Comes with you</div><div class="v">${money(c.businessMoney)}</div></div></div>
+          <div class="stats"><div class="stat"><div class="k">${cashBoxIcon()} Cash box</div><div class="v">${money(c.boxTotal)}</div></div><div class="stat"><div class="k">🏦 Bank</div><div class="v">${money(c.bank)}</div></div><div class="stat"><div class="k">🚚 Comes with you</div><div class="v">${money(c.businessMoney)}</div></div></div>
           <p class="tiny muted">Your wallet stays yours. Your cart stays home, so you can come back to the park any time.</p>
           ${truck && truck.phase !== 'lost' ? '<p class="warn">⚠️ You already have a truck. This starts a new truck business instead.</p>' : ''}
           <div class="row" style="justify-content:space-between"><button class="btn" data-act="no">Not yet</button><button class="btn big go" data-act="go">To the bank ▶</button></div>`;
@@ -1600,7 +1601,7 @@ export class CartView {
     if (force || key !== this.hudKey) {
       this.hudKey = key;
       this.hud.innerHTML = `<div class="biz"><span class="n">${cartIcon()} ${esc(s.player)}'s cart</span></div>
-        <div class="row" style="gap:6px"><span class="clock"></span><span class="pill wx">${s.weather.rain ? '🌧️' : '☀️'} ${s.weather.temp}°</span><span class="pill cash"></span><span class="pill jar">${jarIcon()} <span class="v"></span></span><button class="pill tummy" data-act="eat" aria-label="Hunger: tap to eat">🍎<i class="bar"><b></b></i></button></div>
+        <div class="row" style="gap:6px"><span class="clock"></span><span class="pill wx">${s.weather.rain ? '🌧️' : '☀️'} ${s.weather.temp}°</span><span class="pill cash">${cashBoxIcon()} <span class="v"></span></span><span class="pill jar">${jarIcon()} <span class="v"></span></span><button class="pill tummy" data-act="eat" aria-label="Hunger: tap to eat">🍎<i class="bar"><b></b></i></button></div>
         <div class="speed" role="group" aria-label="Speed">${SPEED_ICONS.map((l, i) => `<button class="${this.speed === i ? 'on' : ''}" data-act="speed" data-s="${i}" aria-label="Speed ${i}">${l}</button>`).join('')}</div>`;
     }
     const set = (sel, text) => {
@@ -1608,7 +1609,7 @@ export class CartView {
       if (n && n.textContent !== text) n.textContent = text;
     };
     set('.clock', `${CART_DAY_NAMES[(s.day - 1) % 7]} · ${fmtTime(Math.min(s.minute, K.parkClose))}${serving ? ' · 🙂' : ''}`);
-    set('.cash', `🧰 ${money(c.boxTotal)}`);
+    set('.cash .v', money(c.boxTotal));
     set('.jar .v', money(c.jarTotal));
     const bar = this.hud.querySelector('.tummy');
     if (bar) {
@@ -1886,7 +1887,7 @@ export class CartView {
       main = `<div class="serve-money">
         <div class="stats"><div class="stat"><div class="k">They bought</div><div class="v gave">${bought}</div></div>
           <div class="stat"><div class="k">They gave you</div><div class="v gave">${pieces(w.paid, null, 46)}</div></div></div>
-        <div class="tiny">🧰 Your cash box. Tap money to give change:</div><div class="chips">${chips(s.money.box, 'tray', 'box', { except: this.tray, size: 50 })}</div>
+        <div class="tiny">${cashBoxIcon()} Your cash box. Tap money to give change:</div><div class="chips">${chips(s.money.box, 'tray', 'box', { except: this.tray, size: 50 })}</div>
         <div class="tray"><div class="tiny">Change to give:</div><div class="pieces">${pieces(this.tray, 'untray', 46)}</div></div>
         ${this.help ? `<div class="help">🤔 ${sum}${money(total(w.paid))} − ${money(w.due)} = <b>${money(owed)}</b> change</div>` : ''}
         <div class="serve-btns money-btns">
@@ -2010,7 +2011,7 @@ export class CartView {
         body.innerHTML = `<div class="stats">
             <div class="stat"><div class="k">🍦 Sold</div><div class="v">${n}</div></div>
             <div class="stat"><div class="k">💵 Sales</div><div class="v">${money(sum.revenue)}</div></div>
-            <div class="stat"><div class="k">🧰 Cash box</div><div class="v">${money(sum.endBox)}</div></div>
+            <div class="stat"><div class="k">${cashBoxIcon()} Cash box</div><div class="v">${money(sum.endBox)}</div></div>
             <div class="stat"><div class="k">${jarIcon()} Tips → ${walletIcon()}</div><div class="v">${money(sum.tipsToWallet)}</div></div>
           </div>
           <div class="sold-grid">${sold.map(([id, v]) => `<span class="chip">${treatSVG(id, 26)} ${v}</span>`).join('')}</div>
@@ -2018,7 +2019,7 @@ export class CartView {
             ${sum.tooHungry != null ? `<li>😩 You got too hungry and went home at ${fmtTime(sum.tooHungry)}.</li>` : ''}
             ${sum.ate ? `<li>😋 You ate ${andList(counted(Object.entries(sum.ate).flatMap(([id, n]) => Array(n).fill(id))))}. You could have sold ${Object.values(sum.ate).reduce((x, y) => x + y, 0) === 1 ? 'it' : 'them'} for ${money(sum.ateValue)}.</li>` : ''}
             ${sum.tummyAches ? `<li>🤢 Too much ice cream gave you a tummy ache${sum.tummyAches > 1 ? ` ${sum.tummyAches} times` : ''}.</li>` : ''}
-            <li>🧰 The cash box started the day with ${money(sum.startBox)}.</li>
+            <li>${cashBoxIcon()} The cash box started the day with ${money(sum.startBox)}.</li>
             ${sum.keptExtra ? `<li>😬 Someone kept ${money(sum.keptExtra)} of extra change.</li>` : ''}
             ${sum.returned ? `<li>🙂 Honest customers gave back ${money(sum.returned)} of extra change.</li>` : ''}
             ${sum.tooExpensive ? `<li>😕 ${sum.tooExpensive} said "too much".</li>` : ''}
