@@ -75,19 +75,38 @@ export const CONFIG = {
   buzzFadePerDay: 0.12,
 
   rebrand: { paint: 15000, sign: 10000, paintPull: 0.25, signPull: 0.75 },
-  // Wear and tear. A used truck leaks oil (oil: 100 = full), breaks down more often (more with low oil), burns more
-  // gas, and looks shabby (fewer customers, most in the nicer neighborhoods) until the garage fixes it up.
-  // Breakdowns, the fix-up and the winter tune-up are garage bills (pay within credit.termDays).
+  // Wear and tear. Every truck has an odometer (miles); more miles mean more breakdowns and bigger garage bills. A used
+  // truck starts with a lot of miles, leaks oil (oil: 100 = full), burns more gas, and looks shabby (fewer customers,
+  // most in the nicer neighborhoods) until the garage fixes it up. Each day that starts with almost no oil wears the
+  // engine (engineWear), and a worn engine breaks down more until the garage fixes it in the winter.
+  // Breakdowns, the fix-up and the winter inspection are garage bills (pay within credit.termDays).
   truckCare: {
     oilLeak: { used: [5, 9], new: [0, 0.4] }, // oil lost each day
-    oilLow: 30, // below this, breakdowns are lowOil times likelier; below oilEmpty, emptyOil times
-    oilEmpty: 10,
+    oilLow: 30, // the dipstick says "low"
+    oilEmpty: 10, // a day that starts below this wears the engine
     oilBottle: { price: 800, adds: 60 }, // from the gas station
-    breakdown: { used: 1 / 25, new: 1 / 100, lowOil: 3, emptyOil: 6, cost: [10000, 25000], oilCost: [25000, 40000] },
+    mpg: 10, // miles per gallon (a used truck burns usedGas times more gas for the same miles)
+    newMiles: [10, 60], // a new truck off the lot
+    // chance a day = perDay × (1 + miles / milesPer) × (1 + perWear × engineWear) × this summer's preventive repairs
+    breakdown: { perDay: 1 / 120, milesPer: 40000, perWear: 0.5, cost: [10000, 25000], costMilesPer: 150000 },
     usedGas: 1.3, // a used truck burns this much more gas
     shabby: { sunset: 0.85, downtown: 0.85, parkside: 0.85, other: 0.95 }, // customers, until it's fixed up
     fixUp: 80000, // paint, bodywork, no more rust
-    winter: { used: 35000, new: 15000 }, // the tune-up between summers
+    // The winter inspection: the tune-up and oil change you must pay for (base + perMile cents a mile), plus repairs
+    // the mechanic recommends. Each one you pay for cuts next summer's breakdowns (cut: ×). Their cost goes up with
+    // miles (× 1 + miles / costMilesPer), and more of them show up on a truck with more miles (from: miles).
+    // The engine repair only shows up for a worn engine, and fixes the wear.
+    winter: {
+      base: 15000,
+      perMile: 0.2,
+      costMilesPer: 100000,
+      repairs: [
+        { id: 'belts', label: 'New belts and hoses', cost: 8000, cut: 0.8, from: 0 },
+        { id: 'brakes', label: 'Brakes and tires', cost: 12000, cut: 0.8, from: 30000 },
+        { id: 'cooling', label: 'Radiator and cooling system', cost: 10000, cut: 0.8, from: 80000 },
+      ],
+      engine: { label: 'Engine repair (ran on almost no oil)', cost: 15000, perWear: 5000 },
+    },
     lowGas: 0.3, // the gas stop pops up when the tank is this low
   },
 
@@ -378,7 +397,10 @@ export const DROP_BY_PERSON = { kid: 1, teen: 0.5, adult: 0.1, dog: 0 };
 export const TRUCK_PRICE = 970_000;
 // Used trucks: about half price, no bling, and they look it (faded paint, rust, a dent). usedOnLot: how many are on
 // the lot. (More effects of a used truck, like breakdowns and gas, can come later.)
-export const USED_TRUCK = { price: 485_000, usedOnLot: 2 };
+// Used trucks on the lot: miles between the two numbers; fewer miles cost more (price = new × (top − miles × perMile),
+// to the $50).
+export const USED_TRUCK = { usedOnLot: 2, miles: [50000, 150000], top: 0.72, perMile: 1 / 400000 };
+export const usedTruckPrice = (miles) => Math.round((TRUCK_PRICE * (USED_TRUCK.top - miles * USED_TRUCK.perMile)) / 5000) * 5000;
 export const TRUCK_COLORS = [
   { id: 'white', name: 'Vanilla', hex: '#fff7ea' },
   { id: 'sky', name: 'Sky', hex: '#7cc8ff' },

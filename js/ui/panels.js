@@ -592,11 +592,13 @@ export function truckPanel(app) {
           <button class="btn go" data-act="apply" ${cost ? '' : 'disabled'}>Do it${cost ? ' — ' + money(cost) : ''}</button>
         </div>
         <h3>🔧 Garage</h3>
+        <p>🛣️ <b>${Math.round(s.miles).toLocaleString()} miles</b> on the truck. The more miles, the more it breaks down and the more the garage charges.</p>
+        ${s.engineWear ? `<p class="warn">🛢️ The engine is worn from ${s.engineWear} day${s.engineWear > 1 ? 's' : ''} on almost no oil, so it breaks down more. The garage can fix it in the winter.</p>` : ''}
         ${s.truckUsed && !s.truckFixed
           ? `<p>Your truck is used, and it looks it. People in the nicer neighborhoods are less likely to buy from a rusty old truck. The garage can fix up the outside: new paint, bodywork, no more rust.</p>
              <button class="btn go" data-act="fixUp">🔧 Fix it up (${money(C.truckCare.fixUp)})</button> <span class="tiny muted">The garage sends a bill. Pay it within ${C.credit.termDays} days.</span>`
           : s.truckUsed ? '<p>✨ Fixed up and looking great!</p>' : '<p>Your truck is in good shape.</p>'}
-        <p class="tiny muted">${s.truckUsed ? 'A used truck still burns more gas, leaks oil (check it at the gas station) and breaks down more often. ' : ''}Every winter the garage gives the truck a tune-up and an oil change, and sends a bill.</p>`;
+        <p class="tiny muted">${s.truckUsed ? 'A used truck still burns more gas, leaks oil (check it at the gas station) and breaks down more often. ' : ''}Every winter the garage checks the truck, changes the oil and sends a bill. It also suggests repairs that make breakdowns less likely next summer.</p>`;
     },
   });
   onActs(m.body, {
