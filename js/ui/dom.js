@@ -58,6 +58,28 @@ export function openModal({ title, cls = '', render, onClose, closable = true })
   render(body, m);
   return m;
 }
+// An in-game "are you sure?" instead of the browser's confirm(). Resolves true for yes, false for no (or closing it).
+export function askYes(question, { yes = 'Yes', no = 'No', title = '🤔 Are you sure?' } = {}) {
+  return new Promise((resolve) => {
+    let answered = false;
+    const done = (v) => {
+      if (answered) return;
+      answered = true;
+      m.close();
+      resolve(v);
+    };
+    const m = openModal({
+      title,
+      cls: 'narrow ask',
+      onClose: () => done(false),
+      render: (body) => {
+        body.innerHTML = `<p style="font-size:18px">${question}</p><div class="row" style="justify-content:space-between;margin-top:12px"><button class="btn" data-a="no">${no}</button><button class="btn big go" data-a="yes">${yes}</button></div>`;
+        body.querySelector('[data-a="no"]').onclick = () => done(false);
+        body.querySelector('[data-a="yes"]').onclick = () => done(true);
+      },
+    });
+  });
+}
 export const anyModalOpen = () => modalStack.length > 0;
 export function closeAllModals() {
   [...modalStack].reverse().forEach((m) => m.close());

@@ -9,7 +9,7 @@ import { PauseClock } from './clock.js';
 import { coinIcon, jarIcon, walletIcon, fanIcon, gumIcon, emo } from '../icons.js';
 import { Ambience, cashRegister, gameSound } from '../ambience.js';
 import { storage } from '../storage.js';
-import { esc, money, el, openModal, onActs, anyModalOpen, closeAllModals, toast, fmtTime, PAUSE_ICON } from './dom.js';
+import { esc, money, el, openModal, onActs, anyModalOpen, closeAllModals, toast, fmtTime, PAUSE_ICON, askYes } from './dom.js';
 
 const K = CART;
 // Real milliseconds per game minute. Serving runs at its own calm pace; waiting can be sped up.
@@ -395,10 +395,10 @@ export class CartView {
         this.renderHome();
         toast(k === 'spoons' ? '🥄 Spoons on the cart!' : '🧻 Napkins on the cart!');
       },
-      park: () => {
-        if (!c.spaceUsed('cooler') && !confirm('Your cooler is empty! Go to the park anyway?')) return;
-        if (s.counter.some((b) => b.n > 0) && c.freeSlots && !confirm('Some boxes are still on the counter. They will melt! Go anyway?')) return;
-        if (!s.spoons && s.cooler.trays.flat().some((id) => id && c.isIce(id)) && !confirm(s.packs.spoons ? 'No spoons on the cart! Tap the spoon box on the shelf to bring some. Go anyway?' : 'No spoons on the cart! Go anyway?')) return;
+      park: async () => {
+        if (!c.spaceUsed('cooler') && !(await askYes('Your cooler is empty! Go to the park anyway?', { yes: 'Go anyway', no: 'Wait' }))) return;
+        if (s.counter.some((b) => b.n > 0) && c.freeSlots && !(await askYes('Some boxes are still on the counter. They will melt! Go anyway?', { yes: 'Go anyway', no: 'Wait' }))) return;
+        if (!s.spoons && s.cooler.trays.flat().some((id) => id && c.isIce(id)) && !(await askYes(s.packs.spoons ? 'No spoons on the cart! Tap the spoon box on the shelf to bring some. Go anyway?' : 'No spoons on the cart! Go anyway?', { yes: 'Go anyway', no: 'Wait' }))) return;
         c.openPark();
         this.save();
         this.showPark();
@@ -1231,9 +1231,9 @@ export class CartView {
         this.cornerStore(() => this.renderHUD(true));
       },
       closet: () => this.closet(),
-      packUp: () => {
+      packUp: async () => {
         if (!c.canClose()) return toast('Finish with this customer first!');
-        if (!confirm('Pack up and go home for today?')) return;
+        if (!(await askYes('Pack up and go home for today?', { yes: 'Pack up', no: 'Keep selling' }))) return;
         this.endDay();
       },
       quit: () => this.quit(),
