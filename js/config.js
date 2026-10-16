@@ -96,9 +96,12 @@ export const CONFIG = {
     // last winter's repairs. A repair costs more with more miles (× 1 + miles / costMilesPer).
     breakdown: { perSummer: [[0, 0.15], [30000, 0.6], [60000, 1.5], [100000, 2.5], [150000, 3.5]], perWear: 0.2, maxWear: 3, cost: [10000, 25000], costMilesPer: 150000 },
     engineShopDays: 7, // fixing a worn engine during the summer: the truck is at the garage this long
-    usedGas: 1.3, // a used truck burns this much more gas
+    usedGas: 1.15, // a used truck burns this much more gas
     shabby: { sunset: 0.85, downtown: 0.85, parkside: 0.85, other: 0.95 }, // customers, until it's fixed up
     fixUp: 80000, // paint, bodywork, no more rust
+    // At the end of each summer the truck is worth less (depreciation): perSummer of what it's worth on the books, plus
+    // newExtra of what it cost the first summer for a truck bought new (it's not new anymore). Never below floor.
+    wear: { perSummer: 0.15, newExtra: 0.1, floor: 50000 },
     // The winter inspection: the tune-up and oil change you must pay for (base + perMile cents a mile), plus repairs
     // the mechanic recommends. Each one you pay for cuts next summer's breakdowns (cut: ×). Their cost goes up with
     // miles (× 1 + miles / costMilesPer), and more of them show up on a truck with more miles (from: miles).
@@ -140,7 +143,7 @@ export const CONFIG = {
       { name: 'The cost of borrowing', says: 'Interest is what the bank charges to lend you money. It is an expense.', papers: ['interestPaid'], also: ['interestUnpaid', 'bankLateFee', 'interestPayoff', 'loanRepay'] },
       { name: 'Pay later', says: "Some bills you pay later. Until you pay, it's a bill to pay: money you owe.", papers: ['pennyBill', 'billPayment'], also: ['supplyInvoice', 'garageBill', 'supplierLateFee'] },
       { name: 'Money you hold for others', says: "When someone buys a gift card, the money isn't all yours yet. You owe them ice cream.", papers: ['giftSales', 'redemptions'], also: ['freeCards'] },
-      { name: "Costs that don't feel like costs", says: 'Some costs happen even when no cash leaves.', papers: [], also: [] },
+      { name: "Costs that don't feel like costs", says: 'Some costs happen even when no cash leaves.', papers: [], also: ['truckWear'] },
     ],
   },
   giftCard: { face: 500, buyChance: 0.025, discountBoost: 4, returnMinDays: 1, returnMaxDays: 14 },

@@ -62,6 +62,8 @@ export const DOC_TYPES = {
     penny: "You paid cash to keep the truck running (oil, or fixing it up). Cash went down. That's a cost of running the business, so it's an expense: Truck repairs & upkeep." },
   garageBill: { title: 'Garage bill', look: 'invoice', icon: '🔧',
     penny: "The garage fixed the truck and sent a bill. You haven't paid yet, so you owe it: Bills to pay went up. Fixing the truck is a cost of running the business: Truck repairs & upkeep went up." },
+  truckWear: { title: 'Truck wear-down note', look: 'notice', icon: '📉',
+    penny: "After a summer of driving, the truck is worth less than before. The Truck (an asset) went down. Using it up is a cost of the business, so it's an expense, Truck wearing out, even though no cash left. A new truck loses more dollars than an old one." },
   pennyBill: { title: "Penny's bookkeeping bill", look: 'invoice', icon: '👩‍💼',
     penny: "Penny charges for keeping the books. That's an expense: Bookkeeping. You haven't paid her yet, so Bills to pay (a liability) went up. Cash didn't change yet!" },
   loanRepay: { title: 'Loan payoff receipt', look: 'bank', icon: '🏦',

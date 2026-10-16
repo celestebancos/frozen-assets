@@ -2024,6 +2024,7 @@ export class Game {
 
     const endOfWeek = s.day % 7 === 0;
     if (endOfWeek) this.postPennyBill();
+    if (s.day === SEASON_DAYS) this.wearTruck();
     s.day++;
     s.minute = C.dayStartMin;
     s.phase = 'closed';
@@ -2272,6 +2273,23 @@ export class Game {
     this.logAction('breakdown', { minute: s.minute, cost, oily, worn });
     s.minute = C.dayEndMin; // towed away: the day ends here
   }
+  // The end of a summer: the truck is worth less now (depreciation). An expense with no cash leaving.
+  wearTruck() {
+    const s = this.state;
+    const W = T.wear;
+    const value = s.truth.truck;
+    const firstNew = !s.truckUsed && !s.truckWorn;
+    const amt = Math.max(0, Math.min(value - W.floor, Math.round((value * W.perSummer + (firstNew ? (s.truckCost ?? value) * W.newExtra : 0)) / 100) * 100));
+    s.truckWorn = true;
+    if (!amt) return 0;
+    this.post('truckWear', [
+      { acct: 'truckWear', amt },
+      { acct: 'truck', amt: -amt },
+    ], { label: `The truck is worth less after summer ${s.season}`, amt });
+    this.logAction('truckWear', { amt });
+    return amt;
+  }
+
   // The garage fixes up a used truck's outside: paint, bodywork, no more rust. It looks (and sells) like new.
   fixUp() {
     const s = this.state;
