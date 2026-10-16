@@ -115,6 +115,7 @@ svg.truck-svg { width: 100%; height: auto; display: block; }
 .stage .truck-wrap { --tw: min(48cqw, 420px); position: absolute; left: 50%; bottom: 10%; bottom: calc(max(100cqw, 200cqh) * 0.068 - var(--tw) * 0.035); width: var(--tw); transform: translateX(-30%); transition: transform 1.2s ease-in; z-index: 2; }
 .stage .truck-wrap svg { width: 100%; height: auto; display: block; }
 .stage .truck-wrap.arriving { transform: translateX(-200%); transition: none; }
+.stage .truck-wrap.in-shop { visibility: hidden; }
 /* each wheel turns around its own center (its box is just the tire) */
 .wheel.spin { animation: spin 0.6s linear infinite; transform-box: fill-box; transform-origin: center; }
 @keyframes spin { to { transform: rotate(360deg); } }
