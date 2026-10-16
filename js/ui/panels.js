@@ -575,6 +575,7 @@ export function truckPanel(app) {
       const paint = color !== s.color;
       const sign = name.trim() && name.trim() !== s.business;
       const cost = (paint ? C.rebrand.paint : 0) + (sign ? C.rebrand.sign : 0);
+      const canFix = (s.phase === 'closed' || s.phase === 'setup') && !g.inShop; // the engine, in the morning
       body.innerHTML = `
         <h3 style="margin-top:0">🎵 Music</h3>
         <div class="row">${TUNES.map((t) => `<button class="btn small ${s.tune === t.id ? 'on' : ''}" data-act="tune" data-id="${t.id}">${t.name}</button>`).join('')}</div>
@@ -593,7 +594,10 @@ export function truckPanel(app) {
         </div>
         <h3>🔧 Garage</h3>
         <p>🛣️ <b>${Math.round(s.miles).toLocaleString()} miles</b> on the truck. The more miles, the more it breaks down and the more the garage charges.</p>
-        ${s.engineWear ? `<p class="warn">🛢️ The engine is worn from ${s.engineWear} day${s.engineWear > 1 ? 's' : ''} on almost no oil, so it breaks down more. The garage can fix it in the winter.</p>` : ''}
+        ${g.inShop ? `<p class="warn">🔧 The truck is at the garage getting a new engine part. It's back on ${DAY_NAMES[(s.inShopUntil - 1) % 7]} of week ${Math.ceil(s.inShopUntil / 7)}.</p>` : ''}
+        ${s.engineWear ? `<p class="warn">🛢️ The engine is worn from ${s.engineWear} day${s.engineWear > 1 ? 's' : ''} on almost no oil, so it breaks down more.</p>
+          <p>The garage can fix it now for ${money(g.engineRepairCost())}, but it takes ${C.truckCare.engineShopDays} days, and you can't sell while it's there. Or wait for the winter tune-up.</p>
+          <button class="btn" data-act="engine" ${canFix ? '' : 'disabled'}>🔧 Fix the engine now (${money(g.engineRepairCost())})</button>${canFix || s.phase !== 'open' ? '' : ' <span class="tiny muted">Only before you open for the day.</span>'}` : ''}
         ${s.truckUsed && !s.truckFixed
           ? `<p>Your truck is used, and it looks it. People in the nicer neighborhoods are less likely to buy from a rusty old truck. The garage can fix up the outside: new paint, bodywork, no more rust.</p>
              <button class="btn go" data-act="fixUp">🔧 Fix it up (${money(C.truckCare.fixUp)})</button> <span class="tiny muted">The garage sends a bill. Pay it within ${C.credit.termDays} days.</span>`
@@ -633,6 +637,16 @@ export function truckPanel(app) {
     color: (t) => {
       color = t.dataset.id;
       m.refresh();
+    },
+    engine: async () => {
+      if (!(await askYes(`Fix the engine for ${money(g.engineRepairCost())}? The truck stays at the garage for ${C.truckCare.engineShopDays} days, so no selling.`, { yes: 'Fix it', no: 'Not now' }))) return;
+      const r = g.repairEngineNow();
+      if (!r.ok) return;
+      app.music.sfx('ching');
+      toast('🔧 The truck is at the garage. The garage will send a bill.');
+      app.changed();
+      m.close();
+      app.afterChange();
     },
     fixUp: () => {
       const r = g.fixUp();

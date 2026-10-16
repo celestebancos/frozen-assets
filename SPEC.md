@@ -154,8 +154,8 @@ How the truck business gets its money: the bank, Grandma, or both. The trucks co
 ### Trucks on the lot
 - **New trucks** as today (about $9,700, plus bling).
 - **Used trucks** at about half price. They come with:
-  - **More miles:** every truck has an odometer. More miles mean more breakdowns and bigger garage bills, and a used truck with fewer miles costs more.
-  - **Oil leaks:** check the dipstick and add oil ($8 a bottle) at the gas station. A puddle under the parked truck is the hint. Days spent on almost no oil wear the engine, which then breaks down more until it's fixed.
+  - **More miles:** every truck has an odometer (about 6,000 miles a summer). More miles mean more breakdowns and bigger garage bills, and a used truck with fewer miles costs more. A new truck almost never breaks down.
+  - **Oil leaks:** check the dipstick and add oil ($8 a bottle) at the gas station. A puddle under the parked truck is the hint. Days spent on almost no oil wear the engine, which then breaks down more until it's fixed: in the winter, or during the summer at the cost of a week at the garage with no sales.
   - **Breakdown days:** the rest of the day is lost and the garage sends a repair bill (expense "Truck repairs & upkeep").
   - **A smaller freezer** (later, once storage is modelled).
   - **Worse gas mileage.** No truck refills gas by itself: a pop-up asks when the tank is low, with an oil check.

@@ -79,6 +79,7 @@ export function newGameState({ player, business, color, tune = 'entertainer', se
     miles: miles ?? (used ? 100000 : 35), // the odometer
     engineWear: 0, // days started with almost no oil (each one makes breakdowns likelier, until the engine is fixed)
     prevent: 1, // this summer's breakdown odds from last winter's repairs (1: none)
+    inShopUntil: 0, // the truck is at the garage (no selling) until this day
     nextPartyId: 1,
     results: [], // past seasons: { season, share, won }
   };
@@ -127,7 +128,7 @@ export class Game {
     state.miles ??= state.truckUsed ? 90000 : 35 + 4000 * ((state.season || 1) - 1);
     state.engineWear ??= 0;
     state.prevent ??= 1;
-    state.seasonStartMiles ??= state.miles; // the odometer when this summer started
+    state.inShopUntil ??= 0;
     // accounts added after a game was saved start at zero
     for (const t of [state.truth, state.filed]) for (const k of Object.keys(emptyTotals())) t[k] ??= 0;
     // older saves didn't track which profit has moved to the player's Share: count it all as moved,
@@ -736,6 +737,14 @@ export class Game {
     this.spoil();
     // gas
     if (s.policies.autoGas && s.fuel < C.gas.tankGal * C.gas.autoFillBelow) this.fillGas(true);
+    // the truck is at the garage: no selling today (the day ends at the first tick)
+    if (this.inShop) {
+      s.breakdownAt = null;
+      s.today.inShop = true;
+      this.emit({ t: 'open' });
+      this.sync();
+      return;
+    }
     // starting the day with almost no oil wears out the engine
     if (s.oil < T.oilEmpty) s.engineWear++;
     // will the truck break down today? (likelier with more miles and a worn engine)
@@ -936,7 +945,7 @@ export class Game {
       return { ok: false, reason: 'gas' };
     }
     s.fuel -= fuel;
-    s.miles += this.driveFuel(from, spot) * T.mpg;
+    s.miles += this.driveFuel(from, spot) * T.milesPerGal;
     s.driving = { from: s.spot, to: spot, left: this.driveMinutes(from, spot), total: this.driveMinutes(from, spot), stopped: 0 };
     this.emit({ t: 'drive', to: spot });
     if (manual) this.logAction('driveNow', { from: s.spot, to: spot });
@@ -1127,7 +1136,7 @@ export class Game {
     if (moving) {
       const gal = C.gas.cruiseGalPerHour / 60 / this.density();
       s.fuel = Math.max(0, s.fuel - gal * this.gasFactor());
-      s.miles += gal * T.mpg;
+      s.miles += gal * T.milesPerGal;
     }
     // families who already bought today come by (a hint that it's time to move on)
     if (CROWDS[this.crowdKind()].hint !== false && this.saturation(loc.id) <= C.alreadyHad.below) {
@@ -1204,7 +1213,7 @@ export class Game {
   step() {
     const s = this.state;
     if (s.phase !== 'open' || s.pending) return false;
-    if (s.minute >= C.dayEndMin) {
+    if (s.minute >= C.dayEndMin || s.today.inShop) {
       this.closeDay();
       return false;
     }
@@ -2108,18 +2117,35 @@ export class Game {
     return T.shabby[area] ?? T.shabby.other;
   }
   // The chance the truck breaks down today: more miles and a worn engine make it likelier; last winter's repairs less.
-  // (miles, wear, prevent: what-ifs, e.g. for next summer.)
+  // (miles, wear, prevent: what-ifs.)
   breakdownChance({ miles = this.state.miles, wear = this.state.engineWear, prevent = this.state.prevent } = {}) {
     const B = T.breakdown;
-    return Math.min(0.5, B.perDay * (1 + miles / B.milesPer) * (1 + B.perWear * wear) * prevent);
+    const pts = B.perSummer;
+    const i = pts.findIndex(([m]) => m > miles);
+    const [[m0, b0], [m1, b1]] = i < 0 ? pts.slice(-2) : i === 0 ? pts.slice(0, 2) : [pts[i - 1], pts[i]];
+    const perSummer = Math.max(0, b0 + ((b1 - b0) * (miles - m0)) / (m1 - m0));
+    return Math.min(0.5, (perSummer / SEASON_DAYS) * (1 + B.perWear * wear) * prevent);
   }
-  // About how many days the truck breaks down in a summer, if it keeps up this summer's driving.
-  breakdownsNextSummer(repairs = []) {
+  get inShop() {
+    return this.state.inShopUntil > this.state.day;
+  }
+  // What the garage charges to fix a worn engine (the same in the summer or the winter).
+  engineRepairCost() {
+    const E = T.winter.engine;
+    return Math.round((E.cost + E.perWear * this.state.engineWear) / 100) * 100;
+  }
+  // Fix a worn engine now, during the summer: the garage keeps the truck for a week (no selling), then it's like new
+  // again (and full of oil). Only in the morning, before opening.
+  repairEngineNow() {
     const s = this.state;
-    const picked = this.winterInspection().repairs.filter((r) => repairs.includes(r.id));
-    const miles = s.miles + (s.miles - s.seasonStartMiles) / 2; // halfway through next summer's driving
-    const wear = picked.some((r) => r.fixesWear) ? 0 : s.engineWear;
-    return this.breakdownChance({ miles, wear, prevent: picked.reduce((a, r) => a * r.cut, 1) }) * SEASON_DAYS;
+    if (!s.engineWear || (s.phase !== 'closed' && s.phase !== 'setup') || this.inShop) return { ok: false };
+    const cost = this.engineRepairCost();
+    this.garageBill(cost, 'Engine repair');
+    s.engineWear = 0;
+    s.oil = 100;
+    s.inShopUntil = s.day + T.engineShopDays;
+    this.logAction('repairEngineNow', { cost, until: s.inShopUntil });
+    return { ok: true, cost, until: s.inShopUntil };
   }
   // Look at the dipstick. Returns how full the oil is (0–100).
   checkOil() {
@@ -2263,7 +2289,7 @@ export class Game {
     const scale = 1 + s.miles / W.costMilesPer;
     const dollars = (c) => Math.round(c / 100) * 100;
     const repairs = W.repairs.filter((r) => s.miles >= r.from).map((r) => ({ id: r.id, label: r.label, cost: dollars(r.cost * scale), cut: r.cut }));
-    if (s.engineWear > 0) repairs.unshift({ id: 'engine', label: W.engine.label, cost: dollars(W.engine.cost + W.engine.perWear * s.engineWear), cut: 1, fixesWear: true });
+    if (s.engineWear > 0) repairs.unshift({ id: 'engine', label: W.engine.label, cost: this.engineRepairCost(), cut: 1, fixesWear: true });
     return { tuneUp: dollars(W.base + s.miles * W.perMile), repairs };
   }
 
@@ -2284,7 +2310,7 @@ export class Game {
     s.prevent = picked.reduce((a, r) => a * r.cut, 1);
     if (picked.some((r) => r.fixesWear)) s.engineWear = 0;
     s.oil = 100;
-    s.seasonStartMiles = s.miles;
+    s.inShopUntil = 0;
     s.phase = 'closed';
     s.popularity = C.popularity.start + (s.popularity - C.popularity.start) * 0.5;
     s.buzz = 0;

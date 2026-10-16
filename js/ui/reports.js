@@ -199,19 +199,27 @@ function winterGarage(app) {
   const g = app.game;
   const insp = g.winterInspection();
   const picked = new Set();
-  const about = (n) => (n < 0.5 ? 'probably none' : n < 1.5 ? 'about 1' : `about ${Math.round(n)}`);
+  const s = g.state;
+  // the mechanic's advice (and Grandma's, if she's in on the truck)
+  const mech = s.engineWear
+    ? 'That engine ran on almost no oil. Fix it, or it will keep breaking down.'
+    : s.miles < 30000 ? 'It runs great! Keep it that way and it will hardly ever break down.'
+    : s.miles < 80000 ? 'At this many miles, parts start to wear out. These repairs mean fewer breakdowns.'
+    : 'This truck has a lot of miles. Old trucks break down more, so these repairs help a lot.';
+  const gran = s.partner || s.partnerWas ? (s.engineWear ? 'Your grandpa never checked his oil either. It cost him a fortune!' : 'An ounce of prevention is worth a pound of cure, dear.') : null;
   const m = openModal({
     title: '🔧 Winter at the garage',
     cls: 'narrow',
     closable: false,
     render(body) {
       const total = insp.tuneUp + insp.repairs.filter((r) => picked.has(r.id)).reduce((a, r) => a + r.cost, 0);
-      body.innerHTML = `<p>The mechanic looked over your truck (🛣️ ${Math.round(g.state.miles).toLocaleString()} miles).</p>
+      body.innerHTML = `<p>The mechanic looked over your truck (🛣️ ${Math.round(s.miles).toLocaleString()} miles).</p>
+        <div class="penny"><div class="face">🔧</div><div class="say">“${mech}”</div></div>
+        ${gran ? `<div class="penny"><div class="face">👵</div><div class="say">“${gran}”</div></div>` : ''}
         <div class="row" style="justify-content:space-between"><span>✅ Tune-up and oil change <span class="tiny muted">(must do)</span></span><b>${money(insp.tuneUp)}</b></div>
         ${insp.repairs.length ? `<h3>🔧 The mechanic also suggests</h3>
         <div class="stack">${insp.repairs.map((r) => `<label class="row" style="justify-content:space-between;flex-wrap:nowrap;cursor:pointer"><span><input type="checkbox" data-chg="rep" data-id="${r.id}" ${picked.has(r.id) ? 'checked' : ''}> ${esc(r.label)}</span><b style="white-space:nowrap">${money(r.cost)}</b></label>`).join('')}</div>
         <p class="tiny muted">${insp.repairs.some((r) => r.fixesWear) ? 'The engine repair fixes the worn engine. ' : ''}Each repair makes a breakdown less likely next summer.</p>` : ''}
-        <p>🚚💥 Breakdowns next summer: <b>${about(g.breakdownsNextSummer([...picked]))}</b>${picked.size ? ` <span class="tiny muted">(with no repairs: ${about(g.breakdownsNextSummer())})</span>` : ''}</p>
         <p>The garage sends a bill for <b>${money(total)}</b>. Pay it within ${C.credit.termDays} days. <span class="tiny muted">Cash now: ${money(g.cash)}</span></p>
         <div class="row center" style="margin-top:10px"><button class="btn big go" data-act="go">☀️ Start next summer</button></div>`;
     },
