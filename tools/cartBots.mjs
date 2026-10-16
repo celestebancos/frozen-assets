@@ -58,12 +58,12 @@ function eatIfHungry(c, bot) {
   for (const id of ['lunch', 'chips']) if (c.count('cooler', id)) return void c.eat(id);
 }
 
-// Put boxes from the counter into the freezer.
+// Put boxes from the counter into the freezer (and cases of drinks on the shelf).
 function putAway(c) {
-  while (c.state.counter.length) {
-    const slot = c.emptySlot();
-    if (!slot) break;
-    c.moveBox('c0', slot);
+  for (let i = 0; i < c.state.counter.length; ) {
+    const slot = c.emptySlot(c.state.counter[i].item);
+    if (slot) c.moveBox(`c${i}`, slot);
+    else i++;
   }
 }
 

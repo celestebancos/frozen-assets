@@ -310,7 +310,7 @@ export class Music {
   sfx(kind) {
     if (!this.ensure() || this.muted) return;
     const t = this.ctx.currentTime;
-    const notes = { ching: ['E6', 'A6'], sad: ['E4', 'C4'], stamp: ['C3'], yay: ['C5', 'E5', 'G5', 'C6'], oops: ['G4', 'D4'], ding: ['A6', 'E6'] }[kind] || ['C5'];
+    const notes = { ching: ['E6', 'A6'], sad: ['E4', 'C4'], stamp: ['C3'], yay: ['C5', 'E5', 'G5', 'C6'], oops: ['G4', 'D4'], ding: ['A6', 'E6'], rumble: ['D3', 'A2', 'D3', 'A2'] }[kind] || ['C5'];
     notes.forEach((n, i) => this.blip(freq(n), t + i * 0.07, 0.12));
   }
 }

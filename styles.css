@@ -1002,7 +1002,7 @@ button.co-item { animation: nudge 1.4s ease-in-out infinite; }
 .tummy .bar, .tummy-big .bar { display: inline-block; width: 46px; height: 10px; border: 2px solid var(--ink); border-radius: 6px; background: #fff; overflow: hidden; }
 .tummy .bar b, .tummy-big .bar b { display: block; height: 100%; background: #3cc6a0; transition: width 0.4s; }
 .tummy.low .bar b, .tummy-big.low .bar b { background: #e5484d; }
-.tummy.low { animation: pulse 1.2s ease-in-out infinite; }
+.tummy.warn { animation: pulse 1.2s ease-in-out infinite; background: #ffe3e3; }
 .tummy-big { display: flex; align-items: center; gap: 10px; font-weight: 800; margin-bottom: 10px; }
 .tummy-big .bar { flex: 1; height: 16px; }
 .food-list { display: flex; flex-direction: column; gap: 6px; margin: 8px 0; }
@@ -1027,3 +1027,46 @@ button.co-item { animation: nudge 1.4s ease-in-out infinite; }
 .dipstick .bar { display: inline-block; height: 12px; border: 2px solid var(--ink); border-radius: 6px; background: #fff; overflow: hidden; }
 .dipstick .bar i { display: block; height: 100%; background: #c99a2e; }
 .dipstick.low .bar i { background: #e5484d; }
+
+/* the drinks shelf in the kitchen: cases of drinks stand here instead of in the freezer */
+.drink-shelf { flex-wrap: nowrap; gap: 6px; min-height: 64px; }
+.dslot { position: relative; flex: 0 1 64px; min-width: 0; border: none; background: none; padding: 0; aspect-ratio: 80 / 92; }
+.dslot > svg { width: 100%; height: auto; display: block; transition: transform 0.15s; }
+.dslot.empty::after { content: ''; position: absolute; inset: 22% 6% 2%; border: 2px dashed #c9a27a; border-radius: 4px; }
+.dslot.target::after { border-color: var(--mint); background: rgba(60, 198, 160, 0.15); }
+.dslot.sel > svg { transform: translateY(-10%) rotate(-3deg); filter: drop-shadow(0 6px 4px rgba(46, 42, 69, 0.35)); }
+.dslot.spent { opacity: 0.55; }
+.errands .when { margin: -4px 0 2px; }
+.errands .btn .tiny { font-weight: 700; margin-left: 4px; }
+
+/* your tummy is rumbling: a bubble over your head at the cart (tap it to eat) */
+.park .cart-spot .rumble { position: absolute; left: 50%; bottom: 96%; transform: translateX(-50%); z-index: 4; border: 3px solid var(--ink); border-radius: 16px; background: #fff; color: var(--ink); font: inherit; font-weight: 800; font-size: 16px; line-height: 1.1; padding: 4px 10px; white-space: nowrap; box-shadow: var(--shadow); animation: rumbleShake 0.5s ease-in-out infinite alternate; cursor: pointer; }
+.park .cart-spot .rumble small { display: block; font-size: 11px; color: var(--red); }
+.park .cart-spot .rumble::after { content: ''; position: absolute; left: 30%; top: 100%; border: 8px solid transparent; border-top-color: var(--ink); }
+.park.tall .cart-spot .rumble { font-size: 14px; left: 60%; }
+@keyframes rumbleShake { from { transform: translateX(-50%) rotate(-3deg); } to { transform: translateX(-50%) rotate(3deg); } }
+@media (prefers-reduced-motion: reduce) { .park .cart-spot .rumble { animation: none; } }
+
+/* prices: what's in the cooler, and the rest folded away */
+.more-prices { margin-top: 10px; border-top: 2px dashed var(--line); padding-top: 6px; }
+.more-prices summary { font-weight: 800; cursor: pointer; padding: 4px 0; }
+
+/* the sales record */
+.rec-nav { display: flex; align-items: center; gap: 6px; margin: 4px 0 8px; font-weight: 800; }
+.rec-nav span { flex: 1; text-align: center; }
+.rec { width: 100%; border-collapse: collapse; table-layout: fixed; font-weight: 800; }
+.rec th, .rec td { text-align: center; padding: 3px 1px; border-bottom: 1px dashed var(--line); }
+.rec tr > th:first-child { width: 34px; }
+.rec th svg { display: block; margin: 0 auto; }
+.rec th small { display: block; font-size: 11px; color: var(--soft); font-weight: 700; }
+.rec td.none { color: #c9c4d4; }
+.rec td.sum, .rec tr.total { background: #fff3b0; }
+.rec tr.total th, .rec tr.total td { border-bottom: none; }
+.rec.profit td { font-size: 14px; }
+.rec td.good { color: #1f8a5c; } .rec td.bad { color: var(--red); }
+
+/* repainting the cart */
+.repaint-cart { max-width: 300px; margin: 0 auto 8px; } .repaint-cart svg { width: 100%; height: auto; display: block; }
+.modal .opt { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-bottom: 10px; }
+.modal .opt > span { width: 52px; font-weight: 800; }
+.modal .opt .text-in { flex: 1; min-width: 0; font-size: 18px; }
