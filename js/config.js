@@ -123,10 +123,26 @@ export const CONFIG = {
 
   sellBackRate: 0.5,
 
-  // Penny the bookkeeper sends a bill every week: a flat fee, plus a fee for each paper she filed for you.
-  // She'll only take over a kind of paper after `streak` first-try rights in a row, and every
-  // `checkEvery`th one still comes back so you can check her work.
-  filing: { streak: 3, checkEvery: 3, weeklyFee: 1000, perPaper: 300 },
+  // Penny the bookkeeper sends a bill every week: a flat fee. Papers come to the kid a level at a time; Penny files
+  // the papers of the levels above for them. A level is done when each of its main `papers` that has come up has
+  // `streak` stars (first-try rights in a row), after at least a week at that level. `also`: papers that come up
+  // now and then; they belong to the level but don't hold it up.
+  // Once every level is done she offers to file everything for `takeoverFee` a week instead of `weeklyFee`;
+  // every `checkEvery`th paper still comes back so you can check her work.
+  filing: {
+    streak: 3,
+    checkEvery: 3,
+    weeklyFee: 1000,
+    takeoverFee: 3000,
+    levels: [
+      { name: 'Money in, money out', says: 'Money comes in when you sell, and goes out when you buy.', papers: ['registerTape', 'supplyReceipt', 'gasReceipt'], also: ['ownerInvest', 'grandmaInvest', 'grandmaBuyout', 'loanPapers', 'truckBill', 'upkeepReceipt', 'adInvoice', 'rebrandReceipt', 'sellBack'] },
+      { name: 'Things get used up', says: 'Supplies are things you own. When you use them up, or they spoil, they turn into an expense.', papers: ['countSheet'], also: ['spoilSlip'] },
+      { name: 'The cost of borrowing', says: 'Interest is what the bank charges to lend you money. It is an expense.', papers: ['interestPaid'], also: ['interestUnpaid', 'bankLateFee', 'interestPayoff', 'loanRepay'] },
+      { name: 'Pay later', says: "Some bills you pay later. Until you pay, it's a bill to pay: money you owe.", papers: ['pennyBill', 'billPayment'], also: ['supplyInvoice', 'garageBill', 'supplierLateFee'] },
+      { name: 'Money you hold for others', says: "When someone buys a gift card, the money isn't all yours yet. You owe them ice cream.", papers: ['giftSales', 'redemptions'], also: ['freeCards'] },
+      { name: "Costs that don't feel like costs", says: 'Some costs happen even when no cash leaves.', papers: [], also: [] },
+    ],
+  },
   giftCard: { face: 500, buyChance: 0.025, discountBoost: 4, returnMinDays: 1, returnMaxDays: 14 },
 
   dropChance: 0.02,

@@ -9,7 +9,7 @@ import { leaderboardConfig, isConfigured, postScore, fetchScores, flushPending }
 import { esc, money, el, openModal, onActs, anyModalOpen, closeAllModals, toast, fmtTime, SPEED_ICONS, SKIP_ICON, askYes } from './ui/dom.js';
 import { Scene } from './ui/scene.js';
 import { shopPanel, menuPanel, mapPanel, giftPanel, inventoryPanel, policyPanel, truckPanel, booksPanel } from './ui/panels.js';
-import { openShoebox } from './ui/filing.js';
+import { openShoebox, showLevelNews } from './ui/filing.js';
 import { seasonEnd } from './ui/reports.js';
 import { showDecision, gasStation } from './ui/popups.js';
 import { buildExport, exportFileName } from './export.js';
@@ -402,6 +402,7 @@ class App {
     this.changed();
     if (s.pending) return showDecision(this, () => this.afterChange());
     if (s.phase === 'open') return this.hideMorning();
+    if (s.levelNews?.length) showLevelNews(this); // a new paper level (when Penny filed a whole week)
     if (g.docsToFile().length && (s.phase !== 'setup' || true)) {
       this.showMorning();
       return;

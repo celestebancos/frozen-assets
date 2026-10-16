@@ -744,8 +744,8 @@ export function booksPanel(app, tab = 'pnl') {
       tab = t.dataset.t;
       m.refresh();
     },
-    penny: (t) => {
-      g.setDelegate(t.dataset.type, !g.delegated(t.dataset.type));
+    takeover: () => {
+      g.setTakeover(!g.state.pennyAll);
       app.changed();
       m.refresh();
     },
@@ -806,23 +806,28 @@ export function balanceSheet(g, totals) {
   </table></div>`;
 }
 
-// Penny the bookkeeper: what she charges, and which kinds of papers she files.
+// Penny the bookkeeper: what she charges, the kid's paper level, and the papers at each level.
 function pennyList(g) {
   const F = C.filing;
-  const known = Object.entries(g.state.known || {}).filter(([type]) => DOC_TYPES[type]);
-  const rows = known
-    .map(([type, k]) => {
-      const dt = DOC_TYPES[type];
-      const shown = Math.min(F.streak, k.streak);
-      const stars = '⭐'.repeat(shown) + '☆'.repeat(F.streak - shown);
-      const btn = g.knowsByHeart(type)
-        ? `<button class="btn small ${g.delegated(type) ? 'on' : ''}" data-act="penny" data-type="${type}">${g.delegated(type) ? '👩‍💼 Penny files these' : '✋ I file these'}</button>`
-        : '';
-      return `<tr><td>${dt.icon} ${esc(dt.title)}</td><td>${stars}</td><td>${btn}</td></tr>`;
+  const s = g.state;
+  const stars = (type) => {
+    const n = Math.min(F.streak, g.known(type).streak);
+    return '⭐'.repeat(n) + '☆'.repeat(F.streak - n);
+  };
+  const levels = F.levels
+    .map((L, i) => {
+      const lv = i + 1;
+      const mine = lv <= s.paperLevel;
+      const papers = [...L.papers, ...L.also].filter((type) => DOC_TYPES[type] && (L.papers.includes(type) || g.timesSeen(type)));
+      const rows = papers.map((type) => `<tr><td>${DOC_TYPES[type].icon} ${esc(DOC_TYPES[type].title)}</td><td>${mine && g.timesSeen(type) ? stars(type) : ''}</td></tr>`).join('');
+      return `<tr class="sec"><td colspan="2">${lv === s.paperLevel ? '👉 ' : mine ? '✅ ' : '🔒 '}Level ${lv}: ${esc(L.name)}${mine ? '' : ' <span class="tiny muted">(Penny files these for now)</span>'}</td></tr>${rows}`;
     })
     .join('');
-  return `<p style="margin-top:0">👩‍💼 Penny charges <b>${money(F.weeklyFee)} a week</b> to keep the books, plus <b>${money(F.perPaper)}</b> for each paper she files for you.</p>
-    ${rows ? `<table class="books"><tr><th>Paper</th><th>In a row</th><th></th></tr>${rows}</table>` : '<p class="muted">No papers filed yet.</p>'}`;
+  const top = g.allLevelsDone();
+  return `<p style="margin-top:0">👩‍💼 Penny charges <b>${money(s.pennyAll ? F.takeoverFee : F.weeklyFee)} a week</b>${s.pennyAll ? ' to file all your papers' : ' to keep the books. She files the papers you haven\'t learned yet'}.</p>
+    <p>📈 You're on <b>level ${s.paperLevel} of ${F.levels.length}</b>. Get ${F.streak} stars (right on the first try, in a row) on each paper at your level to move up.</p>
+    ${top ? `<p><button class="btn ${s.pennyAll ? 'on' : ''}" data-act="takeover">${s.pennyAll ? '✋ I want to file my papers again' : `👩‍💼 Penny, file everything for ${money(F.takeoverFee)} a week`}</button></p>` : ''}
+    <table class="books">${levels}</table>`;
 }
 
 function billsList(g) {
