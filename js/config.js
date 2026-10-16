@@ -434,7 +434,7 @@ export const CART = {
   // Grandma gives $40 to start the cart (in the cash box); your wallet has $10 of your own.
   start: { box: { 2000: 2 }, wallet: { 500: 1, 100: 5 } },
   homeStart: 11 * 60, // breakfast is at 11am (hunger runs from here). Errands at home take no time.
-  parkOpen: 12 * 60, // four hours at the park, noon to 4pm (lunch at Grandma's: from 1pm)
+  parkOpen: 12 * 60, // four hours at the park, noon to 4pm
   parkClose: 16 * 60,
   // Minutes an errand takes from the park: the cart is closed while you're away.
   errand: { cornerFromPark: 20 },
@@ -656,7 +656,7 @@ export const GRANDMA = {
   start: 5,
   max: 10,
   // invited some mornings: lunch takes an hour and is a big one (you stay full a while, past 4pm)
-  // lines: the most she says at one lunch. minutes: how much later you get to the park (from noon).
+  // lines: the most she says at one lunch. minutes: from breakfast at 11am, so you're done by noon.
   lunch: { chance: 0.3, firstDay: 3, minutes: 60, food: 125, lines: 5 },
   // she comes by the cart only after your first lunch together (that's when she tells you her favorite and that
   // she's a messy eater), and tips big with her favorite and at least 2 napkins

@@ -936,7 +936,8 @@ test('Grandma: lunch invitations, advice she checks on, and a gift when she feel
   const r = c.lunchAtGrandmas();
   assert.ok(r.lines.length >= 3);
   assert.ok(r.lines.some((l) => l.includes('rocket pop')), 'she mentions the price');
-  assert.equal(c.state.minute, CART.parkOpen + GRANDMA.lunch.minutes, 'to the park an hour late');
+  assert.equal(c.state.minute, CART.homeStart + GRANDMA.lunch.minutes);
+  assert.ok(c.state.minute <= CART.parkOpen, 'done by the time the park opens');
   assert.equal(c.hunger, 100);
   assert.equal(g.feel, GRANDMA.start + GRANDMA.feel.lunch);
   assert.ok(!c.lunchInvite, 'answered');
@@ -1354,12 +1355,14 @@ test('you can eat your own treats while a customer waits, but not in the middle 
   assert.equal(c.eatTreat('iceLemon').reason, 'busy', 'treats on the counter: finish the sale first');
 });
 
-test('errands before the park take no time: the park opens at noon, or at 1pm after lunch at Grandma\'s', () => {
+test('errands before the park take no time, and neither does lunch at Grandma\'s: the park opens at noon', () => {
   const c = Cart.create({ player: 'Test', seed: 3 });
   for (let i = 0; i < 5; i++) {
     c.errand('restaurant');
     c.errand('corner');
   }
+  c.state.grandma.invited = c.state.day;
+  c.lunchAtGrandmas();
   c.openPark();
   assert.equal(c.state.minute, CART.parkOpen);
   assert.equal(c.state.today.opened, CART.parkOpen);

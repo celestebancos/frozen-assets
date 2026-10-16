@@ -1483,7 +1483,7 @@ export class Cart {
     g.answered = 'yes';
     g.declined = 0;
     g.lunches++;
-    s.minute = Math.max(s.minute, K.parkOpen) + G.lunch.minutes; // you get to the park later
+    s.minute += G.lunch.minutes; // lunch is over by the time the park opens
     s.fed = { minute: s.minute, level: G.lunch.food };
     this.feel(G.feel.lunch);
     const lines = [];
