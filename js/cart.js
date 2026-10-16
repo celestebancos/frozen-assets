@@ -1384,12 +1384,16 @@ export class Cart {
   }
   // Grandma's offer to invest in a truck: her limit, and her slice of the profit, from how much you'd bring and how
   // she feels about you. { max, startCash, slice: [hers, of every], money }
+  // next: how much more cart money would get a smaller slice (null at the best one).
   grandmaTerms() {
     const g = this.state.grandma;
     const money = this.businessMoney;
     const pts = Math.floor((money - G.offer.at) / 10000) + Math.round(g.feel - G.start);
-    const i = pts <= -2 ? 0 : pts <= 1 ? 1 : pts <= 4 ? 2 : 3;
-    return { max: G.offer.max, startCash: G.offer.startCash, slice: G.offer.slices[i], money };
+    const T = G.offer.tiers;
+    let i = 0;
+    while (i + 1 < T.length && pts >= T[i + 1]) i++;
+    const next = i + 1 < T.length ? { more: (T[i + 1] - pts) * 10000 - ((money - G.offer.at) % 10000 + 10000) % 10000, slice: G.offer.slices[i + 1] } : null;
+    return { max: G.offer.max, startCash: G.offer.startCash, slice: G.offer.slices[i], money, next };
   }
   // Grandma checks on the advice she gave you last time. Returns a line, or null.
   grandmaFollowUp(a) {

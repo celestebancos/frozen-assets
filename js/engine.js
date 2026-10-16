@@ -1,7 +1,7 @@
 // Frozen Assets game engine. Pure logic, no DOM, so it runs in the browser and in Node.
 // All state lives in `game.state` (plain JSON, saved as-is). `game.events` is a transient feed for the UI.
 
-import { CONFIG, SUPPLIES, SUPPLY, SPOTS, SPOT, FEATURES, FEATURE, LOCS, destOf, CONTAINERS, FLAVORS, TOPPINGS, POPS, POP, CROWDS, DROP_BY_PERSON, START_PRICES, MARKET_DAYS, OFFICE_ADULT_PAY, CART, STREET_CROWD, itemKey } from './config.js';
+import { CONFIG, sliceText, SUPPLIES, SUPPLY, SPOTS, SPOT, FEATURES, FEATURE, LOCS, destOf, CONTAINERS, FLAVORS, TOPPINGS, POPS, POP, CROWDS, DROP_BY_PERSON, START_PRICES, MARKET_DAYS, OFFICE_ADULT_PAY, CART, STREET_CROWD, itemKey } from './config.js';
 import { makeRng } from './rng.js';
 import { ACCOUNT, balanceCheck, applyEntries, emptyTotals, share, ownShare, sectionTotal } from './ledger.js';
 import { addToDoc, docLines, docEntryList, checkFiling, DOC_TYPES } from './documents.js';
@@ -444,7 +444,7 @@ export class Game {
       this.post('grandmaInvest', [
         { acct: 'cash', amt: s.partner.put },
         { acct: 'grandmaIn', amt: s.partner.put },
-      ], { label: `Grandma's money for the truck. She gets $${s.partner.slice[0]} of every $${s.partner.slice[1]} of profit.`, amt: s.partner.put });
+      ], { label: `Grandma's money for the truck. She gets ${sliceText(s.partner.slice)} of profit.`, amt: s.partner.put });
     } else {
       this.post('loanPapers', [
         { acct: 'cash', amt: principal },
@@ -653,11 +653,9 @@ export class Game {
       s.partnerWas = { ...P };
       s.partner = null;
     } else {
-      const n = P.slice[0] * (4 - quarters);
-      const d = P.slice[1] * 4;
-      const gcd = (a, b) => (b ? gcd(b, a % b) : a);
-      const k = gcd(n, d);
-      P.slice = [n / k, d / k];
+      // her slice, out of $10, to the quarter: half of $3 of every $10 is $1.50 of every $10
+      const ofTen = (P.slice[0] / P.slice[1]) * 10 * ((4 - quarters) / 4);
+      P.slice = [Math.round(ofTen * 4) / 4, 10];
     }
     this.logAction('buyOutGrandma', { quarters, amt, slice: s.partner?.slice || null });
     return { ok: true, amt, slice: s.partner?.slice || null };

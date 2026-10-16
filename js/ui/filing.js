@@ -2,7 +2,7 @@
 // P&L works out the profit, the profit moves to the player's Share, and the screen becomes the weekly report.
 import { DOC_TYPES, docLines, pennyComparison } from '../documents.js';
 import { ACCOUNTS, ACCOUNT, SECTIONS, pnlRowsFor, share } from '../ledger.js';
-import { CONFIG, TOPPINGS, itemFromKey } from '../config.js';
+import { sliceText, CONFIG, TOPPINGS, itemFromKey } from '../config.js';
 import { itemName } from './scene.js';
 import { iceCreamSVG } from '../art.js';
 import { esc, money, openModal, onActs, toast } from './dom.js';
@@ -560,7 +560,7 @@ export function openShoebox(app, onDone) {
     }
     later(grandma ? 3100 : 2200, () => {
       app.changed();
-      const gm = grandma ? ` Grandma gets $${P.slice[0]} of every $${P.slice[1]}: ${money(Math.abs(grandma))}${grandma < 0 ? ' of the loss' : ''}.` : '';
+      const gm = grandma ? ` Grandma gets ${sliceText(P.slice)}: ${money(Math.abs(grandma))}${grandma < 0 ? ' of the loss' : ''}.` : '';
       setState({ keep: {}, busy: false, shown: grandma ? { share: v - grandma, gshare: grandma } : { share: v }, caption: (v >= 0 ? `This week's profit is now part of the Shares.` : `The week's loss came out of the Shares.`).replace(/the Shares/, grandma ? 'the Shares' : shareName) + gm });
     });
   }
