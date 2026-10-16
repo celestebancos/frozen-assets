@@ -1316,7 +1316,8 @@ function mapPlace(f, [x, y]) {
 export const ROUTE_COLORS = ['#ff6f91', '#3a8ee6', '#2f9e44', '#ff9f1c', '#7d5ba6', '#e5484d', '#06d6a0', '#f72585'];
 
 // spots: the neighborhoods; features: their places; route: [{spot}] in order; picked: highlighted neighborhood.
-export function mapSVG(spots, features, current, route = [], picked = null) {
+// badges: { spotId: { text, fill } }, a little tag under a neighborhood's name (how busy it's been).
+export function mapSVG(spots, features, current, route = [], picked = null, badges = {}) {
   const byId = Object.fromEntries(spots.map((s) => [s.id, s]));
   const box = (id) => MAP_AREAS[id];
   const tint = (id) => `<rect x="${box(id)[0]}" y="${box(id)[1]}" width="${box(id)[2]}" height="${box(id)[3]}" rx="30" fill="${byId[id].tint}" stroke="${picked === id ? '#ff6f91' : '#fff'}" stroke-width="${picked === id ? 6 : 4}"/>`;
@@ -1335,6 +1336,15 @@ export function mapSVG(spots, features, current, route = [], picked = null) {
     .map((s) => {
       const [x, y, w] = box(s.id);
       return `<text x="${x + w / 2}" y="${y + 28}" text-anchor="middle" font-family="'Baloo 2', system-ui, sans-serif" font-size="24" font-weight="800" fill="#3d405b" paint-order="stroke" stroke="#fff" stroke-width="7" stroke-linejoin="round">${esc(s.name)}</text>`;
+    })
+    .join('');
+  const tags = spots
+    .filter((s) => badges[s.id])
+    .map((s) => {
+      const [x, y, w] = box(s.id);
+      const b = badges[s.id];
+      const bw = 18 + b.text.length * 13;
+      return `<g class="map-badge" transform="translate(${x + w / 2} ${y + 54})"><rect x="${-bw / 2}" y="-15" width="${bw}" height="30" rx="15" fill="${b.fill}" stroke="#2e2a45" stroke-width="2.5"/><text y="7" text-anchor="middle" font-family="'Baloo 2', system-ui, sans-serif" font-size="20" font-weight="800" fill="#2e2a45">${esc(b.text)}</text></g>`;
     })
     .join('');
   // the route: numbered pins near each neighborhood, joined by dotted lines (not along the streets)
@@ -1364,6 +1374,6 @@ export function mapSVG(spots, features, current, route = [], picked = null) {
   ${Object.keys(MAP_AREAS).map(tint).join('')}
   ${Object.values(streets).join('')}
   ${ROAD('M815 330 V362', 12)}
-  ${places}${labels}${line}${pinArt}${truck}${hits}
+  ${places}${labels}${tags}${line}${pinArt}${truck}${hits}
 </svg>`;
 }

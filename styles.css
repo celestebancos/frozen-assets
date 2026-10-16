@@ -232,13 +232,16 @@ svg.truck-svg { width: 100%; height: auto; display: block; }
 .chip { display: inline-flex; align-items: center; gap: 4px; padding: 2px 10px; border-radius: 999px; border: 2px solid var(--ink); background: #fff; font-weight: 800; font-size: 14px; }
 .chip.off { opacity: 0.45; }
 
-.map-wrap { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(240px, 1fr); gap: 12px; }
+.map-wrap { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(240px, 1fr); grid-template-rows: auto 1fr; grid-template-areas: 'map route' 'busy route'; gap: 0 12px; }
 .map-wrap > div { min-width: 0; }
-@media (max-width: 760px) { .map-wrap { grid-template-columns: 1fr; } }
+.mw-map { grid-area: map; }
+.mw-route { grid-area: route; }
+.mw-busy { grid-area: busy; }
+@media (max-width: 760px) { .map-wrap { grid-template-columns: 1fr; grid-template-rows: auto; grid-template-areas: 'map' 'route' 'busy'; gap: 12px; } }
 .map-svg { width: 100%; height: auto; display: block; border: 3px solid var(--ink); border-radius: 18px; }
 .map-spot { cursor: pointer; }
 .map-spot:hover .pin { fill: #fff3b0; }
-.route-stop { display: flex; align-items: center; gap: 6px; background: #fff; border: 2px solid var(--ink); border-radius: 12px; padding: 4px 8px; margin-bottom: 6px; }
+.route-stop { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; background: #fff; border: 2px solid var(--ink); border-radius: 12px; padding: 4px 8px; margin-bottom: 6px; }
 .route-stop select { border: 2px solid var(--ink); border-radius: 8px; padding: 2px 4px; background: #fff; }
 
 table.books { width: 100%; border-collapse: collapse; background: #fff; font-size: 15px; }
@@ -520,6 +523,18 @@ table.books tr.bottom td { font-weight: 800; font-size: 18px; background: #fff3b
 .pin-dot { flex: none; width: 24px; height: 24px; border-radius: 50%; border: 2px solid var(--ink); color: #fff; font-weight: 800; font-size: 13px; display: grid; place-items: center; }
 .place-list { margin: 4px 0; padding-left: 4px; list-style: none; }
 .place-list li { margin: 2px 0; }
+
+/* ---------- how busy each neighborhood was ---------- */
+.busy-line { margin: 4px 0; }
+.busy-blocks { display: flex; flex-wrap: wrap; gap: 4px; margin: 4px 0; }
+.busy-blocks span { border: 2px solid var(--ink); border-radius: 999px; padding: 0 10px; font-size: 14px; }
+.stop-hint { flex-basis: 100%; margin: -2px 0 0 30px; display: flex; align-items: center; gap: 4px; }
+.heat-dot { width: 12px; height: 12px; border-radius: 50%; border: 2px solid var(--ink); flex: none; }
+.busy-table td { text-align: center; }
+.busy-table tr[data-act] { cursor: pointer; }
+.busy-table tr.on td:first-child { background: #fff3b0; }
+.past-days { margin-top: 8px; }
+.past-days summary { font-weight: 800; cursor: pointer; margin-bottom: 6px; }
 
 /* ---------- the park cart ---------- */
 .warn { color: var(--red); font-weight: 800; }
