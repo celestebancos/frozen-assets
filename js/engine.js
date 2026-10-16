@@ -1966,7 +1966,7 @@ export class Game {
     const word = (s.today.mood * P.moodScale) / Math.max(P.moodMinCustomers, s.today.customers);
     this.bumpPopularity(Math.max(-P.moodCap, Math.min(P.moodCap, word)));
     s.popularity += (P.start - s.popularity) * P.driftPerDay;
-    const target = C.ads.find((a) => a.id === s.adTier).buzz;
+    const target = C.ads.find((a) => a.id === (s.adNext || s.adTier)).buzz; // ads bought for next week start building tonight
     if (s.buzz < target) s.buzz += (target - s.buzz) * C.buzzRisePerDay;
     else s.buzz -= (s.buzz - target) * C.buzzFadePerDay;
     // a used truck leaks a little oil every day
@@ -1982,7 +1982,8 @@ export class Game {
     s.minute = C.dayStartMin;
     s.phase = 'closed';
     if (endOfWeek) {
-      s.adTier = 'none'; // ads are chosen fresh each week
+      s.adTier = s.adNext || 'none'; // ads are chosen fresh each week
+      s.adNext = null;
       s.promoWeek = 0;
       // Grandma's slice of the week's profit moves to her Share in the real books (the kid's books do it at Calculate Profit)
       if (s.partner) {
@@ -2066,20 +2067,31 @@ export class Game {
   }
 
   // ---------- weekly choices ----------
+  // Which week ads bought now are for. Ads start bringing people the day after they're bought, so once the
+  // truck is open on the last day of a week they're for next week. null: no week left this summer.
+  adWeek() {
+    const s = this.state;
+    if (s.phase !== 'open' || s.day % C.daysPerWeek !== 0) return this.gw;
+    return s.day >= SEASON_DAYS ? null : this.gw + 1;
+  }
   setAds(tierId) {
     const s = this.state;
     const tier = C.ads.find((a) => a.id === tierId);
     if (!tier) return { ok: false };
-    if (s.adWeekPaid === this.gw) return { ok: false, reason: 'already' };
+    const wk = this.adWeek();
+    if (wk == null) return { ok: false, reason: 'season' };
+    if (s.adWeekPaid === wk) return { ok: false, reason: 'already' };
     if (tier.cost > this.cash) return { ok: false, reason: 'cash' };
-    s.adTier = tier.id;
-    this.logAction('ads', { tier: tier.id, cost: tier.cost });
+    const next = wk !== this.gw;
+    if (next) s.adNext = tier.id;
+    else s.adTier = tier.id;
+    this.logAction('ads', { tier: tier.id, cost: tier.cost, nextWeek: next });
     if (tier.cost > 0) {
-      s.adWeekPaid = this.gw;
+      s.adWeekPaid = wk;
       this.post('adInvoice', [
         { acct: 'ads', amt: tier.cost },
         { acct: 'cash', amt: -tier.cost },
-      ], { label: `${tier.name} for week ${this.week}`, amt: tier.cost });
+      ], { label: `${tier.name} for week ${this.week + (next ? 1 : 0)}`, amt: tier.cost });
     }
     return { ok: true };
   }
@@ -2331,6 +2343,7 @@ export class Game {
     s.popularity = C.popularity.start + (s.popularity - C.popularity.start) * 0.5;
     s.buzz = 0;
     s.adTier = 'none';
+    s.adNext = null;
     s.week = null;
     s.needWeekReport = null;
     // supplies that spoil don't survive the winter

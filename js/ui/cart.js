@@ -9,7 +9,7 @@ import { PauseClock } from './clock.js';
 import { coinIcon, jarIcon, walletIcon, fanIcon, gumIcon, cartIcon, emo } from '../icons.js';
 import { Ambience, cashRegister, gameSound } from '../ambience.js';
 import { storage } from '../storage.js';
-import { esc, money, el, openModal, onActs, anyModalOpen, closeAllModals, toast, fmtTime, PAUSE_ICON, askYes } from './dom.js';
+import { esc, money, el, openModal, onActs, anyModalOpen, closeAllModals, toast, fmtTime, SPEED_ICONS, askYes } from './dom.js';
 
 const K = CART;
 // Real milliseconds per game minute. Serving runs at its own calm pace; waiting can be sped up.
@@ -1601,7 +1601,7 @@ export class CartView {
       this.hudKey = key;
       this.hud.innerHTML = `<div class="biz"><span class="n">${cartIcon()} ${esc(s.player)}'s cart</span></div>
         <div class="row" style="gap:6px"><span class="clock"></span><span class="pill wx">${s.weather.rain ? '🌧️' : '☀️'} ${s.weather.temp}°</span><span class="pill cash"></span><span class="pill jar">${jarIcon()} <span class="v"></span></span><button class="pill tummy" data-act="eat" aria-label="Hunger: tap to eat">🍎<i class="bar"><b></b></i></button></div>
-        <div class="speed" role="group" aria-label="Speed">${[PAUSE_ICON, '▶', '▶▶', '⏩'].map((l, i) => `<button class="${this.speed === i ? 'on' : ''}" data-act="speed" data-s="${i}" aria-label="Speed ${i}">${l}</button>`).join('')}</div>`;
+        <div class="speed" role="group" aria-label="Speed">${SPEED_ICONS.map((l, i) => `<button class="${this.speed === i ? 'on' : ''}" data-act="speed" data-s="${i}" aria-label="Speed ${i}">${l}</button>`).join('')}</div>`;
     }
     const set = (sel, text) => {
       const n = this.hud.querySelector(sel);
