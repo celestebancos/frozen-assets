@@ -8,7 +8,7 @@ import { truckSVG, iceCreamSVG } from './art.js';
 import { leaderboardConfig, isConfigured, postScore, fetchScores, flushPending } from './leaderboard.js';
 import { esc, money, el, openModal, onActs, anyModalOpen, closeAllModals, toast, fmtTime, PAUSE_ICON, askYes } from './ui/dom.js';
 import { Scene } from './ui/scene.js';
-import { shopPanel, menuPanel, mapPanel, giftPanel, inventoryPanel, policyPanel, truckPanel, booksPanel, placesPanel } from './ui/panels.js';
+import { shopPanel, menuPanel, mapPanel, giftPanel, inventoryPanel, policyPanel, truckPanel, booksPanel } from './ui/panels.js';
 import { openShoebox } from './ui/filing.js';
 import { seasonEnd } from './ui/reports.js';
 import { showDecision } from './ui/popups.js';
@@ -338,7 +338,6 @@ class App {
       policies: policyPanel,
       truck: truckPanel,
       books: booksPanel,
-      places: placesPanel,
     };
     if (name === 'shoebox') return this.openShoebox(() => this.afterChange());
     const m = map[name]?.(this);
@@ -672,7 +671,6 @@ class App {
       b('shop', '🛒', 'Shop', noStock && !files) +
       b('menu', '📋', 'Menu') +
       b('map', '🗺️', 'Map') +
-      b('places', '📍', 'Places') +
       b('gift', '🎁', 'Gift cards') +
       b('stock', '📦', 'Stock') +
       b('books', '📒', 'Books') +

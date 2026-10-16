@@ -205,6 +205,53 @@ export function menuPanel(app) {
   return m;
 }
 
+// ---------------- How busy each neighborhood was (shown on the map) ----------------
+const placeName = (id) => esc(SPOT[destOf(id)]?.name || id);
+// Hours of the day, counted from opening (0 = 10am).
+const BLOCKS = [
+  { name: 'Morning', sub: '10–1', from: 0, to: 3 },
+  { name: 'Afternoon', sub: '1–4', from: 3, to: 6 },
+  { name: 'Evening', sub: '4–8', from: 6, to: 10 },
+];
+// This summer's days, plus today so far.
+function pastDays(g) {
+  const s = g.state;
+  const days = (s.log?.days || []).filter((d) => d.season === s.season && d.bySpot);
+  if (s.phase === 'open' && s.today?.bySpot) {
+    days.push({ day: s.day, today: true, dow: g.dayName, week: g.week, temp: s.weather.temp, rain: s.weather.rain, route: s.route.map((r) => `${r.spot}@${r.at}`), customers: s.today.customers, revenue: s.today.revenue,
+      bySpot: Object.fromEntries(Object.entries(s.today.bySpot).map(([k, v]) => [k, { minutes: s.minutesHere[k] || 0, ...v }])) });
+  }
+  return days;
+}
+// Each neighborhood's totals over those days, with minutes and people for each hour of the day.
+function busyStats(days) {
+  const agg = {};
+  for (const d of days)
+    for (const [key, v] of Object.entries(d.bySpot)) {
+      const id = destOf(key); // older days counted single places
+      if (!id) continue;
+      const a = (agg[id] ||= { days: 0, minutes: 0, customers: 0, revenue: 0, min: Array(10).fill(0), cust: Array(10).fill(0) });
+      a.days++;
+      a.minutes += v.minutes;
+      a.customers += v.customers;
+      a.revenue += v.revenue;
+      (v.minByHour || []).forEach((x, i) => (a.min[i] += x));
+      (v.custByHour || []).forEach((x, i) => (a.cust[i] += x));
+    }
+  return agg;
+}
+// People per hour between two hours of the day; null if we weren't there long enough to tell.
+function rateAt(a, from, to) {
+  if (!a) return null;
+  const min = a.min.slice(from, to).reduce((x, y) => x + y, 0);
+  const c = a.cust.slice(from, to).reduce((x, y) => x + y, 0);
+  return min >= 15 ? (c * 60) / min : null;
+}
+const rateAll = (a) => (a && a.minutes > 0 ? (a.customers * 60) / a.minutes : null);
+const fmtRate = (x) => (x == null ? '—' : x.toFixed(1));
+// Busier is greener, next to the busiest place.
+const heat = (x, max) => (x == null ? '#eeeeee' : x >= max * 0.66 ? '#b7efc5' : x >= max * 0.33 ? '#ffe8a3' : '#ffd1dc');
+
 // ---------------- Map & route ----------------
 const TIMES = [];
 for (let t = C.dayStartMin; t < C.dayEndMin; t += 15) TIMES.push(t);
@@ -235,6 +282,7 @@ export function mapPanel(app) {
   const g = app.game;
   let picked = null;
   let saveName = '';
+  let showDays = false;
   const m = modal(app, {
     title: '🗺️ Town Map',
     render(body) {
@@ -243,26 +291,64 @@ export function mapPanel(app) {
       const route = [...s.route].sort((a, b) => a.at - b.at);
       const fuelPct = Math.round((s.fuel / C.gas.tankGal) * 100);
       const from = s.driving ? s.driving.to : s.spot;
+      const days = pastDays(g);
+      const agg = busyStats(days);
+      const max = Math.max(0, ...SPOTS.map((sp) => rateAll(agg[sp.id]) || 0));
+      const pa = picked && agg[picked];
+      const pickedBusy = !days.length ? '' : pa
+        ? `<div class="busy-line">👥 <b>${fmtRate(rateAll(pa))}</b> people an hour · 💵 <b>${money(Math.round((pa.revenue * 60) / Math.max(1, pa.minutes)))}</b> an hour <span class="tiny muted">(${pa.days} ${pa.days === 1 ? 'day' : 'days'}, ${(pa.minutes / 60).toFixed(1)} hours)</span></div>
+           <div class="busy-blocks">${BLOCKS.map((b) => { const r = rateAt(pa, b.from, b.to); return `<span style="background:${heat(r, max)}"><b>${b.name}</b> ${fmtRate(r)}</span>`; }).join('')}</div>`
+        : '<div class="busy-line">🆕 You haven\'t sold here yet this summer.</div>';
       const pickedInfo = picked
         ? `<div class="card2" style="margin-top:8px"><b>${esc(SPOT[picked].name)}</b> <span class="tiny muted">${esc(SPOT[picked].about)}</span>
+           ${pickedBusy}
            <ul class="place-list">${FEATURES.filter((f) => f.area === picked).map((f) => `<li>${mapIcon(f.kind)} ${esc(f.name)}${placeNote(f) ? ` <span class="tiny muted">${placeNote(f)}</span>` : ''}</li>`).join('')}</ul>
            ${spotNote(SPOT[picked]) ? `<div class="tiny">${spotNote(SPOT[picked])}</div>` : ''}
            ${picked !== from ? `<div>🕒 ${g.driveMinutes(from, picked)} min drive · ⛽ ${g.driveFuel(from, picked).toFixed(1)} gal</div>` : '<div class="tiny muted">🚚 You are here</div>'}
            ${open && picked !== from ? `<div style="margin-top:6px"><button class="btn small go" data-act="driveNow">🚚 Drive here now</button></div>` : ''}
            <div style="margin-top:6px"><button class="btn small" data-act="addPicked">➕ Add to my route</button></div></div>`
-        : '<p class="tiny muted">Tap a neighborhood to see what\'s there. The truck drives around it and stops at busy places.</p>';
+        : `<p class="tiny muted">Tap a neighborhood to see what's there.</p>`;
+      // how busy a stop has been at the hours it covers
+      const stopHint = (r, i) => {
+        if (!days.length) return '';
+        const end = route[i + 1]?.at ?? C.dayEndMin;
+        const x = rateAt(agg[r.spot], Math.floor((r.at - C.dayStartMin) / 60), Math.ceil((end - C.dayStartMin) / 60));
+        return x == null
+          ? '<div class="stop-hint tiny muted">🆕 Not tried here at these times yet</div>'
+          : `<div class="stop-hint tiny"><span class="heat-dot" style="background:${heat(x, max)}"></span>👥 ${fmtRate(x)} people an hour here at these times</div>`;
+      };
+      const rows = SPOTS.map((sp) => [sp.id, agg[sp.id]]).sort((a, b) => (rateAll(b[1]) ?? -1) - (rateAll(a[1]) ?? -1));
+      const cell = (x) => `<td style="background:${heat(x, max)}">${x == null ? '<span class="muted">—</span>' : fmtRate(x)}</td>`;
+      const at = (min) => fmtTime(min).replace(':00', '');
+      const busy = !days.length
+        ? '<h3>📊 How busy?</h3><p class="tiny muted">After you open for business, this shows how many people came to each neighborhood.</p>'
+        : `<h3>📊 How busy?</h3>
+          <p class="tiny muted" style="margin-top:0">People an hour this summer. Tap a row to see it on the map.</p>
+          <div class="scroll-x"><table class="books busy-table">
+          <tr><th>Neighborhood</th><th>👥 All day</th>${BLOCKS.map((b) => `<th>${b.name}<br><span class="tiny muted">${b.sub}</span></th>`).join('')}<th>💵 an hour</th></tr>
+          ${rows.map(([id, a]) => `<tr data-act="pickRow" data-spot="${id}" class="${id === picked ? 'on' : ''}"><td><b>${placeName(id)}</b></td>${cell(rateAll(a))}${BLOCKS.map((b) => cell(rateAt(a, b.from, b.to))).join('')}<td>${a?.minutes ? money(Math.round((a.revenue * 60) / a.minutes)) : '<span class="muted">—</span>'}</td></tr>`).join('')}
+          </table></div>
+          <p class="tiny muted">Weekends, hot days and ads bring more people everywhere, so try a place more than once!</p>
+          <details class="past-days" ${showDays ? 'open' : ''}><summary>📅 Past days</summary>
+          <div class="scroll-x"><table class="books">
+          <tr><th>Day</th><th>Weather</th><th>Route</th><th>People</th><th>Sales</th></tr>
+          ${days.slice().reverse().map((d) => `<tr><td><b>${d.dow} wk ${d.week}</b>${d.today ? ' <span class="tiny muted">(today)</span>' : ''}</td><td>${d.rain ? '🌧️' : '☀️'} ${d.temp}°</td>
+            <td style="text-align:left;white-space:normal">${d.route.map((r) => { const [id, t] = r.split('@'); const v = d.bySpot[id]; return `${at(Number(t))} ${placeName(id)}${v ? ` <span class="tiny muted">(${v.customers})</span>` : ''}`; }).join(' → ')}</td>
+            <td>${d.customers}</td><td>${money(d.revenue)}</td></tr>`).join('')}
+          </table></div><p class="tiny muted">The number after each place is how many people came while you were parked there.</p></details>`;
       const plan = s.weekPlan;
       const today = g.dayOfWeek;
       const routeOpts = (sel) => `<option value="">↩️ No change</option>${s.routes.map((r) => `<option value="${r.id}" ${r.id === sel ? 'selected' : ''}>${esc(r.name)}</option>`).join('')}`;
       const allSame = plan.every((x) => x === plan[0]) ? plan[0] : undefined;
       body.innerHTML = `<div class="map-wrap">
-        <div><div class="map-scroll">${mapSVG(SPOTS, FEATURES, s.driving ? null : s.spot, route, picked)}</div>${pickedInfo}</div>
-        <div>
+        <div class="mw-map"><div class="map-scroll">${mapSVG(SPOTS, FEATURES, s.driving ? null : s.spot, route, picked)}</div>${pickedInfo}</div>
+        <div class="mw-route">
           <h3 style="margin-top:0">Today's route</h3>
           ${route.map((r, i) => `${i > 0 && route[i - 1].spot !== r.spot ? `<div class="tiny muted drive-gap">🚚 ${g.driveMinutes(route[i - 1].spot, r.spot)} min</div>` : ''} <div class="route-stop"><span class="pin-dot" style="background:${ROUTE_COLORS[i % ROUTE_COLORS.length]}">${i + 1}</span>
             <select data-chg="time" data-i="${i}" aria-label="Time">${TIMES.map((t) => `<option value="${t}" ${t === r.at ? 'selected' : ''}>${fmtTime(t)}</option>`).join('')}</select>
             <select data-chg="spot" data-i="${i}" aria-label="Spot">${spotOptions(r.spot)}</select>
             ${route.length > 1 ? `<button class="btn small" data-act="rm" data-i="${i}" aria-label="Remove">✕</button>` : ''}
+            ${stopHint(r, i)}
           </div>`).join('')}
           <button class="btn small" data-act="add">➕ Add stop</button>
           <div class="row" style="margin-top:8px">
@@ -283,7 +369,9 @@ export function mapPanel(app) {
             <button class="btn small" data-act="fill" ${s.fuel >= C.gas.tankGal - 0.05 ? 'disabled' : ''}>⛽ Fill up (${money(Math.round((C.gas.tankGal - s.fuel) * C.gas.pricePerGal))})</button>
             <button class="btn small" data-act="station">🛢️ Check the oil</button>
           </div>
-        </div></div>`;
+        </div>
+        <div class="mw-busy">${busy}</div></div>`;
+      body.querySelector('.past-days')?.addEventListener('toggle', (e) => (showDays = e.target.open));
       body.querySelectorAll('.map-spot').forEach((n) => {
         const pick = () => {
           picked = n.dataset.spot;
@@ -322,6 +410,11 @@ export function mapPanel(app) {
       r.push({ spot: last.spot, at: Math.min(C.dayEndMin - 60, last.at + 120) });
       g.setRoute(r);
       m.refresh();
+    },
+    pickRow: (t) => {
+      picked = t.dataset.spot;
+      m.refresh();
+      m.body.querySelector('.mw-map').scrollIntoView({ behavior: 'smooth', block: 'start' });
     },
     addPicked: () => {
       const r = route();
@@ -487,77 +580,6 @@ export function policyPanel(app) {
   m.body.addEventListener('change', (e) => {
     if (e.target.dataset.chg === 'auto') g.setPolicy('autoGas', e.target.checked);
     app.changed();
-  });
-  return m;
-}
-
-// ---------------- Places: how busy each spot was ----------------
-const placeName = (id) => esc(SPOT[destOf(id)]?.name || id);
-const BLOCKS = [
-  { name: 'Morning', sub: '10–1', from: 0, to: 3 },
-  { name: 'Afternoon', sub: '1–4', from: 3, to: 6 },
-  { name: 'Evening', sub: '4–8', from: 6, to: 10 },
-];
-export function placesPanel(app) {
-  const g = app.game;
-  let tab = 'spots';
-  const m = modal(app, {
-    title: '📍 Places',
-    render(body) {
-      const s = g.state;
-      const days = (s.log?.days || []).filter((d) => d.season === s.season && d.bySpot);
-      if (s.phase === 'open' && s.today?.bySpot) {
-        days.push({ day: s.day, today: true, dow: g.dayName, week: g.week, temp: s.weather.temp, rain: s.weather.rain, route: s.route.map((r) => `${r.spot}@${r.at}`), customers: s.today.customers, revenue: s.today.revenue,
-          bySpot: Object.fromEntries(Object.entries(s.today.bySpot).map(([k, v]) => [k, { minutes: s.minutesHere[k] || 0, ...v }])) });
-      }
-      const tabs = `<div class="tabs"><button class="btn small ${tab === 'spots' ? 'on' : ''}" data-act="tab" data-t="spots">📍 By place</button><button class="btn small ${tab === 'days' ? 'on' : ''}" data-act="tab" data-t="days">📅 By day</button></div>`;
-      if (!days.length) {
-        body.innerHTML = tabs + '<p>No days yet this summer. After you open for business, this page shows how many people came to each place.</p>';
-        return;
-      }
-      const perHour = (c, min) => (min > 0 ? ((c * 60) / min).toFixed(1) : '—');
-      if (tab === 'spots') {
-        const agg = {};
-        for (const d of days)
-          for (const [key, v] of Object.entries(d.bySpot)) {
-            const id = destOf(key); // older days counted single places
-            if (!id) continue;
-            const a = (agg[id] ||= { days: 0, minutes: 0, customers: 0, revenue: 0, min: Array(10).fill(0), cust: Array(10).fill(0) });
-            a.days++;
-            a.minutes += v.minutes;
-            a.customers += v.customers;
-            a.revenue += v.revenue;
-            (v.minByHour || []).forEach((x, i) => (a.min[i] += x));
-            (v.custByHour || []).forEach((x, i) => (a.cust[i] += x));
-          }
-        const rows = Object.entries(agg).sort((a, b) => b[1].customers / Math.max(1, b[1].minutes) - a[1].customers / Math.max(1, a[1].minutes));
-        const block = (a, b) => {
-          const min = a.min.slice(b.from, b.to).reduce((x, y) => x + y, 0);
-          const c = a.cust.slice(b.from, b.to).reduce((x, y) => x + y, 0);
-          return min >= 15 ? perHour(c, min) : '<span class="muted">—</span>';
-        };
-        body.innerHTML = `${tabs}<p class="tiny muted" style="margin-top:0">This summer so far. <b>People per hour</b> is the fair way to compare places, because you spent different amounts of time at each one.</p>
-          <div class="scroll-x"><table class="books">
-          <tr><th>Place</th><th>Days</th><th>Hours</th><th>People</th><th>👥 per hour</th><th>💵 per hour</th>${BLOCKS.map((b) => `<th>${b.name}<br><span class="tiny muted">${b.sub}</span></th>`).join('')}</tr>
-          ${rows.map(([id, a]) => `<tr><td><b>${placeName(id)}</b></td><td>${a.days}</td><td>${(a.minutes / 60).toFixed(1)}</td><td>${a.customers}</td><td><b>${perHour(a.customers, a.minutes)}</b></td><td>${a.minutes ? money(Math.round((a.revenue * 60) / a.minutes)) : '—'}</td>${BLOCKS.map((b) => `<td>${block(a, b)}</td>`).join('')}</tr>`).join('')}
-          </table></div>
-          <p class="tiny muted">The morning, afternoon and evening columns are people per hour at that time of day. Weekends, hot days and ads bring more people everywhere, so try a place more than once!</p>`;
-        return;
-      }
-      const at = (min) => fmtTime(min).replace(':00', '');
-      body.innerHTML = `${tabs}<div class="scroll-x"><table class="books">
-        <tr><th>Day</th><th>Weather</th><th>Route</th><th>People</th><th>Sales</th></tr>
-        ${days.slice().reverse().map((d) => `<tr><td><b>${d.dow} wk ${d.week}</b>${d.today ? ' <span class="tiny muted">(today)</span>' : ''}</td><td>${d.rain ? '🌧️' : '☀️'} ${d.temp}°</td>
-          <td style="text-align:left;white-space:normal">${d.route.map((r) => { const [id, t] = r.split('@'); const v = d.bySpot[id]; return `${at(Number(t))} ${placeName(id)}${v ? ` <span class="tiny muted">(${v.customers})</span>` : ''}`; }).join(' → ')}</td>
-          <td>${d.customers}</td><td>${money(d.revenue)}</td></tr>`).join('')}
-        </table></div><p class="tiny muted">The number after each place is how many people came while you were parked there.</p>`;
-    },
-  });
-  onActs(m.body, {
-    tab: (t) => {
-      tab = t.dataset.t;
-      m.refresh();
-    },
   });
   return m;
 }
