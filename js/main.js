@@ -6,7 +6,7 @@ import { Ambience, cashRegister } from './ambience.js';
 import { storage } from './storage.js';
 import { truckSVG, iceCreamSVG } from './art.js';
 import { leaderboardConfig, isConfigured, postScore, fetchScores, flushPending } from './leaderboard.js';
-import { esc, money, el, openModal, onActs, anyModalOpen, closeAllModals, toast, fmtTime, PAUSE_ICON } from './ui/dom.js';
+import { esc, money, el, openModal, onActs, anyModalOpen, closeAllModals, toast, fmtTime, PAUSE_ICON, askYes } from './ui/dom.js';
 import { Scene } from './ui/scene.js';
 import { shopPanel, menuPanel, mapPanel, giftPanel, inventoryPanel, policyPanel, truckPanel, booksPanel, placesPanel } from './ui/panels.js';
 import { openShoebox } from './ui/filing.js';
@@ -112,9 +112,9 @@ class App {
     onActs(scr, {
       cont: (t) => this.loadGame(t.dataset.n),
       cart: (t) => startCart(this, t.dataset.n),
-      new: (t) => {
+      new: async (t) => {
         const n = t.dataset.n;
-        if (storage.loadGame(n) && storage.loadGame(n).phase !== 'lost' && !confirm(`Start over for ${n}? The saved game will be replaced.`)) return;
+        if (storage.loadGame(n) && storage.loadGame(n).phase !== 'lost' && !(await askYes(`Start over for ${esc(n)}? The saved game will be replaced.`, { yes: 'Start over', no: 'Keep it' }))) return;
         this.newGame(n);
       },
       newName: () => {

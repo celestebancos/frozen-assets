@@ -4,7 +4,7 @@ import { itemName } from './scene.js';
 import { CONFIG, itemFromKey } from '../config.js';
 import { pnlRowsFor } from '../ledger.js';
 import { iceCreamSVG, truckSVG } from '../art.js';
-import { esc, money, openModal, onActs, toast } from './dom.js';
+import { esc, money, openModal, onActs, toast, askYes } from './dom.js';
 import { pnlTable, balanceSheet } from './panels.js';
 import { towTruckIcon } from '../icons.js';
 
@@ -173,9 +173,9 @@ function finalScreen(app, res) {
   });
   onActs(m.body, {
     lb: () => app.showLeaderboard(),
-    buy: (t) => {
+    buy: async (t) => {
       const q = Number(t.dataset.q);
-      if (!confirm(`Pay Grandma ${money(g.buyOutCost(q))} from the business's cash?`)) return;
+      if (!(await askYes(`Pay Grandma ${money(g.buyOutCost(q))} from the business's cash?`, { yes: 'Pay her', no: 'Not now' }))) return;
       const r = g.buyOutGrandma(q);
       if (!r.ok) return toast('Not enough cash!');
       app.changed();

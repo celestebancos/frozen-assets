@@ -30,8 +30,8 @@ function usedWear() {
     return `<path d="M${pts.map(([u, v]) => `${(x + u * w).toFixed(1)} ${(y + v * h).toFixed(1)}`).join(' L')} Z" fill="#c0692b" opacity=".7"/><path d="M${(x + w * 0.2).toFixed(1)} ${y + h} L${(x + w * 0.4).toFixed(1)} ${(y + h * 0.5).toFixed(1)} L${(x + w * 0.65).toFixed(1)} ${y + h} Z" fill="#8a3f17" opacity=".6"/>`;
   };
   return `<g class="wear">
-    ${rust(14, 132, 26, 9)}${rust(92, 134, 18, 7)}${rust(176, 131, 22, 10)}${rust(226, 133, 20, 8)}${rust(268, 132, 14, 9)}
-    <circle cx="30" cy="138" r="1.6" fill="#7a3b1c"/><circle cx="185" cy="136" r="1.4" fill="#7a3b1c"/><circle cx="236" cy="137" r="1.3" fill="#7a3b1c"/>
+    ${rust(14, 132, 26, 9)}${rust(92, 134, 18, 7)}${rust(268, 132, 14, 9)}
+    <circle cx="30" cy="138" r="1.6" fill="#7a3b1c"/>
     <path d="M60 112 q8 -5 16 0 q-8 4 -16 0" fill="none" stroke="${INK}" stroke-width="1.2" opacity=".45"/>
     <path d="M150 52 q4 10 -2 18" fill="none" stroke="${INK}" stroke-width="1" opacity=".35"/>
     <path d="M222 82 L236 98 M228 80 L233 92" stroke="#fff" stroke-width="1.2" opacity=".9"/>

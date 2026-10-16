@@ -5,7 +5,7 @@ import { TUNES, VOICES } from '../music.js';
 import { ACCOUNTS, ACCOUNT, pnlRowsFor, sectionTotal, share, ownShare } from '../ledger.js';
 import { DOC_TYPES } from '../documents.js';
 import { mapSVG, mapIcon, iceCreamSVG, truckSVG, ROUTE_COLORS } from '../art.js';
-import { esc, money, openModal, onActs, toast, fmtTime, stepper } from './dom.js';
+import { esc, money, openModal, onActs, toast, fmtTime, stepper, askYes } from './dom.js';
 import { coinIcon } from '../icons.js';
 
 const C = CONFIG;
@@ -347,9 +347,9 @@ export function mapPanel(app) {
       app.changed();
       m.refresh();
     },
-    del: (t) => {
+    del: async (t) => {
       const r = g.state.routes.find((x) => x.id === Number(t.dataset.id));
-      if (r && !confirm(`Delete the route “${r.name}”?`)) return;
+      if (r && !(await askYes(`Delete the route “${esc(r.name)}”?`, { yes: 'Delete', no: 'Keep it' }))) return;
       g.deleteRoute(Number(t.dataset.id));
       app.changed();
       m.refresh();
