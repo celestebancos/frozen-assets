@@ -105,9 +105,9 @@ export function stepper(value, act, id, label) {
   return `<span class="stepper"><button data-act="${act}" data-id="${id}" data-d="-25" aria-label="Lower">−</button><span class="v">${label ?? value}</span><button data-act="${act}" data-id="${id}" data-d="25" aria-label="Raise">+</button></span>`;
 }
 
-// The speed buttons: pause, ▶, ▶▶, ▶▶▶ and skip, drawn so they're all the same height (the ⏸ and ⏭ emoji
-// show up as boxes on some computers, and text triangles come out different sizes).
-const speedIcon = (w, shapes) => `<svg viewBox="0 0 ${w} 12" width="${w}" height="12" aria-hidden="true" fill="currentColor">${shapes}</svg>`;
+// The speed buttons: pause, ▶, ▶▶, ▶▶▶ and skip (two triangles and a bar), drawn so they're all the same height
+// (the ⏸ and ⏭ emoji show up as boxes on some computers, and text triangles come out different sizes).
+const speedIcon = (w, shapes) => `<svg viewBox="0 0 ${w} 12" width="${w}" height="12" aria-hidden="true" fill="currentColor" style="vertical-align:-1px">${shapes}</svg>`;
 const tri = (x) => `<path d="M${x} 0 L${x + 9} 6 L${x} 12 Z"/>`;
 export const SPEED_ICONS = [
   speedIcon(10, '<rect width="3.5" height="12" rx="1"/><rect x="6.5" width="3.5" height="12" rx="1"/>'),
@@ -115,4 +115,4 @@ export const SPEED_ICONS = [
   speedIcon(18, tri(0) + tri(9)),
   speedIcon(27, tri(0) + tri(9) + tri(18)),
 ];
-export const SKIP_ICON = speedIcon(13, tri(0) + '<rect x="10" width="3" height="12" rx="1"/>');
+export const SKIP_ICON = speedIcon(22, tri(0) + tri(9) + '<rect x="19" width="3" height="12" rx="1"/>');

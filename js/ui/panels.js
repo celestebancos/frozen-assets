@@ -6,7 +6,7 @@ import { ACCOUNTS, ACCOUNT, pnlRowsFor, sectionTotal, share, ownShare } from '..
 import { DOC_TYPES } from '../documents.js';
 import { mapSVG, mapIcon, iceCreamSVG, truckSVG, ROUTE_COLORS } from '../art.js';
 import { esc, money, openModal, onActs, toast, fmtTime, stepper, askYes } from './dom.js';
-import { coinIcon } from '../icons.js';
+import { coinIcon, billboardIcon } from '../icons.js';
 import { gasStation } from './popups.js';
 
 const C = CONFIG;
@@ -540,7 +540,7 @@ function promotionHTML(g) {
     : 'Ads you buy now start bringing people tomorrow.';
   return `<p class="tiny muted" style="margin:0 0 6px">${note}</p>
     <div class="ad-choices">${C.ads.map((a) => {
-      const e = { none: '🤐', flyers: '📄', radio: '📻', billboard: '🏷️' }[a.id];
+      const e = { none: '❌', flyers: '📄', radio: '📻', billboard: billboardIcon() }[a.id];
       return `<button data-act="ad" data-id="${a.id}" class="${on === a.id ? 'on' : ''}" ${!canPick || a.cost > g.cash ? 'disabled' : ''}><span class="e">${e}</span>${a.name}<br><span class="muted">${a.cost ? money(a.cost) : 'Free'}</span></button>`;
     }).join('')}</div>`;
 }
