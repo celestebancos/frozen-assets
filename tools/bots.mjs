@@ -1,9 +1,10 @@
 // Simulated players used for tuning and tests.
 import { Game } from '../js/engine.js';
-import { SUPPLIES, SUPPLY, CONFIG, MARKET_DAYS } from '../js/config.js';
+import { SUPPLIES, SUPPLY, CONFIG, MARKET_DAYS, START_PRICES, POPS } from '../js/config.js';
 import { docLines } from '../js/documents.js';
+import { sectionTotal } from '../js/ledger.js';
 
-const FAIR = { cake: 300, sugar: 350, waffle: 450, bowl: 300, chocSprinkles: 50, rainbowSprinkles: 50, rocketPop: 100, fudgePop: 125, freezePop: 50 };
+const FAIR = { ...START_PRICES };
 
 function fileAll(g) {
   for (const d of g.docsToFile()) {
@@ -43,8 +44,8 @@ function snapshotStock(g) {
   return Object.fromEntries(SUPPLIES.map((s) => [s.id, g.stock(s.id)]));
 }
 
-const SHARE = { vanilla: 0.6, chocolate: 0.6, cake: 0.3, sugar: 0.25, waffle: 0.25, bowl: 0.25, chocSprinkles: 0.3, rainbowSprinkles: 0.3, spoons: 0.25, napkins: 1.8, rocketPop: 0.08, fudgePop: 0.06, freezePop: 0.06 };
-const POP_IDS = ['rocketPop', 'fudgePop', 'freezePop'];
+const SHARE = { vanilla: 0.6, chocolate: 0.6, cake: 0.3, sugar: 0.25, waffle: 0.25, bowl: 0.25, chocSprinkles: 0.3, rainbowSprinkles: 0.3, spoons: 0.25, napkins: 1.8, rocketPop: 0.045, fudgePop: 0.025, freezePop: 0.025, pushOrange: 0.018, pushGrape: 0.018, orangeCream: 0.018, shortcake: 0.018, sandwich: 0.018, iceCherry: 0.018, iceStrawberry: 0.018, iceLemon: 0.01, iceBlue: 0.018, crunchBar: 0.018, sundaeCone: 0.018, water: 0.03, punch: 0.02 };
+const POP_IDS = POPS.map((p) => p.id);
 
 // A simple 2-stop route: home neighborhood, Riverside (it has the big pool) after lunch, back for the evening.
 const SIMPLE_ROUTE = [
@@ -56,6 +57,14 @@ const SIMPLE_ROUTE = [
 export const BOTS = {
   decent: {
     prices: FAIR,
+    policies: { outOfStock: 'gift', drop: 'replace', autoGas: true },
+    route: () => SIMPLE_ROUTE,
+    ads: (g) => (g.week >= 2 && g.cash > 30000 ? 'flyers' : 'none'),
+    restock: { days: 3, mixDays: 2.5, preferPack: 1 },
+  },
+  // the decent player with every price at about 70% of normal (rounded to 25¢)
+  bargain: {
+    prices: Object.fromEntries(Object.entries(FAIR).map(([id, p]) => [id, Math.max(25, Math.round((p * 0.7) / 25) * 25)])),
     policies: { outOfStock: 'gift', drop: 'replace', autoGas: true },
     route: () => SIMPLE_ROUTE,
     ads: (g) => (g.week >= 2 && g.cash > 30000 ? 'flyers' : 'none'),
@@ -130,22 +139,52 @@ export const BOTS = {
   },
 };
 
-export function playSeason(botName, seed, { trace = false } = {}) {
+// Truck care habits (for comparing used and new trucks).
+// careful: tops off the oil when it's under 40, gets a used truck fixed up once there's $1,500 in cash, fixes a worn
+//   engine in the winter, and pays for every repair the mechanic suggests.
+// careless: never checks the oil, never fixes anything that isn't a must.
+export const CARE = {
+  careful: {
+    daily(g) {
+      const s = g.state;
+      if (s.oil < 40) g.addOil();
+      if (s.truckUsed && !s.truckFixed && g.cash > 150000) g.fixUp();
+    },
+    winter: (g) => g.winterInspection().repairs.map((r) => r.id),
+  },
+  careless: { daily() {}, winter: () => [] },
+};
+
+// truck: { used, miles, cost, loan } (loan: an entry of CONFIG.loans); default: the starting truck and loan.
+// care: a CARE habit (default: none, which is the same as careless).
+export function playSeason(botName, seed, { trace = false, truck = null, care = null } = {}) {
   const bot = BOTS[botName];
-  const g = Game.create({ player: 'Bot', business: botName, color: 'pink', seed });
+  const g = Game.create({ player: 'Bot', business: botName, color: 'pink', seed, ...(truck ? { used: !!truck.used, miles: truck.miles, truckCost: truck.cost, loan: truck.loan } : {}) });
   for (const [k, v] of Object.entries(bot.prices)) g.setPrice(k, v);
   Object.assign(g.state.policies, bot.policies);
   fileAll(g);
-  const mem = { use: {}, share: SHARE, skip: bot.restock.pops === false ? POP_IDS : [] };
   // first purchase with $100
   for (const [id, p] of [['vanilla', 0], ['chocolate', 0], ['cake', 0], ['bowl', 0], ['spoons', 0], ['napkins', 0], ['rainbowSprinkles', 0], ['sugar', 0]]) g.buy(id, p, 1, false);
+  return runSummer(g, bot, { care });
+}
+
+// Play summers after the first one (after a win). Returns the same as playSeason.
+export function playNextSummer(g, botName, { care = null } = {}) {
+  g.nextSeason(care ? CARE[care].winter(g) : []);
+  return runSummer(g, BOTS[botName], { care });
+}
+
+function runSummer(g, bot, { care = null } = {}) {
+  const mem = { use: {}, share: SHARE, skip: bot.restock.pops === false ? POP_IDS : [] };
   const weekly = [];
+  const startProfit = profitSoFar(g);
   while (g.state.phase !== 'seasonEnd') {
     fileAll(g);
     if (g.dayOfWeek === 0) g.setAds(bot.ads(g));
     g.setRoute(bot.route(g));
     if (g.state.day > 1 || true) restock(g, mem, bot.restock);
     bot.daily?.(g);
+    if (care) CARE[care].daily(g);
     const before = snapshotStock(g);
     g.openDay();
     g.runDay();
@@ -162,5 +201,7 @@ export function playSeason(botName, seed, { trace = false } = {}) {
   const shareBefore = g.shareNow();
   const res = g.payLoan();
   fileAll(g);
-  return { won: res.won, share: shareBefore, cash: cashBefore, weekly, game: g, spoiled: g.state.truth.spoiled };
+  return { won: res.won, share: shareBefore, cash: cashBefore, weekly, game: g, spoiled: g.state.truth.spoiled, profit: profitSoFar(g) - startProfit };
 }
+
+const profitSoFar = (g) => sectionTotal(g.state.truth, 'income') - sectionTotal(g.state.truth, 'expense');

@@ -2,12 +2,13 @@
 // P&L works out the profit, the profit moves to the player's Share, and the screen becomes the weekly report.
 import { DOC_TYPES, docLines, pennyComparison } from '../documents.js';
 import { ACCOUNTS, ACCOUNT, SECTIONS, pnlRowsFor, share } from '../ledger.js';
-import { CONFIG, TOPPINGS, itemFromKey } from '../config.js';
+import { sliceText, CONFIG, TOPPINGS, itemFromKey } from '../config.js';
 import { itemName } from './scene.js';
 import { iceCreamSVG } from '../art.js';
 import { esc, money, openModal, onActs, toast } from './dom.js';
 import { STAGE_W, buildStage, chooseScale, blocks, makeSep, LEFT, RIGHT } from './statements.js';
 import { profitChart, tooExpensiveList } from './reports.js';
+import { coinIcon } from '../icons.js';
 
 const SEC_OF = (acct) => ACCOUNT[acct].section;
 const isPnl = (acct) => SEC_OF(acct) === 'income' || SEC_OF(acct) === 'expense';
@@ -41,7 +42,7 @@ function split(doc) {
     const sec = SEC_OF(acct);
     if (sec === 'asset') L[acct] = amt;
     else if (sec === 'liability') R[acct] = amt;
-    else if (sec === 'owner') R.share = (R.share || 0) + amt;
+    else if (sec === 'owner') R[acct === 'grandmaIn' ? 'gshare' : 'share'] = (R[acct === 'grandmaIn' ? 'gshare' : 'share'] || 0) + amt;
     else R.pending = (R.pending || 0) + (sec === 'income' ? amt : -amt);
   }
   return [L, R];
@@ -96,7 +97,8 @@ export function openShoebox(app, onDone) {
 
   const f = s.filed;
   const pending = g.pendingProfit();
-  const bs0 = { cash: f.cash, supplies: f.supplies, truck: f.truck, loan: f.loan, giftCards: f.giftCards, interestOwed: f.interestOwed, billsToPay: f.billsToPay, pending, share: share(f) - pending };
+  const gshare = f.grandmaIn || 0; // Grandma's Share, when she's a co-owner
+  const bs0 = { cash: f.cash, supplies: f.supplies, truck: f.truck, loan: f.loan, giftCards: f.giftCards, interestOwed: f.interestOwed, billsToPay: f.billsToPay, pending, share: share(f) - pending - gshare, gshare };
 
   let st = {
     pnl: pnl0,
@@ -213,7 +215,7 @@ export function openShoebox(app, onDone) {
   };
 
   const shareName = `${player}'s Share`;
-  const rowName = (id) => (id === 'pending' ? 'Profit this week' : id === 'share' ? shareName : ACCOUNT[id].name);
+  const rowName = (id) => (id === 'pending' ? 'Profit this week' : id === 'share' ? shareName : id === 'gshare' ? "Grandma's Share" : ACCOUNT[id].name);
   const bankLabel = (v) => (v >= 0 ? `➕ Move profit to ${shareName}` : `➖ Take the loss from ${shareName}`);
   const hasPnl = () => st.pnl.inc.length > 0 || st.pnl.exp.length > 0;
   const reportOn = () => !!reportWeek && st.close === 'banked' && !st.keep.pending;
@@ -455,7 +457,7 @@ export function openShoebox(app, onDone) {
       }).join('')}
       ${TOPPINGS.filter((t) => lw.toppings?.[t.id]).map((t) => `<span class="chip">${iceCreamSVG({ flavor: 'vanilla', container: 'cake', topping: t.id }, 26)} +${lw.toppings[t.id]}</span>`).join('')}
       </div>
-      <div class="row tiny muted" style="margin-top:4px">🚶 ${(lw.customers || 0).toLocaleString()} people · 😤 ${lw.tooExpensive || 0} said “too expensive” · 😠 ${lw.outOfStock || 0} found something sold out${lw.broke ? ` · 🪙 ${lw.broke} kids only had pocket money` : ''}</div>
+      <div class="row tiny muted" style="margin-top:4px">🚶 ${(lw.customers || 0).toLocaleString()} people · 😤 ${lw.tooExpensive || 0} said “too expensive” · 😠 ${lw.outOfStock || 0} found something sold out${lw.broke ? ` · ${coinIcon()} ${lw.broke} kids only had pocket money` : ''}</div>
       ${tooExpensiveList(lw.tooExpensiveWants)}
       <h3>Profit this summer</h3>
       ${profitChart(g)}
@@ -539,7 +541,8 @@ export function openShoebox(app, onDone) {
 
   function move() {
     const v = st.bs.pending;
-    const { ids } = g.moveProfit();
+    const { ids, grandma } = g.moveProfit();
+    const P = s.partner;
     app.save();
     snap({ moved: ids });
     bankPt = ptTo(v < 0);
@@ -549,9 +552,16 @@ export function openShoebox(app, onDone) {
       app.music.sfx('ching');
       setState((p) => ({ close: 'banked', bs: { ...p.bs, share: p.bs.share + v }, shown: { pending: -v, share: v } }));
     });
-    later(2200, () => {
+    if (grandma) {
+      // then Grandma's slice moves on to her Share
+      later(2200, () => {
+        setState((p) => ({ bs: { ...p.bs, share: p.bs.share - grandma, gshare: (p.bs.gshare || 0) + grandma }, shown: { share: v - grandma, gshare: grandma } }));
+      });
+    }
+    later(grandma ? 3100 : 2200, () => {
       app.changed();
-      setState({ keep: {}, busy: false, shown: { share: v }, caption: v >= 0 ? `This week's profit is now part of ${shareName}.` : `The week's loss came out of ${shareName}.` });
+      const gm = grandma ? ` Grandma gets ${sliceText(P.slice)}: ${money(Math.abs(grandma))}${grandma < 0 ? ' of the loss' : ''}.` : '';
+      setState({ keep: {}, busy: false, shown: grandma ? { share: v - grandma, gshare: grandma } : { share: v }, caption: (v >= 0 ? `This week's profit is now part of the Shares.` : `The week's loss came out of the Shares.`).replace(/the Shares/, grandma ? 'the Shares' : shareName) + gm });
     });
   }
 

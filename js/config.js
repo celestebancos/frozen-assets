@@ -10,10 +10,13 @@ export const CONFIG = {
   // Default loan and truck (used by the simulated players and old saves).
   loan: { principal: 1_000_000, truckCost: 990_000, dailyInterest: 300 },
   // Loans the bank offers. Bigger loans cost more interest per day, and more per extra dollar.
+  // The two smallest are for a used truck (same interest per dollar as the $10,000 one).
   loans: [
-    { id: 'small', principal: 1_000_000, dailyInterest: 300 },
-    { id: 'medium', principal: 1_100_000, dailyInterest: 450 },
-    { id: 'large', principal: 1_200_000, dailyInterest: 650 },
+    { id: 'l5', principal: 500_000, dailyInterest: 150 },
+    { id: 'l7', principal: 750_000, dailyInterest: 225 },
+    { id: 'l10', principal: 1_000_000, dailyInterest: 300 },
+    { id: 'l11', principal: 1_100_000, dailyInterest: 450 },
+    { id: 'l12', principal: 1_200_000, dailyInterest: 650 },
   ],
   minStartCash: 10_000, // the truck must leave at least this much for supplies
   lateFee: { unpaidDays: 3, amount: 1000 },
@@ -60,6 +63,7 @@ export const CONFIG = {
     dropReplaced: 0.004,
     dropRefused: -0.006,
     giftCardFree: 0.003,
+    lineLeft: -0.002,
     promoCard: 0.003,
   },
 
@@ -74,6 +78,44 @@ export const CONFIG = {
   buzzFadePerDay: 0.12,
 
   rebrand: { paint: 15000, sign: 10000, paintPull: 0.25, signPull: 0.75 },
+  // Wear and tear. Every truck has an odometer (miles); more miles mean more breakdowns and bigger garage bills. A used
+  // truck starts with a lot of miles, leaks oil (oil: 100 = full), burns more gas, and looks shabby (fewer customers,
+  // most in the nicer neighborhoods) until the garage fixes it up. Each day that starts with almost no oil wears the
+  // engine (engineWear), and a worn engine breaks down more until the garage fixes it in the winter.
+  // Breakdowns, the fix-up and the winter inspection are garage bills (pay within credit.termDays).
+  truckCare: {
+    oilLeak: { used: [5, 9], new: [0, 0.4] }, // oil lost each day
+    oilLow: 30, // the dipstick says "low"
+    oilEmpty: 10, // a day that starts below this wears the engine
+    oilBottle: { price: 800, adds: 60 }, // from the gas station
+    milesPerGal: 21, // odometer miles per gallon of gas: about 70 miles a day of slow neighborhood driving (not real
+    // fuel economy; a used truck burns usedGas times more gas for the same miles)
+    newMiles: [10, 60], // a new truck off the lot
+    // Breakdowns a summer by miles ([miles, breakdowns], in between is a straight line): a new truck almost never
+    // breaks down. The chance a day is that ÷ the days in a summer, × (1 + perWear × engineWear) × last winter's
+    // repairs. A repair costs more with more miles (× 1 + miles / costMilesPer).
+    breakdown: { perSummer: [[0, 0.15], [30000, 0.6], [60000, 1.5], [100000, 2.5], [150000, 3.5]], perWear: 0.5, cost: [10000, 25000], costMilesPer: 150000 },
+    engineShopDays: 7, // fixing a worn engine during the summer: the truck is at the garage this long
+    usedGas: 1.3, // a used truck burns this much more gas
+    shabby: { sunset: 0.85, downtown: 0.85, parkside: 0.85, other: 0.95 }, // customers, until it's fixed up
+    fixUp: 80000, // paint, bodywork, no more rust
+    // The winter inspection: the tune-up and oil change you must pay for (base + perMile cents a mile), plus repairs
+    // the mechanic recommends. Each one you pay for cuts next summer's breakdowns (cut: ×). Their cost goes up with
+    // miles (× 1 + miles / costMilesPer), and more of them show up on a truck with more miles (from: miles).
+    // The engine repair only shows up for a worn engine, and fixes the wear.
+    winter: {
+      base: 15000,
+      perMile: 0.2,
+      costMilesPer: 100000,
+      repairs: [
+        { id: 'belts', label: 'New belts and hoses', cost: 8000, cut: 0.8, from: 0 },
+        { id: 'brakes', label: 'Brakes and tires', cost: 12000, cut: 0.8, from: 30000 },
+        { id: 'cooling', label: 'Radiator and cooling system', cost: 10000, cut: 0.8, from: 80000 },
+      ],
+      engine: { label: 'Engine repair (ran on almost no oil)', cost: 15000, perWear: 5000 },
+    },
+    lowGas: 0.3, // the gas stop pops up when the tank is this low
+  },
 
   credit: { surcharge: 0.05, limit: 15000, termDays: 7, lateFee: 500 },
 
@@ -90,11 +132,21 @@ export const CONFIG = {
   dropChance: 0.02,
 
   // What a typical customer thinks is fair (cents).
-  fairPrice: { cake: 300, sugar: 350, waffle: 450, bowl: 300, rocketPop: 125, fudgePop: 150, freezePop: 60 },
+  fairPrice: { cake: 300, sugar: 350, waffle: 450, bowl: 300, rocketPop: 125, fudgePop: 150, freezePop: 60, pushOrange: 100, pushGrape: 100, orangeCream: 150, shortcake: 200, sandwich: 175, iceCherry: 175, iceStrawberry: 175, iceLemon: 175, iceBlue: 175, crunchBar: 275, sundaeCone: 325, water: 125, punch: 175 },
   fairTopping: 50,
   wtpRange: [0.85, 1.6],
   // How often each kind of person wants a popsicle instead of ice cream (when pops are on the menu).
   popWant: { kid: 0.08, teen: 0.05, adult: 0.02 },
+  // The game's favorite treat (picked for the park cart, kept on the truck) is wanted as much as rocket pops.
+  favoriteWant: 11.5,
+  // The truck window serves about `perMinute` people a minute. A party that would wait more than `patience`
+  // minutes sees the line is too long and leaves (people talk about that a little: `lineLeft` popularity).
+  service: { perMinute: 2, patience: 10 },
+  // Super-low prices draw extra people (word gets around fast): when the menu averages under `below` of the
+  // fair price, arrivals × (1 + strength × how far under), up to `max`. Normal and slightly low prices: no change.
+  dealCrowd: { below: 0.55, strength: 6, max: 3 },
+  // Chance each person adds a drink to their order (if drinks are on the menu): more on hot days (per degree over 80°F).
+  drink: { base: 0.04, perDegree: 0.005, min: 0.02, max: 0.12 },
 
   // Kids out on their own sometimes only have pocket money. They buy only if something costs that much or less.
   pocket: { chance: 0.18, amounts: [[100, 6], [75, 2], [50, 1]] },
@@ -107,7 +159,7 @@ export const CONFIG = {
 };
 
 // Starting menu prices (cents).
-export const START_PRICES = { cake: 300, sugar: 350, waffle: 450, bowl: 300, chocSprinkles: 50, rainbowSprinkles: 50, rocketPop: 100, fudgePop: 125, freezePop: 50 };
+export const START_PRICES = { cake: 300, sugar: 350, waffle: 450, bowl: 300, chocSprinkles: 50, rainbowSprinkles: 50, rocketPop: 100, fudgePop: 125, freezePop: 50, pushOrange: 75, pushGrape: 75, orangeCream: 125, shortcake: 175, sandwich: 150, iceCherry: 150, iceStrawberry: 150, iceLemon: 150, iceBlue: 150, crunchBar: 250, sundaeCone: 300, water: 100, punch: 150 };
 
 // Supplies. "unit" is what one pack count means. Mix is tracked in half-servings internally.
 export const SUPPLIES = [
@@ -133,7 +185,33 @@ export const SUPPLIES = [
     packs: [{ size: 24, price: 840 }, { size: 100, price: 3000 }, { size: 500, price: 12500 }] },
   { id: 'freezePop', name: 'Freeze pops', short: 'Freeze pops', unit: 'pops', emoji: '🧊', use: 'Little ice tubes. Cheap! Sold as is: 1 per sale. Pops stay frozen all summer.',
     packs: [{ size: 50, price: 400 }, { size: 250, price: 1500 }, { size: 1000, price: 5000 }] },
-  { id: 'spoons', name: 'Spoons', short: 'Spoons', unit: 'spoons', emoji: '🥄', use: "Every bowl needs a spoon. No spoons = you can't sell bowls! (Dogs don't need one.)",
+  { id: 'pushOrange', name: 'Orange push pops', short: 'Orange push pops', unit: 'pops', emoji: '🍊', use: 'Orange sherbet you push up. Sold as is: 1 per sale. Pops stay frozen all summer.',
+    packs: [{ size: 24, price: 600 }, { size: 100, price: 2000 }, { size: 500, price: 8000 }] },
+  { id: 'pushGrape', name: 'Grape push pops', short: 'Grape push pops', unit: 'pops', emoji: '🍇', use: 'Grape sherbet you push up. Sold as is: 1 per sale. Pops stay frozen all summer.',
+    packs: [{ size: 24, price: 600 }, { size: 100, price: 2000 }, { size: 500, price: 8000 }] },
+  { id: 'orangeCream', name: 'Orange cream pops', short: 'Orange cream', unit: 'pops', emoji: '🍦', use: 'Orange outside, vanilla inside. Sold as is: 1 per sale. Pops stay frozen all summer.',
+    packs: [{ size: 24, price: 840 }, { size: 100, price: 3000 }, { size: 500, price: 12500 }] },
+  { id: 'shortcake', name: 'Strawberry shortcake bars', short: 'Shortcake bars', unit: 'bars', emoji: '🍓', use: 'Ice cream with cake crumbs. Sold as is: 1 per sale. Bars stay frozen all summer.',
+    packs: [{ size: 24, price: 1200 }, { size: 100, price: 4200 }, { size: 500, price: 17500 }] },
+  { id: 'sandwich', name: 'Ice cream sandwiches', short: 'Sandwiches', unit: 'sandwiches', emoji: '🍪', use: 'Vanilla between two cookies. Sold as is: 1 per sale. They stay frozen all summer.',
+    packs: [{ size: 24, price: 1080 }, { size: 100, price: 3800 }, { size: 500, price: 16000 }] },
+  { id: 'iceCherry', name: 'Cherry ice cups', short: 'Cherry ice', unit: 'cups', emoji: '🍒', use: 'Italian ice in a cup. Each one needs a spoon! Cups stay frozen all summer.',
+    packs: [{ size: 24, price: 900 }, { size: 100, price: 3200 }, { size: 500, price: 13500 }] },
+  { id: 'iceStrawberry', name: 'Strawberry ice cups', short: 'Strawberry ice', unit: 'cups', emoji: '🍧', use: 'Italian ice in a cup. Each one needs a spoon! Cups stay frozen all summer.',
+    packs: [{ size: 24, price: 900 }, { size: 100, price: 3200 }, { size: 500, price: 13500 }] },
+  { id: 'iceLemon', name: 'Lemon ice cups', short: 'Lemon ice', unit: 'cups', emoji: '🍋', use: 'Italian ice in a cup. Each one needs a spoon! Cups stay frozen all summer.',
+    packs: [{ size: 24, price: 900 }, { size: 100, price: 3200 }, { size: 500, price: 13500 }] },
+  { id: 'iceBlue', name: 'Blue ice cups', short: 'Blue ice', unit: 'cups', emoji: '💙', use: 'Italian ice in a cup. Each one needs a spoon! Cups stay frozen all summer.',
+    packs: [{ size: 24, price: 900 }, { size: 100, price: 3200 }, { size: 500, price: 13500 }] },
+  { id: 'crunchBar', name: 'Chocolate crunch bars', short: 'Crunch bars', unit: 'bars', emoji: '🍫', use: 'A fancy bar: costs more, sells for more. Sold as is: 1 per sale. Bars stay frozen all summer.',
+    packs: [{ size: 24, price: 2200 }, { size: 100, price: 8000 }, { size: 500, price: 35000 }] },
+  { id: 'sundaeCone', name: 'Sundae cones', short: 'Sundae cones', unit: 'cones', emoji: '🍨', use: 'A fancy cone with chocolate and nuts. Sold as is: 1 per sale. They stay frozen all summer.',
+    packs: [{ size: 24, price: 2700 }, { size: 100, price: 10000 }, { size: 500, price: 45000 }] },
+  { id: 'water', name: 'Water bottles', short: 'Water', unit: 'bottles', emoji: '💧', use: 'Some people want a drink with their treat, more on a hot day. Drinks never go bad.',
+    packs: [{ size: 24, price: 900 }, { size: 100, price: 3200 }, { size: 500, price: 14000 }] },
+  { id: 'punch', name: 'Fruit punch', short: 'Fruit punch', unit: 'bottles', emoji: '🍹', use: 'Some people want a drink with their treat, more on a hot day. Drinks never go bad.',
+    packs: [{ size: 24, price: 1400 }, { size: 100, price: 5000 }, { size: 500, price: 22500 }] },
+  { id: 'spoons', name: 'Spoons', short: 'Spoons', unit: 'spoons', emoji: '🥄', use: "Every bowl and Italian ice needs a spoon. No spoons = you can't sell them! (Dogs don't need one.)",
     packs: [{ size: 100, price: 200 }, { size: 1000, price: 1000 }] },
   { id: 'napkins', name: 'Napkins', short: 'Napkins', unit: 'napkins', emoji: '🧻', use: 'Each grown-up takes 1 napkin and each kid takes 1 to 3. No napkins = sticky, grumpy customers.',
     packs: [{ size: 100, price: 200 }, { size: 1000, price: 1000 }] },
@@ -151,11 +229,26 @@ export const CONTAINERS = [
   { id: 'waffle', name: 'Waffle cone' },
   { id: 'bowl', name: 'Bowl' },
 ];
-// Popsicles: sold as is, one supply each. A cheap way to sell to kids with only a little money.
+// Popsicles and other treats sold as is, one supply each. A cheap way to sell to kids with only a little money.
+// spoon: needs a spoon too (Italian ice). plural: when adding an s won't do.
 export const POPS = [
-  { id: 'rocketPop', name: 'Rocket pop', want: 4 },
+  { id: 'rocketPop', name: 'Rocket pop', want: 11.5 }, // a big seller: about 1 pop in 5
   { id: 'fudgePop', name: 'Fudge pop', want: 3 },
   { id: 'freezePop', name: 'Freeze pop', want: 3 },
+  { id: 'pushOrange', name: 'Orange push pop', want: 3 },
+  { id: 'pushGrape', name: 'Grape push pop', want: 3 },
+  { id: 'orangeCream', name: 'Orange cream pop', want: 3 },
+  { id: 'shortcake', name: 'Strawberry shortcake', want: 3 },
+  { id: 'sandwich', name: 'Ice cream sandwich', want: 3, plural: 'ice cream sandwiches' },
+  { id: 'iceCherry', name: 'Cherry ice', want: 3, spoon: true, plural: 'cherry ice' },
+  { id: 'iceStrawberry', name: 'Strawberry ice', want: 3, spoon: true, plural: 'strawberry ice' },
+  { id: 'iceLemon', name: 'Lemon ice', want: 2, spoon: true, plural: 'lemon ice' },
+  { id: 'iceBlue', name: 'Blue ice', want: 3, spoon: true, plural: 'blue ice' },
+  { id: 'crunchBar', name: 'Chocolate crunch bar', want: 3 },
+  { id: 'sundaeCone', name: 'Sundae cone', want: 3 },
+  // drinks: nobody wants only a drink; some people add one to their order (more on hot days)
+  { id: 'water', name: 'Water bottle', want: 3, drink: true },
+  { id: 'punch', name: 'Fruit punch', want: 2, drink: true, plural: 'fruit punch' },
 ];
 export const POP = Object.fromEntries(POPS.map((p) => [p.id, p]));
 export const isPop = (item) => !!item?.pop;
@@ -309,6 +402,12 @@ export const DROP_BY_PERSON = { kid: 1, teen: 0.5, adult: 0.1, dog: 0 };
 
 // Trucks for sale. Every color costs the same; bling costs extra up front and is just for looks.
 export const TRUCK_PRICE = 970_000;
+// Used trucks: about half price, no bling, and they look it (faded paint, rust, a dent). usedOnLot: how many are on
+// the lot. (More effects of a used truck, like breakdowns and gas, can come later.)
+// Used trucks on the lot: miles between the two numbers; fewer miles cost more (price = new × (top − miles × perMile),
+// to the $50).
+export const USED_TRUCK = { usedOnLot: 2, miles: [50000, 150000], top: 0.72, perMile: 1 / 400000 };
+export const usedTruckPrice = (miles) => Math.round((TRUCK_PRICE * (USED_TRUCK.top - miles * USED_TRUCK.perMile)) / 5000) * 5000;
 export const TRUCK_COLORS = [
   { id: 'white', name: 'Vanilla', hex: '#fff7ea' },
   { id: 'sky', name: 'Sky', hex: '#7cc8ff' },
@@ -334,30 +433,78 @@ export const CART = {
   denoms: [2000, 1000, 500, 100, 25], // $20, $10, $5, $1, quarters (prices go up by quarters)
   // Grandma gives $40 to start the cart (in the cash box); your wallet has $10 of your own.
   start: { box: { 2000: 2 }, wallet: { 500: 1, 100: 5 } },
-  homeStart: 11 * 60, // the day starts at home at 11am
+  homeStart: 11 * 60, // breakfast is at 11am (hunger runs from here). Errands at home take no time.
   parkOpen: 12 * 60, // four hours at the park, noon to 4pm
   parkClose: 16 * 60,
-  // Minutes each errand takes. From the park, the corner store means closing the cart for a bit.
-  errand: { restaurant: 45, corner: 15, cornerFromPark: 20 },
-  // The cooler has two trays of 24 spots (6 across, 4 down), one on top of the other. Each pop or cup takes a spot.
+  // Minutes an errand takes from the park: the cart is closed while you're away.
+  errand: { cornerFromPark: 20 },
+  refillBelow: 25, // a new pack of spoons or napkins goes on the cart only once it's down to fewer than this
+  // The cooler has two trays of 32 spots (8 across, 4 down), one on top of the other. Each pop or cup takes a spot.
   coolerTrays: 2,
-  traySpots: 24,
-  coolerSpace: 48,
+  traySpots: 32,
+  trayCols: 8,
+  coolerSpace: 64,
   // The freezer at home has two shelves, each with room for 6 boxes standing side by side.
   freezerShelves: 2,
   shelfSlots: 6,
+  // Drinks don't need the freezer: their cases go on a shelf in the kitchen, with room for this many. They don't
+  // melt on the counter either.
+  drinkShelf: 3,
   priceStep: 25,
+  // Hunger: full at the start of the day, then it runs down. With nothing to eat you're empty about 2:30pm and go
+  // home. A snack (food 25) buys about an hour; lunch (food 60) lasts the day. low: when your tummy rumbles.
+  // grace: if you get to the park with an empty tummy, you have this many minutes to find something to eat before
+  // you have to go home.
+  hunger: { perMinute: 100 / 210, low: 25, grace: 20 },
+  // Hot days: for every degree over `from`, the heat makes you hungry (thirsty) `perDegree` faster, and the shade of
+  // the umbrella and the breeze of the fan take away part of that (shade: how much each takes away, up to max).
+  // The shade also makes people in line willing to wait longer on a hot day: patience × (1 + heat × shade × line).
+  // At 91°F with nothing: hungry 36% faster. With the fan: 25% faster, and people wait 22% longer.
+  heat: { from: 82, perDegree: 0.04, shade: { umbrella: 0.5, fan: 0.3 }, max: 0.8, line: 2 },
+  // A packed lunch from home (made from sandwich makings bought at the corner store). Takes a cooler spot.
+  lunch: { name: 'Packed lunch', food: 60, emoji: '🥪' },
+  // Eating your own stock: a little food, and too much ice cream gives you a tummy ache. food: by treat (other: the
+  // rest; drinks: 3). ache: the chance of a tummy ache with the 1st, 2nd, 3rd... treat eaten today (drinks don't
+  // count). A tummy ache gives no food and you sit on the bench for benchMinutes with the cart closed.
+  ownTreats: { food: { freezePop: 3, sandwich: 10, crunchBar: 10, sundaeCone: 10, drink: 3, other: 6 }, ache: [0, 0.25, 0.5, 0.75, 1], benchMinutes: 15 },
+  // Buying in bulk at the restaurant store: 3 boxes of the same kind cost 20% less. They still take 3 freezer spots.
+  bulk: { boxes: 3, off: 0.2 },
   vendorMistake: 0.15, // how often a seller gets your change wrong
+  // Now and then a really big family comes by (2 grown-ups and 4 or 5 kids), from day `firstDay` on: `chance` a day.
+  // They're messy eaters: a napkin for everyone makes them very happy, and they always leave a big tip.
+  bigFamily: { chance: 0.25, firstDay: 3, kids: [4, 5], napkinTip: [300, 500] },
+  // A can of paint from the corner store repaints the cart: a new color and name, and the stickers are painted over.
+  cartName: 'ICE POPS', // what the cart says until you repaint it
+  nameMax: 14,
+  paints: ['#7cc8ff', '#ff6f91', '#3cc6a0', '#ffd23f', '#9b7be0', '#ff9f1c'], // the stripe color (the first: as it comes)
+  // Each game, one of these is a big seller too (as popular as rocket pops, about 1 order in 5). Lemon ice is
+  // never one. It stays the favorite on the truck.
+  hotChoices: ['fudgePop', 'freezePop', 'pushOrange', 'pushGrape', 'orangeCream', 'shortcake', 'sandwich', 'iceCherry', 'iceStrawberry', 'iceBlue', 'crunchBar', 'sundaeCone'],
+  hotWant: 3.55,
 };
 
 export const CART_ITEMS = [
-  { id: 'rocketPop', name: 'Rocket pop', kind: 'pop', fair: 150, want: 4 },
+  { id: 'rocketPop', name: 'Rocket pop', kind: 'pop', fair: 150, want: 3.55 }, // a big seller: about 1 order in 5
   { id: 'fudgePop', name: 'Fudge pop', kind: 'pop', fair: 175, want: 3 },
   { id: 'freezePop', name: 'Freeze pop', kind: 'pop', fair: 50, want: 3 },
+  { id: 'pushOrange', name: 'Orange push pop', kind: 'pop', fair: 100, want: 3 },
+  { id: 'pushGrape', name: 'Grape push pop', kind: 'pop', fair: 100, want: 3 },
+  { id: 'orangeCream', name: 'Orange cream pop', kind: 'pop', fair: 175, want: 3 },
+  { id: 'shortcake', name: 'Strawberry shortcake', kind: 'pop', fair: 250, want: 3 },
+  { id: 'sandwich', name: 'Ice cream sandwich', plural: 'ice cream sandwiches', kind: 'pop', fair: 200, want: 3 },
   { id: 'iceCherry', name: 'Cherry ice', kind: 'ice', fair: 200, want: 3, color: '#ff4d6d' },
+  { id: 'iceStrawberry', name: 'Strawberry ice', kind: 'ice', fair: 200, want: 3, color: '#ffa3bd', seeds: true },
   { id: 'iceLemon', name: 'Lemon ice', kind: 'ice', fair: 200, want: 2, color: '#ffe066' },
   { id: 'iceBlue', name: 'Blue ice', kind: 'ice', fair: 200, want: 3, color: '#4cc9f0' },
+  // Fancy treats: they cost more, so a sale earns more. Kids with pocket money usually can't afford them.
+  { id: 'crunchBar', name: 'Chocolate crunch bar', kind: 'pop', fair: 300, want: 3 },
+  { id: 'sundaeCone', name: 'Sundae cone', kind: 'pop', fair: 350, want: 3 },
+  // Drinks: some people want one with their treat, more on a hot day. They take a spot in the cooler too.
+  { id: 'water', name: 'Water bottle', kind: 'drink', fair: 100, want: 3 },
+  { id: 'punch', name: 'Fruit punch', kind: 'drink', fair: 150, want: 2, plural: 'fruit punches' },
 ];
+// Freeze pops come in a box of assorted colors. The color is just for looks.
+export const FREEZE_TINTS = ['#ff4d6d', '#ff9f1c', '#ffd23f', '#5fd068', '#4cc9f0', '#c08cff'];
 export const CART_ITEM = Object.fromEntries(CART_ITEMS.map((i) => [i.id, i]));
 
 // What the shops sell. kind: stock (goes in the freezer), spoons, napkins, gear (for the cart), decal, balloon,
@@ -367,12 +514,24 @@ export const CART_SHOPS = {
     name: 'Restaurant store',
     icon: '🏬',
     items: [
-      { id: 'rocketBox', name: 'Rocket pops', note: 'box of 24', kind: 'stock', item: 'rocketPop', qty: 24, price: 900 },
+      // shelf: how many boxes of it stand on the store shelf. The big sellers get two, as a hint: rocket pops,
+      // and one more that changes from game to game (CART.hotChoices).
+      { id: 'rocketBox', name: 'Rocket pops', note: 'box of 24', kind: 'stock', item: 'rocketPop', qty: 24, price: 900, shelf: 2 },
       { id: 'fudgeBox', name: 'Fudge pops', note: 'box of 24', kind: 'stock', item: 'fudgePop', qty: 24, price: 1100 },
-      { id: 'freezeBox', name: 'Freeze pops', note: 'box of 50', kind: 'stock', item: 'freezePop', qty: 50, price: 450 },
+      { id: 'freezeBox', name: 'Freeze pops', note: 'box of 50, all colors', kind: 'stock', item: 'freezePop', qty: 50, price: 450 },
+      { id: 'pushOrangeBox', name: 'Orange push pops', note: 'box of 24', kind: 'stock', item: 'pushOrange', qty: 24, price: 700 },
+      { id: 'pushGrapeBox', name: 'Grape push pops', note: 'box of 24', kind: 'stock', item: 'pushGrape', qty: 24, price: 700 },
+      { id: 'orangeCreamBox', name: 'Orange cream pops', note: 'box of 24', kind: 'stock', item: 'orangeCream', qty: 24, price: 1100 },
+      { id: 'shortcakeBox', name: 'Strawberry shortcakes', note: 'box of 24', kind: 'stock', item: 'shortcake', qty: 24, price: 1500 },
+      { id: 'sandwichBox', name: 'Ice cream sandwiches', note: 'box of 24', kind: 'stock', item: 'sandwich', qty: 24, price: 1200 },
       { id: 'cherryCups', name: 'Cherry ice', note: 'box of 24 cups', kind: 'stock', item: 'iceCherry', qty: 24, price: 950 },
+      { id: 'strawberryCups', name: 'Strawberry ice', note: 'box of 24 cups', kind: 'stock', item: 'iceStrawberry', qty: 24, price: 950 },
       { id: 'lemonCups', name: 'Lemon ice', note: 'box of 24 cups', kind: 'stock', item: 'iceLemon', qty: 24, price: 950 },
       { id: 'blueCups', name: 'Blue ice', note: 'box of 24 cups', kind: 'stock', item: 'iceBlue', qty: 24, price: 950 },
+      { id: 'crunchBox', name: 'Chocolate crunch bars', note: 'box of 12', kind: 'stock', item: 'crunchBar', qty: 12, price: 1200 },
+      { id: 'coneBox', name: 'Sundae cones', note: 'box of 12', kind: 'stock', item: 'sundaeCone', qty: 12, price: 1500 },
+      { id: 'waterBox', name: 'Water bottles', note: 'case of 24', kind: 'stock', item: 'water', qty: 24, price: 500 },
+      { id: 'punchBox', name: 'Fruit punch', note: 'case of 24', kind: 'stock', item: 'punch', qty: 24, price: 800 },
       { id: 'spoons', name: 'Spoons', note: 'pack of 100', kind: 'spoons', qty: 100, price: 200 },
       { id: 'napkins', name: 'Napkins', note: 'pack of 100', kind: 'napkins', qty: 100, price: 200 },
       { id: 'umbrella', name: 'Big umbrella', note: 'shade for the cart', kind: 'gear', price: 1500 },
@@ -384,9 +543,17 @@ export const CART_SHOPS = {
     name: 'Corner store',
     icon: '🏪',
     items: [
-      { id: 'gum', name: 'Bubble gum', kind: 'snack', price: 100, emoji: '🫧' },
-      { id: 'chips', name: 'Chips', kind: 'snack', price: 150, emoji: '🥔' },
-      { id: 'juice', name: 'Juice box', kind: 'snack', price: 125, emoji: '🧃' },
+      // food: how much a snack fills you up (the hunger bar is 100). Snacks from here can wait in the cooler.
+      { id: 'gum', name: 'Bubble gum', kind: 'snack', price: 100, food: 5 }, // drawn: gumIcon in js/icons.js
+      { id: 'chips', name: 'Chips', kind: 'snack', price: 150, emoji: '🥔', food: 25 },
+      { id: 'juice', name: 'Juice box', kind: 'snack', price: 125, emoji: '🧃', food: 15 },
+      { id: 'lunchKit', name: 'Sandwich makings', note: 'makes 5 lunches', kind: 'pantry', qty: 5, price: 500, emoji: '🍞' },
+      { id: 'paint', name: 'Can of paint', note: 'repaint your cart', kind: 'paint', price: 600, emoji: '🎨' },
+      // Small boxes, handy near the park but they cost more per treat than at the restaurant store. Bought at
+      // the park, they go right into the cooler.
+      { id: 'rocketSmall', name: 'Rocket pops', note: 'box of 6', kind: 'stock', item: 'rocketPop', qty: 6, price: 350 },
+      { id: 'fudgeSmall', name: 'Fudge pops', note: 'box of 6', kind: 'stock', item: 'fudgePop', qty: 6, price: 425 },
+      { id: 'pushSmall', name: 'Orange push pops', note: 'box of 6', kind: 'stock', item: 'pushOrange', qty: 6, price: 300 },
       { id: 'ball', name: 'Bouncy ball', kind: 'toy', price: 100, emoji: '🔴' },
       { id: 'car', name: 'Toy car', kind: 'toy', price: 250, emoji: '🏎️' },
       { id: 'yoyo', name: 'Yo-yo', kind: 'toy', price: 300, emoji: '🪀' },
@@ -406,9 +573,10 @@ export const CART_SHOPS = {
     name: 'Hot dog stand',
     icon: '🌭',
     items: [
-      { id: 'hotdog', name: 'Hot dog', kind: 'snack', price: 250, emoji: '🌭' },
-      { id: 'lemonade', name: 'Lemonade', kind: 'snack', price: 150, emoji: '🍋' },
-      { id: 'pretzel', name: 'Pretzel', kind: 'snack', price: 200, emoji: '🥨' },
+      // eaten right away
+      { id: 'hotdog', name: 'Hot dog', kind: 'snack', price: 250, emoji: '🌭', food: 60 },
+      { id: 'lemonade', name: 'Lemonade', kind: 'snack', price: 150, emoji: '🍋', food: 10 },
+      { id: 'pretzel', name: 'Pretzel', kind: 'snack', price: 200, emoji: '🥨', food: 30 },
     ],
   },
   balloons: {
@@ -425,10 +593,12 @@ export const CART_SHOPS = {
     icon: '✨',
     items: [
       { id: 'decalStar', name: 'Star sticker', kind: 'decal', price: 200, emoji: '⭐' },
-      { id: 'decalHeart', name: 'Heart sticker', kind: 'decal', price: 200, emoji: '💖' },
-      { id: 'decalFlower', name: 'Flower sticker', kind: 'decal', price: 250, emoji: '🌼' },
+      // grandma: 'likes' (she hints at it over lunch, with grandmaHint, and is pleased when you get it) or 'dislikes'
+      // (she tut-tuts, but it doesn't change anything)
+      { id: 'decalHeart', name: 'Heart sticker', kind: 'decal', price: 200, emoji: '💖', grandma: 'likes', grandmaHint: 'Hearts make everything look friendlier.' },
+      { id: 'decalFlower', name: 'Flower sticker', kind: 'decal', price: 250, emoji: '🌼', grandma: 'likes', grandmaHint: "I've always loved flowers." },
       { id: 'decalRainbow', name: 'Rainbow sticker', kind: 'decal', price: 300, emoji: '🌈' },
-      { id: 'decalRocket', name: 'Rocket sticker', kind: 'decal', price: 300, emoji: '🚀' },
+      { id: 'decalRocket', name: 'Rocket sticker', kind: 'decal', price: 300, emoji: '🚀', grandma: 'dislikes' },
       { id: 'decalCone', name: 'Ice cream sticker', kind: 'decal', price: 300, emoji: '🍦' },
     ],
   },
@@ -438,8 +608,8 @@ export const CART_LOOKS = { perDecal: 0.02, umbrella: 0.05, bell: 0.04, balloon:
 
 // Who walks by the park and what they do.
 export const CART_CROWD = {
-  // people walking past per hour, noon to 4pm (about a dozen customers on a normal day)
-  perHour: [6, 7, 7, 6],
+  // people walking past per hour, noon to 4pm (about 16 customers, many of them groups, on a normal day)
+  perHour: [12, 13, 13, 12],
   weekendBoost: 1.3,
   rain: 0.35,
   hotPerDegree: 0.03, // more people want something cold for every degree over 80°F
@@ -448,17 +618,27 @@ export const CART_CROWD = {
   rainChance: 0.12,
   join: 0.34, // chance someone walking by wants something
   lineJoin: [1, 0.85, 0.65, 0.45, 0.3, 0.15], // fewer people join a longer line
+  // Low prices on the cooler draw people over right away (more stop when the prices look cheap):
+  // join chance × (1 + strength × how far under fair the prices are), between min and max.
+  priceJoin: { strength: 1, min: 0.8, max: 1.4 },
+  // Word of mouth: each night, how good a deal today's sales were sets where the crowd is heading.
+  // target = 1 + strength × (1 − paid ÷ fair), minus a bit for each person who gave up in line or said
+  // "too much". The crowd moves `pull` of the way there each night (so it builds over a few days).
+  word: { strength: 2.5, min: 0.6, max: 2.2, pull: 0.35, leftLine: 0.04, tooMuch: 0.01 },
   // game minutes someone waits in line before giving up. While anyone is at the cart, a game minute takes
   // 3 real seconds, so this is 4 to 7 real minutes (kids counting change take their time).
   patience: [80, 140],
   // family: a grown-up and 2 or 3 kids; friends: 3 or 4 teens. Each person picks a treat, so groups order 3+.
-  kinds: { kid: 4, teen: 2, adult: 2.5, parentKid: 1.5, family: 0.5, friends: 0.4 },
+  kinds: { kid: 4, teen: 2, adult: 2.5, parentKid: 2, family: 1.2, friends: 1 },
   wtp: { kid: [0.9, 1.4], teen: [1, 1.5], adult: [1.05, 1.7] }, // most they'll pay, times the fair price
   honest: 0.7, // gives back extra change
   exact: 0.3, // pays with exact money when they can
   fastSeconds: 20, // a sale this quick (real seconds) might get a tip
-  tip: { happy: 0.45, fast: 0.25, slow: 0.06, amounts: [25, 25, 50, 100] },
+  // big: now and then a happy customer after a quick sale leaves a big tip
+  tip: { happy: 0.5, fast: 0.3, slow: 0.08, amounts: [25, 50, 50, 100, 100], big: 0.06, bigAmounts: [300, 500] },
   regular: { visit: 0.5, wtp: 1.4, missLimit: 3, awayDays: 5, friend: 0.3 },
+  // chance each person wants a drink too: more on hot days (per degree over 80°F)
+  drink: { base: 0.15, perDegree: 0.02, min: 0.05, max: 0.5 },
 };
 
 // Regulars: the same people most days, each with a favorite.
@@ -466,10 +646,64 @@ export const REGULARS = [
   { id: 'maya', name: 'Maya', kind: 'kid', look: 1, fav: 'iceCherry' },
   { id: 'jayden', name: 'Jayden', kind: 'kid', look: 4, fav: 'rocketPop' },
   { id: 'ortiz', name: 'Mr. Ortiz', kind: 'adult', look: 10, fav: 'fudgePop' },
-  { id: 'lou', name: 'Grandma Lou', kind: 'adult', look: 7, fav: 'iceLemon' },
+  { id: 'lou', name: 'Miss Lou', kind: 'adult', look: 7, fav: 'iceLemon' },
   { id: 'priya', name: 'Priya', kind: 'teen', look: 3, fav: 'iceBlue' },
   { id: 'theo', name: 'Theo', kind: 'kid', look: 6, fav: 'freezePop' },
 ];
+
+// Grandma: she gave you the cart. She invites you to lunch some mornings (free, but you get to the park later) and
+// gives advice over lunch, comes by the cart now and then for her favorite (something not many people pick) and
+// plenty of napkins, and keeps a hidden score of good feelings (0–10). When it's high she's sweeter and sometimes
+// gives you a little something.
+export const GRANDMA = {
+  look: { girl: true, hair: 5, style: 'bun', shirt: '#7d5ba6', pants: '#6d597a', hat: null }, // skin: same as yours
+  favChoices: ['iceLemon', 'orangeCream', 'pushGrape', 'iceStrawberry', 'fudgePop', 'sandwich'],
+  start: 5,
+  max: 10,
+  // invited some mornings: lunch takes an hour and is a big one (you stay full a while, past 4pm)
+  // lines: the most she says at one lunch. minutes: from breakfast at 11am, so you're done by noon.
+  lunch: { chance: 0.3, firstDay: 3, minutes: 60, food: 125, lines: 5 },
+  // she comes by the cart only after your first lunch together (that's when she tells you her favorite and that
+  // she's a messy eater), and tips big with her favorite and at least 2 napkins
+  visit: { chance: 0.2, napkins: 2, tip: [200, 300] },
+  feel: { lunch: 1, followed: 1, ignored: -0.5, fav: 1, noFav: -1, fewNapkins: -0.5, decline2: -1 },
+  tip: { far: 0.25 }, // she mentions a price this far off the fair price
+  spend: 800, // she notices if you spent this much on snacks and toys since your last lunch (not counting lunch)
+  gift: { feel: 8, chance: 0.3, cash: 500 },
+  // Her offer to invest in a truck, once your money (cash box, bank and wallet) reaches `at`. She puts in what the
+  // truck needs plus startCash for supplies, up to max (so the fanciest trucks are out of reach). Her slice of the
+  // profit: the more you bring and the better she feels, the smaller it is. slices[i] = [her dollars, of every].
+  // slices[i] = [her dollars, of every $]; tiers: the points you need for each slice (cart money: +1 per $100 above
+  // `at`; good feelings: +1 per point above the start, −1 per point below).
+  offer: { at: 50000, max: 950000, startCash: 30000, slices: [[4, 10], [3.5, 10], [3, 10], [2.5, 10], [2, 10]], tiers: [-Infinity, -1, 1, 3, 5] },
+  // things Grandma says about the old days (she doesn't repeat one until she's said them all)
+  oldDays: [
+    'When I was little, I could swing so high I thought I would touch the clouds!',
+    'We used to feed the ducks at the park pond. One duck followed me all the way home!',
+    "I climbed every tree in that park when I was your age. Don't tell your mother.",
+    'We played hopscotch on the path with chalk. I was the hopscotch champion!',
+    'Back then the park had a merry-go-round. I spun so fast I got dizzy!',
+    'We flew kites in the park on windy days. Mine got stuck in a tree once.',
+    'We roller-skated down the park paths. I had the scraped knees to prove it!',
+    'On the Fourth of July, the whole town had a picnic in the park.',
+    'I had a pet turtle named Mr. Slow. When he got big, he went to live in the park pond.',
+    'A movie ticket cost a quarter when I was a girl. Popcorn was a dime!',
+    "We didn't have phones. We had to come home when the streetlights came on!",
+    'My first job was at a bakery. They paid me a little money and a lot of cookies.',
+    "My mother always said, 'Save your pennies, and someday the pennies will save you.'",
+    'We had an icebox, not a freezer! A man brought big blocks of ice to the house.',
+    'Your grandpa won me a stuffed bear at the fair. I still have it!',
+    'Back in my day, ice cream at the soda fountain cost a nickel!',
+    'When I was your age, the ice cream man rang a bell, and we came running.',
+    'Your grandpa and I had our first date at an ice cream stand.',
+    'We used to make ice cream by hand. It took all afternoon!',
+    "Popsicle sticks used to have jokes on them. What's a cow's favorite treat? A moo-shake!",
+    'I sold lemonade on my street when I was little. I made enough for a bicycle!',
+  ],
+};
+
+// Grandma's slice in words: [3.5, 10] → "$3.50 of every $10".
+export const sliceText = ([a, b]) => `$${Number.isInteger(a) ? a : a.toFixed(2)} of every $${b}`;
 
 export const LEADERBOARD = {
   // Not secret: the token (pasted per device in Settings) is what grants access.

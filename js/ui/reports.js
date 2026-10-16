@@ -1,11 +1,12 @@
 // Pieces of the weekly report (profit graph, "too expensive" list) and the end-of-summer screens.
 // The weekly report itself is the end of the shoebox (filing.js).
 import { itemName } from './scene.js';
-import { CONFIG, itemFromKey } from '../config.js';
+import { sliceText, CONFIG, itemFromKey } from '../config.js';
 import { pnlRowsFor } from '../ledger.js';
 import { iceCreamSVG, truckSVG } from '../art.js';
-import { esc, money, openModal, onActs } from './dom.js';
+import { esc, money, openModal, onActs, toast, askYes } from './dom.js';
 import { pnlTable, balanceSheet } from './panels.js';
+import { towTruckIcon } from '../icons.js';
 
 const C = CONFIG;
 
@@ -118,12 +119,18 @@ function seasonResult(app, res) {
     render(body) {
       body.innerHTML = res.won
         ? `<div class="end-scene"><div class="confetti">🎉🍦🎉</div>
-            <div class="trucky">${truckSVG(hex, s.business, { bling: s.bling || 0 })}</div>
-            <p style="font-size:20px">${s.loanActive ? '' : 'The loan is paid off. The truck is all yours!'}</p>
+            <div class="trucky">${truckSVG(hex, s.business, { bling: s.bling || 0, used: !!s.truckUsed })}</div>
+            <p style="font-size:20px">${res.partner ? `Your Share grew this summer! 👵 Grandma is proud of you.` : s.loanActive ? '' : 'The loan is paid off. The truck is all yours!'}</p>
             <div class="stat" style="max-width:320px;margin:0 auto"><div class="k">${esc(s.player)}'s Share</div><div class="v pos">${money(res.share)}</div></div>
             <div class="row center" style="margin-top:14px"><button class="btn big go" data-act="next">📁 File the last papers</button></div></div>`
-        : `<div class="end-scene"><div style="font-size:20px;margin-bottom:8px">Not enough cash to pay back the loan.</div>
-            <div class="trucky tow">${truckSVG(hex, s.business, { bling: s.bling || 0 })}<div style="font-size:50px;position:absolute;right:-50px;bottom:0">🛻</div></div>
+        : res.partner
+          ? `<div class="end-scene"><div style="font-size:20px;margin-bottom:8px">The business lost money this summer.</div>
+            <div class="trucky">${truckSVG(hex, s.business, { bling: s.bling || 0, used: !!s.truckUsed })}</div>
+            <p>👵 "Don't worry, dear. Every business has hard times. We'll try again!"</p>
+            <div class="stat" style="max-width:320px;margin:0 auto"><div class="k">${esc(s.player)}'s Share</div><div class="v ${res.share < 0 ? 'neg' : ''}">${money(res.share)}</div></div>
+            <div class="row center" style="margin-top:14px"><button class="btn big pink" data-act="next">OK</button></div></div>`
+          : `<div class="end-scene"><div style="font-size:20px;margin-bottom:8px">Not enough cash to pay back the loan.</div>
+            <div class="trucky tow">${truckSVG(hex, s.business, { bling: s.bling || 0, used: !!s.truckUsed })}<div style="font-size:50px;position:absolute;right:-62px;bottom:0;line-height:1">${towTruckIcon()}</div></div>
             <p>The bank takes the truck.</p>
             <div class="stat" style="max-width:320px;margin:0 auto"><div class="k">${esc(s.player)}'s Share</div><div class="v ${res.share < 0 ? 'neg' : ''}">${money(res.share)}</div></div>
             <div class="row center" style="margin-top:14px"><button class="btn big pink" data-act="next">OK</button></div></div>`;
@@ -149,7 +156,15 @@ function finalScreen(app, res) {
     cls: 'narrow',
     closable: false,
     render(body) {
-      body.innerHTML = `${balanceSheet(g)}
+      const P = g.state.partner;
+      const buy = res.won && P
+        ? `<div class="buyout card"><h3>👵 Buy back Grandma's share?</h3>
+          <p>Grandma's Share is <b>${money(g.state.truth.grandmaIn)}</b>, and she gets <b>${sliceText(P.slice)}</b> of profit. You can pay her back for part of it from the business's cash (${money(g.cash)}). Then her slice gets smaller. Buy all of it, and the truck is all yours!</p>
+          <div class="row">${[1, 2, 3, 4].map((q) => `<button class="btn ${q === 4 ? 'go' : ''}" data-act="buy" data-q="${q}" ${g.buyOutCost(q) > g.cash ? 'disabled' : ''}>${['', '¼', '½', '¾', 'All'][q]} for ${money(g.buyOutCost(q))}</button>`).join('')}</div>
+          <p class="tiny muted">Leave enough cash for supplies next summer!</p></div>`
+        : res.won && g.state.partnerWas ? '<p>👵 The truck is all yours now. Grandma says: "I knew you could do it!"</p>' : '';
+      // with Grandma, show the real books, so a buyout shows up right away (your books get it when you file its paper)
+      body.innerHTML = `${balanceSheet(g, P || g.state.partnerWas ? g.state.truth : null)}${buy}
         <div class="row center" style="margin-top:14px">
           <button class="btn" data-act="lb">🏆 Leaderboard</button>
           ${res.won ? '<button class="btn big go" data-act="again">☀️ Next summer</button>' : '<button class="btn big pink" data-act="new">🚚 New game</button>'}
@@ -158,15 +173,69 @@ function finalScreen(app, res) {
   });
   onActs(m.body, {
     lb: () => app.showLeaderboard(),
-    again: () => {
-      g.nextSeason();
+    buy: async (t) => {
+      const q = Number(t.dataset.q);
+      if (!(await askYes(`Pay Grandma ${money(g.buyOutCost(q))} from the business's cash?`, { yes: 'Pay her', no: 'Not now' }))) return;
+      const r = g.buyOutGrandma(q);
+      if (!r.ok) return toast('Not enough cash!');
       app.changed();
+      toast(r.slice ? `👵 "Smart move, dear!" Now she gets ${sliceText(r.slice)}.` : '👵 "Look at you, buying out your old Grandma! I\'m so proud."');
+      m.refresh();
+    },
+    again: () => {
       m.close();
-      app.afterChange();
+      winterGarage(app);
     },
     new: () => {
       m.close();
       app.newGame(g.state.player);
+    },
+  });
+}
+
+// Between summers: the garage's winter inspection. The tune-up and oil change are a must; the mechanic's other
+// repairs are up to you (each makes breakdowns less likely next summer).
+function winterGarage(app) {
+  const g = app.game;
+  const insp = g.winterInspection();
+  const picked = new Set();
+  const s = g.state;
+  // the mechanic's advice (and Grandma's, if she's in on the truck)
+  const mech = s.engineWear
+    ? 'That engine ran on almost no oil. Fix it, or it will keep breaking down.'
+    : s.miles < 30000 ? 'It runs great! Keep it that way and it will hardly ever break down.'
+    : s.miles < 80000 ? 'At this many miles, parts start to wear out. These repairs mean fewer breakdowns.'
+    : 'This truck has a lot of miles. Old trucks break down more, so these repairs help a lot.';
+  const gran = s.partner || s.partnerWas ? (s.engineWear ? 'Your grandpa never checked his oil either. It cost him a fortune!' : 'An ounce of prevention is worth a pound of cure, dear.') : null;
+  const m = openModal({
+    title: '🔧 Winter at the garage',
+    cls: 'narrow',
+    closable: false,
+    render(body) {
+      const total = insp.tuneUp + insp.repairs.filter((r) => picked.has(r.id)).reduce((a, r) => a + r.cost, 0);
+      body.innerHTML = `<p>The mechanic looked over your truck (🛣️ ${Math.round(s.miles).toLocaleString()} miles).</p>
+        <div class="penny"><div class="face">🔧</div><div class="say">“${mech}”</div></div>
+        ${gran ? `<div class="penny"><div class="face">👵</div><div class="say">“${gran}”</div></div>` : ''}
+        <div class="row" style="justify-content:space-between"><span>✅ Tune-up and oil change <span class="tiny muted">(must do)</span></span><b>${money(insp.tuneUp)}</b></div>
+        ${insp.repairs.length ? `<h3>🔧 The mechanic also suggests</h3>
+        <div class="stack">${insp.repairs.map((r) => `<label class="row" style="justify-content:space-between;flex-wrap:nowrap;cursor:pointer"><span><input type="checkbox" data-chg="rep" data-id="${r.id}" ${picked.has(r.id) ? 'checked' : ''}> ${esc(r.label)}</span><b style="white-space:nowrap">${money(r.cost)}</b></label>`).join('')}</div>
+        <p class="tiny muted">${insp.repairs.some((r) => r.fixesWear) ? 'The engine repair fixes the worn engine. ' : ''}Each repair makes a breakdown less likely next summer.</p>` : ''}
+        <p>The garage sends a bill for <b>${money(total)}</b>. Pay it within ${C.credit.termDays} days. <span class="tiny muted">Cash now: ${money(g.cash)}</span></p>
+        <div class="row center" style="margin-top:10px"><button class="btn big go" data-act="go">☀️ Start next summer</button></div>`;
+    },
+  });
+  m.body.addEventListener('change', (e) => {
+    const id = e.target.dataset?.id;
+    if (!id) return;
+    e.target.checked ? picked.add(id) : picked.delete(id);
+    m.refresh();
+  });
+  onActs(m.body, {
+    go: () => {
+      g.nextSeason([...picked]);
+      app.changed();
+      m.close();
+      app.afterChange();
     },
   });
 }

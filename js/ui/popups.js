@@ -1,9 +1,9 @@
 // Pop-ups for customer service decisions: sold out, and dropped ice cream.
-import { FLAVORS, CONTAINERS, TOPPINGS, POPS } from '../config.js';
+import { FLAVORS, CONTAINERS, TOPPINGS, POPS, CONFIG } from '../config.js';
 import { personSVG, iceCreamSVG } from '../art.js';
-import { esc, money, openModal, onActs } from './dom.js';
+import { esc, money, openModal, onActs, toast } from './dom.js';
 
-const NAMES = Object.fromEntries([...FLAVORS, ...CONTAINERS, ...TOPPINGS, ...POPS].map((x) => [x.id, x.name.toLowerCase() + (x.want ? 's' : '')]));
+const NAMES = Object.fromEntries([...FLAVORS, ...CONTAINERS, ...TOPPINGS, ...POPS].map((x) => [x.id, x.plural || x.name.toLowerCase() + (x.want ? 's' : '')]));
 
 function partyRow(party, idx, extra = '') {
   return `<div class="who-big">${party.members
@@ -11,10 +11,67 @@ function partyRow(party, idx, extra = '') {
     .join('')}</div>`;
 }
 
+// The gas station: fill up, and check the oil (a used truck leaks). lowGas: it popped up because the tank is low
+// (then closing it answers the engine's question).
+export function gasStation(app, { lowGas = false, onDone = null } = {}) {
+  const g = app.game;
+  const T = CONFIG.truckCare;
+  let checked = null; // the dipstick reading, once you look
+  const m = openModal({
+    title: lowGas ? '⛽ The gas is low!' : '⛽ Gas station',
+    cls: 'narrow popup',
+    closable: !lowGas,
+    onClose: () => onDone?.(),
+    render(body) {
+      const s = g.state;
+      const pct = Math.round((s.fuel / CONFIG.gas.tankGal) * 100);
+      const fill = Math.round((CONFIG.gas.tankGal - s.fuel) * CONFIG.gas.pricePerGal);
+      const oilPct = checked == null ? null : Math.round(s.oil);
+      const oilWord = oilPct == null ? '' : oilPct < T.oilEmpty ? 'Almost empty! This wears out the engine.' : oilPct < T.oilLow ? 'Low. Better add some.' : oilPct < 70 ? 'OK for now.' : 'Full.';
+      body.innerHTML = `<div class="fuel ${pct < 30 ? 'low' : ''}"><span class="bar" style="width:160px"><i style="width:${pct}%"></i></span> ${s.fuel.toFixed(1)} / ${CONFIG.gas.tankGal} gal</div>
+        <div class="row" style="margin:8px 0"><button class="btn go" data-act="fill" ${fill < 5 ? 'disabled' : ''}>⛽ Fill up (${money(fill)})</button></div>
+        <h3>🛢️ Oil</h3>
+        ${oilPct == null
+          ? `<p class="tiny muted">${s.truckUsed ? 'Old trucks can leak oil. Driving on almost no oil wears out the engine.' : 'Pull out the dipstick to see how much oil is in the engine.'}</p><button class="btn" data-act="check">🛢️ Check the oil</button>`
+          : `<div class="dipstick ${oilPct < T.oilLow ? 'low' : ''}"><span class="bar" style="width:160px"><i style="width:${oilPct}%"></i></span> ${oilWord}</div>
+             <div class="row" style="margin-top:6px"><button class="btn" data-act="oil" ${oilPct > 95 ? 'disabled' : ''}>🛢️ Add oil (${money(T.oilBottle.price)} a bottle)</button></div>`}
+        <div class="row" style="justify-content:flex-end;margin-top:12px"><button class="btn big" data-act="done">${lowGas ? 'Keep driving' : 'Done'}</button></div>`;
+    },
+  });
+  onActs(m.body, {
+    fill: () => {
+      if (lowGas) g.resolve('fill');
+      else g.fillGas();
+      lowGas = false; // answered
+      app.music.sfx('ching');
+      app.changed();
+      m.refresh();
+    },
+    check: () => {
+      checked = g.checkOil();
+      app.changed();
+      m.refresh();
+    },
+    oil: () => {
+      const r = g.addOil();
+      if (!r.ok) return toast(r.reason === 'cash' ? 'Not enough cash for oil!' : 'The oil is full.');
+      checked = g.state.oil;
+      app.changed();
+      m.refresh();
+    },
+    done: () => {
+      if (lowGas) g.resolve('skip');
+      m.close();
+    },
+  });
+  return m;
+}
+
 export function showDecision(app, onResolved) {
   const g = app.game;
   const p = g.state.pending;
   if (!p) return;
+  if (p.kind === 'lowGas') return gasStation(app, { lowGas: true, onDone: onResolved });
   const party = p.partyRef;
   const m = party.members[p.idx];
   if (p.kind === 'outOfStock') {

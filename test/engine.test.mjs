@@ -1,7 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { Game } from '../js/engine.js';
-import { FEATURE } from '../js/config.js';
+import { FEATURE, POPS as ALL_POPS } from '../js/config.js';
+const POP_DRINK = new Set(ALL_POPS.filter((p) => p.drink).map((p) => p.id));
 import { sectionTotal, share, ACCOUNTS } from '../js/ledger.js';
 import { docLines, checkFiling, pennyComparison, DOC_TYPES } from '../js/documents.js';
 import { playSeason } from '../tools/bots.mjs';
@@ -249,7 +250,7 @@ test('playground drops happen much more than downtown drops', () => {
 
 test('bigger loan and deluxe truck: cash left over and daily interest follow the choice', async () => {
   const { CONFIG, TRUCK_PRICE, BLING } = await import('../js/config.js');
-  const loan = CONFIG.loans.find((l) => l.id === 'large');
+  const loan = CONFIG.loans.find((l) => l.id === 'l12');
   const price = TRUCK_PRICE + BLING[3].price;
   const g = Game.create({ player: 'Nathan', business: 'Big', color: 'orange', seed: 2, loan, truckCost: price, bling: 3, blingName: BLING[3].name });
   assert.equal(g.state.truth.loan, loan.principal);
@@ -270,13 +271,17 @@ test('bigger loan and deluxe truck: cash left over and daily interest follow the
 });
 
 test('every bling level leaves enough cash for supplies with at least the biggest loan', async () => {
-  const { CONFIG, TRUCK_PRICE, BLING } = await import('../js/config.js');
+  const { CONFIG, TRUCK_PRICE, BLING, USED_TRUCK, usedTruckPrice } = await import('../js/config.js');
   const big = Math.max(...CONFIG.loans.map((l) => l.principal));
   for (const b of BLING) assert.ok(TRUCK_PRICE + b.price <= big - CONFIG.minStartCash, b.name);
-  // a plain truck fits the smallest loan
-  assert.ok(TRUCK_PRICE <= CONFIG.loans[0].principal - CONFIG.minStartCash);
-  // the default truck fits the smallest loan
-  assert.ok(CONFIG.loan.truckCost <= CONFIG.loans[0].principal - CONFIG.minStartCash);
+  // a plain new truck (and the default truck) fits the $10,000 loan
+  const l10 = CONFIG.loans.find((l) => l.id === 'l10').principal;
+  assert.ok(TRUCK_PRICE <= l10 - CONFIG.minStartCash);
+  assert.ok(CONFIG.loan.truckCost <= l10 - CONFIG.minStartCash);
+  // every used truck fits the $7,500 loan, and the high-miles one fits the smallest loan
+  assert.ok(usedTruckPrice(USED_TRUCK.miles[0]) <= CONFIG.loans[1].principal - CONFIG.minStartCash);
+  const band = (USED_TRUCK.miles[1] - USED_TRUCK.miles[0]) / (2 * USED_TRUCK.usedOnLot - 1);
+  assert.ok(usedTruckPrice(USED_TRUCK.miles[1] - band) <= CONFIG.loans[0].principal - CONFIG.minStartCash);
 });
 
 test('place stats: customers and minutes per spot add up to the day', () => {
@@ -492,6 +497,82 @@ test('kids with only pocket money buy a cheap pop, or say so and leave without g
   assert.equal(p3.members[0].result, 'broke', 'a $1.25 pop is too much for $1');
 });
 
+test('strawberry ice on the truck needs a spoon', () => {
+  const g = readyGame(31);
+  g.openDay();
+  g.buy('iceStrawberry', 0, 1);
+  g.setPrice('iceStrawberry', 100);
+  if (g.stock('spoons')) g.consume('spoons', g.rawStock('spoons'));
+  assert.equal(g.popAvail('iceStrawberry'), false, 'no spoons, no Italian ice');
+  g.buy('spoons', 0, 1);
+  assert.equal(g.popAvail('iceStrawberry'), true);
+  const p = { id: 1, type: 'soloKid', together: true, members: [{ kind: 'kid', look: 1, cash: 100 }] };
+  g.arrive(p);
+  assert.deepEqual(p.members[0].item, { pop: 'iceStrawberry' });
+  assert.equal(g.stock('iceStrawberry'), 23);
+  assert.equal(g.stock('spoons'), 99);
+});
+
+test('every Italian ice on the truck needs a spoon', async () => {
+  const { POPS } = await import('../js/config.js');
+  const ices = POPS.filter((p) => p.spoon).map((p) => p.id).sort();
+  assert.deepEqual(ices, ['iceBlue', 'iceCherry', 'iceLemon', 'iceStrawberry']);
+});
+
+test('the favorite treat from the park cart carries over, and it and rocket pops are each about 1 pop in 5', async () => {
+  const { CART } = await import('../js/config.js');
+  const g = Game.create({ player: 'N', business: 'T', color: 'pink', seed: 4, favorite: 'sandwich' });
+  assert.equal(g.state.favorite, 'sandwich');
+  const n = {};
+  let pops = 0;
+  for (let i = 0; i < 40000; i++) {
+    const w = g.wants({ kind: 'kid' });
+    if (w.pop) (n[w.pop] = (n[w.pop] || 0) + 1), pops++;
+  }
+  for (const id of ['rocketPop', 'sandwich']) assert.ok(Math.abs(n[id] / pops - 0.2) < 0.03, `${id} ${n[id] / pops}`);
+  // no park cart: one is picked anyway
+  const g2 = Game.create({ player: 'N', business: 'T', color: 'pink', seed: 5 });
+  assert.ok(CART.hotChoices.includes(g2.state.favorite));
+});
+
+test('drinks on the truck: some people add one to their order, nobody comes for just a drink', () => {
+  const g = readyGame(12);
+  g.openDay();
+  g.buy('water', 0, 1);
+  g.state.weather.temp = 95;
+  for (let i = 0; i < 2000; i++) assert.ok(!POP_DRINK.has(g.wants({ kind: 'kid' }).pop), 'nobody wants only a drink');
+  let drinks = 0, people = 0;
+  for (let i = 0; i < 60; i++) {
+    const p = { id: i, type: 'adult', together: true, members: [{ kind: 'adult', look: 1 }] };
+    g.state.queue = 0; // everyone gets served (no line)
+    g.arrive(p);
+    if (p.members[0].result === 'bought') people++;
+    if (p.members[0].drink) drinks++;
+  }
+  assert.ok(people > 20, `${people} bought`);
+  assert.ok(drinks > 3 && drinks < people, `${drinks} drinks for ${people} people`);
+  assert.equal(g.state.today.sold.water, drinks);
+  assert.equal(g.stock('water'), 24 - drinks);
+});
+
+test('a long line at the window sends people away; super-low prices draw a crowd', () => {
+  const g = readyGame(12);
+  g.openDay();
+  const kid = (id) => ({ id, type: 'soloKid', together: true, members: [{ kind: 'kid', look: 1 }] });
+  for (let i = 0; i < 30; i++) g.arrive(kid(i));
+  assert.ok(g.state.today.lineLeft > 0, 'too many at once: some leave');
+  const p = kid(99);
+  g.arrive(p);
+  assert.equal(p.members[0].result, 'lineTooLong');
+  // the window serves the line, a few people a minute
+  for (let i = 0; i < 20; i++) g.step();
+  assert.equal(g.state.queue, 0);
+  // normal or a bit low: no extra crowd; super low: a big one
+  assert.equal(g.dealAppeal(), 1);
+  for (const id of ['cake', 'sugar', 'waffle', 'bowl']) g.setPrice(id, 75);
+  assert.ok(g.dealAppeal() > 2, `crowd ×${g.dealAppeal()}`);
+});
+
 test('staying put long past a sensible stay brings a family or two who already had ice cream; a fresh spot does not', () => {
   const run = (route) => {
     const g = readyGame(41, [['vanilla', 2], ['chocolate', 2], ['cake', 2], ['bowl', 2], ['spoons', 1], ['napkins', 1]]);
@@ -644,4 +725,280 @@ test("Penny's weekly bill: a flat fee plus each paper she filed", async () => {
   assert.equal(g.creditUsed() - owed, F.weeklyFee + 4 * F.perPaper);
   assert.equal(g.state.pennyPapers, 0);
   assert.equal(share(g.state.truth), profit(g.state.truth));
+});
+
+test('a used truck: half the price, and the bill of sale says used', () => {
+  const g = Game.create({ player: 'N', business: 'T', color: 'pink', seed: 7, truckCost: 485000, used: true });
+  assert.equal(g.state.truckUsed, true);
+  const truck = g.docsToFile().find((d) => d.type === 'truckBill');
+  assert.match(truck.items[0].label, /used ice cream truck/);
+  assert.equal(g.state.truth.truck, 485000);
+  const fresh = Game.create({ player: 'N', business: 'T', color: 'pink', seed: 7 });
+  assert.ok(!fresh.state.truckUsed);
+});
+
+test('Grandma as a co-owner: her money, her slice of each week, and a summer won by growing your Share', async () => {
+  const { ownShare } = await import('../js/ledger.js');
+  const g = Game.create({ player: 'N', business: 'T', color: 'pink', seed: 7, truckCost: 970000, ownerCash: 50000, partner: { put: 950000, slice: [1, 4] } });
+  const s = g.state;
+  assert.equal(s.loanActive, false);
+  const types = g.docsToFile().map((d) => d.type).sort();
+  assert.deepEqual(types, ['grandmaInvest', 'ownerInvest', 'truckBill']);
+  assert.equal(s.truth.grandmaIn, 950000);
+  assert.equal(s.truth.loan, 0);
+  assert.equal(ownShare(s.truth), 50000);
+  fileAllCorrectly(g);
+  // a week's sales: $40 of profit, and Grandma gets $1 of every $4
+  g.post('registerTape', [{ acct: 'cash', amt: 4000 }, { acct: 'salesCash', amt: 4000 }], { label: 'Sales', amt: 4000 });
+  for (const d of s.docs) if (!d.filed) g.fileDoc(d.id, Object.fromEntries(docLines(d).map((l) => [l.acct, l.dir])));
+  const r = g.moveProfit();
+  assert.equal(r.amt, 4000);
+  assert.equal(r.grandma, 1000);
+  assert.equal(s.filed.grandmaIn, 951000, 'your books: at Calculate Profit');
+  assert.equal(ownShare(s.filed), 53000);
+  // undo puts it back
+  g.undoMoveProfit(r.ids);
+  assert.equal(s.filed.grandmaIn, 950000);
+  g.moveProfit();
+  // the real books split at the end of each week (see the next test)
+  assert.equal(s.truth.grandmaIn, 950000);
+  // end of summer: no loan to pay, and the summer is won because your Share grew
+  s.phase = 'seasonEnd';
+  const end = g.payLoan();
+  assert.equal(end.won, true);
+  assert.equal(end.share, 54000, 'the real books have not split the week yet');
+  assert.equal(end.partner, true);
+});
+
+test('Grandma as a co-owner: a summer that loses money is lost, but nothing gets towed', () => {
+  const g = Game.create({ player: 'N', business: 'T', color: 'pink', seed: 7, truckCost: 970000, ownerCash: 50000, partner: { put: 950000, slice: [1, 3] } });
+  g.post('gas', [{ acct: 'gas', amt: 3000 }, { acct: 'cash', amt: -3000 }], { label: 'Gas', amt: 3000 });
+  g.state.phase = 'seasonEnd';
+  const end = g.payLoan();
+  assert.equal(end.won, false);
+  assert.equal(g.state.phase, 'lost');
+});
+
+test('Grandma as a co-owner over a whole summer: the real books split every week, and a bigger slice leaves you less', async () => {
+  const { ownShare } = await import('../js/ledger.js');
+  const orig = Game.create;
+  const run = (slice) => {
+    let g;
+    Game.create = (o) => (g = orig.call(Game, { ...o, ownerCash: 50000, truckCost: 970000, partner: { put: 950000, slice } }));
+    const r = playSeason('decent', 7919);
+    Game.create = orig;
+    return { r, g };
+  };
+  const quarter = run([1, 4]);
+  const half = run([1, 2]);
+  const t = quarter.g.state.truth;
+  const profit = sectionTotal(t, 'income') - sectionTotal(t, 'expense');
+  assert.ok(profit > 0);
+  assert.ok(Math.abs(t.grandmaIn - (950000 + profit / 4)) < 100, `Grandma has her quarter: ${t.grandmaIn}`);
+  assert.equal(quarter.r.share, ownShare(t));
+  assert.ok(quarter.r.won);
+  assert.ok(half.r.share < quarter.r.share, 'a bigger slice leaves you less');
+});
+
+test("buying out Grandma between summers: pay part of her Share, her slice shrinks; all of it and the truck is yours", async () => {
+  const { ownShare } = await import('../js/ledger.js');
+  const orig = Game.create;
+  let g;
+  Game.create = (o) => (g = orig.call(Game, { ...o, ownerCash: 50000, truckCost: 970000, partner: { put: 950000, slice: [1, 3] } }));
+  playSeason('decent', 7919);
+  Game.create = orig;
+  const s = g.state;
+  assert.equal(s.phase, 'won');
+  const theirs = s.truth.grandmaIn;
+  const mine = ownShare(s.truth);
+  const half = g.buyOutCost(2);
+  assert.equal(half, Math.round(theirs / 2));
+  const r = g.buyOutGrandma(2);
+  assert.ok(r.ok);
+  assert.deepEqual(r.slice, [1.75, 10], 'half of $3.33 of every $10, to the quarter');
+  assert.equal(s.truth.grandmaIn, theirs - half);
+  assert.equal(ownShare(s.truth), mine, "buying her out doesn't change your Share: cash turns into ownership");
+  const paper = s.docs.find((d) => d.type === 'grandmaBuyout');
+  assert.ok(paper);
+  // all of the rest, if there's cash for it
+  if (g.buyOutCost(4) <= g.cash) {
+    assert.ok(g.buyOutGrandma(4).ok);
+    assert.equal(s.partner, null);
+    assert.equal(s.truth.grandmaIn, 0);
+  } else assert.equal(g.buyOutGrandma(4).reason, 'cash');
+  // too much: not enough cash
+  s.partner ??= { name: 'Grandma', put: 1, slice: [1, 3] };
+  s.truth.grandmaIn = g.cash + 100000;
+  assert.equal(g.buyOutGrandma(4).reason, 'cash');
+});
+
+test('used truck care: oil leaks, a bottle tops it off, more miles mean likelier breakdowns', async () => {
+  const { CONFIG } = await import('../js/config.js');
+  const T = CONFIG.truckCare;
+  const g = Game.create({ player: 'N', business: 'T', color: 'pink', seed: 5, truckCost: 485000, used: true });
+  fileAllCorrectly(g);
+  const s = g.state;
+  g.buy('vanilla', 0, 1);
+  g.setRoute([{ spot: 'maple', at: 600 }]);
+  g.state.policies.outOfStock = 'nothing';
+  for (let d = 0; d < 4; d++) {
+    fileAllCorrectly(g);
+    g.openDay();
+    g.runDay();
+    s.needWeekReport = null;
+  }
+  assert.ok(s.oil < 100 - 4 * T.oilLeak.used[0] + 0.01 && s.oil > 100 - 4 * T.oilLeak.used[1] - 0.01, `leaked to ${s.oil}`);
+  assert.equal(g.checkOil(), s.oil);
+  const r = g.addOil();
+  assert.ok(r.ok);
+  assert.equal(r.cost, r.bottles * T.oilBottle.price);
+  assert.ok(s.oil > 95);
+  assert.equal(g.addOil().reason, 'full');
+  assert.ok(s.docs.some((d) => d.type === 'upkeepReceipt'));
+  // breakdown odds: low oil by itself doesn't change them; miles do
+  const used = g.breakdownChance();
+  s.oil = 5;
+  assert.equal(g.breakdownChance(), used);
+  assert.ok(g.breakdownChance({ miles: s.miles + 40000 }) > used);
+  const fresh = Game.create({ player: 'N', business: 'T', color: 'pink', seed: 5 });
+  assert.ok(fresh.breakdownChance() < used, 'a new truck breaks down less');
+  assert.equal(fresh.gasFactor(), 1);
+  assert.equal(g.gasFactor(), T.usedGas);
+});
+
+test('a breakdown ends the day with a garage bill; shabby looks cost customers until the fix-up', async () => {
+  const { CONFIG } = await import('../js/config.js');
+  const T = CONFIG.truckCare;
+  const g = Game.create({ player: 'N', business: 'T', color: 'pink', seed: 6, truckCost: 485000, used: true });
+  fileAllCorrectly(g);
+  const s = g.state;
+  g.buy('vanilla', 0, 1);
+  g.setRoute([{ spot: 'maple', at: 600 }]);
+  g.state.policies.outOfStock = 'nothing';
+  g.openDay();
+  s.oil = 20;
+  s.breakdownAt = s.minute + 30;
+  g.runDay();
+  assert.equal(s.phase, 'closed', 'towed: the day is over');
+  const bill = s.docs.find((d) => d.type === 'garageBill');
+  assert.ok(bill);
+  const cost = s.lastDay.breakdown.cost;
+  const scale = 1 + s.miles / T.breakdown.costMilesPer;
+  assert.ok(cost >= T.breakdown.cost[0] * 0.99 && cost <= T.breakdown.cost[1] * scale + 100, 'more miles: a bigger repair');
+  assert.equal(s.truth.billsToPay, cost);
+  assert.ok(s.oil > 90, 'the garage topped off the oil (then a night of leaking)');
+  // shabby looks: fewer customers in the nicer neighborhoods
+  assert.equal(g.looksFactor('sunset'), T.shabby.sunset);
+  assert.equal(g.looksFactor('maple'), T.shabby.other);
+  assert.ok(g.fixUp().ok);
+  assert.equal(g.looksFactor('sunset'), 1);
+  assert.equal(s.truth.billsToPay, cost + T.fixUp);
+  assert.equal(g.fixUp().ok, false, 'only once');
+});
+
+test('low gas: a player gets a gas stop pop-up (bots fill up on their own)', () => {
+  const g = Game.create({ player: 'N', business: 'T', color: 'pink', seed: 7 });
+  fileAllCorrectly(g);
+  const s = g.state;
+  s.policies.autoGas = false;
+  s.policies.outOfStock = 'nothing';
+  s.policies.drop = 'refuse';
+  g.setRoute([{ spot: 'maple', at: 600 }]);
+  g.openDay();
+  s.fuel = 3;
+  g.runDay();
+  assert.deepEqual(s.pending, { kind: 'lowGas' });
+  const cash = g.cash;
+  const minute = s.minute;
+  g.resolve('fill');
+  assert.ok(s.fuel > 19);
+  assert.ok(g.cash < cash);
+  assert.equal(s.minute, minute + 10, 'the gas station takes a few minutes');
+  g.runDay();
+  assert.notEqual(s.pending?.kind, 'lowGas', 'asked once a day');
+});
+
+test('miles, a worn engine and the winter inspection', async () => {
+  const { CONFIG, usedTruckPrice } = await import('../js/config.js');
+  const T = CONFIG.truckCare;
+  assert.ok(usedTruckPrice(50000) > usedTruckPrice(150000), 'fewer miles cost more');
+  const low = Game.create({ player: 'N', business: 'T', color: 'pink', seed: 9, used: true, miles: 50000 });
+  const high = Game.create({ player: 'N', business: 'T', color: 'pink', seed: 9, used: true, miles: 150000 });
+  assert.ok(low.breakdownChance() < high.breakdownChance());
+  assert.ok(low.winterInspection().tuneUp < high.winterInspection().tuneUp);
+  assert.ok(low.winterInspection().repairs.length < high.winterInspection().repairs.length, 'more miles, more to fix');
+  // driving adds miles
+  const g = Game.create({ player: 'N', business: 'T', color: 'pink', seed: 9, used: true, miles: 80000 });
+  fileAllCorrectly(g);
+  const s = g.state;
+  g.buy('vanilla', 0, 1);
+  g.setRoute([{ spot: 'maple', at: 600 }, { spot: 'sunset', at: 900 }]);
+  s.policies.outOfStock = 'nothing';
+  s.breakdownAt = null;
+  g.openDay();
+  s.breakdownAt = null;
+  g.runDay();
+  assert.ok(s.miles > 80000, `drove ${s.miles - 80000} miles`);
+  // each day that starts on almost no oil wears the engine, and a worn engine breaks down more
+  const before = g.breakdownChance();
+  s.needWeekReport = null;
+  fileAllCorrectly(g);
+  s.oil = T.oilEmpty - 1;
+  g.openDay();
+  assert.equal(s.engineWear, 1);
+  assert.ok(Math.abs(g.breakdownChance() - before * (1 + T.breakdown.perWear)) < 1e-9);
+  // winter: the engine repair fixes the wear, and the other repairs cut next summer's breakdowns
+  s.phase = 'won';
+  const insp = g.winterInspection();
+  assert.equal(insp.repairs[0].id, 'engine');
+  assert.ok(g.breakdownChance({ wear: 0, prevent: 0.8 }) < g.breakdownChance());
+  const owed = s.truth.billsToPay;
+  g.nextSeason(['engine', 'belts']);
+  assert.equal(s.engineWear, 0);
+  assert.equal(s.prevent, T.winter.repairs.find((r) => r.id === 'belts').cut);
+  const want = insp.tuneUp + insp.repairs.filter((r) => ['engine', 'belts'].includes(r.id)).reduce((a, r) => a + r.cost, 0);
+  assert.equal(s.truth.billsToPay - owed, want);
+  assert.equal(s.oil, 100);
+});
+
+test('a new truck almost never breaks down; a worn engine can be fixed in the summer (a week at the garage)', async () => {
+  const { CONFIG } = await import('../js/config.js');
+  const T = CONFIG.truckCare;
+  const fresh = Game.create({ player: 'N', business: 'T', color: 'pink', seed: 3 });
+  const days = CONFIG.seasonWeeks * CONFIG.daysPerWeek;
+  assert.ok(Math.pow(1 - fresh.breakdownChance(), days) > 0.75, 'most new trucks go all summer without a breakdown');
+  const g = Game.create({ player: 'N', business: 'T', color: 'pink', seed: 3, used: true, miles: 90000 });
+  fileAllCorrectly(g);
+  const s = g.state;
+  g.buy('vanilla', 0, 1);
+  g.setRoute([{ spot: 'maple', at: 600 }]);
+  s.policies.outOfStock = 'nothing';
+  assert.equal(g.repairEngineNow().ok, false, 'nothing to fix');
+  s.engineWear = 3;
+  s.oil = 5;
+  const cost = g.engineRepairCost();
+  assert.equal(cost, T.winter.engine.cost + 3 * T.winter.engine.perWear);
+  const owed = s.truth.billsToPay;
+  const r = g.repairEngineNow();
+  assert.ok(r.ok);
+  assert.equal(s.truth.billsToPay - owed, cost);
+  assert.equal(s.engineWear, 0);
+  assert.equal(s.oil, 100);
+  // a week of days with no selling, skipped all at once
+  assert.ok(g.inShop);
+  const sold = s.truth.salesCash;
+  assert.equal(g.waitForTruck(), T.engineShopDays);
+  assert.equal(s.phase, 'closed');
+  assert.equal(s.day, 1 + T.engineShopDays);
+  assert.equal(s.truth.salesCash, sold, 'no sales at the garage');
+  assert.equal(g.inShop, false, 'back from the garage');
+  assert.equal(g.shopWeekPastSummer(), false);
+  s.day = CONFIG.seasonWeeks * CONFIG.daysPerWeek - 2;
+  assert.equal(g.shopWeekPastSummer(), true, 'the last week: the winter tune-up is the better deal');
+  s.day = 1 + T.engineShopDays;
+  fileAllCorrectly(g);
+  s.needWeekReport = null;
+  g.openDay();
+  g.runDay();
+  assert.ok(s.lastDay.customers > 0, 'selling again');
 });

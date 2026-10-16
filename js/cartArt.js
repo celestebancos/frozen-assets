@@ -1,6 +1,7 @@
 // Cartoon SVG art for the park cart: the cart, bills and coins, Italian ice, the swings, critters and stands.
-import { iceCreamSVG, personSVG } from './art.js';
-import { CART_ITEM, CART_SHOPS } from './config.js';
+import { iceCreamSVG, iceCupArt, personSVG } from './art.js';
+import { CART, CART_ITEM, CART_SHOPS, FREEZE_TINTS } from './config.js';
+import { gumIcon } from './icons.js';
 
 const INK = '#2e2a45';
 const OUT = `stroke="${INK}" stroke-width="2" stroke-linejoin="round"`;
@@ -10,7 +11,7 @@ const emo = (x, y, e, size = 18) => `<text x="${x}" y="${y}" font-size="${size}"
 // ---------- the cart ----------
 // The big umbrella on its own (at the park it goes up high, over the kid's head).
 export function umbrellaSVG() {
-  return `<svg viewBox="0 0 200 150" class="umbrella-svg" xmlns="http://www.w3.org/2000/svg"><path d="M100 30 V150" stroke="${INK}" stroke-width="4"/><path d="M10 40 Q100 -14 190 40 Z" fill="#ff6f91" ${OUT}/><path d="M40 40 Q70 6 100 4 Q130 6 160 40" fill="#fff" opacity=".85"/><path d="M70 40 Q86 10 100 4 Q114 10 130 40" fill="#ff6f91"/><path d="M10 40 Q25 48 40 40 Q55 48 70 40 Q85 48 100 40 Q115 48 130 40 Q145 48 160 40 Q175 48 190 40" fill="none" ${OUT}/></svg>`;
+  return `<svg viewBox="0 0 200 150" class="umbrella-svg" xmlns="http://www.w3.org/2000/svg"><path d="M100 30 V150" stroke="${INK}" stroke-width="4"/><path d="M10 40 Q100 -14 190 40 Z" fill="#ff6f91" ${OUT}/><path d="M40 40 Q66 17 100 13 Q134 17 160 40" fill="#fff" opacity=".85"/><path d="M70 40 Q88 19 100 13 Q112 19 130 40" fill="#ff6f91"/><path d="M10 40 Q100 -14 190 40" fill="none" ${OUT}/><path d="M10 40 Q25 48 40 40 Q55 48 70 40 Q85 48 100 40 Q115 48 130 40 Q145 48 160 40 Q175 48 190 40" fill="none" ${OUT}/><circle cx="100" cy="10.5" r="3.4" fill="#ff6f91" ${OUT}/></svg>`;
 }
 
 // Where stickers can go: the side of the cart, in its own units (a sticker's middle stays inside this box).
@@ -19,21 +20,23 @@ const STICKER_SPOTS = [[52, 112], [148, 112], [100, 140], [36, 146], [164, 146],
 // Cart units for a sticker at u, v (0–1 across and down the sticker area).
 export const stickerXY = ([u, v]) => [STICKER_AREA.x + u * STICKER_AREA.w, STICKER_AREA.y + v * STICKER_AREA.h];
 
-// opts: { decals: [{ id, at: [u, v] | null }] (or plain ids), umbrella, fan, bell, balloon: color, pick: id to highlight,
-// tight: leave off the empty space above the cart (where the umbrella goes) }
-export function cartSVG({ decals = [], umbrella = false, fan = false, bell = false, balloon = null, pick = null, tight = false } = {}) {
+// opts: { decals: [{ id, at: [u, v] | null }] (or plain ids), umbrella, fan, bell, balloon: color, pick: which sticker to highlight (its place in decals),
+// tight: leave off the empty space above the cart (where the umbrella goes), jar: cents in the tip jar on the lid
+// (at the park; null for no jar), name: what it says on the side, paint: the stripe color }
+const xml = (t) => String(t).replace(/[&<>"]/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[ch]);
+export function cartSVG({ decals = [], umbrella = false, fan = false, bell = false, balloon = null, pick = null, tight = false, jar = null, name = CART.cartName, paint = CART.paints[0] } = {}) {
   const dec = decals
     .map((d, i) => {
       const { id, at } = typeof d === 'string' ? { id: d, at: null } : d;
       const it = CART_SHOPS.decals.items.find((x) => x.id === id);
       if (!it) return '';
       const [x, y] = at ? stickerXY(at) : STICKER_SPOTS[i % STICKER_SPOTS.length];
-      const ring = pick === id ? `<circle cx="${x}" cy="${y}" r="15" fill="none" stroke="#ff6f91" stroke-width="2.4" stroke-dasharray="5 4"/>` : '';
+      const ring = pick === i ? `<circle cx="${x}" cy="${y}" r="15" fill="none" stroke="#ff6f91" stroke-width="2.4" stroke-dasharray="5 4"/>` : '';
       return `${ring}${emo(x, y, it.emoji, 20)}`;
     })
     .join('');
   const shade = umbrella
-    ? `<path d="M104 92 V18" stroke="${INK}" stroke-width="4"/><path d="M14 40 Q104 -14 194 40 Z" fill="#ff6f91" ${OUT}/><path d="M44 40 Q74 6 104 4 Q134 6 164 40" fill="#fff" opacity=".85"/><path d="M74 40 Q90 10 104 4 Q118 10 134 40" fill="#ff6f91"/><path d="M14 40 Q29 48 44 40 Q59 48 74 40 Q89 48 104 40 Q119 48 134 40 Q149 48 164 40 Q179 48 194 40" fill="none" ${OUT}/>`
+    ? `<path d="M104 92 V18" stroke="${INK}" stroke-width="4"/><path d="M14 40 Q104 -14 194 40 Z" fill="#ff6f91" ${OUT}/><path d="M44 40 Q70 17 104 13 Q138 17 164 40" fill="#fff" opacity=".85"/><path d="M74 40 Q92 19 104 13 Q116 19 134 40" fill="#ff6f91"/><path d="M14 40 Q104 -14 194 40" fill="none" ${OUT}/><path d="M14 40 Q29 48 44 40 Q59 48 74 40 Q89 48 104 40 Q119 48 134 40 Q149 48 164 40 Q179 48 194 40" fill="none" ${OUT}/><circle cx="104" cy="10.5" r="3.4" fill="#ff6f91" ${OUT}/>`
     : '';
   const bal = balloon
     ? `<g class="bob"><path d="M196 94 Q206 60 214 30" stroke="${INK}" stroke-width="1.2" fill="none"/><ellipse cx="214" cy="18" rx="13" ry="16" fill="${balloon}" ${OUT}/><path d="M209 10 Q211 6 215 6" stroke="#fff" stroke-width="2.2" fill="none" opacity=".7" stroke-linecap="round"/><path d="M211 34 L217 34 L214 30 Z" fill="${balloon}" ${thin}/></g>`
@@ -41,15 +44,25 @@ export function cartSVG({ decals = [], umbrella = false, fan = false, bell = fal
   const fanArt = fan
     ? `<g transform="translate(36 84)"><path d="M0 8 V0" stroke="${INK}" stroke-width="3"/><circle r="11" fill="#e8f7ff" ${thin}/><g class="spin"><path d="M0 0 L-3 -9 Q0 -11 3 -9 Z M0 0 L9 -3 Q11 0 9 3 Z M0 0 L3 9 Q0 11 -3 9 Z M0 0 L-9 3 Q-11 0 -9 -3 Z" fill="#7cc8ff" ${thin}/></g><circle r="2" fill="${INK}"/></g>`
     : '';
+  // the glass tip jar on the lid, filling up with little coins, three side by side (a coin a quarter: full at $9.75)
+  const glass = 'M150 69 Q146 72 146 77 V89 Q146 92 149 92 H167 Q170 92 170 89 V77 Q170 72 166 69 Z';
+  const coin = (i) => {
+    const row = Math.floor(i / 3);
+    const x = 152.2 + (i % 3) * 5.8 + (row % 2 ? 1.2 : -0.6) + (((i * 7) % 5) - 2) * 0.25;
+    return `<ellipse cx="${x.toFixed(2)}" cy="${(90 - row * 1.3).toFixed(2)}" rx="2.9" ry="1.15" fill="${i % 4 === 1 ? '#ffd23f' : i % 4 === 3 ? '#c4cbd4' : '#d9dee5'}" stroke="#8a93a0" stroke-width=".5"/>`;
+  };
+  const coins = jar == null ? '' : Array.from({ length: Math.min(39, Math.ceil(jar / 25)) }, (_, i) => coin(i)).join('');
+  const jarArt = jar == null ? '' : `<g class="tip-jar"><path d="${glass}" fill="#e6f4fb" fill-opacity=".8"/>${coins}<path d="${glass}" fill="none" ${thin}/><path d="M149.6 76 V86" stroke="#fff" stroke-width="2" stroke-linecap="round" opacity=".85"/><rect x="148.5" y="66.5" width="19" height="3.4" rx="1.4" fill="#e6f4fb" ${thin}/>${label(158, 101, 'TIPS', 9, '#fff')}</g>`;
   const bellArt = bell ? `<g transform="translate(196 92)"><path d="M-6 6 Q-6 -6 0 -6 Q6 -6 6 6 Z" fill="#ffd23f" ${thin}/><circle cy="7.5" r="1.8" fill="#c98f3e"/></g>` : '';
-  return `<svg viewBox="${tight ? '0 70 230 130' : '0 0 230 200'}" class="cart-svg" xmlns="http://www.w3.org/2000/svg">
+  // overflow: the balloon bobs up past the top of the picture
+  return `<svg viewBox="${tight ? '0 70 230 130' : '0 0 230 200'}" class="cart-svg" overflow="visible" xmlns="http://www.w3.org/2000/svg">
     ${shade}${bal}
     <path d="M190 100 L214 84" stroke="${INK}" stroke-width="7" stroke-linecap="round"/><path d="M190 100 L214 84" stroke="#9aa4b2" stroke-width="4" stroke-linecap="round"/>
     <rect x="12" y="92" width="184" height="80" rx="12" fill="#fffaf0" ${OUT}/>
-    <rect x="12" y="92" width="184" height="18" rx="8" fill="#7cc8ff" ${OUT}/>
-    <path d="M22 160 H186" stroke="#7cc8ff" stroke-width="6"/>
-    <text x="104" y="129" font-family="Baloo 2, sans-serif" font-weight="800" font-size="19" text-anchor="middle" fill="${INK}">ICE POPS</text>
-    ${dec}${fanArt}${bellArt}
+    <rect x="12" y="92" width="184" height="18" rx="8" fill="${paint}" ${OUT}/>
+    <path d="M22 160 H186" stroke="${paint}" stroke-width="6"/>
+    <text x="104" y="129" font-family="Baloo 2, sans-serif" font-weight="800" font-size="${Math.min(19, Math.round(190 / Math.max(1, String(name).length)))}" text-anchor="middle" fill="${INK}">${xml(String(name).toUpperCase())}</text>
+    ${dec}${fanArt}${bellArt}${jarArt}
     <circle cx="48" cy="178" r="16" fill="#4a4a5a" ${OUT}/><circle cx="48" cy="178" r="6" fill="#cfd6df"/>
     <circle cx="160" cy="178" r="16" fill="#4a4a5a" ${OUT}/><circle cx="160" cy="178" r="6" fill="#cfd6df"/>
   </svg>`;
@@ -70,8 +83,11 @@ export function toyPlaySVG(toy, { skin = '#f1c27d', tall = false } = {}) {
       <g clip-path="url(#${id})"><g class="toss"><g class="roll"><circle cx="138" cy="100" r="8.5" fill="#e5484d" ${thin}/>
         <path d="M131.5 100 Q138 93.5 144.5 100" stroke="#ffd23f" stroke-width="2.4" fill="none"/><circle cx="134.6" cy="96.6" r="2" fill="#fff" opacity=".8"/></g></g></g>`;
   } else if (toy === 'yoyo') {
-    // a hand over the edge of the lid, and the yo-yo running down the string and back up, spinning
-    art = `<rect class="yy-string" x="149.6" y="95" width="0.9" height="55" fill="${INK}"/>
+    // your arm resting along the lid (from where it comes down beside you, at x 124) out to a hand over the edge,
+    // and the yo-yo running down the string and back up, spinning
+    const fore = 'M124 88.5 Q134 91 144 92';
+    art = `<path d="${fore}" stroke="${INK}" stroke-width="9" stroke-linecap="round" fill="none"/><path d="${fore}" stroke="${skin}" stroke-width="6.3" stroke-linecap="round" fill="none"/>
+      <rect class="yy-string" x="149.6" y="95" width="0.9" height="55" fill="${INK}"/>
       <g class="yy-drop"><g transform="translate(150 150)"><g class="yy-spin"><circle r="10" fill="#3cc6a0" ${thin}/><path d="M-9.5 0 H9.5 M0 -9.5 V9.5" stroke="#2a9d80" stroke-width="1.8"/><circle r="3" fill="#fff" ${thin}/></g></g></g>
       <ellipse cx="150" cy="92.5" rx="7" ry="5.2" fill="${skin}" ${thin}/><path d="M146 95 v2 M149.5 95.6 v2.2 M153 95 v2" stroke="${INK}" stroke-width="1" stroke-linecap="round"/>`;
   } else if (toy === 'car') {
@@ -99,15 +115,18 @@ export function moneySVG(d, w = 54) {
   d = Number(d);
   if (d >= 100) {
     const label = '$' + d / 100;
-    return `<svg viewBox="0 0 70 34" width="${w}" height="${(w * 34) / 70}" class="money bill" xmlns="http://www.w3.org/2000/svg"><rect x="1.5" y="1.5" width="67" height="31" rx="4" fill="${BILL[d] || '#cdeed4'}" ${thin}/><rect x="6" y="5.5" width="58" height="23" rx="3" fill="none" stroke="#5c9a6b" stroke-width="1.2"/><ellipse cx="35" cy="17" rx="9" ry="9" fill="#e6f5ea" stroke="#5c9a6b" stroke-width="1.2"/><text x="35" y="18" font-family="Baloo 2, sans-serif" font-weight="800" font-size="${label.length > 2 ? 12 : 14}" text-anchor="middle" dominant-baseline="central" fill="#2f6b3f">${label}</text><text x="12" y="11" font-size="7" font-weight="800" fill="#2f6b3f" font-family="Baloo 2, sans-serif">${label}</text><text x="58" y="27" font-size="7" font-weight="800" fill="#2f6b3f" text-anchor="end" font-family="Baloo 2, sans-serif">${label}</text></svg>`;
+    // the amount big and dark in the middle (and in two corners), so it's easy to tell bills apart at a glance
+    const k = label.length > 2 ? 17 : 20;
+    return `<svg viewBox="0 0 70 34" width="${w}" height="${(w * 34) / 70}" class="money bill" xmlns="http://www.w3.org/2000/svg"><rect x="1.5" y="1.5" width="67" height="31" rx="4" fill="${BILL[d] || '#cdeed4'}" ${thin}/><rect x="5" y="4.5" width="60" height="25" rx="3" fill="none" stroke="#5c9a6b" stroke-width="1.2"/><ellipse cx="35" cy="17" rx="16" ry="11.5" fill="#fbfff9" stroke="#2f6b3f" stroke-width="1.4"/><text x="35" y="18" font-family="Baloo 2, sans-serif" font-weight="800" font-size="${k}" text-anchor="middle" dominant-baseline="central" fill="#0f2e19">${label}</text><text x="10" y="10.5" font-size="8.5" font-weight="800" fill="#0f2e19" font-family="Baloo 2, sans-serif">${label.slice(1)}</text><text x="60" y="27.5" font-size="8.5" font-weight="800" fill="#0f2e19" text-anchor="end" font-family="Baloo 2, sans-serif">${label.slice(1)}</text></svg>`;
   }
   const s = Math.round(w * 0.6);
-  return `<svg viewBox="0 0 34 34" width="${s}" height="${s}" class="money coin" xmlns="http://www.w3.org/2000/svg"><circle cx="17" cy="17" r="15.5" fill="#d9dee5" ${thin}/><circle cx="17" cy="17" r="12" fill="none" stroke="#aab3c0" stroke-width="1.2" stroke-dasharray="2 2"/><text x="17" y="18" font-family="Baloo 2, sans-serif" font-weight="800" font-size="11" text-anchor="middle" dominant-baseline="central" fill="#4a4a5a">${d}¢</text></svg>`;
+  return `<svg viewBox="0 0 34 34" width="${s}" height="${s}" class="money coin" xmlns="http://www.w3.org/2000/svg"><circle cx="17" cy="17" r="15.5" fill="#d9dee5" ${thin}/><circle cx="17" cy="17" r="12" fill="none" stroke="#aab3c0" stroke-width="1.2" stroke-dasharray="2 2"/><text x="17" y="18" font-family="Baloo 2, sans-serif" font-weight="800" font-size="13" text-anchor="middle" dominant-baseline="central" fill="#1f1f2a">${d}¢</text></svg>`;
 }
 
 // ---------- treats ----------
-export function iceCupSVG(color, size = 34) {
-  return `<svg viewBox="0 0 40 40" width="${size}" height="${size}" class="icecream" xmlns="http://www.w3.org/2000/svg"><path d="M9 16 Q9 4 20 4 Q31 4 31 16 Z" fill="${color}" ${thin}/><path d="M13 12 Q14 7 19 6.5" stroke="#fff" stroke-width="2" opacity=".6" fill="none" stroke-linecap="round"/><path d="M7 15 H33 L29.5 37 H10.5 Z" fill="#fffaf0" ${thin}/><path d="M9 21 H31 M9.8 27 H30.2" stroke="#ff6f91" stroke-width="2"/></svg>`;
+// seeds: little flecks of fruit (strawberry).
+export function iceCupSVG(color, size = 34, seeds = false) {
+  return `<svg viewBox="0 0 40 40" width="${size}" height="${size}" class="icecream" xmlns="http://www.w3.org/2000/svg">${iceCupArt(color, seeds)}</svg>`;
 }
 // A white plastic spoon lying on the counter.
 export function spoonSVG(size = 34) {
@@ -187,9 +206,19 @@ export const BOX_LOOK = {
   rocketPop: { color: '#3a8ee6', name: 'ROCKET POPS' },
   fudgePop: { color: '#7b4a2e', name: 'FUDGE POPS' },
   freezePop: { color: '#9b6cf0', name: 'FREEZE POPS' },
+  pushOrange: { color: '#f08a00', name: 'PUSH POPS' },
+  pushGrape: { color: '#8a4fd8', name: 'PUSH POPS' },
+  orangeCream: { color: '#ff9f1c', name: 'ORANGE CREAM' },
+  shortcake: { color: '#e0567f', name: 'SHORTCAKE' },
+  sandwich: { color: '#5a3322', name: 'SANDWICHES' },
   iceCherry: { color: '#e5484d', name: 'CHERRY ICE' },
+  iceStrawberry: { color: '#f06595', name: 'STRAWBERRY' },
   iceLemon: { color: '#e9b800', name: 'LEMON ICE' },
   iceBlue: { color: '#1fa6d6', name: 'BLUE ICE' },
+  crunchBar: { color: '#6b3d24', name: 'CRUNCH BARS' },
+  sundaeCone: { color: '#c97a2b', name: 'SUNDAE CONES' },
+  water: { color: '#3a8ee6', name: 'WATER' },
+  punch: { color: '#e5484d', name: 'FRUIT PUNCH' },
 };
 // The front of a box at the store: a picture of what's inside and how many.
 export function boxFrontSVG(id, qty) {
@@ -198,6 +227,14 @@ export function boxFrontSVG(id, qty) {
     <rect width="96" height="78" rx="5" fill="#fffaf0" ${OUT}/><rect width="96" height="18" rx="5" fill="${b.color}" ${OUT}/>
     ${label(48, 9.5, b.name, 10.5, '#fff')}${nest(treatSVG(id, 44), 6, 22, 44)}
     <circle cx="72" cy="46" r="17" fill="#ffd23f" ${thin}/>${label(72, 47, qty, 17)}</svg>`;
+}
+// The blue recycling bin in the kitchen, with the recycling arrows on the front.
+export function recyclingBinSVG() {
+  return `<svg viewBox="-2 -2 84 96" class="recycle-bin" xmlns="http://www.w3.org/2000/svg">
+    <path d="M6 14 H74 L68 92 H12 Z" fill="#3a8ee6" ${OUT}/>
+    <rect x="1" y="4" width="78" height="12" rx="4" fill="#2f78c4" ${OUT}/>
+    <path d="M18 24 L22 84 M40 24 V84 M62 24 L58 84" stroke="#2f78c4" stroke-width="3" stroke-linecap="round"/>
+    <g transform="translate(40 52)"><circle r="17" fill="#3a8ee6"/><circle r="11" fill="none" stroke="#fff" stroke-width="4" stroke-dasharray="15 8"/>${[0, 120, 240].map((r) => `<g transform="rotate(${r + 40}) translate(0 -11) rotate(90)"><path d="M-4 -5 L4 0 L-4 5 Z" fill="#fff"/></g>`).join('')}</g></svg>`;
 }
 // The side of a box standing on a freezer shelf, with its label running up it. An open box has its flap up.
 export function boxSideSVG(id, open = false) {
@@ -210,27 +247,70 @@ export function boxSideSVG(id, open = false) {
     ${nest(treatSVG(id, 34), 22, 8, 34)}
     ${label(w / 2 + 7, h / 2 + 22, b.name, 11, b.color, `transform="rotate(-90 ${w / 2 + 7} ${h / 2 + 22})"`)}</svg>`;
 }
+// Your own food in the cooler (a snack or a packed lunch), drawn as its emoji.
+const FOOD_LOOK = Object.fromEntries([...Object.values(CART_SHOPS).flatMap((S) => S.items.filter((i) => i.food)), { id: 'lunch', ...CART.lunch }].map((i) => [i.id, i]));
+export function foodHTML(id, size = 34) {
+  const f = FOOD_LOOK[id];
+  if (!f) return '';
+  return `<span class="food-ic" style="font-size:${Math.round(size * 0.62)}px">${f.emoji || (id === 'gum' ? gumIcon() : '🍪')}</span>`;
+}
 // Anything that goes on the counter: a treat, 'spoon' or 'napkin'.
-export function thingSVG(id, size = 34) {
+export function thingSVG(id, size = 34, tint = null) {
   if (id === 'spoon') return spoonSVG(size);
   if (id === 'napkin') return napkinSVG(size);
-  return treatSVG(id, size);
+  return treatSVG(id, size, tint);
 }
-// Any cart treat by id.
-export function treatSVG(id, size = 34) {
+// Any cart treat by id. tint: which color a freeze pop is (without one, a freeze pop is drawn as a few colors).
+export function treatSVG(id, size = 34, tint = null) {
   const it = CART_ITEM[id];
-  if (!it) return '';
-  return it.kind === 'ice' ? iceCupSVG(it.color, size) : iceCreamSVG({ pop: id }, size);
+  if (!it) return foodHTML(id, size);
+  if (it.kind === 'ice') return iceCupSVG(it.color, size, it.seeds);
+  return iceCreamSVG({ pop: id, color: tint != null ? FREEZE_TINTS[tint] : null }, size);
 }
 
 // ---------- park life ----------
 // The swing set stands on a patch of wood chips.
-export function swingSetSVG() {
+// The swing set, seen from the front: an A-frame at each end holding up the top bar, and two swings hanging from
+// hooks on it. The swings go back and forth (away from you and toward you), so CSS scales each one about its
+// hooks: smaller and with shorter-looking chains at the back, bigger at the front. riderLook: a kid sitting on the
+// first swing (null for nobody). The rider is scaled back the other way, so they don't get squashed.
+const SWING_TOP = 17; // where the chains hang from
+const RIDER_W = 42; // a kid on the swing, about half as tall as the swing set when standing
+const CHAIN = RIDER_W * 0.26; // each chain this far from the middle of its seat: where a sitting kid's hands are
+export function swingSetSVG(riderLook = null) {
   const chips = Array.from({ length: 22 }, (_, i) => `<circle cx="${18 + ((i * 47) % 184)}" cy="${162 + ((i * 13) % 9)}" r="1.6" fill="#a8743f"/>`).join('');
-  return `<svg viewBox="0 0 220 176" class="swingset" xmlns="http://www.w3.org/2000/svg"><ellipse cx="110" cy="165" rx="108" ry="10" fill="#d6a86c" ${thin}/>${chips}<g fill="none" stroke-linecap="round"><path d="M14 168 L40 14 H180 L206 168" stroke="${INK}" stroke-width="9"/><path d="M14 168 L40 14 H180 L206 168" stroke="#e5484d" stroke-width="5.5"/></g><circle cx="40" cy="14" r="5" fill="#ffd23f" ${thin}/><circle cx="180" cy="14" r="5" fill="#ffd23f" ${thin}/></svg>`;
-}
-export function swingSeatSVG(color = '#ffd23f') {
-  return `<svg viewBox="0 0 40 120" class="seat" xmlns="http://www.w3.org/2000/svg"><path d="M6 0 V108 M34 0 V108" stroke="${INK}" stroke-width="1.6"/><rect x="2" y="106" width="36" height="8" rx="3" fill="${color}" ${thin}/></svg>`;
+  const post = (d, back) => `<path d="${d}" stroke="${INK}" stroke-width="${back ? 7.5 : 9}"/><path d="${d}" stroke="${back ? '#c3423f' : '#e5484d'}" stroke-width="${back ? 4.5 : 5.5}"/>`;
+  const chain = (x0, x1, len) => `<path d="M${x0} ${SWING_TOP} L${x1} ${SWING_TOP + len}" stroke="#7b8494" stroke-width="2.2" stroke-dasharray="3 1.6"/>`;
+  const swing = (cx, color, cls, rider) => {
+    const len = 108; // from the hooks down to the seat
+    const seatY = SWING_TOP + len;
+    let kid = '';
+    if (rider != null) {
+      // sitting: the lap (the hips, 55 of the kid's 84 units down) on the seat, hands by the chains
+      const art = personSVG('kid', rider, null, { sit: true });
+      const vh = Number(art.match(/viewBox="0 0 40 ([\d.]+)"/)[1]);
+      const w = RIDER_W;
+      const k = w / 40;
+      kid = `<g class="sw-rider" style="transform-origin:${cx}px ${seatY}px">${art.replace('<svg ', `<svg x="${cx - w / 2}" y="${(seatY - 57 * k).toFixed(1)}" width="${w}" height="${(vh * k).toFixed(1)}" `)}</g>`;
+    }
+    // the chains go in front of the rider, through their hands, so they're holding on
+    return `<g class="sw ${cls}" style="transform-origin:${cx}px ${SWING_TOP}px">
+      <path d="M${cx - 15} ${seatY - 1} Q${cx} ${seatY + 6} ${cx + 15} ${seatY - 1} L${cx + 15} ${seatY + 3} Q${cx} ${seatY + 10} ${cx - 15} ${seatY + 3} Z" fill="${color}" ${thin}/>
+      ${kid}${chain(cx - CHAIN, cx - CHAIN, len)}${chain(cx + CHAIN, cx + CHAIN, len)}</g>`;
+  };
+  const hook = (x) => `<path d="M${x} 13 v3 a2 2 0 1 0 0.01 0" stroke="${INK}" stroke-width="1.4" fill="none"/>`;
+  return `<svg viewBox="0 0 220 176" class="swingset" xmlns="http://www.w3.org/2000/svg"><ellipse cx="110" cy="165" rx="108" ry="10" fill="#d6a86c" ${thin}/>${chips}
+    <g fill="none" stroke-linecap="round">
+      ${post('M36 14 L50 158', true)}${post('M184 14 L170 158', true)}
+      ${post('M24 100 L44 100', true)}${post('M196 100 L176 100', true)}
+    </g>
+    ${swing(80, '#ffd23f', 'sw1', riderLook)}${swing(140, '#3a8ee6', 'sw2', null)}
+    <g fill="none" stroke-linecap="round">
+      ${post('M36 14 L14 168', false)}${post('M184 14 L206 168', false)}
+      <path d="M34 13 H186" stroke="${INK}" stroke-width="10"/><path d="M34 13 H186" stroke="#e5484d" stroke-width="6.5"/>
+    </g>
+    ${hook(80 - CHAIN)}${hook(80 + CHAIN)}${hook(140 - CHAIN)}${hook(140 + CHAIN)}
+    <circle cx="35" cy="13" r="5" fill="#ffd23f" ${thin}/><circle cx="185" cy="13" r="5" fill="#ffd23f" ${thin}/></svg>`;
 }
 // A squirrel facing right. sandwich: it's holding one in its paws.
 export function squirrelSVG(sandwich = true) {
@@ -305,8 +385,8 @@ export function hotdogStandSVG() {
     <ellipse cx="75" cy="167" rx="66" ry="4" fill="${INK}" opacity=".14"/>
     <path d="M75 86 V22" stroke="${INK}" stroke-width="3.4"/><path d="M75 86 V22" stroke="#cfd5de" stroke-width="1.6"/>
     ${cook}
-    <path d="M6 30 Q75 -12 144 30 Z" fill="#ffd23f" ${OUT}/><path d="M40 30 Q57 4 75 -1 Q93 4 110 30" fill="#e5484d"/><path d="M6 30 Q75 -12 144 30" fill="none" ${OUT}/>
-    <path d="M6 30 Q23 37 40 30 Q57 37 75 30 Q93 37 110 30 Q127 37 144 30" fill="none" ${OUT}/><circle cx="75" cy="-1" r="3" fill="#e5484d" ${thin}/>
+    <path d="M6 30 Q75 -12 144 30 Z" fill="#ffd23f" ${OUT}/><path d="M40 30 Q58 13 75 9 Q92 13 110 30" fill="#e5484d"/><path d="M6 30 Q75 -12 144 30" fill="none" ${OUT}/>
+    <path d="M6 30 Q23 37 40 30 Q57 37 75 30 Q93 37 110 30 Q127 37 144 30" fill="none" ${OUT}/><circle cx="75" cy="6.6" r="3" fill="#e5484d" ${thin}/>
     <g ${thin}><path d="M24 84 V70 Q24 66 28 66 H32 Q36 66 36 70 V84 Z" fill="#e5484d"/><path d="M28 66 V61 H32 V66" fill="#fff"/><path d="M114 84 V70 Q114 66 118 66 H122 Q126 66 126 70 V84 Z" fill="#ffd23f"/><path d="M118 66 V61 H122 V66" fill="#fff"/></g>
     <rect x="10" y="84" width="130" height="58" rx="8" fill="#fffaf0" ${OUT}/><rect x="10" y="84" width="130" height="14" rx="6" fill="#e5484d" ${OUT}/>
     <g transform="translate(30 120)"><rect x="-14" y="-6" width="28" height="12" rx="6" fill="#e9b26a" ${thin}/><rect x="-17" y="-3" width="34" height="6" rx="3" fill="#c0503a" ${thin}/><path d="M-12 -1 q3 -2 6 0 t6 0 t6 0 t6 0" stroke="#ffd23f" stroke-width="1.6" fill="none"/></g>

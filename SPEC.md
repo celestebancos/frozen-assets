@@ -10,30 +10,31 @@ This is a design spec, not a build plan for one PR. It's meant to be built in pl
 2. [Who it's for](#who-its-for)
 3. [The shape of a career](#the-shape-of-a-career)
 4. [The park cart (first level)](#the-park-cart-first-level)
-5. [Zoom levels and time](#zoom-levels-and-time)
-6. [Summer and winter](#summer-and-winter)
-7. [Do it, get good, hand it off](#do-it-get-good-hand-it-off)
-8. [Trucks: buying, aging, upkeep](#trucks-buying-aging-upkeep)
-9. [Supplies, storage and ordering](#supplies-storage-and-ordering)
-10. [Serving at the truck window](#serving-at-the-truck-window)
-11. [Employees](#employees)
-12. [Managers and the boss's day](#managers-and-the-bosss-day)
-13. [Towns and the region map](#towns-and-the-region-map)
-14. [Shops](#shops)
-15. [Factories and farms (vertical integration)](#factories-and-farms-vertical-integration)
-16. [Franchising](#franchising)
-17. [Investors and selling the business](#investors-and-selling-the-business)
-18. [Loans](#loans)
-19. [Accidents and insurance](#accidents-and-insurance)
-20. [Failure and bankruptcy](#failure-and-bankruptcy)
-21. [The books at scale](#the-books-at-scale)
-22. [Economy and balance targets](#economy-and-balance-targets)
-23. [Screens](#screens)
-24. [Engineering](#engineering)
-25. [Leaderboard](#leaderboard)
-26. [Build order](#build-order)
-27. [Out of scope for now](#out-of-scope-for-now)
-28. [Decided](#decided)
+5. [From cart to truck](#from-cart-to-truck)
+6. [Zoom levels and time](#zoom-levels-and-time)
+7. [Summer and winter](#summer-and-winter)
+8. [Do it, get good, hand it off](#do-it-get-good-hand-it-off)
+9. [Trucks: buying, aging, upkeep](#trucks-buying-aging-upkeep)
+10. [Supplies, storage and ordering](#supplies-storage-and-ordering)
+11. [Serving at the truck window](#serving-at-the-truck-window)
+12. [Employees](#employees)
+13. [Managers and the boss's day](#managers-and-the-bosss-day)
+14. [Towns and the region map](#towns-and-the-region-map)
+15. [Shops](#shops)
+16. [Factories and farms (vertical integration)](#factories-and-farms-vertical-integration)
+17. [Franchising](#franchising)
+18. [Investors and selling the business](#investors-and-selling-the-business)
+19. [Loans](#loans)
+20. [Accidents and insurance](#accidents-and-insurance)
+21. [Failure and bankruptcy](#failure-and-bankruptcy)
+22. [The books at scale](#the-books-at-scale)
+23. [Economy and balance targets](#economy-and-balance-targets)
+24. [Screens](#screens)
+25. [Engineering](#engineering)
+26. [Leaderboard](#leaderboard)
+27. [Build order](#build-order)
+28. [Out of scope for now](#out-of-scope-for-now)
+29. [Decided](#decided)
 
 ---
 
@@ -102,11 +103,91 @@ Before the truck, a new player starts small: **selling popsicles and Italian ice
 - **Snacks and toys** from the corner store.
 - These are mostly for fun. Spending on them vs. saving for a truck is the player's choice.
 
+### Food and hunger
+- **A hunger bar** goes down slowly through the day. If it runs out, you close up and go home for the day. Snacks finally *do* something.
+- **How much food a day takes:** one snack holds you off for a while, but you'll need a second one later or you go home somewhat early. One bigger lunch item (a hot dog, a packed lunch) lasts the day. Skip lunch altogether and you go home a lot earlier.
+- **The day may get longer** (today noon to 4pm) if that's needed to fit lunch, errands and selling. Tune it together with hunger.
+- *Built:* the 🍎 bar, snacks in the cooler with an "Eat it now?" prompt, hot dog stand food eaten right away, sandwich makings and "Pack a lunch" at home. With nothing to eat you go home about 2:30. The day stayed noon to 4pm. A decent bot buys a hot dog a day and reaches $500 around day 22; packing a lunch (smart bot) is cheaper.
+- **Corner store snacks** can be eaten right away or stashed in the cooler for later, where each one takes a treat spot.
+- **The hot dog stand** is eaten right away.
+- **Planning ahead saves money:** pack a lunch from home before leaving (cheaper than buying, takes a cooler spot).
+- **Eating your own stock** fills you a little (3–10, drinks 3) and is never a plan: from the second treat in a day there's a rising chance of a tummy ache (no food, 15 minutes on the bench with the cart closed), and the day's summary says what you could have sold it for. *(Built.)* A kid who eats rocket pops instead of buying lunch ends 30 days about $170 behind one who buys a hot dog.
+- **Lunch at Grandma's** (see below) is free but takes time.
+
+### Grandma
+Grandma gave you the cart. She's around all through the cart level and becomes a co-owner if she invests in the truck.
+- **Lunch invitations.** Some mornings she invites you to lunch. It's free and fills the hunger bar, but you open the cart later.
+- **Advice and comments** over lunch, sometimes helpful, sometimes annoying: praise or nitpicking about your stickers, pricing tips that nudge toward good prices, and pure Grandma ("Back in my day, ice cream at the soda fountain cost a nickel!").
+- **She comes to buy ice cream** now and then. Have her favorite in stock, even if it isn't popular, and she leaves a big tip. Not enough napkins and she says so.
+- **Good feelings (hidden).** Goes up when you come to lunch, follow her advice, have her favorite and give her napkins. When it's high she says nicer things and sometimes gives you a gift, just because. It also improves her offer for the truck.
+- *Built:* the first invitation on day 3, then about 3 mornings in 10 (an hour, a big lunch that lasts past 4pm), price and sticker advice she checks on next time, old-days lines, her favorite and a napkin hint at your first lunch, visits (only after that first lunch) about 1 day in 5 with a $2–3 tip for her favorite and 2 napkins; she doesn't ask for napkins at the cart, only complains about too few, good feelings 0–10 (start 5), and a $5 gift sometimes when they're 8 or more. Lunch is about even for money; the payoff is her advice, her tips, and (next) a better truck deal. The regular "Grandma Lou" is now Miss Lou.
+
+### Restocking
+- **The restaurant store** sells bigger boxes at a real discount, so freezer space becomes the limit on how much you save.
+- **The corner store** sells small boxes (a dozen pops) at a markup: handy close to the park, but it costs more.
+
+### Paying by phone
+- After a while you can **buy a phone and take tap payments.** Every tap payment costs a small fee, but there's no change to count, so the day goes faster. It's there for players who are tired of making change and want to move on.
+- Not everyone taps: some kids still pay with coins.
+
+### Making the cart earn more
+Target: a *decent* player reaches **$500 (cash box, bank and wallet) in about 3 weeks** (21 days), after paying for food. Measured with `node tools/cartSimulate.mjs`, whose bots take about as long to serve as a kid does.
+
+*Built:* more people walking by, more families and groups of friends (bigger orders, more adding up and change-making), bigger tips with a now-and-then $3 or $5 tip for a quick, happy sale, two fancy treats (crunch bars and sundae cones), two drinks (more wanted on hot days), 3 boxes for less at the restaurant store, and small boxes at the corner store. With hunger in (and 12–13 people an hour walking by), a decent bot earns about $25 a day after buying a hot dog every day, and reaches $500 around day 22.
+
+*Later:*
+- **"2 for $3" deals.**
+- **Party orders.** A request comes in for the next day ("Can you have 20 rocket pops at the park tomorrow for Maya's birthday?"). You check you have enough, pack them, and the parent picks them up and pays all at once: one big sale, with a deposit or a no-show to think about.
+
 ### Moving up
-- **Play the cart as long as you like.** At any point, go to the bank for a truck loan, and the game continues as today's summer 1. The bank doesn't look at the cart's results.
-- **Cart cash becomes the owner's share** of the new truck business: the first paper in the shoebox is "Owner put in $___". That's the first look at owner's share as money the owner put in, before any profit.
-- The cart stays available as a **just-for-fun mini-game** from the title screen.
-- Experienced players can skip straight to the truck.
+- **Play the cart as long as you like.** Earning more first is always an option, and nothing hurries you.
+- **Grandma's offer.** Once your money (cash box, bank and wallet) reaches **$500**, Grandma praises your hard work and good business sense and offers to invest in a truck. The offer stays open, so you can keep earning first. Details in [From cart to truck](#from-cart-to-truck).
+- **The bank** is open any time: a truck loan, with or without a down payment.
+- **Cart money becomes your owner's share** of the truck business: the first paper in the shoebox is "Money you put in".
+- **No going back.** Once you move up, the cart is done for that game. Start a new game to play the cart again.
+- **Buy a Truck** on the title screen goes straight to the bank, for experienced players.
+
+## From cart to truck
+
+How the truck business gets its money: the bank, Grandma, or both. The trucks cost different amounts, so the choice matters.
+
+### Trucks on the lot
+- **New trucks** as today (about $9,700, plus bling).
+- **Used trucks** at about half price. They come with:
+  - **More miles:** every truck has an odometer (about 6,000 miles a summer). More miles mean more breakdowns and bigger garage bills, and a used truck with fewer miles costs more. A new truck almost never breaks down.
+  - **Oil leaks:** check the dipstick and add oil ($8 a bottle) at the gas station. A puddle under the parked truck is the hint. Days spent on almost no oil wear the engine, which then breaks down more until it's fixed: in the winter, or during the summer at the cost of a week at the garage with no sales.
+  - **Breakdown days:** the rest of the day is lost and the garage sends a repair bill (expense "Truck repairs & upkeep").
+  - **A smaller freezer** (later, once storage is modelled).
+  - **Worse gas mileage.** No truck refills gas by itself: a pop-up asks when the tank is low, with an oil check.
+  - **Shabby paint:** less popular, especially in the wealthier and more grown-up neighborhoods (Sunset Ridge, Downtown, Parkside), until the garage fixes it up ($800).
+  - **Bigger upkeep bills between summers:** the winter inspection (a must-do tune-up and oil change, priced by miles), plus the mechanic's suggested repairs. Paying for them cuts next summer's breakdowns, and the engine repair fixes a worn engine.
+  - Grandma, as co-owner, nags about the oil now and then.
+
+### The bank: down payments
+The bank's interest depends on how much you put down from your own money (or Grandma's):
+- **No down payment:** higher interest than today.
+- **A small down payment** (about 10%): about today's interest.
+- **A big down payment** (about 25% or more): lower interest.
+
+Today's loans run about 11–20% a year, which is realistic. The down payment adds the lesson that lenders charge less when you have money of your own in the business.
+
+### Grandma invests
+- Grandma puts in cash for the truck. She **isn't paid back** and charges **no interest**. Instead she becomes a **co-owner**.
+- **Grandma plus a loan.** Her money can be the down payment, so together they buy a fancier truck than either could alone.
+- **The deal: her slice of the profit.** You do the work, so you keep most of the profit. Her slice is smaller the more money you bring and the higher her good feelings are. (Starting point to tune: about 1/3, going down toward about 1/5.)
+- **On the balance sheet** the owner's share has two lines: **Your share** (what you put in, plus your part of the profit) and **Grandma's share** (what she put in, plus her part). The profit is split between them at Calculate Profit each week.
+- **New paper:** "Grandma's investment". Penny explains: Cash went up, nobody has to pay it back, so it's Grandma's share, not a debt.
+- **Advice and comments** keep coming while she's a co-owner, helpful and annoying.
+
+*Built:* the offer comes at lunch the day after you reach $500 (or at the cart if you skip lunch) and stays open from home. Her limit is $9,500 (truck + $300 for supplies), so chrome and deluxe trucks are out of reach. Her slice is one of 2/5, 1/3, 1/4 or 1/5, from your cart money above $500 (each $100 a step) and her good feelings. No loan; a "Grandma's investment" paper; Grandma's Share on the balance sheet; her slice moves over at Calculate Profit; a summer is won if your own Share grew. The leaderboard marks Grandma games with 🤝 after the business name (no new Airtable field). Buying her out between summers is built too: a quarter, half, three quarters or all of her Share, from the business's cash; her slice shrinks by the same part; a "Buying back Grandma's share" paper.
+
+### End of summer
+- **With a loan:** as today. Pay the bank or the truck is towed.
+- **With Grandma only:** you win if the business made a profit. Nothing is due.
+- **Buying out Grandma.** Between summers you can pay Grandma any amount, up to all of her share. Her slice of the profit shrinks by the same fraction (pay off half her share and her slice is cut in half). Paying all of it makes you the only owner. New paper; Penny explains that it isn't an expense: Cash went down and Grandma's share went down.
+
+### Leaderboard
+- Scores use **your share only**. Rows where Grandma is a co-owner get a tag (🤝), which needs a new field in the Airtable `Scores` table.
 
 ## Zoom levels and time
 
@@ -168,7 +249,7 @@ This is the core pattern, generalized from Penny's filing (`CONFIG.filing`: file
 
 ## Trucks: buying, aging, upkeep
 
-- **Buying.** The existing truck lot, plus **used trucks** (IDEAS.md): cheaper, older, more breakdowns, and shabby looks sell less in fancy neighborhoods until repainted.
+- **Buying.** The existing truck lot, plus **used trucks** from summer 1 (see [Trucks on the lot](#trucks-on-the-lot)): about half price, with breakdowns, a smaller freezer, worse gas mileage, and shabby looks that sell less in fancy neighborhoods until repainted.
 - **Depreciation.** Each truck loses value as it ages, straight-line over about **8 summers** down to a small scrap value. It's booked once a year at winter as a new expense line, "Trucks getting older". It's the first expense where no cash leaves, which is the lesson.
 - **Selling a truck** gets about its fair used price. The gap from its book value is a gain or loss on sale, a new line on the books.
 - **Maintenance.** Each winter, pick a level per truck (or one rule for the fleet):
@@ -376,7 +457,7 @@ How factories work (proposed):
 ### Investors (equity)
 - From time to time a person offers cash for a slice of the company, for example **"Grandma Rose: $50,000 for 10% of the business."** Those IDEAS.md grandparents fit here.
 - Once that happens, the company's owner's share is split between the player and the investors. **The goal counts only the player's part.** Selling slices lets the business grow faster, but each slice is profit given away forever. That's the lesson.
-- Investors get no yearly payouts. They're paid their slice **when the business is sold**. **Open (decide when building phase 9):** whether the player can buy slices back.
+- Investors get no yearly payouts. They're paid their slice **when the business is sold**. **Open (decide when building phase 9):** whether the player can buy slices back from later investors. Grandma, the first investor, can be bought out between summers (see [Grandma invests](#grandma-invests)).
 
 ### Selling the business (retiring)
 - Once the business is big enough, buyers make an offer each winter, based on yearly profit plus what the business owns. The player sees that a business that **earns money** is worth more than its trucks and buildings.
@@ -387,7 +468,7 @@ How factories work (proposed):
 
 Loans are available but not the focus.
 
-- The summer 1 bank loan stays exactly as it is.
+- The summer 1 bank loan's interest depends on the down payment (see [The bank: down payments](#the-bank-down-payments)).
 - After that the bank offers growth loans against what the player owns. **The bank pushes them.** A cheerful banker says "You're pre-approved for $200,000!", and some offers are honestly bad deals (high interest, short terms). There are no heavy warnings: the player learns from what happens.
 - The bank reads the books (IDEAS.md): clean books and steady profit mean better offers.
 - Interest, payments and missed payments use the existing loan plumbing.
@@ -516,6 +597,7 @@ New fields in the Airtable `Scores` table (README setup to be updated):
 Each phase is playable and merged on its own. Phases 3 and 4 can go in either order. [Serving at the truck window](#serving-at-the-truck-window) reuses the cart's serving and can go in any time after phase 0.
 
 0. **The park cart.** *(Built.)* Character creation, buying stock in bulk at the restaurant store, packing the cooler, the corner store (ATM, change machine, snacks and toys), cash float, setting prices, selling and making change by hand, regulars with favorites, the line and tip jar, park scenes, other vendors, decals and clothes. Then a truck loan whenever the player wants, with cart cash as the owner's share. Also playable from the title screen.
+   - **Next: Grandma and the way up.** Cart earning more (bulk and small boxes, tips, bigger orders), hunger and food, Grandma (lunches, advice, visits, good feelings), the $500 offer, bank down payments, Grandma as co-owner with the profit split, used trucks, buying her out, paying by phone. See [The park cart](#the-park-cart-first-level) and [From cart to truck](#from-cart-to-truck).
 1. **One truck, more real.** Restaurant store as a place on the map. Inside-the-truck view with space limits and boxes piling up. Counting by hand. Frozen, thawed and in-the-machine mix. Fits today's single-summer game, so it can ship before any fleet work.
 2. **Fleet and crew.** Several trucks in the home town, with crowd splitting. Hire drivers from the bot pool, with wages, green period, call-offs, quits, bad apples and firing. The boss's day. Per-truck weekly papers and payroll. Profit by truck. Parking and storage. A supply room with fill-to levels and morning load-out (supplies still come from the restaurant store, now with a store run for each truck). Winter planning screen. Player-chosen end of summer. Town zoom (play by week).
 3. **Ordering ahead.** Supplier deliveries with bulk prices and wait times, supplies on the way, supply room rent and space limits, freezer vs. dry space, supply counts and shrinkage, weather forecast.
@@ -538,14 +620,18 @@ Each phase is playable and merged on its own. Phases 3 and 4 can go in either or
 - Driving ends at 6 trucks. Zooming in to watch is always allowed.
 - Everything pauses in winter.
 - Factory supplies are booked at the real cost to make. Factories come before farms.
-- Investors are paid only when the business is sold.
+- Investors are paid only when the business is sold. Grandma is the exception: her slice of the profit is added to her share every week, and she can be bought out between summers.
 - No severance.
 - Penny becomes head of accounting.
 - Space limits start in summer 1. Deliveries that don't fit go back.
 - New players start with the park cart. Serving and making change are always by hand and in real time; waiting can be sped up.
 - Serving well at the truck window helps a little: shorter line, tips, the right size cone.
 - Thawing mix is by hand at first, then a rule once mastered.
-- The park cart can be played as long as the player likes. A truck loan is available at any point, the bank ignores cart results, and cart cash becomes the owner's share of the truck business.
+- The park cart can be played as long as the player likes. A truck loan is available at any point, and cart cash becomes the owner's share of the truck business. Once the player moves up, there's no going back to the cart in that game.
+- Grandma offers to invest once the player has $500 (cash box, bank and wallet). Target: a decent player gets there in about 3 weeks.
+- The bank's interest depends on the down payment. Grandma's money can be the down payment.
+- Grandma's slice of the profit depends on how much the player brings and her good feelings. The player can buy her out, in part or in full, between summers.
+- Leaderboard scores count only the player's own share.
 - The cart's cooler stays cold all day (battery). No melting.
 - Change comes from a change machine next to the ATM at the corner store, which also sells snacks and toys.
 - Cart stock is bought in bulk at the restaurant store.

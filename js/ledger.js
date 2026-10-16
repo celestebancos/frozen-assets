@@ -25,6 +25,7 @@ export const ACCOUNTS = [
   { id: 'giftDiscounts', section: 'expense', name: 'Gift card discounts & giveaways' },
   { id: 'sellBackLoss', section: 'expense', name: 'Loss selling supplies back' },
   { id: 'rebrand', section: 'expense', name: 'Paint & signs' },
+  { id: 'upkeep', section: 'expense', name: 'Truck repairs & upkeep' },
   { id: 'bookkeeping', section: 'expense', name: 'Bookkeeping' },
 
   { id: 'cash', section: 'asset', name: 'Cash' },
@@ -38,6 +39,9 @@ export const ACCOUNTS = [
 
   // Money the owner put into the business (from the park cart). It's part of the owner's Share.
   { id: 'ownerIn', section: 'owner', name: "Owner's Share" },
+  // Grandma's part of the business, when she invested in the truck: what she put in, plus her slice of each week's
+  // profit (moved over from the owner's Share at Calculate Profit).
+  { id: 'grandmaIn', section: 'owner', name: "Grandma's Share" },
 ];
 export const ACCOUNT = Object.fromEntries(ACCOUNTS.map((a) => [a.id, a]));
 
@@ -68,6 +72,10 @@ export function sectionTotal(totals, section) {
 export function share(totals) {
   return sectionTotal(totals, 'asset') - sectionTotal(totals, 'liability');
 }
+// The player's own Share: everything the owners have, minus Grandma's part (if she's a co-owner).
+export function ownShare(totals) {
+  return share(totals) - (totals.grandmaIn || 0);
+}
 
 // P&L rows. "used" is itemized per supply (detail = supply id).
 export function pnlRowsFor(entriesByWeek, weeks) {
@@ -78,7 +86,7 @@ export function pnlRowsFor(entriesByWeek, weeks) {
   ];
   const expenseRows = [
     ...SUPPLIES.map((s) => ({ key: 'used:' + s.id, name: s.short })),
-    ...['spoiled', 'gas', 'ads', 'interest', 'lateFees', 'giftDiscounts', 'sellBackLoss', 'rebrand', 'bookkeeping'].map((k) => ({
+    ...['spoiled', 'gas', 'ads', 'interest', 'lateFees', 'giftDiscounts', 'sellBackLoss', 'rebrand', 'upkeep', 'bookkeeping'].map((k) => ({
       key: k,
       name: ACCOUNT[k].name,
     })),

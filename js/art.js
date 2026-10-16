@@ -1,4 +1,5 @@
 // Cartoon SVG art: truck, customers, ice cream, and the backdrop for each spot.
+import { emo, emoSVG } from './icons.js';
 
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 
@@ -14,6 +15,30 @@ export function shade(hex, amt) {
 // Outline color shared by the truck, people and ice cream so they read like stickers on the backdrop.
 const INK = '#2e2a45';
 // 0 (black) to 1 (white), for picking a color that shows up on top of another one.
+// Mix two colors: t = 0 gives a, 1 gives b.
+const mix = (a, b, t) => {
+  const x = parseInt(a.slice(1), 16);
+  const y = parseInt(b.slice(1), 16);
+  const ch = (sh) => Math.round(((x >> sh) & 255) * (1 - t) + ((y >> sh) & 255) * t);
+  return '#' + ((ch(16) << 16) | (ch(8) << 8) | ch(0)).toString(16).padStart(6, '0');
+};
+// A used truck's wear and tear: rust along the bottom, a dent, a taped-up crack in the window, a scuffed sign.
+function usedWear() {
+  // a jagged patch of rust, flaking up from the bottom edge
+  const rust = (x, y, w, h) => {
+    const pts = [[0, 1], [0.12, 0.45], [0.22, 0.7], [0.35, 0.15], [0.48, 0.55], [0.6, 0], [0.72, 0.5], [0.86, 0.3], [1, 1]];
+    return `<path d="M${pts.map(([u, v]) => `${(x + u * w).toFixed(1)} ${(y + v * h).toFixed(1)}`).join(' L')} Z" fill="#c0692b" opacity=".7"/><path d="M${(x + w * 0.2).toFixed(1)} ${y + h} L${(x + w * 0.4).toFixed(1)} ${(y + h * 0.5).toFixed(1)} L${(x + w * 0.65).toFixed(1)} ${y + h} Z" fill="#8a3f17" opacity=".6"/>`;
+  };
+  return `<g class="wear">
+    ${rust(14, 132, 26, 9)}${rust(92, 134, 18, 7)}${rust(268, 132, 14, 9)}
+    <circle cx="30" cy="138" r="1.6" fill="#7a3b1c"/>
+    <path d="M60 112 q8 -5 16 0 q-8 4 -16 0" fill="none" stroke="${INK}" stroke-width="1.2" opacity=".45"/>
+    <path d="M150 52 q4 10 -2 18" fill="none" stroke="${INK}" stroke-width="1" opacity=".35"/>
+    <path d="M222 82 L236 98 M228 80 L233 92" stroke="#fff" stroke-width="1.2" opacity=".9"/>
+    <rect x="224" y="86" width="12" height="4" rx="1" fill="#e8d9a8" stroke="${INK}" stroke-width=".8" transform="rotate(35 230 88)"/>
+    <path d="M26 66 l10 0 M170 79 l8 -2" stroke="#d0d4da" stroke-width="2" stroke-linecap="round"/>
+  </g>`;
+}
 const lum = (hex) => {
   const n = parseInt(hex.slice(1), 16);
   return (0.299 * (n >> 16) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255)) / 255;
@@ -99,7 +124,8 @@ function seller(x, y, s = 1, wave = false) {
 }
 
 let clipIds = 0;
-export function truckSVG(color, name, { width = 300, wheelsSpin = false, bling = 0 } = {}) {
+export function truckSVG(color, name, { width = 300, wheelsSpin = false, bling = 0, used = false } = {}) {
+  if (used) color = mix(color, '#a89f91', 0.45); // faded paint
   const light = shade(color, 0.1);
   const dark = shade(color, -0.14);
   const pale = lum(color) > 0.82;
@@ -174,6 +200,7 @@ export function truckSVG(color, name, { width = 300, wheelsSpin = false, bling =
   <rect x="2" y="145" width="16" height="10" rx="4" fill="#cfd5de" stroke="${INK}" stroke-width="2"/>
   <rect x="273" y="145" width="25" height="10" rx="4" fill="#cfd5de" stroke="${INK}" stroke-width="2"/>
   ${well(REAR)}${well(FRONT)}
+  ${used ? usedWear() : ''}
   ${blingFront(bling)}
   ${wheel(REAR, wheelsSpin, bling >= 2, bling >= 3)}${wheel(FRONT, wheelsSpin, bling >= 2, bling >= 3)}
 </svg>`;
@@ -181,9 +208,25 @@ export function truckSVG(color, name, { width = 300, wheelsSpin = false, bling =
 
 const SKIN = ['#ffdbb5', '#f1c27d', '#c68642', '#8d5524', '#e0ac69', '#ffe0bd'];
 const HAIR = ['#2b1b0e', '#6b3e1e', '#e8c15a', '#b5532a', '#1a1a1a', '#9a9a9a'];
-const SHIRT = ['#ff6f91', '#5bc0eb', '#9bc53d', '#fde74c', '#c3423f', '#7d5ba6', '#ff9f1c', '#2ec4b6', '#e76f51', '#4361ee', '#f72585', '#06d6a0'];
-const PANTS = ['#355070', '#4a6fa5', '#6d597a', '#264653', '#c8a97e'];
-const SHOES = ['#2e2a45', '#ffffff', '#e5484d', '#3a8ee6', '#7a4a2a', '#ff6f91'];
+const SHIRT = ['#ff6f91', '#5bc0eb', '#9bc53d', '#fde74c', '#c3423f', '#7d5ba6', '#ff9f1c', '#2ec4b6', '#e76f51', '#4361ee', '#f72585', '#06d6a0',
+  '#ffffff', '#3d5a80', '#8ecae6', '#ffb4a2', '#b5e48c', '#cdb4db', '#ffc8dd', '#e9c46a', '#a8dadc', '#6c757d'];
+const PANTS = ['#355070', '#4a6fa5', '#6d597a', '#264653', '#c8a97e', '#3a3a48', '#7f8c8d', '#5c4033', '#6b7f3a', '#1d3557', '#8d99ae'];
+const KID_SHORTS = ['#e5484d', '#ff8fab', '#7d5ba6', '#2ec4b6', '#ffd23f']; // kids' shorts can be bright too
+const SHOES = ['#2e2a45', '#ffffff', '#e5484d', '#3a8ee6', '#7a4a2a', '#ff6f91', '#ffd23f', '#2ec4b6', '#9aa4b2'];
+const CAPS = ['#e5484d', '#3a8ee6', '#2f9e44', '#ffd23f', '#2e2a45', '#ff9f1c', '#7d5ba6'];
+const PRINTS = ['#ffffff', '#ffffff', '#2e2a45', '#ffd23f', '#3a8ee6', '#e5484d']; // stripes and polka dots
+// Customers' looks are numbers from 0 to LOOKS - 1. Each thing about them (shirt, pants, hair...) is its own pick from
+// the number, so two people with the same shirt rarely match in anything else. Odd looks are girls.
+export const LOOKS = 10000;
+function trait(look, k, n) {
+  let x = Math.imul((look | 0) ^ 0x5bd1e995, 0x27d4eb2d) ^ Math.imul(k + 1, 0x165667b1);
+  x ^= x >>> 15;
+  x = Math.imul(x, 0x85ebca6b);
+  x ^= x >>> 13;
+  x = Math.imul(x, 0xc2b2ae35);
+  x ^= x >>> 16;
+  return (x >>> 0) % n;
+}
 
 // Body shapes. Head center y and radius, shoulder and hip heights, shoulder and hip half widths,
 // arm and leg thickness. Kids have bigger heads for their size. Shoes sit on y 81.
@@ -237,7 +280,7 @@ function face(kind, look, skin, hair, girl, sleep = false) {
       ? `<path d="M${x - 1.6} 1 Q${x} 2.6 ${x + 1.6} 1" stroke="${INK}" stroke-width="0.95" fill="none" stroke-linecap="round"/>` // closed, fast asleep
       : `<ellipse cx="${x}" cy="1.2" rx="${(1.2 * big).toFixed(2)}" ry="${(1.55 * big).toFixed(2)}" fill="${INK}"/><circle cx="${x + 0.45}" cy="0.55" r="${(0.5 * big).toFixed(2)}" fill="#fff"/>`;
   const brow = shade(hair === '#9a9a9a' ? '#777777' : hair, -0.1);
-  const open = kind !== 'adult' && look % 3 === 0;
+  const open = kind !== 'adult' && trait(look, 18, 3) === 0;
   let out = `${eye(-3.7)}${eye(3.7)}
     <path d="M-5.3 -2.4 Q-3.8 -3.5 -2.3 -2.6 M5.3 -2.4 Q3.8 -3.5 2.3 -2.6" stroke="${brow}" stroke-width="0.95" fill="none" stroke-linecap="round"/>
     <ellipse cx="-6.2" cy="4.2" rx="1.9" ry="1.1" fill="#ff7f96" opacity="${skin === '#8d5524' ? 0.35 : 0.45}"/><ellipse cx="6.2" cy="4.2" rx="1.9" ry="1.1" fill="#ff7f96" opacity="${skin === '#8d5524' ? 0.35 : 0.45}"/>
@@ -254,30 +297,36 @@ export const CHARACTER = { skin: SKIN, hair: HAIR, girlStyles: GIRL_STYLES, boyS
 
 // look: a number that picks everything for a customer. me: the player's own character, chosen piece by
 // piece: { girl, skin, hair, style, shirt, pants, hat: 'cap'|'sunhat'|'beanie'|'crown'|null, shades, stars }.
-// pose: { sit, sleep }. Sitting, the lap is at the hips and the lower legs hang down to the feet, so the picture is
-// shorter (its bottom is still the feet); sleeping, the eyes are closed.
+// pose: { sit, sleep, plain }. Sitting, the lap is at the hips and the lower legs hang down to the feet, so the picture
+// is shorter (its bottom is still the feet); sleeping, the eyes are closed; plain: no hat, sunglasses or glasses.
 let shirtN = 0; // each striped shirt gets its own cut-out shape
-export function personSVG(kind, look = 0, me = null, { sit = false, sleep = false } = {}) {
+export function personSVG(kind, look = 0, me = null, { sit = false, sleep = false, plain = false } = {}) {
   if (kind === 'dog') return dogSVG(look);
   if (!BUILD[kind]) kind = 'adult';
   const B = BUILD[kind];
-  const skin = me ? SKIN[me.skin % SKIN.length] : SKIN[look % SKIN.length];
-  let hair = me ? HAIR[me.hair % HAIR.length] : HAIR[(look * 7) % HAIR.length];
+  const t = (k, n) => trait(look, k, n);
+  const skin = me ? SKIN[me.skin % SKIN.length] : SKIN[t(1, SKIN.length)];
+  let hair = me ? HAIR[me.hair % HAIR.length] : HAIR[t(2, HAIR.length)];
   if (kind !== 'adult' && hair === '#9a9a9a') hair = '#6b3e1e'; // no gray hair on kids
-  const shirt = me ? me.shirt : SHIRT[(look * 5) % SHIRT.length];
-  const pants = me ? me.pants : PANTS[look % PANTS.length];
-  const shoes = SHOES[(look * 5 + (kind === 'kid' ? 2 : 0)) % SHOES.length];
+  const shirt = me ? me.shirt : SHIRT[t(3, SHIRT.length)];
+  const shoes = me ? SHOES[(look * 5 + (kind === 'kid' ? 2 : 0)) % 6] : SHOES[t(5, SHOES.length)]; // yours (and Grandma's) stay as they were
   const girl = me ? !!me.girl : look % 2 === 1;
-  const style = me ? me.style : (girl ? GIRL_STYLES : BOY_STYLES)[Math.floor(look / 2) % 6];
-  const dress = !me && girl && look % 4 === 1;
-  const shorts = !dress && (kind === 'kid' || look % 3 !== 0);
-  const tank = !me && kind !== 'kid' && look % 6 === 4;
-  const stripes = !me && !dress && look % 5 === 2;
-  const cap = me ? me.hat === 'cap' : !girl && kind !== 'adult' && look % 4 === 0;
-  const sunhat = me ? me.hat === 'sunhat' : girl && kind === 'adult' && look % 4 === 3;
-  const shades = me ? !!me.shades : kind !== 'kid' && !cap && look % 5 === 3;
-  const glasses = !me && kind === 'adult' && !shades && look % 5 === 1;
-  const beard = !me && kind === 'adult' && !girl && (look === 4 || look === 10);
+  const style = me ? me.style : (girl ? GIRL_STYLES : BOY_STYLES)[t(6, 6)];
+  const dress = !me && girl && t(7, 3) === 0;
+  const shorts = !dress && (kind === 'kid' || t(8, 3) !== 0);
+  const kidShorts = kind === 'kid' && t(19, 3) === 0;
+  const pants = me ? me.pants : kidShorts ? KID_SHORTS[t(4, KID_SHORTS.length)] : PANTS[t(4, PANTS.length)];
+  const tank = !me && kind !== 'kid' && t(9, 6) === 0;
+  const print = me || dress ? 9 : t(10, 10); // 0-1 stripes, 2 polka dots, 3 a star, the rest plain
+  const stripes = print < 2;
+  let ink = PRINTS[t(11, PRINTS.length)];
+  if (ink === shirt || (ink === '#ffffff' && ['#ffffff', '#ffc8dd', '#a8dadc', '#fde74c'].includes(shirt))) ink = '#2e2a45'; // stripes you can see
+  const cap = !plain && (me ? me.hat === 'cap' : !girl && kind !== 'adult' && t(12, 4) === 0);
+  const capColor = me ? '#e5484d' : CAPS[t(13, CAPS.length)];
+  const sunhat = !plain && (me ? me.hat === 'sunhat' : girl && kind === 'adult' && t(14, 4) === 0);
+  const shades = !plain && (me ? !!me.shades : kind !== 'kid' && !cap && t(15, 5) === 0);
+  const glasses = !plain && !me && kind === 'adult' && !shades && t(16, 5) === 0;
+  const beard = !me && kind === 'adult' && !girl && t(17, 6) === 0;
   const { hy, hr, sh, hip, sw, hw, aw, lw } = B;
   const s = hr / 10;
   const knee = hip + (FOOT - hip) * 0.42;
@@ -326,10 +375,16 @@ export function personSVG(kind, look = 0, me = null, { sit = false, sleep = fals
     const id = `shirt${++shirtN}`;
     const lines = [];
     for (let y = sh + 4.5; y < top - 2; y += 7.5) {
-      for (const [dy, w] of [[0, 1.1], [1.6, 0.5], [3.1, 1.1]]) lines.push(`<path d="M${20 - sw - 6} ${(y + dy).toFixed(2)} H${20 + sw + 6}" stroke="#fff" stroke-width="${w}" opacity=".9"/>`);
+      for (const [dy, w] of [[0, 1.1], [1.6, 0.5], [3.1, 1.1]]) lines.push(`<path d="M${20 - sw - 6} ${(y + dy).toFixed(2)} H${20 + sw + 6}" stroke="${ink}" stroke-width="${w}" opacity=".9"/>`);
     }
     stripeLines = `<clipPath id="${id}"><path d="${torsoD}"/></clipPath><g clip-path="url(#${id})">${lines.join('')}</g><path d="${torsoD}" fill="none" ${OUT}/>`;
-  } else if ((me ? me.stars : look % 4 === 2) && !dress) stripeLines = star(20, sh + 10, 3.4, '#fff', 'none');
+  } else if (print === 2) {
+    // polka dots, cut to the shirt's shape like the stripes
+    const id = `shirt${++shirtN}`;
+    const dots = [];
+    for (let y = sh + 3, row = 0; y < top; y += 4.6, row++) for (let x = 20 - sw - 4 + (row % 2) * 2.6; x < 20 + sw + 5; x += 5.2) dots.push(`<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="1.1"/>`);
+    stripeLines = `<clipPath id="${id}"><path d="${torsoD}"/></clipPath><g clip-path="url(#${id})" fill="${ink}" opacity=".9">${dots.join('')}</g><path d="${torsoD}" fill="none" ${OUT}/>`;
+  } else if ((me ? me.stars : print === 3) && !dress) stripeLines = star(20, sh + 10, 3.4, me ? '#fff' : ink, 'none');
   const neckline = tank
     ? `<path d="M${20 - 4} ${sh} Q20 ${sh + 5} ${20 + 4} ${sh}" fill="${skin}" stroke="${INK}" stroke-width="0.9"/>`
     : `<path d="M${20 - 3.2} ${sh} Q20 ${sh + 3} ${20 + 3.2} ${sh}" fill="${skin}" stroke="${INK}" stroke-width="0.9"/>`;
@@ -341,7 +396,7 @@ export function personSVG(kind, look = 0, me = null, { sit = false, sleep = fals
   extras += face(kind, look, skin, hair, girl, sleep);
   if (glasses) extras += `<g fill="#fff" fill-opacity=".3" stroke="${INK}" stroke-width="0.9"><circle cx="-3.7" cy="1.2" r="2.7"/><circle cx="3.7" cy="1.2" r="2.7"/></g><path d="M-1 1 Q0 0.2 1 1" stroke="${INK}" stroke-width="0.9" fill="none"/>`;
   if (shades) extras += `<g fill="${INK}"><rect x="-6.9" y="-1" width="5.6" height="4" rx="1.8"/><rect x="1.3" y="-1" width="5.6" height="4" rx="1.8"/></g><path d="M-1.4 0 H1.4" stroke="${INK}" stroke-width="1"/><path d="M-5.6 -0.1 l1.6 0 M2.6 -0.1 l1.6 0" stroke="#fff" stroke-width="0.8" opacity=".6"/>`;
-  if (cap) extras += `<path d="M-10.6 -3 Q-11 -13.4 0 -13.4 Q11 -13.4 10.6 -3 Z" fill="#e5484d" ${OUT}/><path d="M-11.4 -3.6 Q0 -6.4 11.4 -3.6 Q12 -1 10 -0.6 Q0 -2.8 -10 -0.6 Q-12 -1 -11.4 -3.6 Z" fill="#c3423f" ${OUT}/><circle cx="0" cy="-13" r="1.2" fill="#c3423f"/>`;
+  if (cap) extras += `<path d="M-10.6 -3 Q-11 -13.4 0 -13.4 Q11 -13.4 10.6 -3 Z" fill="${capColor}" ${OUT}/><path d="M-11.4 -3.6 Q0 -6.4 11.4 -3.6 Q12 -1 10 -0.6 Q0 -2.8 -10 -0.6 Q-12 -1 -11.4 -3.6 Z" fill="${shade(capColor, -0.15)}" ${OUT}/><circle cx="0" cy="-13" r="1.2" fill="${shade(capColor, -0.15)}"/>`;
   if (me?.hat === 'beanie') extras += `<path d="M-10.4 -2 Q-11 -13 0 -13 Q11 -13 10.4 -2 Z" fill="#3a8ee6" ${OUT}/><path d="M-10.4 -2 Q0 -5 10.4 -2" stroke="#ffd23f" stroke-width="2.4" fill="none"/><path d="M0 -13 V-17" stroke="${INK}" stroke-width="1.4"/><g class="prop" style="transform-origin:0px -17.5px"><path d="M-8 -17.5 Q-4 -20.5 0 -17.5 Q4 -14.5 8 -17.5 Q4 -20.5 0 -17.5 Q-4 -14.5 -8 -17.5 Z" fill="#e5484d" ${OUT}/></g>`;
   if (me?.hat === 'crown') extras += `<path d="M-9 -6 L-10 -17 L-5 -11 L0 -19 L5 -11 L10 -17 L9 -6 Z" fill="#ffd23f" ${OUT}/><circle cx="0" cy="-9" r="1.6" fill="#e5484d"/><circle cx="-5.6" cy="-8.4" r="1.1" fill="#3a8ee6"/><circle cx="5.6" cy="-8.4" r="1.1" fill="#3a8ee6"/>`;
   if (sunhat) extras += `<ellipse cx="0" cy="-6" rx="16.5" ry="3.6" fill="#f7e3b5" ${OUT}/><path d="M-8 -6 Q-8.4 -15.5 0 -15.5 Q8.4 -15.5 8 -6 Z" fill="#f7e3b5" ${OUT}/><path d="M-8 -7.6 Q0 -6 8 -7.6 L8 -6 Q0 -4.4 -8 -6 Z" fill="${shirt}"/>`;
@@ -468,17 +523,60 @@ const CONE = {
     <path d="M4 21 H36" stroke="${INK}" stroke-width="3.6" stroke-linecap="round"/><path d="M4 21 H36" stroke="#e7f5ff" stroke-width="1.8" stroke-linecap="round"/>`,
 };
 
+// A freeze pop tube at x, w wide, from the top to the bottom of the box.
+function freezeTube(x, color, w) {
+  return `<rect x="${x}" y="2" width="${w}" height="35.5" rx="2" fill="${color}" ${ICE_OUT}/><path d="M${x} 6 H${x + w} M${x} 33.5 H${x + w}" stroke="${INK}" stroke-width="1" opacity=".45"/><rect x="${x + w * 0.2}" y="8" width="${w * 0.22}" height="22" rx="${w * 0.11}" fill="#fff" opacity=".5"/>`;
+}
+// A push pop: sherbet poking out of a striped paper tube.
+function pushPop(color, light) {
+  return `<path d="M18.5 34 H21.5 V39 H18.5 Z" fill="#fffaf0" ${ICE_OUT}/><path d="M13 13 Q13 2.5 20 2.5 Q27 2.5 27 13 Z" fill="${color}" ${ICE_OUT}/><path d="M16 9 Q16.4 5.6 19 5" stroke="${light}" stroke-width="2" fill="none" stroke-linecap="round"/><rect x="12" y="12" width="16" height="23" rx="1.5" fill="#fffaf0" ${ICE_OUT}/><path d="M12.8 18 H27.2 M12.8 29 H27.2" stroke="${color}" stroke-width="3"/><path d="M12.8 23.5 H27.2" stroke="${light}" stroke-width="2.4"/>`;
+}
+// A paper cup of Italian ice. seeds: little flecks of fruit (strawberry).
+export function iceCupArt(color, seeds = false) {
+  const flecks = seeds ? [[14, 13], [18.5, 9], [23, 12.5], [26.5, 9.5], [20, 14], [16, 8.5]].map(([x, y]) => `<ellipse cx="${x}" cy="${y}" rx=".9" ry="1.3" fill="#d6336c"/>`).join('') : '';
+  const out = `stroke="${INK}" stroke-width="1.4" stroke-linejoin="round"`;
+  return `<path d="M9 16 Q9 4 20 4 Q31 4 31 16 Z" fill="${color}" ${out}/>${flecks}<path d="M13 12 Q14 7 19 6.5" stroke="#fff" stroke-width="2" opacity=".6" fill="none" stroke-linecap="round"/><path d="M7 15 H33 L29.5 37 H10.5 Z" fill="#fffaf0" ${out}/><path d="M9 21 H31 M9.8 27 H30.2" stroke="#ff6f91" stroke-width="2"/>`;
+}
 // Popsicles on a stick, in the same 40 × 40 box as the ice creams.
 const STICK = `<path d="M18 27 H22 V37.5 Q22 39.5 20 39.5 Q18 39.5 18 37.5 Z" fill="#ecc993" ${ICE_OUT}/>`;
 const POP_ART = {
   rocketPop: `${STICK}<path d="M20 1 L29 12 H11 Z" fill="#e5484d" ${ICE_OUT}/><path d="M11 12 H29 V19.5 H11 Z" fill="#fffaf0" ${ICE_OUT}/><path d="M11 19.5 H29 V26.5 Q29 28.5 27 28.5 H13 Q11 28.5 11 26.5 Z" fill="#3a8ee6" ${ICE_OUT}/><path d="M14 5 L12.8 18 M14 21 V26" stroke="#fff" stroke-width="1.8" opacity=".6" stroke-linecap="round"/>`,
   fudgePop: `${STICK}<rect x="11" y="3" width="18" height="26" rx="8" fill="#7b4a2e" ${ICE_OUT}/><path d="M15 8.5 Q15 6.2 17.4 6" stroke="#b07a55" stroke-width="2" fill="none" stroke-linecap="round"/><path d="M14.5 14 V24" stroke="#5e3520" stroke-width="1.4" stroke-linecap="round"/>`,
-  freezePop: `<rect x="14" y="2" width="12" height="35.5" rx="2" fill="#c08cff" ${ICE_OUT}/><path d="M14 6 H26 M14 33.5 H26" stroke="#7d5ba6" stroke-width="1.2"/><rect x="16.5" y="8" width="2.6" height="22" rx="1.3" fill="#ead9ff"/>`,
+  // a box of assorted colors (one pop of a known color is drawn by freezePopArt)
+  freezePop: `<g transform="rotate(-8 9.5 20)">${freezeTube(5.5, '#ff4d6d', 8)}</g><g transform="rotate(8 30.5 20)">${freezeTube(26.5, '#4cc9f0', 8)}</g>${freezeTube(16, '#ffd23f', 8)}`,
+  // push pops: sherbet in a paper tube, with the push stick poking out the bottom
+  pushOrange: pushPop('#ff9f1c', '#ffc46b'),
+  pushGrape: pushPop('#9b5de5', '#c39bf0'),
+  // orange outside, vanilla inside: a bite out of the top shows the cream
+  orangeCream: `${STICK}<path d="M11 21 V11 Q11 3 19 3 Q21 3 22.5 3.6 Q21.5 8.5 25 10.5 Q27.5 12 29 11.4 V21 Q29 29 20 29 Q11 29 11 21 Z" fill="#ff9f1c" ${ICE_OUT}/><path d="M22.5 3.6 Q21.5 8.5 25 10.5 Q27.5 12 29 11.4 L28.6 15 Q24 15.5 21.5 12 Q19.6 8.8 20.4 3.2 Z" fill="#fff6e0"/><path d="M22.5 3.6 Q21.5 8.5 25 10.5 Q27.5 12 29 11.4" fill="none" ${ICE_OUT}/><path d="M14.5 9 Q14.5 6.5 16.6 6" stroke="#ffd29a" stroke-width="2" fill="none" stroke-linecap="round"/>`,
+  // strawberry shortcake bar: cake crumbs all over, pink and white
+  shortcake: `${STICK}<rect x="11" y="3" width="18" height="26" rx="8" fill="#fff1f4" ${ICE_OUT}/>${[[14.5, 8, '#ff7aa2'], [19, 6, '#f2c27a'], [24.5, 8.5, '#ff7aa2'], [15.5, 13.5, '#f2c27a'], [21, 11, '#ff7aa2'], [26, 14, '#f2c27a'], [14, 19, '#ff7aa2'], [19.5, 16.5, '#fff'], [24, 19.5, '#ff7aa2'], [17, 23.5, '#f2c27a'], [22.5, 24.5, '#ff7aa2'], [20, 21, '#f2c27a'], [16.5, 10.5, '#fff']].map(([x, y, c]) => `<circle cx="${x}" cy="${y}" r="1.6" fill="${c}" stroke="#c9577c" stroke-width=".5"/>`).join('')}`,
+  // two chocolate cookies with vanilla in between
+  // a vanilla bar dipped in chocolate with crunchy bits, a bite out of the corner
+  crunchBar: `${STICK}<path d="M11 21 V10 Q11 3 18 3 H22.5 Q22 7.5 26 8.6 Q28 9.2 29 8.4 V21 Q29 29 20 29 Q11 29 11 21 Z" fill="#6b3d24" ${ICE_OUT}/><path d="M22.5 3 Q22 7.5 26 8.6 Q28 9.2 29 8.4 L29 11.5 Q24.5 12.5 22 9.6 Q20.4 7.4 21 3 Z" fill="#fff6e0"/><path d="M22.5 3 Q22 7.5 26 8.6 Q28 9.2 29 8.4" fill="none" ${ICE_OUT}/>${[[14.5, 9], [18, 7], [15, 14], [19.5, 12.5], [24, 14], [14, 20], [18.5, 18], [23, 19.5], [26.5, 17], [16.5, 25], [21.5, 24.5], [25.5, 23]].map(([x, y]) => `<circle cx="${x}" cy="${y}" r="1.1" fill="#e2b77a"/>`).join('')}`,
+  // a wrapped cone: waffle cone, chocolate on top with nuts
+  sundaeCone: `<path d="M10 15 L20 39 L30 15 Z" fill="#e2a65a" ${ICE_OUT}/><path d="M13 21 L24 31 M16 17 L27 25 M24 17 L14 27 M28 19 L17 33" stroke="#b97a32" stroke-width="1.2"/><path d="M11 18 L29 18 L27.6 22 L12.4 22 Z" fill="#3a8ee6" ${ICE_OUT}/><path d="M9 16 Q9 3 20 3 Q31 3 31 16 Z" fill="#5a3322" ${ICE_OUT}/>${[[14, 10], [18, 6.5], [22.5, 8], [26, 11.5], [17, 12.5], [21.5, 12.5]].map(([x, y]) => `<ellipse cx="${x}" cy="${y}" rx="1.4" ry="1" fill="#f2d39a" stroke="#8a5a2b" stroke-width=".5"/>`).join('')}<path d="M13 9 Q14 5.5 17 4.8" stroke="#8a5a40" stroke-width="1.6" fill="none" stroke-linecap="round"/>`,
+  // a bottle of water with a blue cap and label
+  water: `<rect x="16" y="1.5" width="8" height="4.5" rx="1" fill="#3a8ee6" ${ICE_OUT}/><path d="M16.5 6 H23.5 Q23.5 9 27 11 Q28 12 28 14 V36 Q28 39 25 39 H15 Q12 39 12 36 V14 Q12 12 13 11 Q16.5 9 16.5 6 Z" fill="#d6f1fb" ${ICE_OUT}/><rect x="12" y="20" width="16" height="9" fill="#3a8ee6" ${ICE_OUT}/><path d="M15 23.5 Q20 21.5 25 23.5" stroke="#fff" stroke-width="1.4" fill="none"/><path d="M15 14 V18 M15 32 V35" stroke="#fff" stroke-width="1.6" stroke-linecap="round" opacity=".8"/>`,
+  // a little bottle of red fruit punch
+  punch: `<rect x="15.5" y="1.5" width="9" height="5" rx="1" fill="#ffd23f" ${ICE_OUT}/><path d="M16 6.5 H24 V10 Q28 12 28 16 V36 Q28 39 25 39 H15 Q12 39 12 36 V16 Q12 12 16 10 Z" fill="#e5484d" ${ICE_OUT}/><rect x="12" y="20" width="16" height="10" fill="#ffd23f" ${ICE_OUT}/>${[[16, 25], [20, 23.5], [24, 25.5]].map(([x, y]) => `<circle cx="${x}" cy="${y}" r="1.7" fill="#e5484d"/>`).join('')}<path d="M15 14 V18" stroke="#fff" stroke-width="1.6" stroke-linecap="round" opacity=".7"/>`,
+  iceCherry: iceCupArt('#ff4d6d'),
+  iceStrawberry: iceCupArt('#ffa3bd', true),
+  iceLemon: iceCupArt('#ffe066'),
+  iceBlue: iceCupArt('#4cc9f0'),
+  sandwich: `<g transform="rotate(-8 20 22)"><rect x="5" y="23" width="30" height="7" rx="2" fill="#4a2a1a" ${ICE_OUT}/><rect x="6" y="17" width="28" height="7" fill="#fffaf0" ${ICE_OUT}/><rect x="5" y="11" width="30" height="7" rx="2" fill="#5a3322" ${ICE_OUT}/>${[9, 15, 21, 27, 31].map((x, i) => `<circle cx="${x}" cy="${i % 2 ? 13.6 : 15.4}" r=".9" fill="#2e1a10"/>`).join('')}<path d="M8 12.6 H18" stroke="#8a5a40" stroke-width="1.2" stroke-linecap="round"/></g>`,
 };
+// One freeze pop of a given color.
+export function freezePopArt(color) {
+  return freezeTube(14, color, 12);
+}
 
 export function iceCreamSVG(item, size = 28) {
   if (!item) return '';
-  if (item.pop) return `<svg viewBox="0 0 40 40" width="${size}" height="${size}" class="icecream" xmlns="http://www.w3.org/2000/svg">${POP_ART[item.pop] || ''}</svg>`;
+  if (item.pop) {
+    const art = item.pop === 'freezePop' && item.color ? freezePopArt(item.color) : POP_ART[item.pop] || '';
+    return `<svg viewBox="0 0 40 40" width="${size}" height="${size}" class="icecream" xmlns="http://www.w3.org/2000/svg">${art}</svg>`;
+  }
   const { flavor, container, topping } = item;
   const bowl = container === 'bowl';
   const base = CONE[container] || CONE.cake;
@@ -1039,9 +1137,10 @@ function sky() {
 // opts: { tall, front, rain }. Sprites (the cart, people, stands, the swings) are drawn on top by the cart screen.
 // On rainy days more clouds roll in (the stage's .overcast class grays them and hides the sun).
 // ground: where the stories stand. story: how big the stories are drawn (a bit smaller than the customers, who
-// are closer). bench: the park bench by the path (middle, bottom), which the sandwich story uses.
+// are closer). bench: the park bench by the path (middle, bottom), which the sandwich story uses. lamp: the lamp post
+// in front of the lawn (laptops only), which the stories keep clear of.
 export const PARK_VIEW = {
-  wide: { w: 1000, h: 500, ground: 364, story: 0.92, bench: [500, 410] },
+  wide: { w: 1000, h: 500, ground: 364, story: 0.92, bench: [500, 410], lamp: 780 },
   tall: { w: 360, h: 600, ground: 392, story: 0.85, bench: [205, 440] },
 };
 // The park bench, 100 × 40. The stories draw someone sitting on it 116 story units wide.
@@ -1128,7 +1227,7 @@ export function parkSVG({ tall = false, front = false, rain = false } = {}) {
   if (front) {
     const inner = tall
       ? `${bed(118, 240, pathTop(180) - 6)}${path}`
-      : `${bed(300, 430, pathTop(365) - 6)}${bed(600, 740, pathTop(670) - 6)}${parkLamp(780, pathTop(780) - 2)}${path}`;
+      : `${bed(300, 430, pathTop(365) - 6)}${bed(600, 740, pathTop(670) - 6)}${parkLamp(PARK_VIEW.wide.lamp, pathTop(PARK_VIEW.wide.lamp) - 2)}${path}`;
     return `${open}${inner}</svg>`;
   }
   if (tall) {
@@ -1200,7 +1299,7 @@ export function streetSVG(area) {
   return wrapScene(`<g class="roll"><g>${strip}</g><g transform="translate(999 0)">${strip}</g></g>`);
 }
 
-const MAP_ICONS = { home: '🏡', school: '🏫', pool: '🏊', office: '🏢', fields: '⚾', playground: '🛝', market: '🍎', zoo: '🦒', park: '🌳', library: '📚' };
+const MAP_ICONS = { home: '🏡', school: '🏫', pool: '🏊', office: '🏢', fields: '⚾', playground: emo('slide'), market: '🍎', zoo: '🦒', park: '🌳', library: '📚' };
 export const mapIcon = (kind) => MAP_ICONS[kind] || '📍';
 
 // ---------- the town map ----------
@@ -1293,7 +1392,7 @@ function mapPlace(f, [x, y]) {
       art = `<rect x="-24" y="-12" width="48" height="26" fill="#e9c891" stroke="#8b5a2b" stroke-width="2"/><path d="M-28 -12 L0 -26 L28 -12 Z" fill="#c08552" stroke="#8b5a2b" stroke-width="1.5"/>${[-16, -8, 8, 16].map((cx) => `<rect x="${cx - 2}" y="-10" width="4" height="22" fill="#fffaf0"/>`).join('')}<text y="10" text-anchor="middle" font-size="13">📚</text>`;
       break;
     case 'playground':
-      art = `<circle r="17" fill="#f0d6a2" stroke="#c9a227" stroke-width="2"/><text y="7" text-anchor="middle" font-size="19">🛝</text>`;
+      art = `<circle r="17" fill="#f0d6a2" stroke="#c9a227" stroke-width="2"/>${emoSVG('slide', 24)}`;
       break;
     case 'office':
       art = f.id === 'cityHall'

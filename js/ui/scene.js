@@ -1,7 +1,8 @@
 // The street: backdrop for the current spot, the truck, and customers walking up.
-import { SPOT, FEATURE, FLAVORS, CONTAINERS, TOPPINGS, POPS, POP, CONFIG, MARKET_DAYS } from '../config.js';
+import { SPOT, FEATURE, FLAVORS, CONTAINERS, TOPPINGS, POPS, POP, CONFIG, MARKET_DAYS, FREEZE_TINTS } from '../config.js';
 import { skySVG, tileSVG, truckSVG, personSVG, iceCreamSVG } from '../art.js';
-import { esc, money } from './dom.js';
+import { esc, money, toast } from './dom.js';
+import { coinIcon, emo } from '../icons.js';
 
 const NAMES = Object.fromEntries([...FLAVORS, ...CONTAINERS, ...TOPPINGS, ...POPS].map((x) => [x.id, x.name.toLowerCase()]));
 
@@ -13,6 +14,12 @@ export function itemName(it) {
   const base = it.container === 'bowl' ? `${flavor} bowl` : `${flavor} ${NAMES[it.container] || 'cone'}`;
   return `a ${base}${it.topping ? ` with ${NAMES[it.topping]}` : ''}`;
 }
+
+// The line at the window: how long the front group is served (ms, by game speed), the gap between
+// groups (px), and the most groups drawn in line (more than that are shown as quick blips).
+const SERVE_MS = { 1: 1500, 2: 650 };
+const LINE_GAP_PX = 22;
+const MAX_LINE = 7;
 
 // Sky colors through the day (10am → 8pm).
 const SKY = [
@@ -72,6 +79,9 @@ export class Scene {
     this.feed = root.querySelector('.feed');
     this.truckKey = '';
     this.active = 0;
+    this.line = []; // groups waiting at the window, front first: { el, p, comments, arriveAt }
+    this.serving = false;
+    this.gen = 0;
     this.curbHold = 0; // the truck stays stopped (on screen) until this time while curb customers are served
     this.lastHint = 0;
     this.truckSettleAt = 0;
@@ -239,10 +249,14 @@ export class Scene {
     this.root.classList.toggle('driving', moving);
     this.root.classList.toggle('stopped', open && !moving);
 
-    const key = `${s.color}|${s.business}|${moving}|${s.bling || 0}`;
+    // at the garage (a week-long engine repair): an empty street
+    this.truckEl.classList.toggle('in-shop', !!g.inShop);
+    const shabby = !!s.truckUsed && !s.truckFixed;
+    const key = `${s.color}|${s.business}|${moving}|${s.bling || 0}|${shabby}`;
     if (key !== this.truckKey) {
       this.truckKey = key;
-      this.truckEl.innerHTML = truckSVG(this.app.truckHex(), s.business, { wheelsSpin: moving, bling: s.bling || 0 });
+      // a used truck leaks oil: a puddle grows under it while it's parked
+      this.truckEl.innerHTML = truckSVG(this.app.truckHex(), s.business, { wheelsSpin: moving, bling: s.bling || 0, used: shabby }) + (s.truckUsed ? '<div class="oil-puddle"></div>' : '');
     }
     // what's going on, in a few words
     let html = '';
@@ -261,6 +275,8 @@ export class Scene {
   handle(ev, speed) {
     if (ev.t === 'served') this.party(ev.party, speed);
     else if (ev.t === 'noGas') this.blip('⛽ Out of gas!', 50, 30, 'bad');
+    else if (ev.t === 'breakdown') this.app.truckBrokeDown?.(ev);
+    else if (ev.t === 'grandmaOil') toast('👵 Grandma called: "Did you check the oil, dear? That old truck drinks it!"', 4500);
     else if (ev.t === 'spoiled') this.blip(`🤢 ${ev.qty} mix spoiled`, 50, 30, 'bad');
   }
 
@@ -282,11 +298,13 @@ export class Scene {
     switch (m.result) {
       case 'broke': {
         const cash = m.cash >= 100 ? money(m.cash).replace('.00', '') : `${m.cash}¢`;
-        return { t: `I can't buy anything. I only have ${cash}!`, c: 'meh', e: '🪙' };
+        return { t: `I can't buy anything. I only have ${cash}!`, c: 'meh', e: coinIcon() };
       }
       case 'tooExpensive': {
         return bad(`${money(m.askedPrice || 0)} for ${itemName(m.askedItem || m.want)}? Too expensive!`, '💸');
       }
+      case 'lineTooLong':
+        return bad('That line is too long!', '😩');
       case 'mad':
         return m.declined ? bad('No thanks.', '🙅') : bad(`No ${NAMES[m.missing] || 'ice cream'}?!`, '😠');
       case 'giftCard':
@@ -296,7 +314,7 @@ export class Scene {
       case 'none':
         return null;
       case 'bought': {
-        if (m.dropped) return m.replaced ? good('💥 Thank you for a new one!!', '🥹') : bad('💥 I dropped it! 😭', '😭');
+        if (m.dropped) return m.replaced ? good('💥 Thank you for a new one!!', emo('teary')) : bad('💥 I dropped it! 😭', '😭');
         if (m.mood === 'greatDeal') return good('What a great deal!', '🤩');
         if (m.mood === 'noTopping') return bad('No sprinkles? 😕');
         if (m.mood === 'noNapkin') return bad('No napkins? Sticky hands! 🧻', '🧻');
@@ -359,7 +377,8 @@ export class Scene {
       comments = [[parent, line], ...p.members.filter((m) => m.kind === 'kid').map((k) => [k, { t: '', c: 'meh', e: '😢' }])];
     }
     const say = (list) => list.filter(([, b]) => b.t).forEach((c) => this.say(...c));
-    const fast = speed >= 3 || this.active >= 6 || document.hidden;
+    // too busy to watch each group walk up (or the line is long already): quick blips instead
+    const fast = speed >= 3 || this.line.length >= MAX_LINE || this.active >= MAX_LINE + 4 || document.hidden;
     if (p.alreadyHad && fast) {
       // a hint, not a sale: show it now and then, even when things are moving fast
       if (speed < 9 && performance.now() - this.lastHint > 8000) {
@@ -380,56 +399,141 @@ export class Scene {
       if (bad && speed < 9) this.say(...bad);
       return;
     }
-    this.app.partyWalking(p);
+    const leaving = p.members.some((m) => m.result === 'lineTooLong');
+    if (!leaving) this.app.partyWalking(p); // not counted on the dashboard until they reach the window
     const dur = speed === 1 ? 1600 : 700;
-    const wait = speed === 1 ? 1800 : 800;
     const el = document.createElement('div');
     el.className = 'party walking' + (p.curb ? ' curb' : '');
     el.dataset.cam = this.camX;
     // curb customers stand on the sidewalk ahead of the truck and wave it down
     el.style.left = p.curb ? '78%' : '-15%';
     el.style.transitionDuration = dur + 'ms';
-    // the truck waits for anyone walking up to buy, until they've been served
-    if (!p.alreadyHad) this.curbHold = Math.max(this.curbHold, performance.now() + (p.curb ? dur * 2 + wait : dur + wait));
     el.innerHTML = p.members
       .map((m) => {
         const b = comments.find(([x]) => x === m)?.[1];
-        return `<div class="who">${b ? `<div class="bubble ${b.c} hidden">${b.e}</div>` : ''}${personSVG(m.kind, m.look)}<div class="hand hidden">${m.result === 'bought' && m.item && !(m.dropped && !m.replaced) ? iceCreamSVG(m.item, 22) : ''}</div></div>`;
+        return `<div class="who">${b ? `<div class="bubble ${b.c} hidden">${b.e}</div>` : ''}${personSVG(m.kind, m.look)}<div class="hand hidden">${m.result === 'bought' && m.item && !(m.dropped && !m.replaced) ? iceCreamSVG(m.item.pop === 'freezePop' ? { ...m.item, color: FREEZE_TINTS[(m.look || 0) % FREEZE_TINTS.length] } : m.item, 22) : ''}${m.result === 'bought' && m.drink ? iceCreamSVG({ pop: m.drink }, 18) : ''}</div></div>`;
       })
       .join('');
     if (p.curb) el.insertAdjacentHTML('afterbegin', '<div class="wave bubble good">👋</div>');
     this.crowd.appendChild(el);
     this.active++;
-    const slot = this.windowSlot(el) + ((this.active % 3) - 1) * 4;
-    requestAnimationFrame(() => requestAnimationFrame(() => (el.style.left = slot + '%')));
-    setTimeout(() => {
-      if (!el.isConnected) return;
-      el.classList.remove('walking');
-      el.querySelectorAll('.bubble, .hand').forEach((b) => b.classList.remove('hidden'));
-      el.querySelector('.wave')?.remove();
-      this.app.partyArrived(p.id);
-      say(comments);
-      if (p.bill > 0) {
-        this.blip(`+${money(p.bill)}`, slot + 6, 45, 'good');
-        this.app.cash();
+    const gen = this.gen;
+    const later = (ms, fn) => setTimeout(() => gen === this.gen && fn(), ms);
+    const walkOff = (to, ms) => {
+      el.classList.add('walking');
+      el.style.transitionDuration = ms + 'ms';
+      el.style.left = to;
+      later(ms + 100, () => {
+        el.remove();
+        this.active--;
+      });
+    };
+    // the line is too long: walk up to the back of it, grumble, and turn around
+    if (leaving) {
+      const back = this.lineSpot(this.line.length, el);
+      requestAnimationFrame(() => requestAnimationFrame(() => (el.style.left = back + '%')));
+      later(dur, () => {
+        el.classList.remove('walking');
+        el.classList.add('flip');
+        el.querySelectorAll('.bubble').forEach((b) => b.classList.remove('hidden'));
+        say(comments);
+      });
+      later(dur + 900, () => walkOff('-20%', dur * 1.3));
+      return;
+    }
+    // join the line of groups at the window; the front group gets served, then everyone moves up
+    const entry = { el, p, comments, arriveAt: performance.now() + dur, curb: p.curb };
+    this.line.push(entry);
+    this.layoutLine(dur);
+    this.holdForLine();
+    later(dur, () => el.classList.remove('walking'));
+    this.serveNext(speed);
+  }
+
+  // Where the group at place i in line stands (left edge, %): the front group at the window,
+  // the others behind it to the left, each group close together with a gap between groups.
+  lineSpot(i, el = this.line[i]?.el) {
+    const cr = this.crowd.getBoundingClientRect();
+    const w = (x) => (cr.width ? (x.offsetWidth / cr.width) * 100 : 8);
+    let left = this.windowSlot(this.line[0]?.el || el);
+    const gap = cr.width ? (LINE_GAP_PX / cr.width) * 100 : 2;
+    for (let j = 1; j <= i; j++) left -= (this.line[j]?.el ? w(this.line[j].el) : w(el)) + gap;
+    return left;
+  }
+  // Move everyone to their place in line (a short walk when the line moves up).
+  layoutLine(dur = 600) {
+    this.line.forEach((e, i) => {
+      const to = this.lineSpot(i).toFixed(2) + '%';
+      if (e.el.style.left === to) return;
+      const walking = performance.now() < e.arriveAt;
+      if (!walking) {
+        e.el.classList.add('walking');
+        e.el.style.transitionDuration = dur + 'ms';
+        setTimeout(() => e.el.isConnected && performance.now() >= e.arriveAt && e.el.classList.remove('walking'), dur);
       }
-      if (p.boughtCard) this.blip('🎁 +card', slot + 12, 38, 'good');
-    }, dur);
+      requestAnimationFrame(() => requestAnimationFrame(() => (e.el.style.left = to)));
+    });
+  }
+  // The truck stays stopped (on screen) while anyone is in line.
+  holdForLine() {
+    const per = this.app.speed === 1 ? SERVE_MS[1] : SERVE_MS[2];
+    const last = this.line.at(-1);
+    if (last) this.curbHold = Math.max(this.curbHold, last.arriveAt, performance.now() + this.line.length * per);
+  }
+  // Serve the group at the front once they've walked up, then send them off and move the line up.
+  serveNext(speed) {
+    if (this.serving || !this.line.length) return;
+    const e = this.line[0];
+    const gen = this.gen;
+    const wait = e.arriveAt - performance.now();
+    if (wait > 0) {
+      this.serving = true;
+      setTimeout(() => {
+        if (gen !== this.gen) return;
+        this.serving = false;
+        this.serveNext(speed);
+      }, wait);
+      return;
+    }
+    this.serving = true;
+    const { el, p, comments } = e;
+    el.classList.remove('walking');
+    el.querySelectorAll('.bubble, .hand').forEach((b) => b.classList.remove('hidden'));
+    el.querySelector('.wave')?.remove();
+    this.app.partyArrived(p.id);
+    comments.filter(([, b]) => b.t).forEach((c) => this.say(...c));
+    const at = parseFloat(el.style.left) || 40;
+    if (p.bill > 0) {
+      this.blip(`+${money(p.bill)}`, at + 6, 45, 'good');
+      this.app.cash();
+    }
+    if (p.boughtCard) this.blip('🎁 +card', at + 12, 38, 'good');
+    // a bigger group takes a little longer at the window
+    const ms = (speed === 1 ? SERVE_MS[1] : SERVE_MS[2]) * (0.8 + 0.2 * p.members.length);
     setTimeout(() => {
+      if (gen !== this.gen) return;
+      this.line.shift();
       // walk off home; if the truck pulls away first, they stay behind on the street
+      const dur = speed === 1 ? 1600 : 700;
       el.classList.add('walking');
       el.style.transitionDuration = dur * 1.4 + 'ms';
       el.style.left = '115%';
-    }, dur + wait);
-    setTimeout(() => {
-      el.remove();
-      this.active--;
-    }, dur * 2.4 + wait + 100);
+      setTimeout(() => {
+        el.remove();
+        this.active--;
+      }, dur * 1.4 + 100);
+      this.layoutLine();
+      this.serving = false;
+      this.serveNext(this.app.speed);
+    }, ms);
   }
 
   clearCrowd() {
     this.crowd.innerHTML = '';
     this.active = 0;
+    this.line = [];
+    this.serving = false;
+    this.gen++; // forget timers for people who were on screen
     this.app.walking?.clear();
   }
 }

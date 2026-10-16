@@ -1,12 +1,12 @@
 // Frozen Assets — app controller: title screen, setup, the game loop, HUD, and wiring of panels.
-import { CONFIG, TRUCK_COLORS, TRUCK_PRICE, BLING, SPOT, FLAVORS, itemKey, itemFromKey } from './config.js';
-import { Game, DAY_NAMES } from './engine.js';
+import { CONFIG, TRUCK_COLORS, TRUCK_PRICE, USED_TRUCK, usedTruckPrice, BLING, SPOT, FLAVORS, itemKey, itemFromKey } from './config.js';
+import { Game, DAY_NAMES, SEASON_DAYS } from './engine.js';
 import { Music } from './music.js';
 import { Ambience, cashRegister } from './ambience.js';
 import { storage } from './storage.js';
 import { truckSVG, iceCreamSVG } from './art.js';
 import { leaderboardConfig, isConfigured, postScore, fetchScores, flushPending } from './leaderboard.js';
-import { esc, money, el, openModal, onActs, anyModalOpen, closeAllModals, toast, fmtTime } from './ui/dom.js';
+import { esc, money, el, openModal, onActs, anyModalOpen, closeAllModals, toast, fmtTime, PAUSE_ICON, askYes } from './ui/dom.js';
 import { Scene } from './ui/scene.js';
 import { shopPanel, menuPanel, mapPanel, giftPanel, inventoryPanel, policyPanel, truckPanel, booksPanel } from './ui/panels.js';
 import { openShoebox } from './ui/filing.js';
@@ -14,8 +14,10 @@ import { seasonEnd } from './ui/reports.js';
 import { showDecision } from './ui/popups.js';
 import { buildExport, exportFileName } from './export.js';
 import { startCart } from './ui/cart.js';
+import { coinIcon, towTruckIcon, cartIcon } from './icons.js';
 
 const C = CONFIG;
+const DAY_FULL = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 // Real milliseconds per game minute at each speed: ▶ half a second, ▶▶ a bit faster, ▶▶▶ fast.
 const MS_PER_MIN = [0, 500, 150, 12];
 
@@ -47,7 +49,7 @@ class App {
   // Music on or off. Turning it back on mid-day starts the tune again.
   setMusicOn(on) {
     this.music.setTuneOn(on);
-    if (on && this.game?.state.phase === 'open') this.music.play();
+    if (on && this.game?.state.phase === 'open' && this.speed !== 0) this.music.play();
   }
   saveSettings() {
     this.settings.musicVolume = this.music.volume;
@@ -95,15 +97,15 @@ class App {
           const truckOn = st && st.phase !== 'lost';
           const info = st ? (st.phase === 'lost' ? '🚚 Truck was taken 😢' : `🚚 Summer ${st.season} · Week ${Math.min(12, Math.ceil(st.day / 7))} · ${DAY_NAMES[(st.day - 1) % 7]}`) : '';
           return `<div class="player-card"><div class="name">${esc(n)}</div>
-            ${ct ? `<div class="sub">🛒 Cooler · Day ${ct.day}</div>` : ''}${info ? `<div class="sub">${info}</div>` : ''}${!ct && !st ? '<div class="sub">No game yet</div>' : ''}
+            ${ct ? `<div class="sub">${cartIcon()} Cooler · Day ${ct.day}</div>` : ''}${info ? `<div class="sub">${info}</div>` : ''}${!ct && !st ? '<div class="sub">No game yet</div>' : ''}
             <div class="stack">${truckOn ? `<button class="btn go" data-act="cont" data-n="${esc(n)}">🚚 Truck</button>` : ''}
-            <button class="btn ${truckOn ? '' : ct ? 'go' : 'pink'}" data-act="cart" data-n="${esc(n)}">🛒 ${ct ? 'Cooler' : 'Start at the park'}</button>
-            ${!truckOn ? `<button class="link tiny" data-act="new" data-n="${esc(n)}">Skip to a truck</button>` : ''}</div></div>`;
+            <button class="btn ${truckOn ? '' : ct ? 'go' : 'pink'}" data-act="cart" data-n="${esc(n)}">${cartIcon()} ${ct ? 'Cooler' : 'Start at the park'}</button>
+            ${!truckOn ? `<button class="link tiny" data-act="new" data-n="${esc(n)}">Buy a Truck</button>` : ''}</div></div>`;
         })
         .join('')}
         <div class="player-card"><div class="name">➕</div><div class="sub">${names.length ? 'Someone new' : 'Add a player'}</div>
           <input class="text-in" style="font-size:16px" maxlength="16" placeholder="Name" aria-label="New player name">
-          <button class="btn pink" style="margin-top:6px" data-act="newName">🛒 Start</button></div>
+          <button class="btn pink" style="margin-top:6px" data-act="newName">${cartIcon()} Start</button></div>
       </div>
       <div class="row center"><button class="btn yellow" data-act="lb">🏆 Leaderboard</button><button class="btn" data-act="settings">⚙️ Settings</button></div>
     </div>`);
@@ -111,9 +113,9 @@ class App {
     onActs(scr, {
       cont: (t) => this.loadGame(t.dataset.n),
       cart: (t) => startCart(this, t.dataset.n),
-      new: (t) => {
+      new: async (t) => {
         const n = t.dataset.n;
-        if (storage.loadGame(n) && storage.loadGame(n).phase !== 'lost' && !confirm(`Start over for ${n}? The saved game will be replaced.`)) return;
+        if (storage.loadGame(n) && storage.loadGame(n).phase !== 'lost' && !(await askYes(`Start over for ${esc(n)}? The saved game will be replaced.`, { yes: 'Start over', no: 'Keep it' }))) return;
         this.newGame(n);
       },
       newName: () => {
@@ -129,15 +131,19 @@ class App {
 
   // ---------- setup ----------
   // opts.ownerCash: money from the park cart, put in as the owner's share. onBack: where ◀ at the bank goes.
-  // onStart: runs once the truck is bought.
-  newGame(player, { ownerCash = 0, onBack = null, onStart = null } = {}) {
+  // onStart: runs once the truck is bought. partner: Grandma is putting in the money instead of the bank:
+  // { max, startCash, slice } (she covers the truck plus startCash for supplies, up to max).
+  newGame(player, { ownerCash = 0, onBack = null, onStart = null, partner = null } = {}) {
     closeAllModals();
     this.stopLoop();
     document.body.innerHTML = '';
-    let step = 'bank';
+    let step = partner ? 'truck' : 'bank';
     let loan = null;
+    let pick = null; // which truck on the lot
     let color = null;
     let bling = 0;
+    let used = false;
+    let miles = null;
     let name = `${player}'s Ice Cream`;
     // The lot: one truck in each color with random bling, and at least one truck at every price.
     const levels = [...BLING.map((b) => b.level), ...TRUCK_COLORS.slice(BLING.length).map(() => Math.floor(Math.random() * BLING.length))];
@@ -145,7 +151,16 @@ class App {
       const j = Math.floor(Math.random() * (i + 1));
       [levels[i], levels[j]] = [levels[j], levels[i]];
     }
-    const lot = TRUCK_COLORS.map((c, i) => ({ color: c.id, bling: levels[i] })).sort((a, b) => a.bling - b.bling); // cheapest first
+    // ...plus a couple of used trucks: about half price, no bling, and a bit worn. Their miles spread from low to high,
+    // with a gap between them (fewer miles cost more).
+    const usedColors = [...TRUCK_COLORS].sort(() => Math.random() - 0.5).slice(0, USED_TRUCK.usedOnLot);
+    const [lo, hi] = USED_TRUCK.miles;
+    const band = (hi - lo) / (2 * usedColors.length - 1);
+    const randMiles = (a, b) => Math.round((a + Math.random() * (b - a)) / 1000) * 1000;
+    const usedLot = usedColors.map((c, i) => ({ color: c.id, bling: 0, used: true, miles: randMiles(lo + 2 * i * band, lo + (2 * i + 1) * band) })).reverse(); // cheapest first
+    const newMiles = () => Math.round(C.truckCare.newMiles[0] + Math.random() * (C.truckCare.newMiles[1] - C.truckCare.newMiles[0]));
+    const lot = [...usedLot, ...TRUCK_COLORS.map((c, i) => ({ color: c.id, bling: levels[i], used: false, miles: newMiles() })).sort((a, b) => a.bling - b.bling)]; // cheapest first
+    const priceOf = (x) => (x.used ? usedTruckPrice(x.miles) : TRUCK_PRICE + BLING[x.bling].price);
     const scr = el(`<div class="screen"><h1 class="logo" style="font-size:44px"></h1><div class="setup-card"></div></div>`);
     document.body.appendChild(scr);
     const title = scr.querySelector('h1');
@@ -167,44 +182,59 @@ class App {
               </button>`;
             })
             .join('')}</div>
-          ${ownerCash ? `<p>🛒 Plus your cart money: <b>${money(ownerCash)}</b>. That's yours, not borrowed.</p>` : ''}
+          ${ownerCash ? `<p>${cartIcon()} Plus your cart money: <b>${money(ownerCash)}</b>. That's yours, not borrowed.</p>` : ''}
           <p class="tiny muted">💡 A bigger loan gives you more cash to spend now, but you pay more interest every day, and you still have to pay all of it back. ${(() => {
-            const [a, b, c] = C.loans;
-            return `The extra ${money(b.principal - a.principal)} in the middle loan costs ${money((b.dailyInterest - a.dailyInterest) * days)} more interest. The next ${money(c.principal - b.principal)} costs ${money((c.dailyInterest - b.dailyInterest) * days)} more.`;
+            const [a, b, c] = C.loans.slice(-3);
+            return `The extra ${money(b.principal - a.principal)} in the ${money(b.principal)} loan costs ${money((b.dailyInterest - a.dailyInterest) * days)} more interest. The next ${money(c.principal - b.principal)} costs ${money((c.dailyInterest - b.dailyInterest) * days)} more.`;
           })()}</p>
-          <div class="row" style="justify-content:space-between;margin-top:16px"><button class="btn" data-act="back">◀ Back</button><button class="btn big go" data-act="next" ${loan ? '' : 'disabled'}>Borrow it ▶</button></div>`;
+          <div class="row" style="justify-content:space-between;margin-top:16px"><button class="btn" data-act="back">◀ Back</button><button class="btn" data-act="peek">🚚 Look at the trucks</button><button class="btn big go" data-act="next" ${loan ? '' : 'disabled'}>Borrow it ▶</button></div>`;
         return;
       }
-      const L = C.loans.find((l) => l.id === loan);
-      const have = L.principal + ownerCash;
+      if (step === 'peek') {
+        // just looking: the trucks and their prices, before picking a loan
+        title.textContent = '🚚 Truck lot';
+        card.innerHTML = `<p>Just looking! Pick a loan that pays for the truck you want, with money left over for ice cream and supplies.</p>
+          <div class="truck-lot">${lot.map((x) => {
+            const c = truckFor(x.color);
+            return `<div class="lot-truck">${truckSVG(c.hex, c.name, { bling: x.bling, used: x.used })}
+              <b>${x.used ? `Used ${c.name}` : c.name}</b>${x.used ? `<div class="tiny">🛣️ ${x.miles.toLocaleString()} miles</div>` : ''}
+              <div class="price">${money(priceOf(x))}</div></div>`;
+          }).join('')}</div>
+          <div class="row" style="margin-top:16px"><button class="btn big" data-act="toBank">◀ Back to the bank</button></div>`;
+        return;
+      }
+      const L = partner ? null : C.loans.find((l) => l.id === loan);
+      const have = partner ? ownerCash + partner.max : L.principal + ownerCash;
       const maxTruck = have - C.minStartCash;
-      if (TRUCK_PRICE + BLING[bling].price > maxTruck) color = null;
+      // Grandma puts in what the truck needs plus a little for supplies, up to her limit
+      const gPut = (price) => Math.max(0, Math.min(partner.max, price + partner.startCash - ownerCash));
+      if (pick != null && priceOf(lot[pick]) > maxTruck) pick = color = null;
       const t = color && truckFor(color);
-      const price = TRUCK_PRICE + BLING[bling].price;
+      const price = pick != null ? priceOf(lot[pick]) : 0;
       if (step === 'truck') {
         title.textContent = '🚚 Truck lot';
-        card.innerHTML = `<div class="truck-lot">${lot.map((x) => {
+        card.innerHTML = `<div class="truck-lot">${lot.map((x, i) => {
             const c = truckFor(x.color);
-            const b = BLING[x.bling];
-            const total = TRUCK_PRICE + b.price;
+            const total = priceOf(x);
             const can = total <= maxTruck;
-            return `<button class="lot-truck ${color === x.color ? 'on' : ''}" data-act="pickTruck" data-c="${x.color}" data-l="${x.bling}" ${can ? '' : 'disabled'}>
-              ${truckSVG(c.hex, c.name, { bling: x.bling })}
-              <b>${c.name}</b>
-              <div class="price">${money(total)}</div><div class="tiny">${can ? `${money(have - total)} left over` : 'Too much for this loan'}</div></button>`;
+            return `<button class="lot-truck ${pick === i ? 'on' : ''}" data-act="pickTruck" data-i="${i}" ${can ? '' : 'disabled'}>
+              ${truckSVG(c.hex, c.name, { bling: x.bling, used: x.used })}
+              <b>${x.used ? `Used ${c.name}` : c.name}</b>${x.used ? `<div class="tiny">🛣️ ${x.miles.toLocaleString()} miles</div>` : ''}
+              <div class="price">${money(total)}</div><div class="tiny">${can ? `${money(partner ? ownerCash + gPut(total) - total : have - total)} left over` : partner ? 'More than Grandma can put in' : 'Too much for this loan'}</div></button>`;
           }).join('')}</div>
-          <div class="row" style="justify-content:space-between;margin-top:16px"><button class="btn" data-act="toBank">◀ Back to the bank</button>
+          ${partner ? `<p class="tiny muted">👵 Grandma will put in up to ${money(partner.max)}. Your cart money comes too: ${money(ownerCash)}.</p>` : ''}
+          <div class="row" style="justify-content:space-between;margin-top:16px"><button class="btn" data-act="${partner ? 'back' : 'toBank'}">◀ ${partner ? 'Back' : 'Back to the bank'}</button>
             <button class="btn big go" data-act="next" ${t ? '' : 'disabled'}>${t ? `Buy it for ${money(price)} ▶` : 'Pick a truck'}</button></div>`;
         return;
       }
-      title.textContent = '🪧 Your sign';
-      card.innerHTML = `<div style="max-width:420px;margin:0 auto">${truckSVG(t.hex, name, { bling })}</div>
-        <div class="row center" style="margin:6px 0">${ownerCash ? `<span class="chip">🛒 Cart money ${money(ownerCash)}</span>` : ''}<span class="chip">🏦 Loan ${money(L.principal)}</span><span class="chip">🚚 Truck −${money(price)}</span><span class="chip">💵 Cash left ${money(have - price)}</span></div>
-        <h3>🪧 Business name</h3><input class="text-in" maxlength="28" value="${esc(name)}" aria-label="Business name">
+      title.textContent = '🏷️ Your sign';
+      card.innerHTML = `<div style="max-width:420px;margin:0 auto">${truckSVG(t.hex, name, { bling, used })}</div>
+        <div class="row center" style="margin:6px 0">${ownerCash ? `<span class="chip">${cartIcon()} Cart money ${money(ownerCash)}</span>` : ''}${partner ? `<span class="chip">👵 Grandma ${money(gPut(price))}</span>` : `<span class="chip">🏦 Loan ${money(L.principal)}</span>`}<span class="chip">🚚 Truck −${money(price)}</span><span class="chip">💵 Cash left ${money(partner ? ownerCash + gPut(price) - price : have - price)}</span></div>
+        <h3>🏷️ Business name</h3><input class="text-in" maxlength="28" value="${esc(name)}" aria-label="Business name">
         <div class="row" style="justify-content:space-between;margin-top:16px"><button class="btn" data-act="toTruck">◀ Back</button><button class="btn big go" data-act="go">Let's go! ▶</button></div>`;
       card.querySelector('input').addEventListener('input', (e) => {
         name = e.target.value;
-        card.querySelector('div').innerHTML = truckSVG(t.hex, name, { bling });
+        card.querySelector('div').innerHTML = truckSVG(t.hex, name, { bling, used });
       });
     };
     render();
@@ -214,13 +244,18 @@ class App {
         render();
       },
       pickTruck: (t) => {
-        color = t.dataset.c;
-        bling = Number(t.dataset.l);
+        pick = Number(t.dataset.i);
+        ({ color, bling, used, miles } = lot[pick]);
         render();
       },
       next: () => {
         step = step === 'bank' ? 'truck' : 'name';
         render();
+      },
+      peek: () => {
+        step = 'peek';
+        render();
+        scr.scrollTop = 0;
       },
       toBank: () => {
         step = 'bank';
@@ -233,9 +268,12 @@ class App {
       back: () => (onBack ? onBack() : this.showTitle()),
       go: () => {
         if (!name.trim()) return toast('Your truck needs a name!');
-        const L = C.loans.find((l) => l.id === loan);
+        const L = partner ? null : C.loans.find((l) => l.id === loan);
         const B = BLING[bling];
-        this.game = Game.create({ player, business: name.trim(), color, tune: 'entertainer', loan: L, truckCost: TRUCK_PRICE + B.price, bling, blingName: bling ? B.name : '', ownerCash });
+        const truckCost = priceOf(lot[pick]);
+        const withGrandma = partner && { put: Math.max(0, Math.min(partner.max, truckCost + partner.startCash - ownerCash)), slice: partner.slice };
+        this.game = Game.create({ player, business: name.trim(), color, tune: 'entertainer', loan: L, truckCost, bling, blingName: bling ? B.name : '', used, miles, ownerCash, partner: withGrandma, favorite: storage.loadCart(player)?.hot || storage.loadGame(player)?.favorite });
+        this.game.state.policies.autoGas = false; // players stop for gas when the tank is low (a pop-up)
         onStart?.();
         this.save();
         this.startGameView();
@@ -246,7 +284,9 @@ class App {
   loadGame(player) {
     const st = storage.loadGame(player);
     if (!st) return this.newGame(player);
+    st.favorite ||= storage.loadCart(player)?.hot; // the park cart's favorite treat carries over to the truck
     this.game = new Game(st);
+    this.game.state.policies.autoGas = false; // the gas stop pop-up replaced auto fill-up
     this.music.setTune(st.tune);
     this.startGameView();
   }
@@ -313,6 +353,42 @@ class App {
   openBooks() {
     return booksPanel(this);
   }
+  // The truck broke down: a tow truck takes it to the garage, and the day is over.
+  truckBrokeDown(ev) {
+    const g = this.game;
+    this.music.sfx('sad');
+    // a worn engine: the mechanic offers to fix it now (a week at the garage, starting tomorrow)
+    const fixable = ev.worn && g.state.engineWear > 0 && g.state.phase === 'closed' && !g.inShop;
+    const m = openModal({
+      title: '💥 The truck broke down!',
+      cls: 'narrow',
+      closable: false,
+      render: (body) => {
+        body.innerHTML = `<div class="end-scene"><div style="font-size:50px;line-height:1">${towTruckIcon()}</div>
+          <p>A tow truck takes it to the garage. That's the end of today.</p>
+          ${ev.oily && !ev.worn ? '<p class="warn">🛢️ The oil was low! Check it when you get gas.</p>' : ''}
+          <p>The garage will send a bill for <b>${money(ev.cost)}</b>. Pay it within ${C.credit.termDays} days.</p>
+          ${fixable ? `<div class="card" style="text-align:left"><p class="warn">🛢️ The engine is worn out from running on almost no oil, so it breaks down more.</p>
+            <p>🔧 The mechanic says: “I can fix the engine for ${money(g.engineRepairCost())} more. It'll take ${C.truckCare.engineShopDays} days to do the repair, so you'll have to come back next week for your truck.${g.shopWeekPastSummer() ? ' But summer is almost over. The winter tune-up can fix it for the same price, and you won\'t lose any days.' : ''}”</p></div>
+            <div class="row center"><button class="btn" data-act="fix">🔧 Fix the engine (${money(g.engineRepairCost())})</button><button class="btn big go" data-act="ok">Not now</button></div>`
+          : `${ev.worn ? '<p class="warn">🛢️ The engine is worn out from running on almost no oil, so it breaks down more.</p>' : ''}<button class="btn big go" data-act="ok">OK</button>`}</div>`;
+      },
+    });
+    onActs(m.body, {
+      ok: () => {
+        m.close();
+        this.afterChange();
+      },
+      fix: () => {
+        const r = g.repairEngineNow();
+        if (r.ok) toast('🔧 The garage is fixing the engine. It will send a bill.');
+        m.close();
+        this.changed();
+        this.afterChange();
+      },
+    });
+    return g;
+  }
   openShoebox(onDone) {
     return openShoebox(this, onDone);
   }
@@ -348,13 +424,23 @@ class App {
     const card = el(`<div class="morning"><div class="card">
       ${s.phase === 'seasonEnd' ? `<div style="font-size:40px">🌅</div><h2 style="margin:0">Summer's over!</h2>` : s.phase === 'setup' ? `<div style="font-size:40px">🏦➡️💵➡️🚚</div>` : `<h2 style="margin:0">${DAY_NAMES[g.dayOfWeek]} · Week ${g.week}${s.season > 1 ? ` · Summer ${s.season}` : ''}</h2>`}
       <div class="weather">${wIcon} <b style="font-size:30px">${w.temp}°F</b></div>
-      ${last && s.phase !== 'setup' ? `<p class="muted">Yesterday: 🍦 ${Object.values(last.sold).reduce((a, b) => a + b, 0)} · 💵 ${money(last.revenue)}${last.tooExpensive ? ` · 😤 ${last.tooExpensive} said “too expensive”` : ''}${last.broke ? ` · 🪙 ${last.broke} only had pocket money` : ''}</p>` : ''}
+      ${last && s.phase !== 'setup' ? `<p class="muted">Yesterday: 🍦 ${Object.values(last.sold).reduce((a, b) => a + b, 0)} · 💵 ${money(last.revenue)}${last.tooExpensive ? ` · 😤 ${last.tooExpensive} said “too expensive”` : ''}${last.broke ? ` · ${coinIcon()} ${last.broke} only had pocket money` : ''}${last.lineLeft ? ` · 😩 ${last.lineLeft} left a long line` : ''}</p>` : ''}
       ${s.phase !== 'setup' && s.phase !== 'seasonEnd' && g.plannedRoute() ? `<p class="tiny muted">🗺️ Today's route: <b>${esc(g.plannedRoute().name)}</b></p>` : ''}
-      ${needFile ? `<button class="btn big yellow pulse" data-act="file">🗃️ Shoebox (${needFile})</button>` : `<button class="btn big go pulse" data-act="open">🔔 Open for business!</button>`}
+      ${g.inShop && s.phase !== 'seasonEnd' ? `<p>🔧 ${s.inShopUntil > SEASON_DAYS ? "It's at the garage until the end of summer." : `It's at the garage until next ${DAY_FULL[(s.inShopUntil - 1) % 7]}.`}</p>` : ''}
+      ${needFile ? `<button class="btn big yellow pulse" data-act="file">🗃️ Shoebox (${needFile})</button>` : g.inShop && s.phase !== 'seasonEnd' ? `<button class="btn big go" data-act="wait">⏭️ ${s.inShopUntil > SEASON_DAYS ? 'Skip to the end of summer' : `Skip to next ${DAY_FULL[(s.inShopUntil - 1) % 7]}`}</button>` : `<button class="btn big go pulse" data-act="open">🔔 Open for business!</button>`}
     </div></div>`);
     this.stage.appendChild(card);
     onActs(card, {
       file: () => this.openShoebox(() => this.afterChange()),
+      // the truck is at the garage: the days go by with no selling until it's back
+      wait: () => {
+        const g = this.game;
+        g.waitForTruck();
+        this.save();
+        this.hideMorning();
+        this.changed();
+        this.afterChange();
+      },
       open: () => {
         const g = this.game;
         if (!g.availableItems().length) {
@@ -380,6 +466,10 @@ class App {
   // ---------- loop ----------
   setSpeed(sp) {
     this.speed = sp;
+    // ⏸ stops the music and everything moving on the street
+    this.stage?.classList.toggle('paused', sp === 0);
+    if (sp === 0) this.music.stop();
+    else if (this.game?.state.phase === 'open') this.music.play();
     // a little faster music at faster game speeds: noticeable, not frantic
     this.music.setRate({ 2: 1.06, 3: 1.12, 9: 1.12 }[sp] || 1);
     this.music.ensure();
@@ -404,7 +494,8 @@ class App {
   frame(now) {
     const g = this.game;
     if (!g) return;
-    this.ambience.update(g, g.state.phase === 'open' ? this.scene?.view() : null);
+    if (this.speed === 0) this.ambience.play(null); // quiet while paused
+    else this.ambience.update(g, g.state.phase === 'open' ? this.scene?.view() : null);
     // back from another app: sound waits for a tap
     const tap = this.music.needsTap() && (g.state.phase === 'open' || this.music.playing);
     if (this.soundTap && this.soundTap.hidden === tap) this.soundTap.hidden = !tap;
@@ -489,7 +580,7 @@ class App {
         <span class="fuel" title="Gas">⛽<span class="bar"><i></i></span></span>
       </div>
       <div class="speed" role="group" aria-label="Speed">
-        ${['⏸', '▶', '▶▶', '▶▶▶'].map((l, i) => `<button class="${sp === i ? 'on' : ''}" data-act="speed" data-s="${i}" ${open ? '' : 'disabled'} aria-label="Speed ${i}">${l}</button>`).join('')}
+        ${[PAUSE_ICON, '▶', '▶▶', '▶▶▶'].map((l, i) => `<button class="${sp === i ? 'on' : ''}" data-act="speed" data-s="${i}" ${open ? '' : 'disabled'} aria-label="Speed ${i}">${l}</button>`).join('')}
         <button class="${sp === 9 ? 'on' : ''}" data-act="skip" ${open ? '' : 'disabled'} aria-label="Skip to end of day">⏭</button>
       </div>`;
       this.hudEls = {
@@ -592,7 +683,8 @@ class App {
   // ---------- leaderboard ----------
   recordScore(res) {
     const s = this.game.state;
-    const rec = { player: s.player, business: s.business, season: s.season, share: res.share, won: res.won, color: s.color, finished: new Date().toISOString() };
+    // the score is your own Share; a business co-owned with Grandma gets a 🤝 after its name
+    const rec = { player: s.player, business: s.partner ? `${s.business} 🤝` : s.business, season: s.season, share: res.share, won: res.won, color: s.color, finished: new Date().toISOString() };
     storage.addLocalScore(rec);
     this.save();
     const cfg = leaderboardConfig(this.settings);
@@ -622,7 +714,7 @@ class App {
         const src = rows ? '🌐 Shared' : isConfigured(cfg) ? (err ? `⚠️ Couldn't reach the shared board (${esc(err)}). Showing this device.` : '⏳ Loading…') : '📱 This device only (set up the shared board in ⚙️ Settings)';
         body.innerHTML = `<p class="muted tiny">${src}</p>
           ${list.length ? `<table class="books lb-table"><tr><th>#</th><th>Player</th><th>Truck</th><th>Summer</th><th>Share</th><th></th></tr>
-          ${list.slice(0, 30).map((r, i) => `<tr><td>${i + 1}</td><td><b>${esc(r.player)}</b></td><td>${esc(r.business)}</td><td>${r.season}</td><td class="${r.share < 0 ? 'neg' : ''}">${money(r.share)}</td><td>${r.won ? '🏆' : '🛻'}</td></tr>`).join('')}</table>` : '<p>No scores yet. Finish a summer to get on the board!</p>'}`;
+          ${list.slice(0, 30).map((r, i) => `<tr><td>${i + 1}</td><td><b>${esc(r.player)}</b></td><td>${esc(r.business)}</td><td>${r.season}</td><td class="${r.share < 0 ? 'neg' : ''}">${money(r.share)}</td><td>${r.won ? '🏆' : towTruckIcon()}</td></tr>`).join('')}</table>` : '<p>No scores yet. Finish a summer to get on the board!</p>'}`;
       },
     });
     if (isConfigured(cfg)) {

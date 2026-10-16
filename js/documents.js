@@ -2,12 +2,18 @@
 // A document collects all transactions of one type in one week.
 
 import { ACCOUNT, applyEntries, emptyTotals, sectionTotal, share } from './ledger.js';
+import { cartIcon } from './icons.js';
 
 // look: paper style for the UI. penny: what Penny says when it's filed wrong. caption: a note on the balance sheet after filing.
 export const DOC_TYPES = {
-  ownerInvest: { title: 'Money you put in', look: 'receipt', icon: '🛒',
+  ownerInvest: { title: 'Money you put in', look: 'receipt', icon: cartIcon(),
     penny: "You put your own cart money into the business, so Cash went up. The business doesn't owe it to a bank. It's yours, so your Share went up too.",
     caption: 'Your cart money is in the cash box, and it counts as your Share.' },
+  grandmaInvest: { title: "Grandma's investment", look: 'receipt', icon: '👵',
+    penny: "Grandma put money into the business, so Cash went up. You don't have to pay it back, so it isn't a liability. She owns part of the business now: Grandma's Share went up.",
+    caption: "Grandma's money is in the cash box. It's her part of the business." },
+  grandmaBuyout: { title: "Buying back Grandma's share", look: 'receipt', icon: '👵',
+    penny: "You paid Grandma, so Cash went down. That isn't an expense: you didn't use anything up. You bought back part of the business, so Grandma's Share went down." },
   loanPapers: { title: 'Bank loan papers', look: 'bank', icon: '🏦',
     penny: "The bank put money in your account, so Cash went up. But that money isn't yours to keep — you have to pay it back. That's a Business loan, and owing it is a liability.",
     caption: "The bank's money is in the cash box, and the business owes it back." },
@@ -52,6 +58,10 @@ export const DOC_TYPES = {
     penny: "You sold supplies back. Supplies on hand went down by what you paid for them, Cash went up by what you got back, and since you got back less, the difference is a loss — an expense." },
   rebrandReceipt: { title: 'Paint & sign receipt', look: 'receipt', icon: '🎨',
     penny: "You paid cash to repaint or re-sign the truck. Cash went down. The truck isn't worth more because of it, so it's an expense." },
+  upkeepReceipt: { title: 'Truck upkeep receipt', look: 'receipt', icon: '🛢️',
+    penny: "You paid cash to keep the truck running (oil, or fixing it up). Cash went down. That's a cost of running the business, so it's an expense: Truck repairs & upkeep." },
+  garageBill: { title: 'Garage bill', look: 'invoice', icon: '🔧',
+    penny: "The garage fixed the truck and sent a bill. You haven't paid yet, so you owe it: Bills to pay went up. Fixing the truck is a cost of running the business: Truck repairs & upkeep went up." },
   pennyBill: { title: "Penny's bookkeeping bill", look: 'invoice', icon: '👩‍💼',
     penny: "Penny charges for keeping the books. That's an expense: Bookkeeping. You haven't paid her yet, so Bills to pay (a liability) went up. Cash didn't change yet!" },
   loanRepay: { title: 'Loan payoff receipt', look: 'bank', icon: '🏦',

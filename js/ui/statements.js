@@ -259,20 +259,21 @@ export function buildStage(p, o) {
 
 // ---------- balance sheet ----------
 export const LEFT = ['cash', 'supplies', 'truck'];
-export const RIGHT = ['loan', 'giftCards', 'interestOwed', 'billsToPay', 'pending', 'share'];
+export const RIGHT = ['loan', 'giftCards', 'interestOwed', 'billsToPay', 'pending', 'share', 'gshare']; // gshare: Grandma's Share, when she's a co-owner
 export const STYLE = {
   truck: '#9fdcff',
   supplies: '#7cc8ff',
   cash: '#3a8ee6',
   short: 'repeating-linear-gradient(45deg,#e5484d 0 6px,#ffe3e3 6px 12px)',
   share: '#3cc6a0',
+  gshare: '#b69cff',
   pending: 'repeating-linear-gradient(45deg,#3cc6a0 0 7px,#e6fcf5 7px 14px)',
   giftCards: '#fff3b0',
   interestOwed: '#ffab5e',
   billsToPay: '#ffe066',
   loan: '#ffd23f',
 };
-const sumOf = (st, ids) => ids.reduce((s, id) => s + st[id], 0);
+const sumOf = (st, ids) => ids.reduce((s, id) => s + (st[id] || 0), 0);
 export const assetTotal = (st) => sumOf(st, LEFT);
 export const rightTotal = (st) => sumOf(st, RIGHT);
 
@@ -315,14 +316,14 @@ export function makeSep(st, shown, open, { barMax, half, minPx = 6 }) {
   const tR = rightTotal(st);
   const maxT = Math.max(tA, tR, 1);
   const lOn = LEFT.filter((id) => st[id] !== 0);
-  const rOn = RIGHT.filter((id) => id === 'share' || st[id] !== 0);
+  const rOn = RIGHT.filter((id) => id === 'share' || (st[id] || 0) !== 0);
   const LB = sideBars(lOn.map((id) => st[id]), tA, maxT, barMax, minPx);
   const RB = sideBars(rOn.map((id) => st[id]), tR, maxT, barMax, minPx);
   const widthOf = {};
   lOn.forEach((id, i) => (widthOf[id] = LB.w[i]));
   rOn.forEach((id, i) => (widthOf[id] = RB.w[i]));
   const row = (id, side) => {
-    const amt = st[id];
+    const amt = st[id] || 0;
     const delta = shown[id];
     const has = delta !== undefined && delta !== 0;
     const dLeft = side === 'L' ? delta > 0 : delta < 0;

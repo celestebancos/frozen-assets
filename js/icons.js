@@ -1,0 +1,40 @@
+// Little pictures to use in text where an emoji would go. Some emojis are too new for older computers
+// (Windows 10 shows a blank box for 🫙, 🪙, 🪭...), so things in the game world are drawn here instead,
+// and a few faces are pictures from Twemoji (img/emoji/README.md has the credits).
+// test/emoji.test.mjs fails if a too-new emoji shows up in the code.
+const INK = '#2e2a45';
+const ico = (vb, body, label) => `<svg class="ico" viewBox="${vb}" role="img" aria-label="${label}" xmlns="http://www.w3.org/2000/svg">${body}</svg>`;
+
+// A quarter, like the ones in the cash box.
+export const coinIcon = () =>
+  ico('0 0 20 20', `<circle cx="10" cy="10" r="8.6" fill="#d9dee5" stroke="${INK}" stroke-width="1.4"/><circle cx="10" cy="10" r="6" fill="none" stroke="#9aa4b2" stroke-width="1" stroke-dasharray="1.6 1.4"/><text x="10" y="10.6" font-size="7.5" font-weight="800" font-family="Baloo 2, sans-serif" text-anchor="middle" dominant-baseline="central" fill="${INK}">25</text>`, 'coin');
+
+// The glass tip jar, with a few coins in it.
+export const jarIcon = () =>
+  ico('0 0 20 22', `<rect x="5" y="1" width="10" height="3.4" rx="1" fill="#c98a4b" stroke="${INK}" stroke-width="1.2"/><path d="M5.5 4.4 Q3 6 3 9 V18.5 Q3 21 6 21 H14 Q17 21 17 18.5 V9 Q17 6 14.5 4.4 Z" fill="#e6f4fb" stroke="${INK}" stroke-width="1.3"/><ellipse cx="8" cy="18" rx="3.2" ry="1.6" fill="#d9dee5" stroke="#9aa4b2" stroke-width=".8"/><ellipse cx="12.4" cy="17.3" rx="3.2" ry="1.6" fill="#ffd23f" stroke="#c9a227" stroke-width=".8"/><ellipse cx="10" cy="15.4" rx="3.2" ry="1.6" fill="#d9dee5" stroke="#9aa4b2" stroke-width=".8"/><path d="M5.6 8 V13" stroke="#fff" stroke-width="1.6" stroke-linecap="round"/>`, 'tip jar');
+
+// A brown wallet with a dollar bill sticking out.
+export const walletIcon = () =>
+  ico('0 0 22 18', `<rect x="4" y="1.6" width="13" height="7" rx="1" fill="#cdeed4" stroke="${INK}" stroke-width="1.1" transform="rotate(-8 10 5)"/><rect x="1.5" y="5" width="19" height="11.5" rx="2.4" fill="#a8693a" stroke="${INK}" stroke-width="1.3"/><path d="M1.5 8.4 H20.5" stroke="#7d4a25" stroke-width="1.1"/><rect x="13" y="9.6" width="7.5" height="4.4" rx="1.6" fill="#c98a4b" stroke="${INK}" stroke-width="1.1"/><circle cx="15.4" cy="11.8" r=".9" fill="#ffd23f"/>`, 'wallet');
+
+// The little fan for the cart (the same one that clips on the cart).
+export const fanIcon = () =>
+  ico('0 0 20 22', `<path d="M10 17 V21 M6 21 H14" stroke="${INK}" stroke-width="2" stroke-linecap="round"/><circle cx="10" cy="9.5" r="8.2" fill="#e8f7ff" stroke="${INK}" stroke-width="1.3"/><path d="M10 9.5 L7.8 3 Q10 1.7 12.2 3 Z M10 9.5 L16.5 7.3 Q17.8 9.5 16.5 11.7 Z M10 9.5 L12.2 16 Q10 17.3 7.8 16 Z M10 9.5 L3.5 11.7 Q2.2 9.5 3.5 7.3 Z" fill="#7cc8ff" stroke="${INK}" stroke-width=".9" stroke-linejoin="round"/><circle cx="10" cy="9.5" r="1.6" fill="${INK}"/>`, 'fan');
+
+// A piece of pink bubble gum in its twisted wrapper.
+export const gumIcon = () =>
+  ico('0 0 24 16', `<path d="M5 8 L1 3.5 V12.5 Z M19 8 L23 3.5 V12.5 Z" fill="#ff8fc7" stroke="${INK}" stroke-width="1.1" stroke-linejoin="round"/><rect x="4.5" y="3" width="15" height="10" rx="3.4" fill="#ff8fc7" stroke="${INK}" stroke-width="1.3"/><path d="M8 3.4 V12.6 M16 3.4 V12.6" stroke="#fff" stroke-width="1.2" opacity=".75"/><path d="M6.6 5.6 Q7.4 4.8 8.6 4.8" stroke="#fff" stroke-width="1.1" fill="none" stroke-linecap="round"/>`, 'bubble gum');
+
+// The ice pop cart: a white cooler with a blue lid, its handle and two wheels (like the one you push at the park).
+export const cartIcon = () =>
+  ico('0 0 26 20', `<path d="M21.5 6.5 L25 4" stroke="${INK}" stroke-width="2.6" stroke-linecap="round"/><path d="M21.5 6.5 L25 4" stroke="#9aa4b2" stroke-width="1.3" stroke-linecap="round"/><rect x="1.5" y="5" width="21" height="10" rx="2" fill="#fffaf0" stroke="${INK}" stroke-width="1.3"/><rect x="1.5" y="5" width="21" height="3" rx="1.4" fill="#7cc8ff" stroke="${INK}" stroke-width="1.1"/><path d="M3.6 13 H20.4" stroke="#7cc8ff" stroke-width="1.2"/><circle cx="6.5" cy="16.4" r="2.6" fill="#4a4a5a" stroke="${INK}" stroke-width="1.1"/><circle cx="17.5" cy="16.4" r="2.6" fill="#4a4a5a" stroke="${INK}" stroke-width="1.1"/><circle cx="6.5" cy="16.4" r=".9" fill="#cfd6df"/><circle cx="17.5" cy="16.4" r=".9" fill="#cfd6df"/>`, 'cart');
+
+// A red tow truck facing right, with its hook out the back (it tows away a truck that ran out of money).
+export const towTruckIcon = () =>
+  ico('0 0 34 20', `<path d="M8 11 L2 4 M2 4 V8.5" stroke="${INK}" stroke-width="1.6" stroke-linecap="round" fill="none"/><path d="M1 8.5 Q2 10 3 8.5" stroke="${INK}" stroke-width="1.2" fill="none"/><rect x="5" y="10" width="17" height="5" rx="1" fill="#e5484d" stroke="${INK}" stroke-width="1.3"/><path d="M21 15 V6 Q21 4.5 22.5 4.5 H27 Q28.5 4.5 29.4 6 L32 10 V15 Z" fill="#e5484d" stroke="${INK}" stroke-width="1.3" stroke-linejoin="round"/><path d="M23 6.5 H27 L29 9.8 H23 Z" fill="#cfe9ff" stroke="${INK}" stroke-width=".9"/><rect x="23" y="2.4" width="3.4" height="2" rx=".6" fill="#ffd23f" stroke="${INK}" stroke-width=".8"/><circle cx="10" cy="16" r="2.8" fill="#4a4a5a" stroke="${INK}" stroke-width="1.1"/><circle cx="27" cy="16" r="2.8" fill="#4a4a5a" stroke="${INK}" stroke-width="1.1"/><circle cx="10" cy="16" r="1" fill="#ccc"/><circle cx="27" cy="16" r="1" fill="#ccc"/>`, 'tow truck');
+
+// Pictures from Twemoji, for emojis that are too new to count on: melting (🫠), teary (🥹), slide (🛝).
+const PIC = { melting: ['1fae0', '🫠'], teary: ['1f979', '🥹'], slide: ['1f6dd', '🛝'] };
+export const emo = (name) => `<img class="emo" src="img/emoji/${PIC[name][0]}.svg" alt="${PIC[name][1]}">`;
+// The same picture inside an SVG drawing, centered on (x, y).
+export const emoSVG = (name, size, x = 0, y = 0) => `<image href="img/emoji/${PIC[name][0]}.svg" x="${x - size / 2}" y="${y - size / 2}" width="${size}" height="${size}"/>`;

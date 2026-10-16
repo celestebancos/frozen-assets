@@ -2,10 +2,12 @@
 import { CONFIG, SUPPLIES, SUPPLY, CONTAINERS, FLAVORS, TOPPINGS, POPS, POP, SPOTS, SPOT, FEATURES, TRUCK_COLORS, MARKET_DAYS, destOf } from '../config.js';
 import { DAY_NAMES } from '../engine.js';
 import { TUNES, VOICES } from '../music.js';
-import { ACCOUNTS, ACCOUNT, pnlRowsFor, sectionTotal, share } from '../ledger.js';
+import { ACCOUNTS, ACCOUNT, pnlRowsFor, sectionTotal, share, ownShare } from '../ledger.js';
 import { DOC_TYPES } from '../documents.js';
 import { mapSVG, mapIcon, iceCreamSVG, truckSVG, ROUTE_COLORS } from '../art.js';
-import { esc, money, openModal, onActs, toast, fmtTime, stepper } from './dom.js';
+import { esc, money, openModal, onActs, toast, fmtTime, stepper, askYes } from './dom.js';
+import { coinIcon } from '../icons.js';
+import { gasStation } from './popups.js';
 
 const C = CONFIG;
 
@@ -158,22 +160,29 @@ export function menuPanel(app) {
           ${stepper(s.prices[t.id], 'price', t.id, '+' + money(s.prices[t.id]))}
         </div>`).join('')}
         <h3>Popsicles</h3>
-        ${POPS.map((p) => `<div class="menu-row ${g.isOn(p.id) ? '' : 'off'}">
+        ${POPS.filter((p) => !p.drink).map((p) => `<div class="menu-row ${g.isOn(p.id) ? '' : 'off'}">
           <span class="nm">${iceCreamSVG({ pop: p.id }, 34)} ${p.name}
             <button class="chip ${g.isOn(p.id) ? '' : 'off'}" data-act="toggle" data-id="${p.id}">${g.isOn(p.id) ? '✅' : '🚫'}</button></span>
           ${stepper(s.prices[p.id], 'price', p.id, money(s.prices[p.id]))}
         </div>`).join('')}
-        <p class="tiny" style="margin:4px 0 0;color:#f3e9d2">🪙 Some kids only have $1 or less. A cheap pop is something they can buy.</p>
+        <h3>Drinks</h3>
+        ${POPS.filter((p) => p.drink).map((p) => `<div class="menu-row ${g.isOn(p.id) ? '' : 'off'}">
+          <span class="nm">${iceCreamSVG({ pop: p.id }, 34)} ${p.name}
+            <button class="chip ${g.isOn(p.id) ? '' : 'off'}" data-act="toggle" data-id="${p.id}">${g.isOn(p.id) ? '✅' : '🚫'}</button></span>
+          ${stepper(s.prices[p.id], 'price', p.id, money(s.prices[p.id]))}
+        </div>`).join('')}
+        <p class="tiny" style="margin:4px 0 0;color:#f3e9d2">${coinIcon()} Some kids only have $1 or less. A cheap pop is something they can buy.</p>
       </div>
       <details class="card2" style="margin-top:10px" open>
         <summary><b>🍦 What goes into each ice cream?</b></summary>
         <ul style="margin:6px 0 0;padding-left:20px">
           <li>🍦 <b>1 serving of mix</b> (a swirl uses half vanilla, half chocolate)</li>
           <li>🧇 <b>1 cone or 1 bowl</b>, whichever they order</li>
-          <li>🥄 <b>1 spoon</b> with every bowl. No spoons means no bowls!</li>
+          <li>🥄 <b>1 spoon</b> with every bowl and Italian ice. No spoons means no bowls or ice!</li>
           <li>🧻 <b>Napkins</b>: grown-ups take 1, kids take 1 to 3. No napkins and people get sticky and grumpy.</li>
           <li>🌈 <b>1 serving of sprinkles</b> if they want a topping</li>
           <li>🚀 <b>Popsicles</b> are sold as is: 1 pop, plus napkins</li>
+          <li>💧 <b>Drinks</b>: some people add one to their order, more on a hot day</li>
         </ul>
         <p class="tiny muted" style="margin:6px 0 0">Spoons and napkins are free for customers, but they cost you money. That's part of what each ice cream costs to make.</p>
       </details>`;
@@ -265,7 +274,7 @@ function placeNote(f) {
 }
 function spotNote(sp) {
   if (sp.pay >= 1.1) return '💰 People here tend to have a bit more money to spend';
-  if (sp.pay < 0.97) return '🪙 People here tend to have a bit less money to spend';
+  if (sp.pay < 0.97) return `${coinIcon()} People here tend to have a bit less money to spend`;
   return '';
 }
 
@@ -358,7 +367,7 @@ export function mapPanel(app) {
           <div class="fuel ${fuelPct < 25 ? 'low' : ''}"><span class="bar" style="width:140px"><i style="width:${fuelPct}%"></i></span> ${s.fuel.toFixed(1)} / ${C.gas.tankGal} gal</div>
           <div class="row" style="margin-top:6px">
             <button class="btn small" data-act="fill" ${s.fuel >= C.gas.tankGal - 0.05 ? 'disabled' : ''}>⛽ Fill up (${money(Math.round((C.gas.tankGal - s.fuel) * C.gas.pricePerGal))})</button>
-            <label class="row tiny"><input type="checkbox" data-chg="auto" ${s.policies.autoGas ? 'checked' : ''}> Auto fill-up</label>
+            <button class="btn small" data-act="station">🛢️ Check the oil</button>
           </div>
         </div>
         <div class="mw-busy">${busy}</div></div>`;
@@ -432,9 +441,9 @@ export function mapPanel(app) {
       app.changed();
       m.refresh();
     },
-    del: (t) => {
+    del: async (t) => {
       const r = g.state.routes.find((x) => x.id === Number(t.dataset.id));
-      if (r && !confirm(`Delete the route “${r.name}”?`)) return;
+      if (r && !(await askYes(`Delete the route “${esc(r.name)}”?`, { yes: 'Delete', no: 'Keep it' }))) return;
       g.deleteRoute(Number(t.dataset.id));
       app.changed();
       m.refresh();
@@ -447,6 +456,7 @@ export function mapPanel(app) {
         app.changed();
       }
     },
+    station: () => gasStation(app, { onDone: () => m.refresh() }),
     fill: () => {
       const c = g.fillGas();
       if (c) app.music.sfx('ching');
@@ -520,7 +530,7 @@ function promotionHTML(g) {
   const note = paid ? 'Paid for this week.' : s.phase === 'closed' ? 'Ads bring more people this week.' : 'Pick ads in the morning, before you open.';
   return `<p class="tiny muted" style="margin:0 0 6px">${note}</p>
     <div class="ad-choices">${C.ads.map((a) => {
-      const e = { none: '🤐', flyers: '📄', radio: '📻', billboard: '🪧' }[a.id];
+      const e = { none: '🤐', flyers: '📄', radio: '📻', billboard: '🏷️' }[a.id];
       return `<button data-act="ad" data-id="${a.id}" class="${s.adTier === a.id ? 'on' : ''}" ${!canPick || a.cost > g.cash ? 'disabled' : ''}><span class="e">${e}</span>${a.name}<br><span class="muted">${a.cost ? money(a.cost) : 'Free'}</span></button>`;
     }).join('')}</div>`;
 }
@@ -557,8 +567,7 @@ export function policyPanel(app) {
         <div class="row">${opt('outOfStock', 'ask', '🙋 Ask me')}${opt('outOfStock', 'gift', '🎁 Gift card')}${opt('outOfStock', 'discount', '🏷️ Half off something else')}${opt('outOfStock', 'nothing', '🤷 Nothing')}</div>
         <h3>💥 A kid drops their ice cream</h3>
         <div class="row">${opt('drop', 'ask', '🙋 Ask me')}${opt('drop', 'replace', '🍦 Replace free')}${opt('drop', 'refuse', '🙅 No')}</div>
-        <h3>⛽ Gas</h3>
-        <label class="row"><input type="checkbox" data-chg="auto" ${p.autoGas ? 'checked' : ''}> Fill up in the morning when the tank is low</label>`;
+`;
     },
   });
   onActs(m.body, {
@@ -588,6 +597,7 @@ export function truckPanel(app) {
       const paint = color !== s.color;
       const sign = name.trim() && name.trim() !== s.business;
       const cost = (paint ? C.rebrand.paint : 0) + (sign ? C.rebrand.sign : 0);
+      const canFix = (s.phase === 'closed' || s.phase === 'setup') && !g.inShop; // the engine, in the morning
       body.innerHTML = `
         <h3 style="margin-top:0">🎵 Music</h3>
         <div class="row">${TUNES.map((t) => `<button class="btn small ${s.tune === t.id ? 'on' : ''}" data-act="tune" data-id="${t.id}">${t.name}</button>`).join('')}</div>
@@ -597,13 +607,25 @@ export function truckPanel(app) {
           <button class="btn small ${app.music.muted ? 'on' : ''}" data-act="mute">${app.music.muted ? '🔇 Muted' : '🔊 Sound on'}</button>
           <button class="btn small ${app.ambience.on ? 'on' : ''}" data-act="street">${app.ambience.on ? '🐦 Street sounds on' : '🐦 Street sounds off'}</button></div>
         <h3>🎨 Truck</h3>
-        <div style="max-width:360px">${truckSVG(hex, name || s.business, { bling: s.bling || 0 })}</div>
+        <div style="max-width:360px">${truckSVG(hex, name || s.business, { bling: s.bling || 0, used: !!s.truckUsed && !s.truckFixed })}</div>
         <div class="swatches">${TRUCK_COLORS.map((c) => `<button class="swatch ${color === c.id ? 'on' : ''}" style="background:${c.hex}" data-act="color" data-id="${c.id}" aria-label="${c.name}"></button>`).join('')}</div>
         <div style="margin-top:8px"><input class="text-in" maxlength="28" value="${esc(name)}" data-chg="name" aria-label="Business name"></div>
         <div class="row" style="margin-top:8px">
-          ${paint ? `<span class="chip">🎨 Paint ${money(C.rebrand.paint)}</span>` : ''}${sign ? `<span class="chip">🪧 New sign ${money(C.rebrand.sign)}</span>` : ''}
+          ${paint ? `<span class="chip">🎨 Paint ${money(C.rebrand.paint)}</span>` : ''}${sign ? `<span class="chip">🏷️ New sign ${money(C.rebrand.sign)}</span>` : ''}
           <button class="btn go" data-act="apply" ${cost ? '' : 'disabled'}>Do it${cost ? ' — ' + money(cost) : ''}</button>
-        </div>`;
+        </div>
+        <h3>🔧 Garage</h3>
+        <p>🛣️ <b>${Math.round(s.miles).toLocaleString()} miles</b> on the truck. The more miles, the more it breaks down and the more it costs to repair.</p>
+        ${g.inShop ? `<p class="warn">🔧 The truck is at the garage getting a new engine part. It's back on ${DAY_NAMES[(s.inShopUntil - 1) % 7]} of week ${Math.ceil(s.inShopUntil / 7)}.</p>` : ''}
+        ${s.engineWear ? `<p class="warn">🛢️ The engine is worn from ${s.engineWear} day${s.engineWear > 1 ? 's' : ''} on almost no oil, so it breaks down more.</p>
+          <p>The garage can fix it now for ${money(g.engineRepairCost())}, but it takes ${C.truckCare.engineShopDays} days, and you can't sell while it's there. Or wait for the winter tune-up.</p>
+          ${g.shopWeekPastSummer() ? '<p>🔧 The mechanic says: “Summer is almost over. The winter tune-up can fix it for the same price, and you won\'t lose any days.”</p>' : ''}
+          <button class="btn" data-act="engine" ${canFix ? '' : 'disabled'}>🔧 Fix the engine now (${money(g.engineRepairCost())})</button>${canFix || s.phase !== 'open' ? '' : ' <span class="tiny muted">Only before you open for the day.</span>'}` : ''}
+        ${s.truckUsed && !s.truckFixed
+          ? `<p>Your truck is used, and it looks it. People in the nicer neighborhoods are less likely to buy from a rusty old truck. The garage can fix up the outside: new paint, bodywork, no more rust.</p>
+             <button class="btn go" data-act="fixUp">🔧 Fix it up (${money(C.truckCare.fixUp)})</button> <span class="tiny muted">The garage sends a bill. Pay it within ${C.credit.termDays} days.</span>`
+          : s.truckUsed ? '<p>✨ Fixed up and looking great!</p>' : '<p>Your truck is in good shape.</p>'}
+        <p class="tiny muted">${s.truckUsed ? 'A used truck still burns more gas, leaks oil (check it at the gas station) and breaks down more often. ' : ''}Every winter the garage checks the truck, changes the oil and sends a bill. It also suggests repairs that make breakdowns less likely next summer.</p>`;
     },
   });
   onActs(m.body, {
@@ -637,6 +659,26 @@ export function truckPanel(app) {
     },
     color: (t) => {
       color = t.dataset.id;
+      m.refresh();
+    },
+    engine: async () => {
+      const late = g.shopWeekPastSummer() ? ' Summer is almost over, so waiting for the winter tune-up costs the same and loses no days.' : '';
+      if (!(await askYes(`Fix the engine for ${money(g.engineRepairCost())}? The truck stays at the garage for ${C.truckCare.engineShopDays} days, so no selling.${late}`, { yes: 'Fix it', no: 'Not now' }))) return;
+      const r = g.repairEngineNow();
+      if (!r.ok) return;
+      app.music.sfx('ching');
+      toast('🔧 The truck is at the garage. The garage will send a bill.');
+      app.changed();
+      m.close();
+      app.afterChange();
+    },
+    fixUp: () => {
+      const r = g.fixUp();
+      if (r.ok) {
+        app.music.sfx('ching');
+        toast('🔧 Looking good! The garage will send a bill.');
+        app.changed();
+      }
       m.refresh();
     },
     apply: () => {
@@ -743,7 +785,13 @@ export function balanceSheet(g, totals) {
     <tr class="sec"><td colspan="2">📝 Liabilities (what the business owes)</td></tr>
     ${line('loan')}${line('giftCards', cards ? ` (${cards} card${cards === 1 ? '' : 's'})` : '')}${line('interestOwed')}${line('billsToPay')}
     <tr class="tot"><td>Total liabilities</td><td>${money(sectionTotal(t, 'liability'))}</td></tr>
-    <tr class="bottom"><td>${esc(s.player)}'s Share (assets minus liabilities)</td><td class="${share(t) < 0 ? 'neg' : ''}">${money(share(t))}</td></tr>
+    ${
+      t.grandmaIn
+        ? `<tr class="tot"><td>Owners' Shares (assets minus liabilities)</td><td>${money(share(t))}</td></tr>
+    <tr><td>👵 Grandma's Share</td><td>${money(t.grandmaIn)}</td></tr>
+    <tr class="bottom"><td>${esc(s.player)}'s Share</td><td class="${ownShare(t) < 0 ? 'neg' : ''}">${money(ownShare(t))}</td></tr>`
+        : `<tr class="bottom"><td>${esc(s.player)}'s Share (assets minus liabilities)</td><td class="${share(t) < 0 ? 'neg' : ''}">${money(share(t))}</td></tr>`
+    }
   </table></div>`;
 }
 

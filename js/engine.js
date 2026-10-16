@@ -1,16 +1,17 @@
 // Frozen Assets game engine. Pure logic, no DOM, so it runs in the browser and in Node.
 // All state lives in `game.state` (plain JSON, saved as-is). `game.events` is a transient feed for the UI.
 
-import { CONFIG, SUPPLIES, SUPPLY, SPOTS, SPOT, FEATURES, FEATURE, LOCS, destOf, CONTAINERS, FLAVORS, TOPPINGS, POPS, CROWDS, DROP_BY_PERSON, START_PRICES, MARKET_DAYS, OFFICE_ADULT_PAY, STREET_CROWD, itemKey } from './config.js';
+import { CONFIG, sliceText, SUPPLIES, SUPPLY, SPOTS, SPOT, FEATURES, FEATURE, LOCS, destOf, CONTAINERS, FLAVORS, TOPPINGS, POPS, POP, CROWDS, DROP_BY_PERSON, START_PRICES, MARKET_DAYS, OFFICE_ADULT_PAY, CART, STREET_CROWD, itemKey } from './config.js';
 import { makeRng } from './rng.js';
-import { ACCOUNT, balanceCheck, applyEntries, emptyTotals, share } from './ledger.js';
+import { ACCOUNT, balanceCheck, applyEntries, emptyTotals, share, ownShare, sectionTotal } from './ledger.js';
 import { addToDoc, docLines, docEntryList, checkFiling, DOC_TYPES } from './documents.js';
 
 const C = CONFIG;
 const SEASON_DAYS = C.seasonWeeks * C.daysPerWeek;
 const DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
-export function newGameState({ player, business, color, tune = 'entertainer', seed, loan, truckCost, bling = 0, blingName = '', ownerCash = 0 }) {
+const T = CONFIG.truckCare;
+export function newGameState({ player, business, color, tune = 'entertainer', seed, loan, truckCost, bling = 0, blingName = '', used = false, miles = null, ownerCash = 0, favorite = null, partner = null }) {
   const s = {
     version: 1,
     seed: seed ?? Math.floor(Math.random() * 2 ** 31),
@@ -23,12 +24,17 @@ export function newGameState({ player, business, color, tune = 'entertainer', se
     day: 1,
     minute: C.dayStartMin,
     phase: 'setup', // setup | open | closed | seasonEnd | won | lost
-    loanActive: true,
+    loanActive: !partner, // with Grandma as a co-owner there's no bank loan
+    // Grandma as a co-owner: what she put in, and her slice of the profit ([1, 4]: $1 of every $4)
+    partner: partner ? { name: 'Grandma', put: partner.put, slice: partner.slice, splitUpTo: 0 } : null, // splitUpTo: profit already split
+    seasonStartShare: ownerCash, // your own Share when this summer started (a summer with Grandma is won by growing it)
     loanTerms: loan ? { principal: loan.principal, dailyInterest: loan.dailyInterest } : { principal: C.loan.principal, dailyInterest: C.loan.dailyInterest },
     truckCost: truckCost ?? C.loan.truckCost,
     bling,
     blingName,
+    truckUsed: used, // a used truck: cheaper, and it looks it
     ownerCash, // money brought from the park cart
+    favorite, // the treat people want most besides rocket pops (from the park cart, or picked below)
     cash: 0,
     truth: emptyTotals(),
     filed: emptyTotals(),
@@ -60,12 +66,20 @@ export function newGameState({ player, business, color, tune = 'entertainer', se
     nextBillId: 1,
     unpaidStreak: 0,
     sale: null, // { supply, off, until }
-    policies: { outOfStock: 'ask', drop: 'ask', autoGas: true },
+    policies: { outOfStock: 'ask', drop: 'ask', autoGas: true }, // autoGas: for bots and tests; a player's game turns it off (main.js) and gets the gas stop
     pending: null,
     today: null,
     week: null,
     history: [], // per week: { gw, profit }
     rebrandDay: { day: 0, paint: false, sign: false },
+    oil: 100, // engine oil (a used truck leaks): 100 = full
+    oilCheckedDay: 0, // the last day you looked at the dipstick
+    truckFixed: false, // a used truck the garage fixed up: it looks good as new
+    breakdownAt: null, // the minute today the truck will break down, if it will
+    miles: miles ?? (used ? 100000 : 35), // the odometer
+    engineWear: 0, // days started with almost no oil (each one makes breakdowns likelier, until the engine is fixed)
+    prevent: 1, // this summer's breakdown odds from last winter's repairs (1: none)
+    inShopUntil: 0, // the truck is at the garage (no selling) until this day
     nextPartyId: 1,
     results: [], // past seasons: { season, share, won }
   };
@@ -83,6 +97,8 @@ export class Game {
     state.routes ||= [];
     state.nextRouteId ||= 1;
     state.weekPlan ||= Array(7).fill(null);
+    // no favorite (older saves, or no park cart): one is picked from the seed, like at the cart
+    state.favorite ||= CART.hotChoices[Math.abs(state.seed | 0) % CART.hotChoices.length];
     for (const p of POPS) {
       state.prices[p.id] ??= START_PRICES[p.id];
       // already opened once: pops join the menu when first bought, like everything else
@@ -104,6 +120,15 @@ export class Game {
     }
     // songs that were removed or renamed
     state.tune = { medley: 'entertainer', musicBox: 'entertainer', truckSong: 'turkey', lullaby: 'entertainer', greensleeves: 'entertainer' }[state.tune] || state.tune;
+    // older saves: a full tank of oil, nothing fixed up, no breakdown planned
+    state.oil ??= 100;
+    state.oilCheckedDay ??= 0;
+    state.truckFixed ??= false;
+    state.breakdownAt ??= null;
+    state.miles ??= state.truckUsed ? 90000 : 35 + 4000 * ((state.season || 1) - 1);
+    state.engineWear ??= 0;
+    state.prevent ??= 1;
+    state.inShopUntil ??= 0;
     // accounts added after a game was saved start at zero
     for (const t of [state.truth, state.filed]) for (const k of Object.keys(emptyTotals())) t[k] ??= 0;
     // older saves didn't track which profit has moved to the player's Share: count it all as moved,
@@ -174,7 +199,7 @@ export class Game {
     if (bad !== 0) throw new Error(`Unbalanced ${type}: ${JSON.stringify(entries)}`);
     applyEntries(this.state.truth, entries);
     this.state.cash = this.state.truth.cash;
-    const docWeek = type === 'loanPapers' || type === 'truckBill' || type === 'ownerInvest' ? 0 : this.gw;
+    const docWeek = type === 'loanPapers' || type === 'truckBill' || type === 'ownerInvest' || type === 'grandmaInvest' ? 0 : this.gw;
     addToDoc(this.state.docs, docWeek, type, entries, item);
   }
 
@@ -340,7 +365,7 @@ export class Game {
     return this.isOn(t) && this.rawStock(t) >= 1;
   }
   popAvail(id) {
-    return this.isOn(id) && this.rawStock(id) >= 1;
+    return this.isOn(id) && this.rawStock(id) >= 1 && (!POP[id]?.spoon || this.rawStock('spoons') >= 1);
   }
   itemAvail(it, forDog = false) {
     if (it.pop) return !forDog && this.popAvail(it.pop);
@@ -352,7 +377,7 @@ export class Game {
     return p[item.container] + (item.topping ? p[item.topping] : 0);
   }
   availablePops() {
-    return POPS.filter((p) => this.popAvail(p.id)).map((p) => ({ pop: p.id }));
+    return POPS.filter((p) => !p.drink && this.popAvail(p.id)).map((p) => ({ pop: p.id }));
   }
   availableItems() {
     const out = [];
@@ -374,8 +399,10 @@ export class Game {
       const cost = this.consume(id, n);
       used.push({ id, n, cost });
     };
-    if (item.pop) take(item.pop, 1);
-    else {
+    if (item.pop) {
+      take(item.pop, 1);
+      if (POP[item.pop]?.spoon) take('spoons', 1);
+    } else {
       if (item.flavor === 'swirl') {
         take('vanilla', 1);
         take('chocolate', 1);
@@ -431,15 +458,22 @@ export class Game {
         { acct: 'ownerIn', amt: s.ownerCash },
       ], { label: 'Cart money put into the business', amt: s.ownerCash });
     }
-    this.post('loanPapers', [
-      { acct: 'cash', amt: principal },
-      { acct: 'loan', amt: principal },
-    ], { label: 'Business loan — due at the end of the summer', amt: principal });
+    if (s.partner) {
+      this.post('grandmaInvest', [
+        { acct: 'cash', amt: s.partner.put },
+        { acct: 'grandmaIn', amt: s.partner.put },
+      ], { label: `Grandma's money for the truck. She gets ${sliceText(s.partner.slice)} of profit.`, amt: s.partner.put });
+    } else {
+      this.post('loanPapers', [
+        { acct: 'cash', amt: principal },
+        { acct: 'loan', amt: principal },
+      ], { label: 'Business loan — due at the end of the summer', amt: principal });
+    }
     const truck = s.truckCost ?? C.loan.truckCost;
     this.post('truckBill', [
       { acct: 'truck', amt: truck },
       { acct: 'cash', amt: -truck },
-    ], { label: `One ice cream truck${s.blingName ? ` with ${s.blingName.toLowerCase()}` : ''}`, amt: truck });
+    ], { label: `One ${s.truckUsed ? 'used ' : ''}ice cream truck${s.blingName ? ` with ${s.blingName.toLowerCase()}` : ''}`, amt: truck });
     s.phase = 'setup';
     this.rollWeather();
     this.sync();
@@ -608,16 +642,56 @@ export class Game {
   }
 
   // Move this week's profit (or loss) into the player's Share.
+  // With Grandma as a co-owner, her slice of it moves on to Grandma's Share.
   moveProfit() {
+    const s = this.state;
     const amt = this.pendingProfit();
     const ids = this.openProfitDocs().map((d) => d.id);
     for (const d of this.openProfitDocs()) d.closed = true;
-    this.logAction('moveProfit', { amt, docs: ids.length });
-    return { amt, ids };
+    const grandma = s.partner ? Math.round((amt * s.partner.slice[0]) / s.partner.slice[1]) : 0;
+    if (grandma) this.splitWithGrandma(grandma, s.filed);
+    s.lastSplit = { ids, grandma };
+    this.logAction('moveProfit', { amt, docs: ids.length, grandma });
+    return { amt, ids, grandma };
+  }
+  // Between summers: pay Grandma for part of her Share (quarters: 1–4; 4 is all of it), from the business's cash.
+  // Her slice of the profit gets smaller by the same part; buying all of it makes the business all yours.
+  buyOutGrandma(quarters) {
+    const s = this.state;
+    const P = s.partner;
+    if (!P || s.phase !== 'won' || !(quarters >= 1 && quarters <= 4)) return { ok: false };
+    const amt = this.buyOutCost(quarters);
+    if (amt > this.cash) return { ok: false, reason: 'cash' };
+    const part = ['', 'a quarter of', 'half of', 'three quarters of', 'all of'][quarters];
+    this.post('grandmaBuyout', [
+      { acct: 'cash', amt: -amt },
+      { acct: 'grandmaIn', amt: -amt },
+    ], { label: `Bought back ${part} Grandma's Share`, amt });
+    if (quarters === 4) {
+      s.partnerWas = { ...P };
+      s.partner = null;
+    } else {
+      // her slice, out of $10, to the quarter: half of $3 of every $10 is $1.50 of every $10
+      const ofTen = (P.slice[0] / P.slice[1]) * 10 * ((4 - quarters) / 4);
+      P.slice = [Math.round(ofTen * 4) / 4, 10];
+    }
+    this.logAction('buyOutGrandma', { quarters, amt, slice: s.partner?.slice || null });
+    return { ok: true, amt, slice: s.partner?.slice || null };
+  }
+  buyOutCost(quarters) {
+    const theirs = this.state.truth.grandmaIn || 0;
+    return quarters === 4 ? theirs : Math.round((theirs * quarters) / 4);
+  }
+  // Grandma's part of the profit moves from your Share to hers, in one set of books (the real ones or yours).
+  splitWithGrandma(amt, books) {
+    applyEntries(books, [{ acct: 'grandmaIn', amt }, { acct: 'ownerIn', amt: -amt }]);
   }
 
   undoMoveProfit(ids) {
-    for (const d of this.state.docs) if (ids.includes(d.id)) delete d.closed;
+    const s = this.state;
+    for (const d of s.docs) if (ids.includes(d.id)) delete d.closed;
+    if (s.lastSplit?.grandma && s.lastSplit.ids.join() === ids.join()) this.splitWithGrandma(-s.lastSplit.grandma, s.filed);
+    s.lastSplit = null;
     this.logAction('undoMoveProfit', { docs: ids.length });
   }
 
@@ -652,6 +726,7 @@ export class Game {
     s.minutesHere = {};
     s.driving = null;
     s.today = { customers: 0, parties: 0, sold: {}, toppings: {}, tooExpensive: 0, tooExpensiveWants: {}, outOfStock: 0, revenue: 0, cardsSold: 0, cardsRedeemed: 0, startCash: this.cash, drops: 0, mood: 0, bySpot: {}, broke: 0, alreadyHad: 0, curb: 0 };
+    s.queue = 0; // nobody waiting at the window yet
     if (!s.week || s.week.gw !== this.gw) s.week = { gw: this.gw, sold: {}, toppings: {}, customers: 0, tooExpensive: 0, tooExpensiveWants: {}, outOfStock: 0, broke: 0, startTotals: { ...s.truth } };
     s.dayFactor = this.rng.range(...C.dayRandom);
     // supply sale roll
@@ -662,6 +737,20 @@ export class Game {
     this.spoil();
     // gas
     if (s.policies.autoGas && s.fuel < C.gas.tankGal * C.gas.autoFillBelow) this.fillGas(true);
+    // the truck is at the garage: no selling today (the day ends at the first tick)
+    if (this.inShop) {
+      s.breakdownAt = null;
+      s.today.inShop = true;
+      this.emit({ t: 'open' });
+      this.sync();
+      return;
+    }
+    // starting the day with almost no oil wears out the engine
+    if (s.oil < T.oilEmpty) s.engineWear++;
+    // will the truck break down today? (likelier with more miles and a worn engine)
+    s.breakdownAt = this.rng.chance(this.breakdownChance()) ? this.rng.int(C.dayStartMin + 60, C.dayEndMin - 90) : null;
+    // Grandma, as a co-owner, worries about that old truck's oil
+    if (s.partner && s.truckUsed && s.oil < 45 && s.day - s.oilCheckedDay >= 5 && this.rng.chance(0.5)) this.emit({ t: 'grandmaOil' });
     // first stop
     const first = this.routeStopAt(C.dayStartMin);
     if (first && first !== s.spot) this.teleportMorning(first);
@@ -850,12 +939,13 @@ export class Game {
     const s = this.state;
     if (s.spot === spot && !s.driving) return { ok: true };
     const from = s.driving ? s.driving.from : s.spot;
-    const fuel = this.driveFuel(from, spot);
+    const fuel = this.driveFuel(from, spot) * this.gasFactor();
     if (s.fuel < fuel) {
       this.emit({ t: 'noGas' });
       return { ok: false, reason: 'gas' };
     }
     s.fuel -= fuel;
+    s.miles += this.driveFuel(from, spot) * T.milesPerGal;
     s.driving = { from: s.spot, to: spot, left: this.driveMinutes(from, spot), total: this.driveMinutes(from, spot), stopped: 0 };
     this.emit({ t: 'drive', to: spot });
     if (manual) this.logAction('driveNow', { from: s.spot, to: spot });
@@ -1043,7 +1133,11 @@ export class Game {
     this.countMinute(s.spot);
     const moving = cr.mode !== 'park';
     // spread-out streets mean more road for every customer
-    if (moving) s.fuel = Math.max(0, s.fuel - C.gas.cruiseGalPerHour / 60 / this.density());
+    if (moving) {
+      const gal = C.gas.cruiseGalPerHour / 60 / this.density();
+      s.fuel = Math.max(0, s.fuel - gal * this.gasFactor());
+      s.miles += gal * T.milesPerGal;
+    }
     // families who already bought today come by (a hint that it's time to move on)
     if (CROWDS[this.crowdKind()].hint !== false && this.saturation(loc.id) <= C.alreadyHad.below) {
       const seen = (s.today.alreadyHadBy ||= {});
@@ -1094,7 +1188,24 @@ export class Game {
     const sat = fresh ? 1 : this.saturation(spotId);
     const weather = this.heat() * (s.weather.rain ? C.weather.rainDemand : 1);
     const season = C.seasonCurve[this.week - 1];
-    return (C.demandScale / 60) * this.spotProfile(spotId, hour) * season * weather * s.popularity * (1 + s.buzz) * sat * s.dayFactor;
+    return (C.demandScale / 60) * this.spotProfile(spotId, hour) * season * weather * s.popularity * (1 + s.buzz) * sat * s.dayFactor * this.dealAppeal() * this.looksFactor(spotId);
+  }
+  // How cheap the menu is next to fair (average of what's on it and in stock): 1 = fair, 0.5 = half price.
+  priceRatio() {
+    const p = this.state.prices;
+    const r = [
+      ...CONTAINERS.filter((c) => this.containerAvail(c.id)).map((c) => p[c.id] / C.fairPrice[c.id]),
+      ...POPS.filter((x) => !x.drink && this.popAvail(x.id)).map((x) => p[x.id] / C.fairPrice[x.id]),
+    ];
+    return r.length ? r.reduce((a, b) => a + b, 0) / r.length : 1;
+  }
+  // Super-low prices draw a crowd.
+  dealAppeal() {
+    const D = C.dealCrowd;
+    // checked every half hour (and whenever a price changes): what's in stock changes slowly
+    const key = `${this.state.day}:${Math.floor(this.state.minute / 30)}`;
+    if (this._deal?.key !== key) this._deal = { key, v: Math.min(D.max, 1 + D.strength * Math.max(0, D.below - this.priceRatio())) };
+    return this._deal.v;
   }
 
   // ---------- the main tick ----------
@@ -1102,7 +1213,7 @@ export class Game {
   step() {
     const s = this.state;
     if (s.phase !== 'open' || s.pending) return false;
-    if (s.minute >= C.dayEndMin) {
+    if (s.minute >= C.dayEndMin || s.today.inShop) {
       this.closeDay();
       return false;
     }
@@ -1110,7 +1221,20 @@ export class Game {
     const stop = this.routeStopAt(s.minute);
     if (s.route.some((r) => r.at === s.minute) && stop && stop !== s.spot && !(s.driving && s.driving.to === stop)) this.driveTo(stop, false);
 
-    s.fuel = Math.max(0, s.fuel - C.gas.idleGalPerHour / 60);
+    s.fuel = Math.max(0, s.fuel - (C.gas.idleGalPerHour / 60) * this.gasFactor());
+    // the gas is getting low: stop for gas? (unless the policy fills up on its own)
+    if (!s.policies.autoGas && !s.today.gasAsked && s.fuel < C.gas.tankGal * T.lowGas) {
+      s.today.gasAsked = true;
+      s.pending = { kind: 'lowGas' };
+      return false;
+    }
+    // a breakdown: towed to the garage, and that's the end of the day
+    if (s.breakdownAt != null && s.minute >= s.breakdownAt) {
+      this.breakDown();
+      this.closeDay();
+      return false;
+    }
+    s.queue = Math.max(0, (s.queue || 0) - C.service.perMinute); // the window serves the line
     if (s.driving) {
       const d = s.driving;
       this.countMinute(d.to);
@@ -1151,7 +1275,7 @@ export class Game {
     let type = forceType || r.weighted(weights);
     let members = [];
     const add = (k, n = 1) => {
-      for (let i = 0; i < n; i++) members.push({ kind: k, look: r.int(0, 11) });
+      for (let i = 0; i < n; i++) members.push({ kind: k, look: r.int(0, 9999) }); // art.js LOOKS: thousands of looks, so few repeats
     };
     switch (type) {
       case 'soloAdult': add('adult'); break;
@@ -1199,8 +1323,8 @@ export class Game {
 
   wants(m) {
     const r = this.rng;
-    const pops = POPS.filter((p) => this.isOn(p.id));
-    if (pops.length && r.chance(C.popWant[m.kind] ?? 0)) return { pop: r.weighted(pops.map((p) => [p.id, p.want])) };
+    const pops = POPS.filter((p) => !p.drink && this.isOn(p.id));
+    if (pops.length && r.chance(C.popWant[m.kind] ?? 0)) return { pop: r.weighted(pops.map((p) => [p.id, p.id === this.state.favorite ? C.favoriteWant : p.want])) };
     const kid = m.kind === 'kid' || m.kind === 'teen';
     const flavor = r.weighted(kid ? [['vanilla', 35], ['chocolate', 40], ['swirl', 25]] : [['vanilla', 40], ['chocolate', 30], ['swirl', 30]]);
     const container = r.weighted(kid ? [['cake', 35], ['sugar', 25], ['waffle', 15], ['bowl', 25]] : [['cake', 20], ['sugar', 25], ['waffle', 30], ['bowl', 25]]);
@@ -1289,6 +1413,19 @@ export class Game {
 
   arrive(party) {
     const s = this.state;
+    // a long line at the window: they'd wait too long, so they walk away
+    s.queue ||= 0;
+    if (!party.cardIds && s.queue / C.service.perMinute > C.service.patience) {
+      for (const m of party.members) (m.result = m.kind === 'dog' ? 'none' : 'lineTooLong'), (m.done = true);
+      const n = party.members.filter((m) => m.kind !== 'dog').length;
+      s.today.lineLeft = (s.today.lineLeft || 0) + n;
+      s.week.lineLeft = (s.week.lineLeft || 0) + n;
+      this.nudge('lineLeft', n);
+      this.emit({ t: 'party', party: { id: party.id, type: party.type, members: party.members } });
+      this.finishParty(party);
+      return;
+    }
+    s.queue += party.members.length;
     s.today.parties++;
     const people = party.members.filter((m) => m.kind !== 'dog');
     s.today.customers += people.length;
@@ -1475,6 +1612,25 @@ export class Game {
       s.week.toppings[item.topping] = (s.week.toppings[item.topping] || 0) + 1;
     }
     party.bill = (party.bill || 0) + price;
+    if (!forDog) this.maybeDrink(party, m);
+  }
+  // Some people add a drink to their order, more on a hot day, if the price is fair to them.
+  maybeDrink(party, m) {
+    const s = this.state;
+    const drinks = POPS.filter((p) => p.drink && this.popAvail(p.id));
+    if (!drinks.length) return;
+    const d = C.drink;
+    if (!this.rng.chance(Math.min(d.max, Math.max(d.min, d.base + (s.weather.temp - 80) * d.perDegree)))) return;
+    const id = this.rng.weighted(drinks.map((p) => [p.id, p.want]));
+    const price = s.prices[id];
+    if (price > C.fairPrice[id] * (m.wtp ?? 1)) return;
+    if (m.cash != null && m.cash - m.paid < price) return;
+    this.makeItem({ pop: id }, 0);
+    m.drink = id;
+    m.paid += price;
+    s.today.sold[id] = (s.today.sold[id] || 0) + 1;
+    s.week.sold[id] = (s.week.sold[id] || 0) + 1;
+    party.bill += price;
   }
 
   applyServiceChoice(party, m, choice) {
@@ -1581,6 +1737,15 @@ export class Game {
     const p = s.pending;
     if (!p) return;
     s.pending = null;
+    if (p.kind === 'lowGas') {
+      // choice: 'fill' (stop at the gas station: 10 minutes) or 'skip'
+      if (choice === 'fill') {
+        this.fillGas();
+        s.minute = Math.min(C.dayEndMin, s.minute + 10);
+      }
+      this.logAction('lowGas', { choice });
+      return;
+    }
     const party = p.partyRef;
     const m = party.members[p.idx];
     if (p.kind === 'outOfStock') {
@@ -1685,6 +1850,7 @@ export class Game {
         result: m.result,
         mood: m.mood,
         item: m.item,
+        drink: m.drink || null,
         want: m.want,
         dropped: !!m.dropped,
         replaced: m.replaced,
@@ -1803,6 +1969,9 @@ export class Game {
     const target = C.ads.find((a) => a.id === s.adTier).buzz;
     if (s.buzz < target) s.buzz += (target - s.buzz) * C.buzzRisePerDay;
     else s.buzz -= (s.buzz - target) * C.buzzFadePerDay;
+    // a used truck leaks a little oil every day
+    const leak = C.truckCare.oilLeak[s.truckUsed ? 'used' : 'new'];
+    s.oil = Math.max(0, s.oil - this.rng.range(leak[0], leak[1]));
     s.lastDay = { ...s.today, endCash: this.cash, day: s.day };
     this.logDay(popBefore);
     this.emit({ t: 'close', day: s.day });
@@ -1815,6 +1984,13 @@ export class Game {
     if (endOfWeek) {
       s.adTier = 'none'; // ads are chosen fresh each week
       s.promoWeek = 0;
+      // Grandma's slice of the week's profit moves to her Share in the real books (the kid's books do it at Calculate Profit)
+      if (s.partner) {
+        const profitSoFar = sectionTotal(s.truth, 'income') - sectionTotal(s.truth, 'expense');
+        const amt = Math.round(((profitSoFar - (s.partner.splitUpTo || 0)) * s.partner.slice[0]) / s.partner.slice[1]);
+        s.partner.splitUpTo = profitSoFar;
+        if (amt) this.splitWithGrandma(amt, s.truth);
+      }
       s.lastWeek = { ...s.week, endTotals: { ...s.truth } };
       s.week = null;
       s.needWeekReport = s.lastWeek.gw;
@@ -1855,6 +2031,7 @@ export class Game {
       tooExpensive: t.tooExpensive,
       tooExpensiveWants: t.tooExpensiveWants || {},
       broke: t.broke || 0,
+      lineLeft: t.lineLeft || 0,
       alreadyHad: t.alreadyHad || 0,
       curbStops: t.curb || 0,
       bySpot: Object.fromEntries(Object.entries(t.bySpot || {}).map(([k, v]) => [k, { minutes: s.minutesHere[k] || 0, ...v }])),
@@ -1868,7 +2045,7 @@ export class Game {
       revenue: t.revenue,
       startCash: t.startCash,
       endCash: this.cash,
-      share: share(s.truth),
+      share: ownShare(s.truth),
       spoiled: t.spoiled || 0,
       popularityStart: +popBefore.toFixed(3),
       popularityEnd: +s.popularity.toFixed(3),
@@ -1919,12 +2096,130 @@ export class Game {
   setPrice(id, cents) {
     const from = this.state.prices[id];
     this.state.prices[id] = Math.max(0, Math.min(5000, Math.round(cents)));
+    this._deal = null; // the crowd sees the new prices
     if (from !== this.state.prices[id]) this.logAction('price', { id, from, to: this.state.prices[id] });
   }
   setMenuOn(id, on) {
     this.state.menuOn[id] = on;
     this.logAction('menu', { id, on });
     if (this.state.menuAutoOff) this.state.menuAutoOff = this.state.menuAutoOff.filter((x) => x !== id);
+  }
+
+  // ---------- truck care ----------
+  gasFactor() {
+    return this.state.truckUsed ? T.usedGas : 1;
+  }
+  // A used truck that hasn't been fixed up: fewer people want to buy from it, most in the nicer neighborhoods.
+  looksFactor(spotId) {
+    const s = this.state;
+    if (!s.truckUsed || s.truckFixed) return 1;
+    const area = LOCS[spotId]?.area || spotId;
+    return T.shabby[area] ?? T.shabby.other;
+  }
+  // The chance the truck breaks down today: more miles and a worn engine make it likelier; last winter's repairs less.
+  // (miles, wear, prevent: what-ifs.)
+  breakdownChance({ miles = this.state.miles, wear = this.state.engineWear, prevent = this.state.prevent } = {}) {
+    const B = T.breakdown;
+    const pts = B.perSummer;
+    const i = pts.findIndex(([m]) => m > miles);
+    const [[m0, b0], [m1, b1]] = i < 0 ? pts.slice(-2) : i === 0 ? pts.slice(0, 2) : [pts[i - 1], pts[i]];
+    const perSummer = Math.max(0, b0 + ((b1 - b0) * (miles - m0)) / (m1 - m0));
+    return Math.min(0.5, (perSummer / SEASON_DAYS) * (1 + B.perWear * wear) * prevent);
+  }
+  get inShop() {
+    return this.state.inShopUntil > this.state.day;
+  }
+  // Let the days at the garage go by (no selling) until the truck is back, or the summer ends. Returns how many days.
+  waitForTruck() {
+    const s = this.state;
+    let days = 0;
+    while (this.inShop && (s.phase === 'closed' || s.phase === 'setup')) {
+      this.openDay();
+      this.runDay();
+      days++;
+    }
+    return days;
+  }
+  // A week at the garage starting today would run past the end of the summer (the winter tune-up fixes the engine
+  // for the same price, without losing selling days).
+  shopWeekPastSummer() {
+    return SEASON_DAYS - this.state.day + 1 < T.engineShopDays;
+  }
+  // What the garage charges to fix a worn engine (the same in the summer or the winter).
+  engineRepairCost() {
+    const E = T.winter.engine;
+    return Math.round((E.cost + E.perWear * this.state.engineWear) / 100) * 100;
+  }
+  // Fix a worn engine now, during the summer: the garage keeps the truck for a week (no selling), then it's like new
+  // again (and full of oil). Only in the morning, before opening.
+  repairEngineNow() {
+    const s = this.state;
+    if (!s.engineWear || (s.phase !== 'closed' && s.phase !== 'setup') || this.inShop) return { ok: false };
+    const cost = this.engineRepairCost();
+    this.garageBill(cost, 'Engine repair');
+    s.engineWear = 0;
+    s.oil = 100;
+    s.inShopUntil = s.day + T.engineShopDays;
+    this.logAction('repairEngineNow', { cost, until: s.inShopUntil });
+    return { ok: true, cost, until: s.inShopUntil };
+  }
+  // Look at the dipstick. Returns how full the oil is (0–100).
+  checkOil() {
+    const s = this.state;
+    s.oilCheckedDay = s.day;
+    this.logAction('checkOil', { oil: Math.round(s.oil) });
+    return s.oil;
+  }
+  // Top off the oil from bottles bought at the gas station (paid in cash).
+  addOil() {
+    const s = this.state;
+    const B = T.oilBottle;
+    const bottles = Math.ceil((100 - s.oil - 1) / B.adds);
+    if (bottles <= 0) return { ok: false, reason: 'full' };
+    const cost = bottles * B.price;
+    if (cost > this.cash) return { ok: false, reason: 'cash' };
+    s.oil = Math.min(100, s.oil + bottles * B.adds);
+    s.oilCheckedDay = s.day;
+    this.post('upkeepReceipt', [
+      { acct: 'upkeep', amt: cost },
+      { acct: 'cash', amt: -cost },
+    ], { label: `Motor oil, ${bottles} bottle${bottles > 1 ? 's' : ''}`, amt: cost, count: bottles });
+    this.logAction('addOil', { bottles, cost });
+    return { ok: true, bottles, cost };
+  }
+  // The garage sends a bill: an expense now, paid later.
+  garageBill(amt, label) {
+    const s = this.state;
+    this.post('garageBill', [
+      { acct: 'upkeep', amt },
+      { acct: 'billsToPay', amt },
+    ], { label, amt });
+    s.bills.push({ id: s.nextBillId++, amt, due: s.day + C.credit.termDays, late: false, label: `Garage: ${label}` });
+  }
+  // Broken down: a tow to the garage, a repair bill (bigger with more miles), and the day is over. The garage tops
+  // off low oil, but a worn engine stays worn until the winter.
+  breakDown() {
+    const s = this.state;
+    const B = T.breakdown;
+    const cost = Math.round((this.rng.range(...B.cost) * (1 + s.miles / B.costMilesPer)) / 100) * 100;
+    const oily = s.oil < T.oilLow;
+    const worn = s.engineWear > 0;
+    s.breakdownAt = null;
+    this.garageBill(cost, 'Tow and repair');
+    if (oily) s.oil = 100;
+    s.today.breakdown = { minute: s.minute, cost, oily, worn };
+    this.emit({ t: 'breakdown', cost, oily, worn });
+    this.logAction('breakdown', { minute: s.minute, cost, oily, worn });
+    s.minute = C.dayEndMin; // towed away: the day ends here
+  }
+  // The garage fixes up a used truck's outside: paint, bodywork, no more rust. It looks (and sells) like new.
+  fixUp() {
+    const s = this.state;
+    if (!s.truckUsed || s.truckFixed) return { ok: false };
+    s.truckFixed = true;
+    this.garageBill(T.fixUp, 'New paint and bodywork');
+    this.logAction('fixUp', { cost: T.fixUp });
+    return { ok: true, cost: T.fixUp };
   }
 
   rebrand({ color, business }) {
@@ -1972,8 +2267,15 @@ export class Game {
     const s = this.state;
     if (s.phase !== 'seasonEnd') return null;
     const due = this.amountDueToBank();
-    const finalShare = share(s.truth);
-    this.logAction('loanDue', { cash: this.cash, due, share: finalShare, won: !s.loanActive || this.cash >= due });
+    const finalShare = ownShare(s.truth);
+    // with Grandma there's no loan: the summer is won if your Share grew
+    const grew = finalShare > (s.seasonStartShare ?? s.ownerCash ?? 0);
+    this.logAction('loanDue', { cash: this.cash, due, share: finalShare, won: s.partner ? grew : !s.loanActive || this.cash >= due });
+    if (s.partner && s.loanActive === false) {
+      s.phase = grew ? 'won' : 'lost';
+      s.results.push({ season: s.season, share: finalShare, won: grew, partner: true });
+      return { won: grew, share: finalShare, partner: true };
+    }
     if (!s.loanActive) {
       s.phase = 'won';
       s.results.push({ season: s.season, share: finalShare, won: true });
@@ -1995,13 +2297,36 @@ export class Game {
     return { won: false, share: finalShare };
   }
 
-  // After a win: keep the truck, cash and supplies, and start next summer.
-  nextSeason() {
+  // The garage's winter inspection: the tune-up and oil change every truck gets (more with more miles), and the repairs
+  // the mechanic recommends. Each repair cuts next summer's breakdowns; the engine repair fixes a worn engine.
+  winterInspection() {
+    const s = this.state;
+    const W = T.winter;
+    const scale = 1 + s.miles / W.costMilesPer;
+    const dollars = (c) => Math.round(c / 100) * 100;
+    const repairs = W.repairs.filter((r) => s.miles >= r.from).map((r) => ({ id: r.id, label: r.label, cost: dollars(r.cost * scale), cut: r.cut }));
+    if (s.engineWear > 0) repairs.unshift({ id: 'engine', label: W.engine.label, cost: this.engineRepairCost(), cut: 1, fixesWear: true });
+    return { tuneUp: dollars(W.base + s.miles * W.perMile), repairs };
+  }
+
+  // After a win: keep the truck, cash and supplies, and start next summer. repairs: ids of the recommended winter
+  // repairs to pay for (see winterInspection).
+  nextSeason(repairs = []) {
     const s = this.state;
     if (s.phase !== 'won') return;
-    this.logAction('nextSeason');
+    this.logAction('nextSeason', { repairs });
+    const insp = this.winterInspection();
     s.season++;
+    s.seasonStartShare = ownShare(s.truth);
     s.day = 1;
+    // the winter inspection at the garage: a tune-up and oil change, and the repairs you picked
+    this.garageBill(insp.tuneUp, 'Winter inspection, tune-up and oil change');
+    const picked = insp.repairs.filter((r) => repairs.includes(r.id));
+    if (picked.length) this.garageBill(picked.reduce((a, r) => a + r.cost, 0), picked.map((r, i) => { const l = r.label.replace(/ \(.*\)/, ''); return i ? l[0].toLowerCase() + l.slice(1) : l; }).join(', '));
+    s.prevent = picked.reduce((a, r) => a * r.cut, 1);
+    if (picked.some((r) => r.fixesWear)) s.engineWear = 0;
+    s.oil = 100;
+    s.inShopUntil = 0;
     s.phase = 'closed';
     s.popularity = C.popularity.start + (s.popularity - C.popularity.start) * 0.5;
     s.buzz = 0;
@@ -2020,7 +2345,7 @@ export class Game {
 
   // ---------- reports ----------
   shareNow() {
-    return share(this.state.truth);
+    return ownShare(this.state.truth);
   }
 }
 

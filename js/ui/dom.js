@@ -58,6 +58,28 @@ export function openModal({ title, cls = '', render, onClose, closable = true })
   render(body, m);
   return m;
 }
+// An in-game "are you sure?" instead of the browser's confirm(). Resolves true for yes, false for no (or closing it).
+export function askYes(question, { yes = 'Yes', no = 'No', title = '🤔 Are you sure?' } = {}) {
+  return new Promise((resolve) => {
+    let answered = false;
+    const done = (v) => {
+      if (answered) return;
+      answered = true;
+      m.close();
+      resolve(v);
+    };
+    const m = openModal({
+      title,
+      cls: 'narrow ask',
+      onClose: () => done(false),
+      render: (body) => {
+        body.innerHTML = `<p style="font-size:18px">${question}</p><div class="row" style="justify-content:space-between;margin-top:12px"><button class="btn" data-a="no">${no}</button><button class="btn big go" data-a="yes">${yes}</button></div>`;
+        body.querySelector('[data-a="no"]').onclick = () => done(false);
+        body.querySelector('[data-a="yes"]').onclick = () => done(true);
+      },
+    });
+  });
+}
 export const anyModalOpen = () => modalStack.length > 0;
 export function closeAllModals() {
   [...modalStack].reverse().forEach((m) => m.close());
@@ -82,3 +104,6 @@ export function fmtTime(min) {
 export function stepper(value, act, id, label) {
   return `<span class="stepper"><button data-act="${act}" data-id="${id}" data-d="-25" aria-label="Lower">−</button><span class="v">${label ?? value}</span><button data-act="${act}" data-id="${id}" data-d="25" aria-label="Raise">+</button></span>`;
 }
+
+// Two bars for the pause button (the ⏸ emoji shows up as a box on some computers).
+export const PAUSE_ICON = '<svg viewBox="0 0 10 12" width="10" height="12" aria-hidden="true" style="display:inline-block;vertical-align:-1px"><rect width="3.5" height="12" rx="1" fill="currentColor"/><rect x="6.5" width="3.5" height="12" rx="1" fill="currentColor"/></svg>';

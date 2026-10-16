@@ -4,7 +4,7 @@
 // Money here is real bills and coins: every pile of money (cash box, wallet, tip jar, a customer's
 // pocket) is a count of each bill and coin, like { 2000: 1, 100: 3, 25: 2 } for $23.50.
 
-import { CART, CART_ITEMS, CART_ITEM, CART_SHOPS, CART_LOOKS, CART_CROWD, REGULARS } from './config.js';
+import { CART, CART_ITEMS, CART_ITEM, CART_SHOPS, CART_LOOKS, CART_CROWD, REGULARS, FREEZE_TINTS, GRANDMA } from './config.js';
 import { makeRng } from './rng.js';
 
 const K = CART;
@@ -79,10 +79,42 @@ export function choosePayment(pocket, due, rng) {
 
 // ---------- state ----------
 // How many treats come in a box from the restaurant store.
+// how many spoons or napkins come in a pack
+const PACK_QTY = Object.fromEntries(CART_SHOPS.restaurant.items.filter((i) => i.kind === 'spoons' || i.kind === 'napkins').map((i) => [i.kind, i.qty]));
+// Things you eat: corner store snacks and a packed lunch can wait in the cooler (a spot each); hot dog stand food
+// is eaten right away. { id: { name, food, emoji, keep } }
+export const FOOD = {
+  ...Object.fromEntries(Object.entries(CART_SHOPS).flatMap(([shop, S]) => S.items.filter((i) => i.food).map((i) => [i.id, { name: i.name, food: i.food, emoji: i.emoji, keep: shop === 'corner' }]))),
+  lunch: { ...K.lunch, keep: true },
+};
+export const isFood = (id) => !!FOOD[id];
+const G = GRANDMA;
+const money = (c) => '$' + (c / 100).toFixed(2);
+const aOr = (name) => (/^[aeiou]/.test(name) ? 'an ' : 'a ') + name;
+const decalName = (id) => CART_SHOPS.decals.items.find((d) => d.id === id).name.toLowerCase();
+// Grandma's state: her favorite (something not many people pick, never this game's big seller), how she feels about
+// you (0–10, hidden), today's lunch invitation, and the advice she gave last time (to see if you took it).
+function newGrandma(state) {
+  const choices = G.favChoices.filter((id) => id !== state.hot);
+  return { fav: choices[(state.seed >>> 0) % choices.length], feel: G.start, invited: null, answered: null, declined: 0, advice: null, lunches: 0, visits: 0, gifts: 0 };
+}
+const TREATS = CART_ITEMS.filter((i) => i.kind !== 'drink');
+const DRINKS = CART_ITEMS.filter((i) => i.kind === 'drink');
 const BOX_SIZE = Object.fromEntries(CART_SHOPS.restaurant.items.filter((i) => i.kind === 'stock').map((i) => [i.item, i.qty]));
 export const boxSize = (id) => BOX_SIZE[id] || 24;
+// What 3 boxes of a kind cost together at the restaurant store (to the quarter).
+export const bulkPrice = (it) => Math.round((it.price * K.bulk.boxes * (1 - K.bulk.off)) / 25) * 25;
+// How many treats a box holds when full: small boxes from the corner store say so.
+export const capOf = (box) => box.size || boxSize(box.item);
 const emptyShelves = () => Array.from({ length: K.freezerShelves }, () => Array(K.shelfSlots).fill(null));
+const isDrinkId = (id) => CART_ITEM[id]?.kind === 'drink';
 const emptyTrays = () => Array.from({ length: K.coolerTrays }, () => Array(K.traySpots).fill(null));
+// Freeze pops come in assorted colors, just for looks. Each spot in a box has its own color (from the box's seed),
+// and the pop keeps that color in the cooler and on the counter. A color is an index into FREEZE_TINTS.
+export const boxTint = (box, k) => (Math.imul((box.seed || 0) + k * 7919 + 1, 2654435761) >>> 0) % FREEZE_TINTS.length;
+const newSeed = () => Math.floor(Math.random() * 2 ** 31);
+// Each game's other big seller, picked from the game's seed.
+const hotFor = (seed) => K.hotChoices[Math.abs(seed | 0) % K.hotChoices.length];
 
 export function newCartState({ player, look, seed }) {
   const s = {
@@ -99,13 +131,17 @@ export function newCartState({ player, look, seed }) {
     prices: Object.fromEntries(CART_ITEMS.map((i) => [i.id, i.fair])),
     // The freezer at home: shelves of box spots. A box is { item, n } (n: how many treats are left in it).
     freezer: { shelves: emptyShelves() },
+    drinkShelf: Array(K.drinkShelf).fill(null), // cases of drinks on the kitchen shelf (they don't go in the freezer)
     counter: [], // boxes from the store on the kitchen counter, not put away yet (they melt if left out)
+    recycling: [], // empty boxes in the recycling bin (ids of what was in them): taken out with the trash when you leave
     // The cooler: trays of spots, each holding one treat id or null. trays[top] is the one you can see.
-    cooler: { trays: emptyTrays(), top: 0 },
-    spoons: 0, // every Italian ice needs one
-    napkins: 0, // to hand out if you like
+    // tints: the color of the freeze pop in each spot (the same shape as trays).
+    cooler: { trays: emptyTrays(), tints: emptyTrays(), top: 0 },
+    spoons: 0, // on the cart: every Italian ice needs one
+    napkins: 0, // on the cart: to hand out if you like
+    packs: { spoons: 0, napkins: 0 }, // packs from the store, still on the shelf at home
     owned: [], // ids of things bought to keep (gear, decals, hats, glasses, shirts, toys)
-    decalSpots: {}, // where each sticker is stuck on the cart: { id: [u, v] }, 0–1 across and down the cart's side
+    stickers: [], // your stickers, each { id, at }: where it's stuck on the cart ([u, v], 0–1 across and down the cart's side) or null (not stuck on yet). You can have more than one of a kind.
     wearing: { hat: null, glasses: null, shirt: null },
     balloon: null, // a balloon tied to the cart, today only
     regulars: Object.fromEntries(REGULARS.map((r) => [r.id, { happy: 2, missed: 0, awayUntil: 0 }])),
@@ -116,9 +152,19 @@ export function newCartState({ player, look, seed }) {
     txn: null, // a purchase waiting for its change to be checked
     today: null,
     days: [], // a short summary of each day
+    fed: { minute: K.homeStart, level: 100 }, // how full you were at a minute; hunger runs down from there
+    tooHungry: null, // the minute you got too hungry and went home, today
+    pantry: 0, // packed lunches you can still make at home
+    grandma: null, // set up in the constructor: see newGrandma
     stats: { sold: 0, revenue: 0, tips: 0, keptExtra: 0, toTruck: 0, soldItems: {} }, // soldItems: how many of each, ever
+    bought: {}, // treats bought for the cooler, ever: { id: { n, paid } } (for what each one costs, on average)
+    cartName: null, // what the cart says (null: CART.cartName)
+    cartPaint: null, // the cart's stripe color (null: as it came)
+    paint: 0, // cans of paint at home
     log: [],
   };
+  s.hot = hotFor(s.seed); // this game's other big seller (besides rocket pops)
+  s.buzz = 1; // word of mouth: how many people come by, next to normal
   s.rngState = s.seed;
   return s;
 }
@@ -140,6 +186,8 @@ export class Cart {
       delete state.cups;
     }
     state.spoons ??= 0;
+    // older saves: treats added since get their fair price
+    for (const it of CART_ITEMS) state.prices[it.id] ??= it.fair;
     // older saves: a count of each treat in the freezer and the cooler, with no boxes or spots
     if (!state.freezer.shelves) {
       const old = state.freezer.pops || {};
@@ -157,19 +205,54 @@ export class Cart {
       }
     }
     state.counter ??= [];
+    state.recycling ??= [];
+    // older saves: drinks were kept in the freezer. They move to the shelf (or the counter, if the shelf is full).
+    if (!state.drinkShelf) {
+      state.drinkShelf = Array(K.drinkShelf).fill(null);
+      state.freezer.shelves.forEach((shelf, r) =>
+        shelf.forEach((b, i) => {
+          if (!b || !isDrinkId(b.item)) return;
+          const spot = this.emptySlot(b.item);
+          if (spot) this.setBox(spot, b);
+          else state.counter.push(b);
+          shelf[i] = null;
+        }),
+      );
+    }
+    // older saves: full, with nothing in the pantry
+    state.fed ??= { minute: state.minute, level: 100 };
+    state.tooHungry ??= null;
+    state.pantry ??= 0;
+    state.grandma ??= newGrandma(state);
     // older saves: smaller trays get the new spots added at the end
-    for (const t of state.cooler.trays || []) while (t.length < K.traySpots) t.push(null);
+    for (const t of [...(state.cooler.trays || []), ...(state.cooler.tints || [])]) while (t.length < K.traySpots) t.push(null);
     if (!state.cooler.trays) {
       const old = state.cooler.pops || {};
-      state.cooler = { trays: emptyTrays(), top: 0 };
+      state.cooler = { trays: emptyTrays(), tints: emptyTrays(), top: 0 };
       for (const [id, n] of Object.entries(old)) for (let i = 0; i < n; i++) this.toCooler(id);
     }
+    // older saves: freeze pops already in the cooler get a color
+    if (!state.cooler.tints) state.cooler.tints = state.cooler.trays.map((t, ti) => t.map((_, i) => boxTint({ seed: ti }, i)));
     if (!state.stats.soldItems) {
       state.stats.soldItems = {};
       for (const d of state.days || []) for (const [id, n] of Object.entries(d.sold || {})) state.stats.soldItems[id] = (state.stats.soldItems[id] || 0) + n;
     }
     state.napkins ??= 0;
-    state.decalSpots ??= {}; // older saves: stickers go in their usual spots until they're moved
+    state.buzz ??= 1; // older saves: word of mouth starts out normal
+    // older saves: pick this game's other big seller
+    state.hot ??= hotFor(state.seed);
+    state.packs ??= { spoons: 0, napkins: 0 }; // older saves: everything bought was already on the cart
+    // older saves: one of each sticker at most, kept with the things you own, and where each kind is stuck
+    if (!state.stickers) {
+      const ids = new Set(CART_SHOPS.decals.items.map((d) => d.id));
+      state.stickers = state.owned.filter((id) => ids.has(id)).map((id) => ({ id, at: state.decalSpots?.[id] || null }));
+      state.owned = state.owned.filter((id) => !ids.has(id));
+      delete state.decalSpots;
+    }
+    state.bought ??= {}; // older saves: treats cost what the restaurant store charges for a box
+    state.cartName ??= null;
+    state.cartPaint ??= null;
+    state.paint ??= 0;
     if (state.window && state.window.v !== 2) state.window = null; // a sale from an older version: they wander off
     // a payment that was never finished (the page closed): the money goes back where it came from
     if (state.txn) this.cancelPay();
@@ -230,16 +313,38 @@ export class Cart {
     return true;
   }
 
+  // How much people like a treat: the cart's own big seller this game is as popular as rocket pops.
+  wantOf(id) {
+    return id === this.state.hot ? K.hotWant : CART_ITEM[id]?.want || 0;
+  }
+  // What one treat costs you: what you've paid for them on average, or (before you've bought any) a box from the
+  // restaurant store's price. In cents, not rounded.
+  unitCost(id) {
+    const b = this.state.bought?.[id];
+    if (b?.n) return b.paid / b.n;
+    const box = CART_SHOPS.restaurant.items.find((i) => i.kind === 'stock' && i.item === id);
+    return box ? box.price / box.qty : 0;
+  }
+  // How many boxes of a treat stand on the store shelf: the big sellers get two, as a hint.
+  shelfRoom(it) {
+    return it.shelf || (it.item && it.item === this.state.hot ? 2 : 1);
+  }
+
   // ---------- stock ----------
   isIce(id) {
     return CART_ITEM[id]?.kind === 'ice';
   }
-  // Every box at home: on the freezer shelves and on the kitchen counter, with where it is.
-  // Where a box is: 's0-3' (top shelf, 4th spot), 's1-0' (bottom shelf, 1st spot), 'c2' (3rd box on the counter).
+  isDrink(id) {
+    return CART_ITEM[id]?.kind === 'drink';
+  }
+  // Every box at home: on the freezer shelves, the drinks shelf and the kitchen counter, with where it is.
+  // Where a box is: 's0-3' (top freezer shelf, 4th spot), 's1-0' (bottom shelf, 1st spot), 'd1' (2nd spot on the
+  // drinks shelf), 'c2' (3rd box on the counter).
   homeBoxes() {
     const s = this.state;
     const out = [];
     s.freezer.shelves.forEach((shelf, r) => shelf.forEach((b, i) => b && out.push({ loc: `s${r}-${i}`, box: b })));
+    s.drinkShelf.forEach((b, i) => b && out.push({ loc: `d${i}`, box: b }));
     s.counter.forEach((b, i) => out.push({ loc: `c${i}`, box: b }));
     return out;
   }
@@ -247,39 +352,60 @@ export class Cart {
     const s = this.state;
     const m = /^s(\d+)-(\d+)$/.exec(loc || '');
     if (m) return s.freezer.shelves[m[1]]?.[m[2]] ?? null;
+    const d = /^d(\d+)$/.exec(loc || '');
+    if (d) return s.drinkShelf[d[1]] ?? null;
     const c = /^c(\d+)$/.exec(loc || '');
     if (c) return s.counter[c[1]] ?? null;
     return null;
   }
-  isSlot(loc) {
+  // A spot in the freezer or on the drinks shelf. With an item: a spot where that kind of box goes (drinks on the
+  // shelf, everything else in the freezer).
+  isSlot(loc, item = null) {
     const m = /^s(\d+)-(\d+)$/.exec(loc || '');
-    return !!m && Number(m[1]) < K.freezerShelves && Number(m[2]) < K.shelfSlots;
+    if (m) return Number(m[1]) < K.freezerShelves && Number(m[2]) < K.shelfSlots && !(item && isDrinkId(item));
+    const d = /^d(\d+)$/.exec(loc || '');
+    return !!d && Number(d[1]) < K.drinkShelf && !(item && !isDrinkId(item));
+  }
+  isDrinkBox(loc) {
+    return isDrinkId(this.boxAt(loc)?.item);
   }
   // Puts a box (or null) at a spot. On the counter, null takes the box away.
   setBox(loc, box) {
     const s = this.state;
     const m = /^s(\d+)-(\d+)$/.exec(loc);
     if (m) s.freezer.shelves[m[1]][m[2]] = box;
+    else if (loc[0] === 'd') s.drinkShelf[Number(loc.slice(1))] = box;
     else {
       const i = Number(loc.slice(1));
       if (box) s.counter[i] = box;
       else s.counter.splice(i, 1);
     }
   }
-  emptySlot() {
+  // The first open spot for a box of `item`: on the drinks shelf for drinks, otherwise in the freezer.
+  emptySlot(item = null) {
+    if (isDrinkId(item)) {
+      const i = this.state.drinkShelf.indexOf(null);
+      return i < 0 ? null : `d${i}`;
+    }
     for (let r = 0; r < K.freezerShelves; r++) for (let i = 0; i < K.shelfSlots; i++) if (!this.state.freezer.shelves[r][i]) return `s${r}-${i}`;
     return null;
   }
+  // Open spots in the freezer (drinks: on the drinks shelf).
   get freeSlots() {
     return this.state.freezer.shelves.flat().filter((b) => !b).length;
   }
-  // Move a box to a spot in the freezer. If there's a box there already, they trade places.
+  get freeDrinkSlots() {
+    return this.state.drinkShelf.filter((b) => !b).length;
+  }
+  // Move a box to a spot in the freezer (or a case of drinks to a spot on the shelf). If there's a box there
+  // already, they trade places.
   moveBox(from, to) {
     const s = this.state;
-    if (s.phase !== 'home' || from === to || !this.isSlot(to)) return false;
+    if (s.phase !== 'home' || from === to) return false;
     const a = this.boxAt(from);
-    if (!a) return false;
+    if (!a || !this.isSlot(to, a.item)) return false;
     const b = this.boxAt(to);
+    if (b && !from.startsWith('c') && !this.isSlot(from, b.item)) return false;
     this.setBox(to, a);
     this.setBox(from, b);
     return true;
@@ -298,23 +424,27 @@ export class Cart {
     const t = this.topTray;
     if (!(i in t) || !(j in t) || i === j) return false;
     [t[i], t[j]] = [t[j], t[i]];
+    const tt = this.state.cooler.tints[this.state.cooler.top];
+    [tt[i], tt[j]] = [tt[j], tt[i]];
     return true;
   }
   // Puts a treat in the first empty spot: on the top tray if there's room, otherwise underneath.
-  toCooler(id, from = null) {
+  toCooler(id, from = null, tint = from?.tint ?? null) {
     const c = this.state.cooler;
-    if (from && c.trays[from.t]?.[from.i] === null) {
-      c.trays[from.t][from.i] = id;
-      return from;
+    let at = null;
+    if (from && c.trays[from.t]?.[from.i] === null) at = from;
+    else {
+      const t = [c.top, ...c.trays.keys()].find((k) => c.trays[k].includes(null));
+      if (t != null) at = { t, i: c.trays[t].indexOf(null) };
     }
-    for (const t of [c.top, ...c.trays.keys()]) {
-      const i = c.trays[t].indexOf(null);
-      if (i >= 0) {
-        c.trays[t][i] = id;
-        return { t, i };
-      }
-    }
-    return null;
+    if (!at) return null;
+    c.trays[at.t][at.i] = id;
+    if (tint != null) c.tints[at.t][at.i] = tint;
+    return { t: at.t, i: at.i };
+  }
+  // The color of the freeze pop in spot i of tray t (the top tray if t isn't given).
+  tintAt(i, t = this.state.cooler.top) {
+    return this.state.cooler.tints[t]?.[i] ?? null;
   }
   count(where, id) {
     if (where === 'cooler') return this.state.cooler.trays.flat().filter((x) => x === id).length;
@@ -328,7 +458,8 @@ export class Cart {
   get coolerFree() {
     return K.coolerSpace - this.spaceUsed('cooler');
   }
-  // Take one treat out of a box and put it in the first empty spot on the top tray. An empty box gets recycled.
+  // Take one treat out of a box and put it in the first empty spot on the top tray. An empty box stays where it
+  // is (open, so treats can go back in) until it's put in the recycling bin.
   packOne(loc) {
     const s = this.state;
     if (s.phase !== 'home') return { ok: false, reason: 'notHome' };
@@ -337,10 +468,27 @@ export class Cart {
     const i = this.topTray.indexOf(null);
     if (i < 0) return { ok: false, reason: this.coolerFree ? 'trayFull' : 'full' };
     this.topTray[i] = box.item;
+    this.state.cooler.tints[this.state.cooler.top][i] = boxTint(box, capOf(box) - box.n);
     box.n--;
-    const emptied = box.n <= 0;
-    if (emptied) this.setBox(loc, null);
-    return { ok: true, i, emptied };
+    return { ok: true, i, emptied: box.n <= 0 };
+  }
+  // An empty box goes in the recycling bin.
+  recycle(loc) {
+    const s = this.state;
+    const box = this.boxAt(loc);
+    if (s.phase !== 'home' || !box || box.n > 0) return false;
+    this.setBox(loc, null);
+    s.recycling.push(box.item);
+    return true;
+  }
+  // Take box i back out of the recycling bin, into the first open spot in the freezer.
+  unrecycle(i) {
+    const s = this.state;
+    if (s.phase !== 'home' || !(i in s.recycling)) return { ok: false };
+    const spot = this.emptySlot(s.recycling[i]);
+    if (!spot) return { ok: false, reason: 'full' };
+    this.setBox(spot, { item: s.recycling.splice(i, 1)[0], n: 0 });
+    return { ok: true, spot };
   }
   // Put a treat from the top tray back in its box (if it's the same kind and there's room).
   unpackOne(i, loc) {
@@ -350,7 +498,7 @@ export class Cart {
     const box = this.boxAt(loc);
     if (!id || !box) return { ok: false };
     if (box.item !== id) return { ok: false, reason: 'kind' };
-    if (box.n >= boxSize(id)) return { ok: false, reason: 'boxFull' };
+    if (box.n >= capOf(box)) return { ok: false, reason: 'boxFull' };
     box.n++;
     this.topTray[i] = null;
     return { ok: true };
@@ -361,9 +509,9 @@ export class Cart {
     if (s.phase !== 'home') return { ok: false, reason: 'notHome' };
     let done = 0;
     while (done < n && this.coolerFree > 0) {
-      const from = this.homeBoxes().filter((x) => x.box.item === id).sort((a, b) => a.box.n - b.box.n)[0];
+      const from = this.homeBoxes().filter((x) => x.box.item === id && x.box.n > 0).sort((a, b) => a.box.n - b.box.n)[0];
       if (!from) break;
-      this.toCooler(id);
+      this.toCooler(id, null, boxTint(from.box, capOf(from.box) - from.box.n));
       from.box.n--;
       if (from.box.n <= 0) this.setBox(from.loc, null);
       done++;
@@ -371,18 +519,28 @@ export class Cart {
     if (!done) return { ok: false, reason: this.count('freezer', id) ? 'full' : 'none' };
     return { ok: true, n: done };
   }
+  // Open a pack of spoons or napkins from the shelf at home onto the cart: one pack at a time, and only once the
+  // cart is running low.
+  openPack(kind) {
+    const s = this.state;
+    if (s.phase !== 'home' || !['spoons', 'napkins'].includes(kind) || !(s.packs[kind] > 0)) return { ok: false };
+    if (s[kind] >= K.refillBelow) return { ok: false, reason: 'notLow' };
+    s.packs[kind]--;
+    s[kind] += PACK_QTY[kind];
+    return { ok: true };
+  }
   // Is there one in the cooler?
   canSell(id) {
     return this.count('cooler', id) > 0;
   }
 
   // ---------- errands ----------
-  // Going to a store takes time. In the morning it pushes back opening; from the park the cart is
-  // closed while you're away and the line goes home.
+  // Errands before the park take no time (the park always opens at noon). From the park, going to the corner store
+  // takes time: the cart is closed while you're away and the line goes home.
   errand(where) {
     const s = this.state;
     if (s.phase === 'home') {
-      s.minute += K.errand[where] || 0;
+      s.recycling = []; // the recycling goes out while you're away
     } else if (s.phase === 'park' && where === 'corner') {
       if (s.window) return { ok: false, reason: 'busy' };
       for (const c of s.line) this.emit({ t: 'leave', id: c.id, say: 'gone' });
@@ -398,12 +556,17 @@ export class Cart {
   shopItem(shop, id) {
     return CART_SHOPS[shop]?.items.find((i) => i.id === id);
   }
-  // Does a basket make sense? basket: { itemId: qty }. (Whether it fits in the freezer is up to you.)
+  // Does a basket make sense? basket: { itemId: qty }. (Whether it fits in the freezer is up to you.) At the park,
+  // treats go right into the cooler, so they have to fit.
   checkBasket(shop, basket) {
+    if (this.state.phase === 'park') {
+      const treats = Object.entries(basket).reduce((a, [id, q]) => a + (this.shopItem(shop, id)?.kind === 'stock' ? this.shopItem(shop, id).qty * q : 0), 0);
+      if (treats > this.coolerFree) return { ok: false, reason: 'cooler', room: this.coolerFree };
+    }
     for (const [id, q] of Object.entries(basket)) {
       const it = this.shopItem(shop, id);
       if (!it || q <= 0) continue;
-      if (['gear', 'decal', 'hat', 'glasses', 'shirt'].includes(it.kind) && this.state.owned.includes(it.id)) return { ok: false, reason: 'owned', item: it };
+      if (['gear', 'hat', 'glasses', 'shirt'].includes(it.kind) && this.state.owned.includes(it.id)) return { ok: false, reason: 'owned', item: it };
       if (it.kind === 'balloon' && this.state.phase !== 'park') return { ok: false, reason: 'park', item: it };
     }
     return { ok: true };
@@ -413,13 +576,23 @@ export class Cart {
   }
   // Will these boxes fit in the freezer at home (with what's already on the counter)? If not, the cashier drops a
   // hint: 'room' for a box or two ("Do you have room in your freezer for that?"), 'lots' for more.
+  // (Drinks go on the drinks shelf, so they only count against it.)
   roomHint(shop, basket) {
-    const boxes = this.boxesIn(shop, basket);
-    if (!boxes || boxes <= this.freeSlots - this.state.counter.length) return null;
-    return boxes <= 2 ? 'room' : 'lots';
+    const drinks = Object.entries(basket).reduce((a, [id, q]) => a + (isDrinkId(this.shopItem(shop, id)?.item) ? q : 0), 0);
+    const boxes = this.boxesIn(shop, basket) - drinks;
+    const onCounter = this.state.counter.filter((b) => isDrinkId(b.item)).length;
+    const overFreezer = boxes > 0 && boxes > this.freeSlots - (this.state.counter.length - onCounter);
+    const overShelf = drinks > 0 && drinks > this.freeDrinkSlots - onCounter;
+    if (!overFreezer && !overShelf) return null;
+    return boxes + drinks <= 2 ? 'room' : 'lots';
   }
   basketCost(shop, basket) {
-    return Object.entries(basket).reduce((s, [id, q]) => s + (this.shopItem(shop, id)?.price || 0) * q, 0);
+    return Object.entries(basket).reduce((s, [id, q]) => {
+      const it = this.shopItem(shop, id);
+      if (!it) return s;
+      const deal = shop === 'restaurant' && it.kind === 'stock' ? Math.floor(q / K.bulk.boxes) : 0;
+      return s + deal * bulkPrice(it) + (q - deal * K.bulk.boxes) * it.price;
+    }, 0);
   }
   // Hand over money for a basket. The seller counts out change, and sometimes gets it wrong.
   // Nothing is final until takeChange().
@@ -464,14 +637,34 @@ export class Cart {
       addPile(this.pile(t.from), t.change);
     }
     const got = [];
+    const stashed = []; // snacks that went in the cooler for later
     for (const [id, q] of Object.entries(t.basket)) {
       const it = this.shopItem(t.shop, id);
       if (!it || q <= 0) continue;
-      for (let i = 0; i < q; i++) got.push(this.receive(it));
+      if (it.kind === 'stock') {
+        // what these treats cost, for the sales record
+        const b = (s.bought[it.item] ??= { n: 0, paid: 0 });
+        b.n += it.qty * q;
+        b.paid += this.basketCost(t.shop, { [id]: q });
+      }
+      for (let i = 0; i < q; i++) {
+        got.push(this.receive(it));
+        // Grandma notices if you spend a lot on snacks and toys (lunch doesn't count)
+        if ((it.kind === 'snack' && it.id !== 'hotdog') || it.kind === 'toy') {
+          const g = s.grandma;
+          g.spent = (g.spent || 0) + it.price;
+          if (it.kind === 'toy') g.spentToys = (g.spentToys || 0) + it.price;
+          else g.spentSnacks = (g.spentSnacks || 0) + it.price;
+        }
+        if (it.kind === 'snack' && FOOD[it.id].keep && this.coolerFree > 0) {
+          this.toCooler(it.id);
+          stashed.push(it.id);
+        } else if (it.kind === 'snack') this.eatNow(it.id);
+      }
     }
     s.txn = null;
     this.logAction('buy', { shop: t.shop, basket: t.basket, cost: t.cost, from: t.from, result, wrong: t.wrong });
-    return { result, cost: t.cost, wrong: t.wrong, got };
+    return { result, cost: t.cost, wrong: t.wrong, got, stashed };
   }
   cancelPay() {
     const t = this.state.txn;
@@ -482,24 +675,43 @@ export class Cart {
   receive(it) {
     const s = this.state;
     switch (it.kind) {
-      case 'stock':
-        s.counter.push({ item: it.item, n: it.qty }); // on the kitchen counter, to put away
+      case 'stock': {
+        // on the kitchen counter, to put away (a box of freeze pops gets its own mix of colors). A small box says
+        // how many it holds. At the park, it goes right into the cooler.
+        const box = { item: it.item, n: it.qty };
+        if (it.item === 'freezePop') box.seed = newSeed();
+        if (it.qty !== boxSize(it.item)) box.size = it.qty;
+        if (s.phase === 'park') for (let k = 0; k < it.qty; k++) this.toCooler(it.item, null, boxTint(box, k));
+        else s.counter.push(box);
         break;
+      }
       case 'spoons':
       case 'napkins':
-        s[it.kind] += it.qty;
+        s.packs[it.kind]++; // on the shelf at home until it's opened onto the cart
         break;
       case 'balloon':
         s.balloon = it.color;
         break;
       case 'snack':
-        break; // eaten right away
+        break; // eaten, or into the cooler for later (takeChange)
+      case 'pantry':
+        s.pantry += it.qty;
+        break;
+      case 'paint':
+        s.paint++; // at home, until you repaint the cart
+        break;
       case 'toy':
         s.owned.push(it.id); // toys can be bought again
         break;
-      default:
+      case 'decal':
+        s.stickers.push({ id: it.id, at: null }); // stickers too: until it's stuck on, it shows in a usual spot
+        break;
+      default: {
+        const h = this.hunger;
         if (!s.owned.includes(it.id)) s.owned.push(it.id);
+        if (it.id in K.heat.shade) s.fed = { minute: s.minute, level: h, rate: this.hungerRate() }; // shade from now on
         if (it.kind === 'hat' || it.kind === 'glasses' || it.kind === 'shirt') s.wearing[it.kind] = it.id;
+      }
     }
     return it;
   }
@@ -510,28 +722,52 @@ export class Cart {
     s.wearing[slot] = id || null;
     return true;
   }
+  // The kind of each sticker you have (a kind can be there more than once).
   decals() {
-    return this.state.owned.filter((id) => CART_SHOPS.decals.items.some((d) => d.id === id));
+    return this.state.stickers.map((x) => x.id);
   }
-  // Stick a sticker you own on the cart. u, v: 0–1 across and down the side of the cart.
-  // Once it's stuck, it stays put.
-  placeDecal(id, u, v) {
-    if (!this.decals().includes(id) || this.state.decalSpots[id] || !Number.isFinite(u) || !Number.isFinite(v)) return false;
+  // Stick a sticker on the cart. which: its place in your stickers (a number), or a kind (the first of that kind
+  // that isn't stuck on yet). u, v: 0–1 across and down the side of the cart. Once it's stuck, it stays put.
+  placeDecal(which, u, v) {
+    const all = this.state.stickers;
+    const st = typeof which === 'number' ? all[which] : all.find((x) => x.id === which && !x.at);
+    if (!st || st.at || !Number.isFinite(u) || !Number.isFinite(v)) return false;
     const clamp = (n) => Math.round(Math.min(1, Math.max(0, n)) * 1000) / 1000;
-    this.state.decalSpots[id] = [clamp(u), clamp(v)];
-    this.logAction('placeDecal', { id, at: this.state.decalSpots[id] });
+    st.at = [clamp(u), clamp(v)];
+    this.logAction('placeDecal', { id: st.id, at: st.at });
     return true;
   }
   // Each sticker with where it's stuck (null: not stuck yet, so it shows in its usual spot).
   decalsPlaced() {
-    return this.decals().map((id) => ({ id, at: this.state.decalSpots[id] || null }));
+    return this.state.stickers.map(({ id, at }) => ({ id, at: at || null }));
   }
-  // Stickers you have that aren't stuck on yet.
+  // The kinds of the stickers you have that aren't stuck on yet.
   decalsLoose() {
-    return this.decals().filter((id) => !this.state.decalSpots[id]);
+    return this.state.stickers.filter((x) => !x.at).map((x) => x.id);
   }
   has(id) {
-    return this.state.owned.includes(id);
+    return this.state.owned.includes(id) || this.state.stickers.some((x) => x.id === id);
+  }
+  // What the cart says on its side.
+  get cartName() {
+    return this.state.cartName || K.cartName;
+  }
+  // Repaint the cart with a can of paint, at home: a new stripe color and a new name. The stickers get painted over
+  // (they're gone, and can be bought again).
+  repaint(name, color) {
+    const s = this.state;
+    if (s.phase !== 'home') return { ok: false, reason: 'notHome' };
+    if (s.paint <= 0) return { ok: false, reason: 'noPaint' };
+    const n = String(name || '').replace(/\s+/g, ' ').trim().slice(0, K.nameMax);
+    if (!n) return { ok: false, reason: 'name' };
+    if (!K.paints.includes(color)) return { ok: false, reason: 'color' };
+    s.paint--;
+    s.cartName = n.toUpperCase() === K.cartName ? null : n;
+    s.cartPaint = color === K.paints[0] ? null : color;
+    const gone = this.decals();
+    s.stickers = [];
+    this.logAction('repaint', { name: n, color, stickers: gone.length });
+    return { ok: true, stickers: gone.length };
   }
 
   // ---------- the corner store: ATM and change machine ----------
@@ -576,11 +812,12 @@ export class Cart {
     if (s.phase !== 'home') return false;
     s.phase = 'park';
     s.minute = Math.max(s.minute, K.parkOpen);
+    s.recycling = []; // the recycling goes out while you're away
     s.line = [];
     s.window = null;
-    // anything left out on the kitchen counter melts
-    const melted = s.counter.reduce((a, b) => a + b.n, 0);
-    s.counter = [];
+    // anything frozen left out on the kitchen counter melts (drinks just wait there)
+    const melted = s.counter.reduce((a, b) => a + (isDrinkId(b.item) ? 0 : b.n), 0);
+    s.counter = s.counter.filter((b) => isDrinkId(b.item));
     s.today = { sold: {}, revenue: 0, customers: 0, tooExpensive: 0, leftLine: 0, missedFav: 0, tips: 0, keptExtra: 0, returned: 0, noChange: 0, given: {}, napkins: 0, melted, startBox: this.boxTotal, opened: s.minute };
     // regulars who'll come by today
     s.schedule = [];
@@ -593,6 +830,21 @@ export class Cart {
       if (!this.rng.chance(CR.regular.visit)) continue;
       const m = this.rng.int(s.minute + 20, K.parkClose - 30);
       if (m > s.minute) s.schedule.push({ id: r.id, minute: m });
+    }
+    // Grandma comes by now and then (not on a day you had lunch with her)
+    const g = s.grandma;
+    if (g.offer === 'due' && g.offerDay === s.day && g.answered !== 'yes') {
+      // no lunch today: she comes to the cart to make her offer
+      s.schedule.push({ id: 'grandma', minute: Math.min(K.parkClose - 30, s.minute + 25) });
+    } else if (g.lunches > 0 && g.answered !== 'yes' && this.rng.chance(G.visit.chance)) {
+      const m = this.rng.int(s.minute + 30, K.parkClose - 40);
+      if (m > s.minute) s.schedule.push({ id: 'grandma', minute: m });
+    }
+    // now and then a really big family
+    const BF = K.bigFamily;
+    if (s.day >= BF.firstDay && this.rng.chance(BF.chance)) {
+      const m = this.rng.int(s.minute + 15, K.parkClose - 30);
+      if (m > s.minute) s.schedule.push({ id: 'bigFamily', minute: m });
     }
     this.logAction('openPark', { minute: s.minute });
     return true;
@@ -613,17 +865,29 @@ export class Cart {
     if (this.isWeekend) r *= CR.weekendBoost;
     if (s.weather.rain) r *= CR.rain;
     r *= Math.max(0.5, 1 + (s.weather.temp - 80) * CR.hotPerDegree);
-    return r;
+    return r * (s.buzz ?? 1); // word of mouth
+  }
+  // How cheap the prices on the cooler look (what's in it), next to fair: 1 = fair, 0.5 = half price.
+  priceRatio() {
+    const ids = CART_ITEMS.filter((it) => this.canSell(it.id));
+    if (!ids.length) return 1;
+    return ids.reduce((a, it) => a + this.state.prices[it.id] / it.fair, 0) / ids.length;
+  }
+  // Cheap prices make more people stop.
+  priceAppeal() {
+    const P = CR.priceJoin;
+    return Math.max(P.min, Math.min(P.max, 1 + P.strength * (1 - this.priceRatio())));
   }
 
   makeCustomer(kind, regular = null) {
     const s = this.state;
     const rng = this.rng;
-    const look = regular ? regular.look : rng.int(0, 47);
+    const look = regular ? regular.look : rng.int(0, 9999);
     let members = [{ kind, look }];
-    if (kind === 'parentKid') members = [{ kind: 'adult', look }, { kind: 'kid', look: rng.int(0, 47) }];
-    if (kind === 'family') members = [{ kind: 'adult', look }, ...Array.from({ length: rng.int(2, 3) }, () => ({ kind: 'kid', look: rng.int(0, 47) }))];
-    if (kind === 'friends') members = Array.from({ length: rng.int(3, 4) }, (_, i) => ({ kind: 'teen', look: i ? rng.int(0, 47) : look }));
+    if (kind === 'parentKid') members = [{ kind: 'adult', look }, { kind: 'kid', look: rng.int(0, 9999) }];
+    if (kind === 'family') members = [{ kind: 'adult', look }, ...Array.from({ length: rng.int(2, 3) }, () => ({ kind: 'kid', look: rng.int(0, 9999) }))];
+    if (kind === 'friends') members = Array.from({ length: rng.int(3, 4) }, (_, i) => ({ kind: 'teen', look: i ? rng.int(0, 9999) : look }));
+    if (kind === 'bigFamily') members = [{ kind: 'adult', look }, { kind: 'adult', look: rng.int(0, 9999) }, ...Array.from({ length: rng.int(...K.bigFamily.kids) }, () => ({ kind: 'kid', look: rng.int(0, 9999) }))];
     const payer = members[0].kind;
     // what's in their pocket
     const pocket = {};
@@ -632,6 +896,12 @@ export class Cart {
       // a grown-up buying for everyone brings a bigger bill
       put(rng.chance(0.2) ? 2000 : 1000, 1);
       put(100, rng.int(0, 3));
+      put(25, rng.int(0, 4));
+    } else if (kind === 'bigFamily') {
+      // buying for lots of people
+      put(2000, 1);
+      put(1000, rng.int(0, 1));
+      put(100, rng.int(0, 4));
       put(25, rng.int(0, 4));
     } else if (kind === 'friends') {
       // friends put their money together
@@ -652,13 +922,15 @@ export class Cart {
       put(100, rng.int(0, 3));
       put(25, rng.int(0, 4));
     }
-    // the most each person would pay for each thing, and what they like best
+    // the most each person would pay for each thing, and what they like best. Some want a drink too.
+    const thirst = Math.min(CR.drink.max, Math.max(CR.drink.min, CR.drink.base + (s.weather.temp - 80) * CR.drink.perDegree));
+    const rank = (list) => list.map((it) => [it.id, this.wantOf(it.id) * rng.range(0.4, 1.6)]).sort((x, y) => y[1] - x[1]).map((x) => x[0]);
     const wantFor = () => {
       const [a, b] = CR.wtp[payer] || CR.wtp.adult;
       const f = rng.range(a, b) * (regular ? CR.regular.wtp : 1);
-      const order = CART_ITEMS.map((it) => [it.id, it.want * rng.range(0.4, 1.6)]).sort((x, y) => y[1] - x[1]).map((x) => x[0]);
+      const order = rank(TREATS);
       if (regular) order.unshift(...order.splice(order.indexOf(regular.fav), 1));
-      return { f, order };
+      return { f, order, drinks: rng.chance(thirst) ? rank(DRINKS) : [] };
     };
     const wants = members.filter((m) => m.kind !== 'dog').map(wantFor);
     return {
@@ -668,12 +940,14 @@ export class Cart {
       pocket,
       wants,
       regular: regular?.id || null,
-      patience: rng.int(CR.patience[0], CR.patience[1]),
+      big: kind === 'bigFamily' || undefined,
+      patience: Math.round(rng.int(CR.patience[0], CR.patience[1]) * this.linePatience),
       waited: 0,
       honest: rng.chance(CR.honest),
     };
   }
-  // What a customer would order right now: one thing per person, their favorite they can afford.
+  // What a customer would order right now: one treat per person, their favorite they can afford (or a drink if
+  // there's no treat for them), and a drink with it if they're thirsty.
   // { items } or { no: 'tooMuch' | 'nothing' | 'fav', fav }.
   orderFor(c) {
     const s = this.state;
@@ -683,13 +957,13 @@ export class Cart {
     let missedFav = null;
     for (const w of c.wants) {
       let got = null;
-      for (const id of w.order) {
+      for (const id of [...w.order, ...(w.drinks || [])]) {
         const fair = CART_ITEM[id].fair;
         const price = s.prices[id];
         const reserved = items.filter((x) => x === id).length;
         const avail = this.canSell(id) && this.count('cooler', id) > reserved;
         if (!avail) {
-          if (c.regular && id === w.order[0]) missedFav = id;
+          if ((c.regular || c.grandma) && id === w.order[0]) missedFav = id;
           continue;
         }
         if (price > fair * w.f || price > budget) {
@@ -703,6 +977,17 @@ export class Cart {
         items.push(got);
         budget -= s.prices[got];
       }
+      // a drink to go with it
+      if (got && !this.isDrink(got)) {
+        for (const id of w.drinks || []) {
+          const reserved = items.filter((x) => x === id).length;
+          if (this.count('cooler', id) <= reserved) continue;
+          if (s.prices[id] > CART_ITEM[id].fair * w.f || s.prices[id] > budget) continue;
+          items.push(id);
+          budget -= s.prices[id];
+          break;
+        }
+      }
     }
     if (items.length) return { items, missedFav };
     return { no: tooMuch ? 'tooMuch' : 'nothing', missedFav };
@@ -712,8 +997,14 @@ export class Cart {
   step() {
     const s = this.state;
     if (s.phase !== 'park') return false;
-    if (s.minute >= K.parkClose) {
-      // closing time: the line goes home, the last customer finishes up
+    // too hungry to go on (but if you got here hungry, you get a few minutes to find something to eat)
+    if (s.minute < K.parkClose && s.tooHungry == null && this.hunger <= 0 && s.minute >= (s.today.opened ?? 0) + K.hunger.grace) {
+      s.tooHungry = s.minute;
+      this.logAction('tooHungry', { minute: s.minute });
+      this.emit({ t: 'tooHungry' });
+    }
+    if (this.closedNow) {
+      // closing time (or too hungry to go on): the line goes home, the last customer finishes up
       if (s.line.length) {
         for (const c of s.line) this.emit({ t: 'leave', id: c.id, say: 'closed' });
         s.line = [];
@@ -722,6 +1013,10 @@ export class Cart {
       return false;
     }
     s.minute++;
+    if (!s.today.rumbled && this.hungerWarn) {
+      s.today.rumbled = true;
+      this.emit({ t: 'hungry' });
+    }
     // people walking past
     const n = this.rng.poisson(this.walkRate());
     for (let i = 0; i < n; i++) {
@@ -730,6 +1025,14 @@ export class Cart {
     }
     // regulars due now
     for (const due of s.schedule.filter((x) => x.minute === s.minute)) {
+      if (due.id === 'grandma') {
+        this.arrive(this.makeGrandma(), true);
+        continue;
+      }
+      if (due.id === 'bigFamily') {
+        this.arrive(this.makeCustomer('bigFamily'));
+        continue;
+      }
       const r = REGULARS.find((x) => x.id === due.id);
       this.arrive(this.makeCustomer(r.kind, r), true);
     }
@@ -759,15 +1062,21 @@ export class Cart {
       return;
     }
     const L = s.line.length + (s.window ? 1 : 0);
-    const join = isRegular ? L < 5 : this.rng.chance(CR.join * this.looksBoost() * CR.lineJoin[Math.min(L, CR.lineJoin.length - 1)]);
+    // One draw: below `want × line` they join; between that and `want` they wanted something, but the line put them off.
+    // Regulars and the big family came for ice cream: they join unless the line is really long.
+    const sure = isRegular || c.big;
+    const want = CR.join * this.looksBoost() * this.priceAppeal();
+    const u = sure ? 0 : this.rng.next();
+    const join = sure ? L < 5 : u < want * CR.lineJoin[Math.min(L, CR.lineJoin.length - 1)];
     if (!join) {
-      this.emit({ t: 'pass', cust: c, say: isRegular ? 'tooLong' : null });
+      if (!sure && u < want) s.today.sawLine = (s.today.sawLine || 0) + 1;
+      this.emit({ t: 'pass', cust: c, say: sure ? 'tooLong' : null });
       return;
     }
     s.line.push(c);
     this.emit({ t: 'join', cust: c });
     // a happy regular sometimes brings a friend
-    if (isRegular && s.regulars[c.regular].happy >= 3 && this.rng.chance(CR.regular.friend)) {
+    if (c.regular && s.regulars[c.regular].happy >= 3 && this.rng.chance(CR.regular.friend)) {
       const f = this.makeCustomer(c.members[0].kind === 'adult' ? 'adult' : c.members[0].kind);
       f.friendOf = c.regular;
       s.line.push(f);
@@ -805,6 +1114,7 @@ export class Cart {
     if (!w || w.stage !== 'order') return { ok: false };
     w.from ??= w.handed.map(() => null);
     let from = null;
+    if (isFood(id)) return { ok: false, reason: 'food' }; // that's your lunch!
     if (id === 'spoon' || id === 'napkin') {
       const k = id + 's';
       if (s[k] <= 0) return { ok: false, reason: 'out' };
@@ -812,12 +1122,13 @@ export class Cart {
     } else if (spot != null) {
       if (this.topTray[spot] !== id) return { ok: false, reason: 'out' };
       this.topTray[spot] = null;
-      from = { t: s.cooler.top, i: spot };
+      from = { t: s.cooler.top, i: spot, tint: this.tintAt(spot) };
     } else {
       const c = s.cooler;
       const t = [c.top, ...c.trays.keys()].find((k) => c.trays[k].includes(id));
       if (t == null) return { ok: false, reason: 'out' };
       from = { t, i: c.trays[t].indexOf(id) };
+      from.tint = this.tintAt(from.i, t);
       c.trays[t][from.i] = null;
     }
     w.handed.push(id);
@@ -857,15 +1168,20 @@ export class Cart {
     w.napkins = left.filter((x) => x === 'napkin').length;
     w.extras = left.filter((x) => x !== 'spoon' && x !== 'napkin');
     w.happy = !w.noSpoon && (w.napkins > 0 || w.extras.length > 0);
+    // a big family (messy eaters!) with a napkin for everyone is very happy
+    w.delighted = !!w.cust.big && !w.noSpoon && w.napkins >= w.cust.members.length;
     s.today.napkins += w.napkins;
     for (const id of w.extras) s.today.given[id] = (s.today.given[id] || 0) + 1;
     // they pay for what they asked for
     w.due = w.order.reduce((a, x) => a + s.prices[x], 0);
+    // for word of mouth: what they paid next to what's fair
+    s.today.dealPaid = (s.today.dealPaid || 0) + w.due;
+    s.today.dealFair = (s.today.dealFair || 0) + w.order.reduce((a, x) => a + CART_ITEM[x].fair, 0);
     w.paid = choosePayment(w.cust.pocket, w.due, this.rng);
     takePile(w.cust.pocket, w.paid);
     addPile(s.money.box, w.paid);
     w.stage = 'change';
-    return { ok: true, happy: w.happy, extras: w.extras, napkins: w.napkins, noSpoon: w.noSpoon };
+    return { ok: true, happy: w.happy, delighted: w.delighted, extras: w.extras, napkins: w.napkins, noSpoon: w.noSpoon };
   }
   // The player gives change from the cash box. fast: the sale was quick (for tips).
   giveChange(given, { fast = false } = {}) {
@@ -904,9 +1220,15 @@ export class Cart {
     const s = this.state;
     const w = s.window;
     const c = w.cust;
+    const T = s.today;
+    T.earned ??= {};
+    T.cost ??= {};
     for (const id of w.order) {
-      s.today.sold[id] = (s.today.sold[id] || 0) + 1;
+      T.sold[id] = (T.sold[id] || 0) + 1;
       s.stats.soldItems[id] = (s.stats.soldItems[id] || 0) + 1;
+      // for the sales record: what it sold for and what it cost
+      T.earned[id] = (T.earned[id] || 0) + s.prices[id];
+      T.cost[id] = (T.cost[id] || 0) + this.unitCost(id);
     }
     s.today.revenue += w.due;
     s.stats.sold += w.order.length;
@@ -914,8 +1236,24 @@ export class Cart {
     // a quick, friendly sale sometimes gets a tip
     let tip = 0;
     const tipChance = w.noSpoon ? 0 : w.happy ? CR.tip.happy : fast ? CR.tip.fast : CR.tip.slow;
-    if (result !== 'kept' && this.rng.chance(tipChance)) {
-      tip = this.rng.pick(CR.tip.amounts);
+    if (c.grandma) {
+      // Grandma always tips: big with her favorite and enough napkins
+      const fav = w.order.includes(s.grandma.fav);
+      const napkins = (w.napkins || 0) >= G.visit.napkins;
+      tip = fav && napkins ? this.rng.pick(G.visit.tip) : fav ? 100 : 50;
+      this.feel((fav ? G.feel.fav : G.feel.noFav) + (napkins ? 0 : G.feel.fewNapkins));
+      s.grandma.visits++;
+      w.grandma = { fav, napkins };
+      if (s.grandma.offer === 'due') {
+        s.grandma.offer = 'made';
+        w.grandma.offer = true;
+      }
+    } else if (w.delighted && result !== 'kept') {
+      tip = this.rng.pick(K.bigFamily.napkinTip);
+    } else if (result !== 'kept' && this.rng.chance(tipChance)) {
+      tip = w.happy && fast && this.rng.chance(CR.tip.big) ? this.rng.pick(CR.tip.bigAmounts) : this.rng.pick(CR.tip.amounts);
+    }
+    if (tip) {
       addPile(s.money.jar, pileOf(tip));
       s.today.tips += tip;
       s.stats.tips += tip;
@@ -931,7 +1269,7 @@ export class Cart {
     w.result = result;
     w.tip = tip;
     this.logAction('sale', { items: w.order, extras: w.extras, napkins: w.napkins, due: w.due, paid: total(w.paid), result, tip });
-    return { ok: true, result, tip };
+    return { ok: true, result, tip, grandma: w.grandma || null, delighted: !!w.delighted };
   }
   // Not enough change in the cash box: the customer pays some other way, or gives up.
   noChange() {
@@ -962,7 +1300,10 @@ export class Cart {
     const w = s.window;
     if (w.stage === 'order' || w.stage === 'change') return; // still being served
     const done = w.stage === 'done';
-    this.emit({ t: 'leave', id: w.cust.id, say: done ? (w.result === 'kept' ? 'kept' : 'happy') : w.no, got: done ? [...w.order] : [] });
+    // what they walk off with, and the color of each freeze pop they were handed
+    const left = w.handed.map((id, k) => ({ id, tint: w.from?.[k]?.tint ?? null }));
+    const tints = done ? w.order.map((id) => left.splice(left.findIndex((x) => x.id === id), 1)[0]?.tint ?? null) : [];
+    this.emit({ t: 'leave', id: w.cust.id, say: done ? (w.result === 'kept' ? 'kept' : 'happy') : w.no, got: done ? [...w.order] : [], tints });
     s.window = null;
     this.nextToWindow();
   }
@@ -985,10 +1326,21 @@ export class Cart {
     addPile(s.money.wallet, s.money.jar);
     s.money.jar = {};
     s.balloon = null;
-    const summary = { day: s.day, weather: s.weather, ...t, endBox: this.boxTotal, tipsToWallet: tips, closed: Math.min(s.minute, K.parkClose) };
+    // word of mouth: good deals bring more people over the next few days; long waits and "too much" fewer
+    const W = CR.word;
+    const buzzBefore = s.buzz ?? 1;
+    let target = t.dealFair > 0 ? 1 + W.strength * (1 - t.dealPaid / t.dealFair) : 1;
+    target = Math.max(W.min, Math.min(W.max, target - W.leftLine * (t.leftLine || 0) - W.tooMuch * (t.tooExpensive || 0)));
+    s.buzz = buzzBefore + (target - buzzBefore) * W.pull;
+    const soldOut = Object.keys(t.sold).filter((id) => t.sold[id] > 0 && !this.count('cooler', id));
+    t.earned ??= {};
+    t.cost = Object.fromEntries(Object.entries(t.cost || {}).map(([id, v]) => [id, Math.round(v)])); // whole cents
+    const summary = { day: s.day, weather: s.weather, soldOut, ...t, endBox: this.boxTotal, tipsToWallet: tips, closed: Math.min(s.minute, K.parkClose, s.tooHungry ?? K.parkClose), tooHungry: s.tooHungry, buzz: s.buzz, buzzChange: s.buzz - buzzBefore };
     s.days.push(summary);
     if (s.days.length > 400) s.days.shift();
     s.phase = 'night';
+    // made enough money: Grandma wants to talk to you about a truck
+    if (!s.grandma.offer && this.businessMoney + this.walletTotal >= G.offer.at) s.grandma.offer = 'due';
     this.logAction('closePark', { revenue: t.revenue, sold: Object.values(t.sold).reduce((a, b) => a + b, 0) });
     return summary;
   }
@@ -999,7 +1351,333 @@ export class Cart {
     s.phase = 'home';
     s.minute = K.homeStart;
     s.today = null;
+    s.tooHungry = null;
+    // some mornings Grandma calls to ask you to lunch
+    const g = s.grandma;
+    g.answered = null;
+    // the first invitation comes on day firstDay; after that, now and then
+    g.invited = s.day === G.lunch.firstDay || (s.day > G.lunch.firstDay && this.rng.chance(G.lunch.chance)) ? s.day : null;
+    if (g.offer === 'due') g.invited = g.offerDay = s.day; // she has something to talk about
     this.rollWeather();
+    s.fed = { minute: K.homeStart, level: 100, rate: this.hungerRate() }; // breakfast (and how hot it is today)
+  }
+
+  // ---------- hunger ----------
+  // How full you are now, 0–100.
+  get hunger() {
+    return this.hungerAt(this.state.minute);
+  }
+  // The park is closed for the day: it's past closing time, or you got too hungry.
+  get closedNow() {
+    const s = this.state;
+    return s.minute >= K.parkClose || s.tooHungry != null;
+  }
+  fill(food) {
+    this.state.fed = { minute: this.state.minute, level: Math.min(100, this.hunger + food), rate: this.hungerRate() };
+    if (this.state.today && !this.hungerWarn) this.state.today.rumbled = false; // it can rumble again later
+  }
+  // Your tummy is rumbling: you're hungry, and at this rate you'll have to go home before closing time. (Late in
+  // the day you can make it to closing time, so there's nothing to worry about.)
+  // How hot it is today, for hunger and the line: 0 on a mild day, about 0.36 at 91°F.
+  heat() {
+    const H = K.heat;
+    return Math.max(0, (this.state.weather?.temp ?? 0) - H.from) * H.perDegree;
+  }
+  // How much of the heat the umbrella and the fan keep off (0–max).
+  shade() {
+    const H = K.heat;
+    return Math.min(H.max, Object.entries(H.shade).reduce((a, [id, v]) => a + (this.has(id) ? v : 0), 0));
+  }
+  // How fast you get hungry today (per minute): faster in the heat, unless you're in the shade.
+  hungerRate() {
+    return K.hunger.perMinute * (1 + this.heat() * (1 - this.shade()));
+  }
+  // On a hot day, shade at the cart makes people willing to wait longer in line.
+  get linePatience() {
+    return 1 + this.heat() * this.shade() * K.heat.line;
+  }
+  // How full you'll be at a minute later today, if you don't eat.
+  hungerAt(minute) {
+    const f = this.state.fed;
+    return Math.max(0, Math.min(100, f.level - (minute - f.minute) * (f.rate ?? this.hungerRate())));
+  }
+  get hungerWarn() {
+    const s = this.state;
+    if (s.phase !== 'park' || this.closedNow) return false;
+    const h = this.hunger;
+    return h < K.hunger.low && h / (s.fed.rate ?? this.hungerRate()) < K.parkClose - s.minute;
+  }
+  // Eat something right away (hot dog stand food, or a snack you didn't save).
+  eatNow(id) {
+    this.fill(FOOD[id].food);
+    this.logAction('eat', { id, hunger: Math.round(this.hunger) });
+  }
+  // Eat something from the cooler. Too late once you've gone home hungry.
+  eat(id) {
+    const s = this.state;
+    if (CART_ITEM[id]) return this.eatTreat(id);
+    if (!isFood(id) || s.tooHungry != null) return { ok: false };
+    const c = s.cooler;
+    const t = [c.top, ...c.trays.keys()].find((k) => c.trays[k].includes(id));
+    if (t == null) return { ok: false, reason: 'none' };
+    c.trays[t][c.trays[t].indexOf(id)] = null;
+    this.eatNow(id);
+    return { ok: true, hunger: this.hunger };
+  }
+  // Eat something from your own stock, at the park, between customers. It fills you a little, it costs what you
+  // could have sold it for, and the more ice cream you eat, the likelier a tummy ache (drinks are fine).
+  eatTreat(id) {
+    const s = this.state;
+    const O = K.ownTreats;
+    if (s.phase !== 'park' || s.tooHungry != null) return { ok: false, reason: 'notPark' };
+    if (!this.canClose()) return { ok: false, reason: 'busy' }; // not in the middle of a sale
+    const c = s.cooler;
+    const t = [c.top, ...c.trays.keys()].find((k) => c.trays[k].includes(id));
+    if (t == null) return { ok: false, reason: 'none' };
+    c.trays[t][c.trays[t].indexOf(id)] = null;
+    const T = s.today;
+    T.ate ??= {};
+    T.ate[id] = (T.ate[id] || 0) + 1;
+    T.ateValue = (T.ateValue || 0) + s.prices[id];
+    const drink = this.isDrink(id);
+    let ache = false;
+    if (!drink) {
+      T.treatsEaten = (T.treatsEaten || 0) + 1;
+      ache = this.rng.chance(O.ache[Math.min(T.treatsEaten, O.ache.length) - 1]);
+    }
+    this.logAction('eatTreat', { id, ache });
+    if (ache) {
+      // too much ice cream: sit on the bench for a bit, and the line goes home
+      T.tummyAches = (T.tummyAches || 0) + 1;
+      for (const p of s.line) this.emit({ t: 'leave', id: p.id, say: 'gone' });
+      s.line = [];
+      if (s.window?.stage === 'order') {
+        // the customer at the window hadn't got anything yet: they leave too
+        this.emit({ t: 'leave', id: s.window.cust.id, say: 'gone' });
+        s.window = null;
+      }
+      s.minute = Math.min(K.parkClose, s.minute + O.benchMinutes);
+      this.emit({ t: 'tummyAche', minutes: O.benchMinutes });
+      return { ok: true, ache: true, hunger: this.hunger };
+    }
+    this.fill(drink ? O.food.drink : O.food[id] ?? O.food.other);
+    return { ok: true, ache: false, hunger: this.hunger };
+  }
+  // ---------- Grandma ----------
+  feel(d) {
+    const g = this.state.grandma;
+    g.feel = Math.max(0, Math.min(G.max, g.feel + d));
+  }
+  // Grandma at the cart: she looks like family (your skin), wants her favorite and has money for it.
+  makeGrandma() {
+    const s = this.state;
+    const c = this.makeCustomer('adult');
+    c.members = [{ kind: 'adult', look: 7, me: { ...G.look, skin: s.look.skin } }];
+    c.grandma = true;
+    c.honest = true;
+    c.patience = 400;
+    c.pocket = { 1000: 1, 100: 2 };
+    c.wants = [{ f: 3, order: [s.grandma.fav, ...c.wants[0].order.filter((id) => id !== s.grandma.fav)], drinks: [] }];
+    return c;
+  }
+  // Grandma called this morning to ask you to lunch, and you haven't answered yet.
+  get lunchInvite() {
+    const s = this.state;
+    return s.phase === 'home' && s.grandma.invited === s.day && !s.grandma.answered;
+  }
+  // Not today, thanks. Saying no twice in a row hurts her feelings a little.
+  declineLunch() {
+    const g = this.state.grandma;
+    if (g.invited !== this.state.day || g.answered) return false;
+    g.answered = 'no';
+    g.declined++;
+    if (g.declined >= 2) this.feel(G.feel.decline2);
+    this.logAction('grandmaLunch', { yes: false });
+    return true;
+  }
+  // Lunch at Grandma's: it takes a while, fills you up, and she has things to say. Returns { lines, gift }.
+  lunchAtGrandmas() {
+    const s = this.state;
+    const g = s.grandma;
+    if (s.phase !== 'home' || g.invited !== s.day || g.answered) return null;
+    g.answered = 'yes';
+    g.declined = 0;
+    g.lunches++;
+    s.minute += G.lunch.minutes; // lunch is over by the time the park opens
+    s.fed = { minute: s.minute, level: G.lunch.food, rate: this.hungerRate() };
+    this.feel(G.feel.lunch);
+    const lines = [];
+    lines.push(g.feel >= 8 ? "There's my favorite business owner! Come in, come in." : g.feel <= 3 ? "Oh, you came! I wasn't sure you would." : 'Come in, sweetie! I made sandwiches.');
+    // did you take her advice from last time? Then one new piece of advice (not the same kind as last time).
+    const a = g.advice;
+    const after = a && this.grandmaFollowUp(a);
+    if (after) lines.push(after);
+    const tip = this.grandmaAdvice(a);
+    g.advice = tip?.advice || null;
+    if (tip) lines.push(tip.line);
+    // Then a few more things, but lunch stays short (G.lunch.lines at most): on your first lunch, her favorite and
+    // a hint that she's a messy eater; a gift if she's feeling generous; then chit-chat and a story about the old days.
+    const more = [];
+    let offer = false;
+    if (g.offer === 'due') {
+      offer = true;
+      g.offer = 'made';
+      more.push("I've been watching you, dear. You work so hard, and you're smart with your money. I have an idea...");
+    }
+    if (g.lunches === 1) {
+      const fav = CART_ITEM[g.fav];
+      more.push(`Do you sell ${fav.plural || fav.name.toLowerCase() + 's'}? They're my favorite! Oops, I spilled again. I always need a stack of napkins!`);
+    }
+    let gift = 0;
+    if (g.feel >= G.gift.feel && this.rng.chance(G.gift.chance)) {
+      gift = G.gift.cash;
+      addPile(s.money.wallet, pileOf(gift));
+      g.gifts++;
+      more.push(`Here's a little something for you. Just because I'm proud of you.`);
+    }
+    const chat = () => (this.rng.chance(0.5) ? this.grandmaStickerTalk() || this.grandmaWeather() : this.grandmaWeather());
+    const story = () => {
+      // a different one each time, until she's told them all
+      g.said = (g.said || []).filter((i) => i < G.oldDays.length);
+      if (g.said.length >= G.oldDays.length) g.said = [];
+      const told = this.rng.pick(G.oldDays.map((_, i) => i).filter((i) => !g.said.includes(i)));
+      g.said.push(told);
+      return G.oldDays[told];
+    };
+    const talk = this.rng.chance(0.5) ? [chat, story] : [story, chat];
+    for (const say of talk) if (lines.length + more.length < G.lunch.lines) more.push(say());
+    if (!more.length) more.push(talk[0]());
+    lines.push(...more.slice(0, Math.max(1, G.lunch.lines - lines.length)));
+    g.spent = 0;
+    g.spentSnacks = 0;
+    g.spentToys = 0;
+    this.logAction('grandmaLunch', { yes: true, feel: g.feel, gift, offer });
+    return { lines, gift, offer };
+  }
+  // Grandma's offer to invest in a truck: her limit, and her slice of the profit, from how much you'd bring and how
+  // she feels about you. { max, startCash, slice: [hers, of every], money }
+  // next: how much more cart money would get a smaller slice (null at the best one).
+  grandmaTerms() {
+    const g = this.state.grandma;
+    const money = this.businessMoney;
+    const pts = Math.floor((money - G.offer.at) / 10000) + Math.round(g.feel - G.start);
+    const T = G.offer.tiers;
+    let i = 0;
+    while (i + 1 < T.length && pts >= T[i + 1]) i++;
+    const next = i + 1 < T.length ? { more: (T[i + 1] - pts) * 10000 - ((money - G.offer.at) % 10000 + 10000) % 10000, slice: G.offer.slices[i + 1] } : null;
+    return { max: G.offer.max, startCash: G.offer.startCash, slice: G.offer.slices[i], money, next };
+  }
+  // Grandma checks on the advice she gave you last time. Returns a line, or null.
+  grandmaFollowUp(a) {
+    const s = this.state;
+    const g = s.grandma;
+    if (a.kind === 'price') {
+      const it = CART_ITEM[a.id];
+      const now = s.prices[a.id];
+      if (a.dir === 'down' ? now < a.price : now > a.price) {
+        this.feel(G.feel.followed);
+        return `I see you changed the ${it.name.toLowerCase()} price. Good thinking!`;
+      }
+      this.feel(G.feel.ignored);
+      return `${money(now)} for ${it.plural || it.name.toLowerCase() + 's'}? Still? Well, it's your cart.`;
+    }
+    if (a.kind === 'sticker') {
+      if (this.decals().length > a.had) {
+        this.feel(G.feel.followed);
+        return 'Ooh, I saw your new sticker. Very nice!';
+      }
+      return 'Still no stickers? Your cart looks so plain.';
+    }
+    if (a.kind === 'stickerHint' && this.has(a.id)) {
+      this.feel(G.feel.followed);
+      return `You got the ${decalName(a.id)}! It's lovely. You know just what I like.`;
+    }
+    if (a.kind === 'gear' && this.has(a.id)) {
+      this.feel(G.feel.followed);
+      return { umbrella: 'I saw your new umbrella. I bet it keeps you nice and cool!', fan: 'A little fan! Smart thinking on a hot day.', bell: 'I heard your bell all the way across the park! Ding ding!' }[a.id];
+    }
+    if (a.kind === 'spend') {
+      if ((g.spent || 0) < G.spend / 2) {
+        this.feel(G.feel.followed);
+        return "I hear you've been saving your money. Good for you!";
+      }
+      return `More ${a.what || 'snacks and toys'}? Money doesn't grow on trees, dear!`;
+    }
+    return null;
+  }
+  // One new piece of advice, the first that fits (skipping the kind she gave last time). { line, advice } or null.
+  grandmaAdvice(prev) {
+    const s = this.state;
+    const g = s.grandma;
+    const not = (kind) => prev?.kind !== kind;
+    // a price that's way off
+    const off = CART_ITEMS.map((it) => ({ it, r: s.prices[it.id] / it.fair })).filter(({ it, r }) => (s.stats.soldItems[it.id] || this.count('cooler', it.id)) && Math.abs(r - 1) >= G.tip.far).sort((x, y) => Math.abs(y.r - 1) - Math.abs(x.r - 1))[0];
+    if (off && not('price')) {
+      const name = aOr(off.it.name.toLowerCase());
+      const p = money(s.prices[off.it.id]);
+      const line = off.r > 1 ? `${p} for ${name}? That's a lot, dear. People might just walk by.` : `You only charge ${p} for ${name}? People would pay more than that!`;
+      return { line, advice: { kind: 'price', id: off.it.id, dir: off.r > 1 ? 'down' : 'up', price: s.prices[off.it.id] } };
+    }
+    // ran out of something last time at the park
+    const out = s.days.at(-1)?.soldOut?.[0];
+    if (out && not('soldOut')) {
+      const it = CART_ITEM[out];
+      return { line: `I heard you ran out of ${it.plural || it.name.toLowerCase() + 's'}! Maybe pack more of those.`, advice: { kind: 'soldOut' } };
+    }
+    if ((g.spent || 0) >= G.spend && not('spend')) {
+      // what you bought: mostly snacks, mostly toys, or both
+      const sn = g.spentSnacks || 0;
+      const to = g.spentToys || 0;
+      const what = to < g.spent * 0.2 ? 'snacks' : sn < g.spent * 0.2 ? 'toys' : 'snacks and toys';
+      return { line: `You've been buying a lot of ${what}, haven't you? Remember to save some money for your business!`, advice: { kind: 'spend', what } };
+    }
+    if (!this.decals().length && not('sticker')) return { line: 'Your cart looks a little plain, dear. The sticker lady at the park has nice ones.', advice: { kind: 'sticker', had: 0 } };
+    if (!this.has('umbrella') && not('gear')) return { line: 'That sun is so hot, dear! A big umbrella would keep you and your treats cool.', advice: { kind: 'gear', id: 'umbrella' } };
+    if (!this.has('fan') && not('gear')) return { line: 'On hot days, a little fan by the cart would keep you comfy.', advice: { kind: 'gear', id: 'fan' } };
+    if (!this.has('bell') && not('gear')) return { line: 'You know what your cart needs? A bell! Ding ding, and everybody knows the ice cream is here.', advice: { kind: 'gear', id: 'bell' } };
+    const like = CART_SHOPS.decals.items.find((d) => d.grandma === 'likes' && !this.has(d.id));
+    if (like && not('stickerHint')) return { line: `${like.grandmaHint} ${aOr(like.name.toLowerCase())[0].toUpperCase()}${aOr(like.name.toLowerCase()).slice(1)} would look so sweet on your cart.`, advice: { kind: 'stickerHint', id: like.id } };
+    return null;
+  }
+  // Something about your stickers, or null if you have none.
+  grandmaStickerTalk() {
+    const g = this.state.grandma;
+    const mine = this.decals();
+    if (!mine.length) return null;
+    const look = (id) => CART_SHOPS.decals.items.find((d) => d.id === id);
+    g.tutted ??= [];
+    const bad = mine.find((id) => look(id).grandma === 'dislikes' && !g.tutted.includes(id));
+    if (bad) {
+      g.tutted.push(bad);
+      return `${aOr(decalName(bad))[0].toUpperCase()}${aOr(decalName(bad)).slice(1)}? Tut tut. Not my taste, dear. But it's your cart.`;
+    }
+    const good = mine.filter((id) => look(id).grandma === 'likes');
+    if (good.length && this.rng.chance(0.5)) return `I just love your ${decalName(this.rng.pick(good))}!`;
+    if (mine.length >= 4) return 'You have so many stickers now! Your cart looks so cheerful.';
+    const d = decalName(this.rng.pick(mine));
+    return this.rng.chance(0.5) || g.feel >= 7 ? `I love your ${d}!` : `Is your ${d} on crooked? It looks crooked to me.`;
+  }
+  // The weather: a rainy day lately, or today's.
+  grandmaWeather() {
+    const s = this.state;
+    const w = s.weather;
+    const rained = s.days.slice(-3).some((d) => d.weather?.rain);
+    if (w.rain) return this.rng.pick(['Rain today? Not many people come to the park in the rain. Maybe pack fewer treats.', "Listen to that rain! Don't worry, dear. Rainy days happen to every business."]);
+    if (rained) return this.rng.pick(['What a rainy day that was! Hardly anybody comes out in the rain. The sun always comes back.', "I'm sorry about the rain the other day. Every business has slow days. Today will be better!"]);
+    if (w.temp >= 90) return this.rng.pick(["Whew, it's going to be a scorcher! Everyone will want something cold.", "It's so hot today, the ducks are hiding in the shade! Good day for ice cream."]);
+    if (w.temp <= 76) return this.rng.pick(["It's a cool one today. Maybe not as many people will want ice cream.", 'Bring a sweater! It feels more like a soup day than an ice cream day.']);
+    return this.rng.pick(['What a beautiful day for the park!', 'Sunny and warm. Perfect ice cream weather!']);
+  }
+  // Make a lunch at home and put it in the cooler.
+  packLunch() {
+    const s = this.state;
+    if (s.phase !== 'home') return { ok: false, reason: 'notHome' };
+    if (s.pantry <= 0) return { ok: false, reason: 'none' };
+    if (this.coolerFree <= 0) return { ok: false, reason: 'full' };
+    s.pantry--;
+    this.toCooler('lunch');
+    this.logAction('packLunch');
+    return { ok: true };
   }
 
   // ---------- moving up to a truck ----------
