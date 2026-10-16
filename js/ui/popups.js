@@ -27,12 +27,12 @@ export function gasStation(app, { lowGas = false, onDone = null } = {}) {
       const pct = Math.round((s.fuel / CONFIG.gas.tankGal) * 100);
       const fill = Math.round((CONFIG.gas.tankGal - s.fuel) * CONFIG.gas.pricePerGal);
       const oilPct = checked == null ? null : Math.round(s.oil);
-      const oilWord = oilPct == null ? '' : oilPct < T.oilEmpty ? 'Almost empty! The engine could break.' : oilPct < T.oilLow ? 'Low. Better add some.' : oilPct < 70 ? 'OK for now.' : 'Full.';
+      const oilWord = oilPct == null ? '' : oilPct < T.oilEmpty ? 'Almost empty! This wears out the engine.' : oilPct < T.oilLow ? 'Low. Better add some.' : oilPct < 70 ? 'OK for now.' : 'Full.';
       body.innerHTML = `<div class="fuel ${pct < 30 ? 'low' : ''}"><span class="bar" style="width:160px"><i style="width:${pct}%"></i></span> ${s.fuel.toFixed(1)} / ${CONFIG.gas.tankGal} gal</div>
         <div class="row" style="margin:8px 0"><button class="btn go" data-act="fill" ${fill < 5 ? 'disabled' : ''}>⛽ Fill up (${money(fill)})</button></div>
         <h3>🛢️ Oil</h3>
         ${oilPct == null
-          ? `<p class="tiny muted">${s.truckUsed ? 'Old trucks can leak oil. Low oil means a breakdown is much more likely.' : 'Pull out the dipstick to see how much oil is in the engine.'}</p><button class="btn" data-act="check">🛢️ Check the oil</button>`
+          ? `<p class="tiny muted">${s.truckUsed ? 'Old trucks can leak oil. Driving on almost no oil wears out the engine.' : 'Pull out the dipstick to see how much oil is in the engine.'}</p><button class="btn" data-act="check">🛢️ Check the oil</button>`
           : `<div class="dipstick ${oilPct < T.oilLow ? 'low' : ''}"><span class="bar" style="width:160px"><i style="width:${oilPct}%"></i></span> ${oilWord}</div>
              <div class="row" style="margin-top:6px"><button class="btn" data-act="oil" ${oilPct > 95 ? 'disabled' : ''}>🛢️ Add oil (${money(T.oilBottle.price)} a bottle)</button></div>`}
         <div class="row" style="justify-content:flex-end;margin-top:12px"><button class="btn big" data-act="done">${lowGas ? 'Keep driving' : 'Done'}</button></div>`;

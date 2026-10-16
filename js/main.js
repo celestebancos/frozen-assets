@@ -1,5 +1,5 @@
 // Frozen Assets — app controller: title screen, setup, the game loop, HUD, and wiring of panels.
-import { CONFIG, TRUCK_COLORS, TRUCK_PRICE, USED_TRUCK, BLING, SPOT, FLAVORS, itemKey, itemFromKey } from './config.js';
+import { CONFIG, TRUCK_COLORS, TRUCK_PRICE, USED_TRUCK, usedTruckPrice, BLING, SPOT, FLAVORS, itemKey, itemFromKey } from './config.js';
 import { Game, DAY_NAMES } from './engine.js';
 import { Music } from './music.js';
 import { Ambience, cashRegister } from './ambience.js';
@@ -142,6 +142,7 @@ class App {
     let color = null;
     let bling = 0;
     let used = false;
+    let miles = null;
     let name = `${player}'s Ice Cream`;
     // The lot: one truck in each color with random bling, and at least one truck at every price.
     const levels = [...BLING.map((b) => b.level), ...TRUCK_COLORS.slice(BLING.length).map(() => Math.floor(Math.random() * BLING.length))];
@@ -149,10 +150,16 @@ class App {
       const j = Math.floor(Math.random() * (i + 1));
       [levels[i], levels[j]] = [levels[j], levels[i]];
     }
-    // ...plus a couple of used trucks: about half price, no bling, and a bit worn
+    // ...plus a couple of used trucks: about half price, no bling, and a bit worn. Their miles spread from low to high,
+    // with a gap between them (fewer miles cost more).
     const usedColors = [...TRUCK_COLORS].sort(() => Math.random() - 0.5).slice(0, USED_TRUCK.usedOnLot);
-    const lot = [...usedColors.map((c) => ({ color: c.id, bling: 0, used: true })), ...TRUCK_COLORS.map((c, i) => ({ color: c.id, bling: levels[i], used: false })).sort((a, b) => a.bling - b.bling)]; // cheapest first
-    const priceOf = (x) => (x.used ? USED_TRUCK.price : TRUCK_PRICE + BLING[x.bling].price);
+    const [lo, hi] = USED_TRUCK.miles;
+    const band = (hi - lo) / (2 * usedColors.length - 1);
+    const randMiles = (a, b) => Math.round((a + Math.random() * (b - a)) / 1000) * 1000;
+    const usedLot = usedColors.map((c, i) => ({ color: c.id, bling: 0, used: true, miles: randMiles(lo + 2 * i * band, lo + (2 * i + 1) * band) })).reverse(); // cheapest first
+    const newMiles = () => Math.round(C.truckCare.newMiles[0] + Math.random() * (C.truckCare.newMiles[1] - C.truckCare.newMiles[0]));
+    const lot = [...usedLot, ...TRUCK_COLORS.map((c, i) => ({ color: c.id, bling: levels[i], used: false, miles: newMiles() })).sort((a, b) => a.bling - b.bling)]; // cheapest first
+    const priceOf = (x) => (x.used ? usedTruckPrice(x.miles) : TRUCK_PRICE + BLING[x.bling].price);
     const scr = el(`<div class="screen"><h1 class="logo" style="font-size:44px"></h1><div class="setup-card"></div></div>`);
     document.body.appendChild(scr);
     const title = scr.querySelector('h1');
@@ -198,7 +205,7 @@ class App {
             const can = total <= maxTruck;
             return `<button class="lot-truck ${pick === i ? 'on' : ''}" data-act="pickTruck" data-i="${i}" ${can ? '' : 'disabled'}>
               ${truckSVG(c.hex, c.name, { bling: x.bling, used: x.used })}
-              <b>${x.used ? `Used ${c.name}` : c.name}</b>
+              <b>${x.used ? `Used ${c.name}` : c.name}</b>${x.used ? `<div class="tiny">🛣️ ${x.miles.toLocaleString()} miles</div>` : ''}
               <div class="price">${money(total)}</div><div class="tiny">${can ? `${money(partner ? ownerCash + gPut(total) - total : have - total)} left over` : partner ? 'More than Grandma can put in' : 'Too much for this loan'}</div></button>`;
           }).join('')}</div>
           ${partner ? `<p class="tiny muted">👵 Grandma will put in up to ${money(partner.max)}. Your cart money comes too: ${money(ownerCash)}.</p>` : ''}
@@ -224,7 +231,7 @@ class App {
       },
       pickTruck: (t) => {
         pick = Number(t.dataset.i);
-        ({ color, bling, used } = lot[pick]);
+        ({ color, bling, used, miles } = lot[pick]);
         render();
       },
       next: () => {
@@ -244,9 +251,9 @@ class App {
         if (!name.trim()) return toast('Your truck needs a name!');
         const L = partner ? null : C.loans.find((l) => l.id === loan);
         const B = BLING[bling];
-        const truckCost = used ? USED_TRUCK.price : TRUCK_PRICE + B.price;
+        const truckCost = priceOf(lot[pick]);
         const withGrandma = partner && { put: Math.max(0, Math.min(partner.max, truckCost + partner.startCash - ownerCash)), slice: partner.slice };
-        this.game = Game.create({ player, business: name.trim(), color, tune: 'entertainer', loan: L, truckCost, bling, blingName: bling ? B.name : '', used, ownerCash, partner: withGrandma, favorite: storage.loadCart(player)?.hot || storage.loadGame(player)?.favorite });
+        this.game = Game.create({ player, business: name.trim(), color, tune: 'entertainer', loan: L, truckCost, bling, blingName: bling ? B.name : '', used, miles, ownerCash, partner: withGrandma, favorite: storage.loadCart(player)?.hot || storage.loadGame(player)?.favorite });
         this.game.state.policies.autoGas = false; // players stop for gas when the tank is low (a pop-up)
         onStart?.();
         this.save();
@@ -339,7 +346,7 @@ class App {
       render: (body) => {
         body.innerHTML = `<div class="end-scene"><div style="font-size:50px;line-height:1">${towTruckIcon()}</div>
           <p>A tow truck takes it to the garage. That's the end of today.</p>
-          ${ev.oily ? '<p class="warn">🛢️ The engine ran too low on oil, so it was a big repair. Check the oil when you get gas!</p>' : ''}
+          ${ev.worn ? '<p class="warn">🛢️ The engine is worn out from running on almost no oil, so it breaks down more. The garage can fix it in the winter.</p>' : ev.oily ? '<p class="warn">🛢️ The oil was low! Check it when you get gas.</p>' : ''}
           <p>The garage will send a bill for <b>${money(ev.cost)}</b>. Pay it within ${C.credit.termDays} days.</p>
           <button class="btn big go" data-act="ok">OK</button></div>`;
       },

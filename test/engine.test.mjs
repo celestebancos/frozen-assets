@@ -828,7 +828,7 @@ test("buying out Grandma between summers: pay part of her Share, her slice shrin
   assert.equal(g.buyOutGrandma(4).reason, 'cash');
 });
 
-test('used truck care: oil leaks, a bottle tops it off, low oil means likelier breakdowns', async () => {
+test('used truck care: oil leaks, a bottle tops it off, more miles mean likelier breakdowns', async () => {
   const { CONFIG } = await import('../js/config.js');
   const T = CONFIG.truckCare;
   const g = Game.create({ player: 'N', business: 'T', color: 'pink', seed: 5, truckCost: 485000, used: true });
@@ -851,12 +851,11 @@ test('used truck care: oil leaks, a bottle tops it off, low oil means likelier b
   assert.ok(s.oil > 95);
   assert.equal(g.addOil().reason, 'full');
   assert.ok(s.docs.some((d) => d.type === 'upkeepReceipt'));
-  // breakdown odds
+  // breakdown odds: low oil by itself doesn't change them; miles do
   const used = g.breakdownChance();
-  s.oil = 20;
-  assert.ok(Math.abs(g.breakdownChance() - used * T.breakdown.lowOil) < 1e-9);
   s.oil = 5;
-  assert.ok(Math.abs(g.breakdownChance() - used * T.breakdown.emptyOil) < 1e-9);
+  assert.equal(g.breakdownChance(), used);
+  assert.ok(g.breakdownChance({ miles: s.miles + 40000 }) > used);
   const fresh = Game.create({ player: 'N', business: 'T', color: 'pink', seed: 5 });
   assert.ok(fresh.breakdownChance() < used, 'a new truck breaks down less');
   assert.equal(fresh.gasFactor(), 1);
@@ -880,7 +879,8 @@ test('a breakdown ends the day with a garage bill; shabby looks cost customers u
   const bill = s.docs.find((d) => d.type === 'garageBill');
   assert.ok(bill);
   const cost = s.lastDay.breakdown.cost;
-  assert.ok(cost >= T.breakdown.oilCost[0] && cost <= T.breakdown.oilCost[1], 'low oil: a bigger repair');
+  const scale = 1 + s.miles / T.breakdown.costMilesPer;
+  assert.ok(cost >= T.breakdown.cost[0] * 0.99 && cost <= T.breakdown.cost[1] * scale + 100, 'more miles: a bigger repair');
   assert.equal(s.truth.billsToPay, cost);
   assert.ok(s.oil > 90, 'the garage topped off the oil (then a night of leaking)');
   // shabby looks: fewer customers in the nicer neighborhoods
@@ -912,4 +912,47 @@ test('low gas: a player gets a gas stop pop-up (bots fill up on their own)', () 
   assert.equal(s.minute, minute + 10, 'the gas station takes a few minutes');
   g.runDay();
   assert.notEqual(s.pending?.kind, 'lowGas', 'asked once a day');
+});
+
+test('miles, a worn engine and the winter inspection', async () => {
+  const { CONFIG, usedTruckPrice } = await import('../js/config.js');
+  const T = CONFIG.truckCare;
+  assert.ok(usedTruckPrice(50000) > usedTruckPrice(150000), 'fewer miles cost more');
+  const low = Game.create({ player: 'N', business: 'T', color: 'pink', seed: 9, used: true, miles: 50000 });
+  const high = Game.create({ player: 'N', business: 'T', color: 'pink', seed: 9, used: true, miles: 150000 });
+  assert.ok(low.breakdownChance() < high.breakdownChance());
+  assert.ok(low.winterInspection().tuneUp < high.winterInspection().tuneUp);
+  assert.ok(low.winterInspection().repairs.length < high.winterInspection().repairs.length, 'more miles, more to fix');
+  // driving adds miles
+  const g = Game.create({ player: 'N', business: 'T', color: 'pink', seed: 9, used: true, miles: 80000 });
+  fileAllCorrectly(g);
+  const s = g.state;
+  g.buy('vanilla', 0, 1);
+  g.setRoute([{ spot: 'maple', at: 600 }, { spot: 'sunset', at: 900 }]);
+  s.policies.outOfStock = 'nothing';
+  s.breakdownAt = null;
+  g.openDay();
+  s.breakdownAt = null;
+  g.runDay();
+  assert.ok(s.miles > 80000, `drove ${s.miles - 80000} miles`);
+  // each day that starts on almost no oil wears the engine, and a worn engine breaks down more
+  const before = g.breakdownChance();
+  s.needWeekReport = null;
+  fileAllCorrectly(g);
+  s.oil = T.oilEmpty - 1;
+  g.openDay();
+  assert.equal(s.engineWear, 1);
+  assert.ok(Math.abs(g.breakdownChance() - before * (1 + T.breakdown.perWear)) < 1e-9);
+  // winter: the engine repair fixes the wear, and the other repairs cut next summer's breakdowns
+  s.phase = 'won';
+  const insp = g.winterInspection();
+  assert.equal(insp.repairs[0].id, 'engine');
+  assert.ok(g.breakdownsNextSummer(insp.repairs.map((r) => r.id)) < g.breakdownsNextSummer());
+  const owed = s.truth.billsToPay;
+  g.nextSeason(['engine', 'belts']);
+  assert.equal(s.engineWear, 0);
+  assert.equal(s.prevent, T.winter.repairs.find((r) => r.id === 'belts').cut);
+  const want = insp.tuneUp + insp.repairs.filter((r) => ['engine', 'belts'].includes(r.id)).reduce((a, r) => a + r.cost, 0);
+  assert.equal(s.truth.billsToPay - owed, want);
+  assert.equal(s.oil, 100);
 });
