@@ -1002,3 +1002,47 @@ test('a new truck almost never breaks down; a worn engine can be fixed in the su
   g.runDay();
   assert.ok(s.lastDay.customers > 0, 'selling again');
 });
+
+test('ads bought after opening start tomorrow; on the last day of a week they are for next week', () => {
+  const g = Game.create({ player: 'Luke', business: 'Test', color: 'pink', seed: 3 });
+  fileAllCorrectly(g);
+  g.state.truth.cash += 100000; // plenty to spend
+  const day = () => {
+    fileAllCorrectly(g);
+    g.openDay();
+    g.runDay();
+  };
+  // mid-week, while open: counts for this week, same as buying in the morning
+  g.openDay();
+  assert.equal(g.adWeek(), g.gw);
+  assert.equal(g.setAds('flyers').ok, true);
+  assert.equal(g.state.adTier, 'flyers');
+  assert.equal(g.setAds('radio').reason, 'already');
+  g.runDay();
+  assert.ok(g.state.buzz > 0, 'buzz builds overnight');
+  while (g.state.day % 7 !== 0) day();
+  // last day of week 1, open: ads go to week 2
+  fileAllCorrectly(g);
+  g.openDay();
+  assert.equal(g.adWeek(), g.gw + 1);
+  const cash = g.cash;
+  assert.equal(g.setAds('radio').ok, true);
+  assert.equal(g.cash, cash - 5000);
+  assert.equal(g.state.adTier, 'flyers', "this week's ads stay");
+  assert.equal(g.setAds('billboard').reason, 'already');
+  g.runDay();
+  assert.equal(g.week, 2);
+  assert.equal(g.state.adTier, 'radio');
+  assert.equal(g.state.adNext, null);
+  assert.equal(g.state.adWeekPaid, g.gw);
+  assert.equal(g.setAds('flyers').reason, 'already');
+});
+
+test('no ads on the last day of summer once open', () => {
+  const g = Game.create({ player: 'Luke', business: 'Test', color: 'pink', seed: 3 });
+  fileAllCorrectly(g);
+  g.state.day = 84;
+  g.openDay();
+  assert.equal(g.adWeek(), null);
+  assert.equal(g.setAds('flyers').reason, 'season');
+});

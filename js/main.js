@@ -6,7 +6,7 @@ import { Ambience, cashRegister } from './ambience.js';
 import { storage } from './storage.js';
 import { truckSVG, iceCreamSVG } from './art.js';
 import { leaderboardConfig, isConfigured, postScore, fetchScores, flushPending } from './leaderboard.js';
-import { esc, money, el, openModal, onActs, anyModalOpen, closeAllModals, toast, fmtTime, PAUSE_ICON, SKIP_ICON, askYes } from './ui/dom.js';
+import { esc, money, el, openModal, onActs, anyModalOpen, closeAllModals, toast, fmtTime, SPEED_ICONS, SKIP_ICON, askYes } from './ui/dom.js';
 import { Scene } from './ui/scene.js';
 import { shopPanel, menuPanel, mapPanel, giftPanel, inventoryPanel, policyPanel, truckPanel, booksPanel } from './ui/panels.js';
 import { openShoebox } from './ui/filing.js';
@@ -580,7 +580,7 @@ class App {
         <span class="fuel" title="Gas">⛽<span class="bar"><i></i></span></span>
       </div>
       <div class="speed" role="group" aria-label="Speed">
-        ${[PAUSE_ICON, '▶', '▶▶', '▶▶▶'].map((l, i) => `<button class="${sp === i ? 'on' : ''}" data-act="speed" data-s="${i}" ${open ? '' : 'disabled'} aria-label="Speed ${i}">${l}</button>`).join('')}
+        ${SPEED_ICONS.map((l, i) => `<button class="${sp === i ? 'on' : ''}" data-act="speed" data-s="${i}" ${open ? '' : 'disabled'} aria-label="Speed ${i}">${l}</button>`).join('')}
         <button class="${sp === 9 ? 'on' : ''}" data-act="skip" ${open ? '' : 'disabled'} aria-label="Skip to end of day">${SKIP_ICON}</button>
       </div>`;
       this.hudEls = {

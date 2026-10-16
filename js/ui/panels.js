@@ -57,29 +57,31 @@ export function shopPanel(app) {
             <button data-act="pay" data-v="later" class="${payLater ? 'on' : ''}">📄 Pay later</button>
           </div>
         </div>
-        <div class="grid-cards">
+        <div class="shop-list">
         ${SUPPLIES.map((sup) => {
           const have = g.stock(sup.id);
           const onSale = sale && sale.supply === sup.id;
           const coming = order.filter((l) => l.id === sup.id).reduce((a, l) => a + l.count * sup.packs[l.pack].size, 0);
-          return `<div class="card2">
-            ${onSale ? `<div class="sale-tag">SALE ${Math.round(sale.off * 100)}% OFF</div>` : ''}
-            <div class="hd"><span class="e">${supplyIcon(sup)}</span>${esc(sup.name)}</div>
-            <div class="muted tiny">Have: <b>${have.toLocaleString()}</b> ${sup.unit}${coming ? ` <b class="pos">+${coming.toLocaleString()} in your order</b>` : ''}</div>
-            ${sup.use ? `<div class="use-note">ℹ️ ${esc(sup.use)}</div>` : ''}
-            <div class="packs">
+          return `<div class="shop-row">
+            <div class="shop-info">
+              <div class="hd"><span class="e">${supplyIcon(sup)}</span><span>${esc(sup.name)}${onSale ? ` <span class="sale-chip">SALE ${Math.round(sale.off * 100)}% OFF</span>` : ''}</span></div>
+              <div class="muted tiny">Have: <b>${have.toLocaleString()}</b> ${sup.unit}${coming ? ` <b class="pos">+${coming.toLocaleString()} in your order</b>` : ''}</div>
+              ${sup.use ? `<div class="use-note">ℹ️ ${esc(sup.use)}</div>` : ''}
+              ${!sup.shelfLife && have > 0 ? `<button class="btn small" style="margin-top:6px" data-act="sell" data-id="${sup.id}">🔁 Sell back all for ${money(g.sellBackValue(sup.id))}</button>` : ''}
+            </div>
+            <div class="shop-packs">
             ${sup.packs
               .map((p, i) => {
                 const price = g.priceFor(sup.id, i, payLater);
                 const each = price / p.size;
                 const n = cart[`${sup.id}:${i}`] || 0;
-                return `<div class="pack ${n ? 'in' : ''}"><span>${p.size.toLocaleString()} ${sup.unit}<br><span class="tiny muted">${each < 1 ? each.toFixed(2) : each.toFixed(1)}¢ each</span></span>
-                  <span class="p">${price !== p.price ? `<s class="tiny muted">${money(p.price)}</s> ` : ''}${money(price)}</span>
-                  ${n ? stepper(n, 'qty', `${sup.id}:${i}`, `× ${n}`) : `<button class="btn small go" data-act="qty" data-id="${sup.id}:${i}" data-d="1">➕ Add</button>`}</div>`;
+                return `<div class="shop-pack ${n ? 'in' : ''}"><div class="ln"><span class="sz">${p.size.toLocaleString()} ${sup.unit}</span>
+                  <span class="p">${price !== p.price ? `<s class="tiny muted">${money(p.price)}</s> ` : ''}${money(price)}</span></div>
+                  <div class="ln"><span class="tiny muted">${each < 1 ? each.toFixed(2) : each.toFixed(1)}¢ each</span>
+                  <span class="act">${n ? stepper(n, 'qty', `${sup.id}:${i}`, `× ${n}`) : `<button class="btn small go" data-act="qty" data-id="${sup.id}:${i}" data-d="1">➕ Add</button>`}</span></div></div>`;
               })
               .join('')}
             </div>
-            ${!sup.shelfLife && have > 0 ? `<div style="margin-top:6px"><button class="btn small" data-act="sell" data-id="${sup.id}">🔁 Sell back all for ${money(g.sellBackValue(sup.id))}</button></div>` : ''}
           </div>`;
         }).join('')}
         </div>
@@ -522,16 +524,24 @@ export function giftPanel(app) {
   return m;
 }
 
-// Advertising for this week. It can be bought once a week, before opening.
+// Advertising, bought once a week. Bought after opening, it starts tomorrow (next week, on the last day of a week).
 function promotionHTML(g) {
   const s = g.state;
-  const paid = s.adWeekPaid === g.gw;
-  const canPick = s.phase === 'closed' && !paid;
-  const note = paid ? 'Paid for this week.' : s.phase === 'closed' ? 'Ads bring more people this week.' : 'Pick ads in the morning, before you open.';
+  const wk = g.adWeek();
+  const next = wk != null && wk !== g.gw;
+  const paid = wk != null && s.adWeekPaid === wk;
+  const canPick = (s.phase === 'closed' || s.phase === 'open') && wk != null && !paid;
+  const on = next ? s.adNext : s.adTier;
+  const note = wk == null ? 'Summer is almost over. No more ads.'
+    : paid ? (next ? 'Paid for next week.' : 'Paid for this week.')
+    : s.phase === 'closed' ? 'Ads bring more people this week.'
+    : s.phase !== 'open' ? 'You can pick ads once you start selling.'
+    : next ? 'Today is the last day of the week. Ads you buy now are for next week.'
+    : 'Ads you buy now start bringing people tomorrow.';
   return `<p class="tiny muted" style="margin:0 0 6px">${note}</p>
     <div class="ad-choices">${C.ads.map((a) => {
       const e = { none: '❌', flyers: '📄', radio: '📻', billboard: billboardIcon() }[a.id];
-      return `<button data-act="ad" data-id="${a.id}" class="${s.adTier === a.id ? 'on' : ''}" ${!canPick || a.cost > g.cash ? 'disabled' : ''}><span class="e">${e}</span>${a.name}<br><span class="muted">${a.cost ? money(a.cost) : 'Free'}</span></button>`;
+      return `<button data-act="ad" data-id="${a.id}" class="${on === a.id ? 'on' : ''}" ${!canPick || a.cost > g.cash ? 'disabled' : ''}><span class="e">${e}</span>${a.name}<br><span class="muted">${a.cost ? money(a.cost) : 'Free'}</span></button>`;
     }).join('')}</div>`;
 }
 

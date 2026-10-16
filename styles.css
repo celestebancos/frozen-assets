@@ -99,7 +99,8 @@ svg.truck-svg { width: 100%; height: auto; display: block; }
 .hud .pill { background: var(--bg); border: 2px solid var(--ink); border-radius: 999px; padding: 2px 10px; font-weight: 800; white-space: nowrap; }
 .hud .cash { background: #e6fcf5; }
 .speed { display: flex; gap: 4px; }
-.speed button { width: 46px; height: 40px; border: 2px solid var(--ink); border-radius: 10px; background: #fff; font-weight: 800; font-size: 15px; padding: 0; }
+.speed button { width: 46px; height: 40px; border: 2px solid var(--ink); border-radius: 10px; background: #fff; color: var(--ink); padding: 0; display: inline-flex; align-items: center; justify-content: center; }
+.speed button svg { display: block; }
 .speed button.on { background: var(--yellow); }
 .fuel { display: flex; align-items: center; gap: 4px; font-weight: 800; }
 .fuel .bar { width: 60px; height: 14px; border: 2px solid var(--ink); border-radius: 7px; overflow: hidden; background: #eee; }
@@ -204,17 +205,38 @@ svg.truck-svg { width: 100%; height: auto; display: block; }
 .muted { color: var(--soft); }
 .tiny { font-size: 13px; }
 
-.grid-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px; }
 .card2 { background: #fff; border: 2px solid var(--ink); border-radius: 14px; padding: 10px; position: relative; }
 .card2 .hd { display: flex; align-items: center; gap: 8px; font-weight: 800; font-size: 18px; }
 .card2 .hd .e { font-size: 26px; }
-.sale-tag { position: absolute; top: -10px; right: 10px; background: var(--red); color: #fff; font-weight: 800; border-radius: 8px; padding: 0 8px; transform: rotate(6deg); border: 2px solid var(--ink); }
-.packs { display: flex; flex-direction: column; gap: 6px; margin-top: 6px; }
-.pack { display: flex; justify-content: space-between; align-items: center; gap: 6px; border: 2px solid var(--line); border-radius: 10px; padding: 4px 6px; }
-.pack .p { font-weight: 800; }
-.pack.in { border-color: var(--ink); background: #fff3b0; }
-.pack .stepper button { width: 32px; height: 32px; font-size: 18px; }
-.pack .stepper .v { min-width: 40px; font-size: 17px; }
+/* the supply shop: one row per supply, its packs side by side */
+.shop-list { display: flex; flex-direction: column; gap: 8px; }
+.shop-row { display: grid; grid-template-columns: minmax(220px, 1fr) minmax(0, 2.4fr); gap: 12px; align-items: center; background: #fff; border: 2px solid var(--ink); border-radius: 14px; padding: 8px 10px; }
+.shop-info .hd { display: flex; align-items: center; gap: 8px; font-weight: 800; font-size: 18px; line-height: 1.2; }
+.shop-info .hd .e { font-size: 26px; }
+.sale-chip { display: inline-block; white-space: nowrap; background: var(--red); color: #fff; font-weight: 800; font-size: 13px; border-radius: 8px; padding: 0 8px; border: 2px solid var(--ink); }
+.shop-packs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+.shop-pack { display: flex; flex-direction: column; justify-content: center; gap: 2px; border: 2px solid var(--line); border-radius: 10px; padding: 4px 6px; min-width: 0; }
+.shop-pack .ln { display: flex; justify-content: space-between; align-items: center; gap: 4px; }
+.shop-pack .sz { font-weight: 700; white-space: nowrap; }
+.shop-pack .p { font-weight: 800; white-space: nowrap; text-align: right; }
+.shop-pack .p s { display: block; line-height: 1; } /* the old price, above the sale price */
+.shop-pack.in { border-color: var(--ink); background: #fff3b0; }
+.shop-pack .stepper { gap: 2px; }
+.shop-pack .stepper button { width: 30px; height: 30px; font-size: 18px; }
+.shop-pack .stepper .v { min-width: 34px; font-size: 16px; }
+@media (max-width: 900px) {
+  /* narrower packs: each one stacks top to bottom so three still fit across */
+  .shop-pack { padding: 4px 2px; text-align: center; }
+  .shop-pack .ln { flex-direction: column; gap: 2px; }
+  .shop-pack .sz { white-space: normal; }
+  .shop-pack .p { text-align: center; }
+  .shop-pack .stepper button { width: 26px; height: 26px; font-size: 16px; }
+  .shop-pack .stepper .v { min-width: 28px; font-size: 15px; }
+}
+@media (max-width: 700px) {
+  .shop-row { grid-template-columns: 1fr; gap: 6px; }
+}
+}
 .cart-bar { position: sticky; bottom: -18px; margin: 12px -16px -18px; padding: 10px 16px 14px; background: var(--paper); border-top: 3px solid var(--ink); border-radius: 0 0 20px 20px; display: flex; flex-direction: column; gap: 8px; z-index: 2; }
 .cart-lines { display: flex; flex-wrap: wrap; gap: 4px; max-height: 70px; overflow: auto; }
 .cart-lines .chip { font-size: 13px; }

@@ -105,7 +105,14 @@ export function stepper(value, act, id, label) {
   return `<span class="stepper"><button data-act="${act}" data-id="${id}" data-d="-25" aria-label="Lower">−</button><span class="v">${label ?? value}</span><button data-act="${act}" data-id="${id}" data-d="25" aria-label="Raise">+</button></span>`;
 }
 
-// Two bars for the pause button (the ⏸ emoji shows up as a box on some computers).
-// Skip ahead: two play triangles and a bar, drawn like the pause button (older computers don't have that emoji).
-export const SKIP_ICON = '<svg viewBox="0 0 19 12" width="19" height="12" aria-hidden="true" style="display:inline-block;vertical-align:-1px"><path d="M0 0.6 L7.2 6 L0 11.4 Z M7.4 0.6 L14.6 6 L7.4 11.4 Z" fill="currentColor" stroke="currentColor" stroke-width="1" stroke-linejoin="round"/><rect x="15.6" width="3.4" height="12" rx="1" fill="currentColor"/></svg>';
-export const PAUSE_ICON = '<svg viewBox="0 0 10 12" width="10" height="12" aria-hidden="true" style="display:inline-block;vertical-align:-1px"><rect width="3.5" height="12" rx="1" fill="currentColor"/><rect x="6.5" width="3.5" height="12" rx="1" fill="currentColor"/></svg>';
+// The speed buttons: pause, ▶, ▶▶, ▶▶▶ and skip (two triangles and a bar), drawn so they're all the same height
+// (the ⏸ and ⏭ emoji show up as boxes on some computers, and text triangles come out different sizes).
+const speedIcon = (w, shapes) => `<svg viewBox="0 0 ${w} 12" width="${w}" height="12" aria-hidden="true" fill="currentColor" style="vertical-align:-1px">${shapes}</svg>`;
+const tri = (x) => `<path d="M${x} 0 L${x + 9} 6 L${x} 12 Z"/>`;
+export const SPEED_ICONS = [
+  speedIcon(10, '<rect width="3.5" height="12" rx="1"/><rect x="6.5" width="3.5" height="12" rx="1"/>'),
+  speedIcon(9, tri(0)),
+  speedIcon(18, tri(0) + tri(9)),
+  speedIcon(27, tri(0) + tri(9) + tri(18)),
+];
+export const SKIP_ICON = speedIcon(22, tri(0) + tri(9) + '<rect x="19" width="3" height="12" rx="1"/>');
