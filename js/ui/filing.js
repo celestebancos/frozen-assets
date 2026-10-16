@@ -58,12 +58,15 @@ export function openShoebox(app, onDone) {
   const g = app.game;
   const s = g.state;
   const player = s.player;
-  // papers the kid already knows by heart: Penny files most of those
-  const autoDocs = g.autoFileKnown();
+  // papers above the kid's level (or all of them, once she does them all): Penny files those
+  g.autoFileKnown();
+  const autoDocs = s.docs.filter((d) => d.autoFiled && !d.autoShown);
+  for (const d of autoDocs) d.autoShown = true;
   if (autoDocs.length) app.save();
+  showLevelNews(app);
   const docs = g.docsToFile(); // this round's papers, in order
-  // papers handed to Penny that still came to the kid: these are check-ups on her work
-  const checkUps = new Set(docs.filter((d) => g.delegated(d.type)).map((d) => d.id));
+  // when Penny does all the papers, the ones that still come to the kid are check-ups on her work
+  const checkUps = new Set(docs.filter(() => s.pennyAll).map((d) => d.id));
   const roundAccts = new Set(docs.flatMap((d) => docLines(d).map((l) => l.acct)));
   const reportWeek = s.needWeekReport && s.lastWeek ? s.needWeekReport : null;
   const prior = g.openProfitDocs();
@@ -404,14 +407,10 @@ export function openShoebox(app, onDone) {
     const any = Object.values(st.picks).some(Boolean);
     const need = CONFIG.filing.streak;
     const shown = Math.min(need, g.known(doc.type).streak);
-    // checking Penny's work, or (once the streak is earned) the choice to hand this kind to her
+    // checking Penny's work, or the stars toward the next level
     const streak = checkUps.has(doc.id)
       ? `<div class="sb-streak">👩‍💼 Check Penny's work</div>`
-      : g.delegated(doc.type)
-        ? `<div class="sb-streak">👩‍💼 Penny files these from now on</div>`
-      : `<div class="sb-streak" title="Right on the first try, in a row">${'⭐'.repeat(shown)}${'☆'.repeat(need - shown)}${
-          g.knowsByHeart(doc.type) ? ` <button class="btn small" data-act="delegate" data-type="${doc.type}">👩‍💼 Penny files these: ${money(CONFIG.filing.perPaper)} each</button>` : ''
-        }</div>`;
+      : `<div class="sb-streak" title="Right on the first try, in a row">${'⭐'.repeat(shown)}${'☆'.repeat(need - shown)} <span class="tiny muted">Level ${s.paperLevel}</span></div>`;
     ov.querySelector('.sb-side').innerHTML = `
       ${streak}
       <div class="tiny muted">Tap each line this paper changes. Income piles ↑ up, expenses dig ↓ down, assets and liabilities move ← left or → right.</div>
@@ -502,7 +501,10 @@ export function openShoebox(app, onDone) {
       });
     const last = st.idx + 1 >= docs.length;
     const idx = st.idx;
-    later(t, () => setState({ busy: false, stamp: '', caption: DOC_TYPES[doc.type].caption || '', step: last ? 'end' : 'review', idx: last ? docs.length : idx }));
+    later(t, () => {
+      setState({ busy: false, stamp: '', caption: DOC_TYPES[doc.type].caption || '', step: last ? 'end' : 'review', idx: last ? docs.length : idx });
+      showLevelNews(app); // three stars on the last paper of a level: the next level
+    });
   }
 
   // A new paper starts at the top of its card (on a phone the board is below the paper).
@@ -601,13 +603,6 @@ export function openShoebox(app, onDone) {
     },
     clear: () => !st.busy && setState({ picks: {}, wrong: new Set() }),
     retry: () => setState({ strip: false }),
-    delegate: (t) => {
-      if (g.setDelegate(t.dataset.type, true)) {
-        app.save();
-        toast(`👩‍💼 From now on Penny files “${DOC_TYPES[t.dataset.type].title}” for ${money(CONFIG.filing.perPaper)} each.`);
-        render();
-      }
-    },
     pennyFile: () => {
       const doc = docs[st.idx];
       if (st.busy || !g.pennyFiles(doc.id)) return;
@@ -687,3 +682,45 @@ function baseShareMinusProfit(t) {
 }
 
 export { ACCOUNT };
+
+// Penny's news: a new paper level (what it teaches and which papers come to the kid now), or, at the top, her offer
+// to file everything.
+export function showLevelNews(app) {
+  const g = app.game;
+  const F = CONFIG.filing;
+  for (const n of g.takeLevelNews()) {
+    if (n === 'takeover') {
+      const m = openModal({
+        title: '👩‍💼 You know every paper!',
+        cls: 'narrow popup',
+        render(body) {
+          body.innerHTML = `<div class="penny"><div class="face">👩‍💼</div><div class="say">You've learned every kind of paper. Wow! If you'd like, I can file all of them for you now. That's ${money(F.takeoverFee)} a week instead of ${money(F.weeklyFee)}. Every few papers I'll still ask you to check my work.</div></div>
+            <div class="row center" style="margin-top:10px"><button class="btn" data-act="no">I'll keep filing</button><button class="btn go" data-act="yes">Yes, please!</button></div>
+            <p class="tiny muted">You can change your mind in 📒 Books → 👩‍💼 Penny.</p>`;
+        },
+      });
+      onActs(m.body, {
+        yes: () => {
+          g.setTakeover(true);
+          app.save();
+          m.close();
+        },
+        no: () => m.close(),
+      });
+      continue;
+    }
+    const L = F.levels[n - 1];
+    const papers = [...L.papers, ...L.also].filter((t) => DOC_TYPES[t]);
+    app.music.sfx('ching');
+    const m = openModal({
+      title: `🎉 Level ${n}: ${esc(L.name)}`,
+      cls: 'narrow popup',
+      render(body) {
+        body.innerHTML = `<div class="penny"><div class="face">👩‍💼</div><div class="say">Great filing! You got ${F.streak} stars on every paper at your level. Time for something new. ${esc(L.says)}</div></div>
+          ${papers.length ? `<p>From now on, you file these too:</p><div class="stack">${papers.map((t) => `<div>${DOC_TYPES[t].icon} ${esc(DOC_TYPES[t].title)}</div>`).join('')}</div>` : ''}
+          <div class="row center" style="margin-top:10px"><button class="btn big go" data-act="ok">OK!</button></div>`;
+      },
+    });
+    onActs(m.body, { ok: () => m.close() });
+  }
+}

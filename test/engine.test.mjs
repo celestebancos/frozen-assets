@@ -342,12 +342,14 @@ test('back un-files the last paper; profit moves to the share once a week', () =
     g.runDay();
   }
   assert.ok(g.state.needWeekReport);
-  assert.equal(g.pendingProfit(), 0, 'nothing filed yet this week');
+  // Penny already filed the week's papers above the kid's level
+  assert.ok(g.state.docs.some((d) => d.autoFiled));
+  const pennys = g.pendingProfit();
   const docs = g.docsToFile();
   const before = { ...g.state.filed };
   fileAllCorrectly(g);
   const t = g.state.filed;
-  assert.equal(g.pendingProfit(), profit(t) - profit(before));
+  assert.equal(g.pendingProfit(), pennys + profit(t) - profit(before));
   // only the most recent paper can be un-filed
   assert.equal(g.unfileDoc(docs[0].id), false);
   const last = docs[docs.length - 1];
@@ -397,49 +399,93 @@ test('a shopping order is bought all at once, or not at all', () => {
 });
 
 
-test('Penny can take over a paper after 3 first-try rights in a row; every 3rd comes back to check', () => {
+test('papers come a level at a time: Penny files the rest; three stars on each paper moves you up', async () => {
+  const { CONFIG } = await import('../js/config.js');
+  const F = CONFIG.filing;
   const g = Game.create({ player: 'N', business: 'T', color: 'pink', seed: 10 });
+  const s = g.state;
+  assert.equal(s.paperLevel, 1);
   fileAllCorrectly(g);
-  const right = (d) => Object.fromEntries(docLines(d).map((l) => [l.acct, l.dir]));
-  const newReceipt = () => {
-    g.buy('napkins', 0, 1);
-    const d = g.state.docs[g.state.docs.length - 1];
-    d.week = 0; // pretend it's due now
-    g.state.phase = 'setup';
-    return d;
+  g.buy('vanilla', 0, 1);
+  g.buy('cake', 0, 1);
+  g.setRoute([{ spot: 'maple', at: 600 }]);
+  Object.assign(s.policies, { outOfStock: 'nothing', drop: 'refuse' });
+  const week = () => {
+    for (let d = 0; d < 7; d++) {
+      fileAllCorrectly(g);
+      s.needWeekReport = null;
+      if (d === 0) {
+        g.buy('vanilla', 0, 1);
+        g.buy('cake', 0, 1);
+      }
+      g.openDay();
+      g.runDay();
+    }
   };
-  // a miss resets the streak
-  let d = newReceipt();
-  g.fileDoc(d.id, { cash: 'up' });
-  g.fileDoc(d.id, right(d));
-  assert.equal(g.known('supplyReceipt').streak, 0);
-  assert.equal(g.setDelegate('supplyReceipt', true), false, 'not until the streak is earned');
-  let learned = false;
-  for (let i = 0; i < 3; i++) {
-    d = newReceipt();
-    learned = g.fileDoc(d.id, right(d)).learned;
+  week();
+  // the kid only gets level-1 papers; Penny filed the count sheet, interest and her own bill
+  const kid = g.docsToFile().map((d) => d.type);
+  assert.ok(kid.includes('registerTape'));
+  assert.ok(kid.every((t) => g.levelOf(t) === 1), kid.join());
+  const penny = s.docs.filter((d) => d.autoFiled).map((d) => d.type);
+  for (const t of ['countSheet', 'interestPaid', 'pennyBill']) assert.ok(penny.includes(t), t);
+  // a miss on the first try starts the stars over
+  const tape = g.docsToFile().find((d) => d.type === 'registerTape');
+  g.fileDoc(tape.id, { cash: 'down' });
+  assert.equal(g.known('registerTape').streak, 0);
+  fileAllCorrectly(g);
+  for (let w = 0; w < 8 && s.paperLevel === 1; w++) {
+    week();
+    fileAllCorrectly(g);
   }
-  assert.equal(learned, true);
-  assert.equal(g.knowsByHeart('supplyReceipt'), true);
-  d = newReceipt();
-  assert.equal(g.autoFileKnown().length, 0, 'only papers handed to Penny');
-  g.fileDoc(d.id, right(d));
-  assert.equal(g.setDelegate('supplyReceipt', true), true);
-  // next ones: filed by Penny twice, then the third comes to the kid
+  assert.equal(s.paperLevel, 2, 'three stars on every level-1 paper');
+  for (const t of CONFIG.filing.levels[0].papers) assert.ok(g.knowsByHeart(t), t);
+  assert.deepEqual(g.takeLevelNews(), [2]);
+  assert.equal(g.pennyHas('countSheet'), false, 'the count sheet comes to the kid now');
+  assert.equal(g.pennyHas('interestPaid'), true);
+  // the bill is the same flat fee no matter how much Penny files
+  assert.equal(s.truth.bookkeeping, F.weeklyFee * s.docs.filter((d) => d.type === 'pennyBill').length);
+});
+
+test('at the top level Penny offers to file everything for a bigger fee, checking in every few papers', async () => {
+  const { CONFIG } = await import('../js/config.js');
+  const F = CONFIG.filing;
+  const g = Game.create({ player: 'N', business: 'T', color: 'pink', seed: 12 });
+  const s = g.state;
+  fileAllCorrectly(g);
+  assert.equal(g.setTakeover(true), false, 'not before every level is done');
+  s.paperLevel = F.levels.length;
+  s.levelStartWeek = -1;
+  g.checkLevelUp();
+  assert.deepEqual(g.takeLevelNews(), ['takeover']);
+  assert.equal(g.setTakeover(true), true);
+  const owed = g.creditUsed();
+  g.postPennyBill();
+  assert.equal(g.creditUsed() - owed, F.takeoverFee);
+  // every 3rd paper of a kind comes back to the kid to check
   const auto = [];
   for (let i = 0; i < 3; i++) {
-    d = newReceipt();
+    g.buy('napkins', 0, 1);
+    const d = s.docs[s.docs.length - 1];
+    d.week = 0;
+    s.phase = 'setup';
     auto.push(g.autoFileKnown().length);
-    if (!d.filed) g.fileDoc(d.id, right(d));
+    if (!d.filed) g.fileDoc(d.id, Object.fromEntries(docLines(d).map((l) => [l.acct, l.dir])));
   }
   assert.deepEqual(auto, [1, 1, 0]);
-  // missing the check-up paper means the kid files them again
-  for (let i = 0; i < 3; i++) newReceipt();
-  assert.equal(g.autoFileKnown().length, 2);
-  const todo = g.docsToFile();
-  assert.equal(todo.length, 1);
-  g.fileDoc(todo[0].id, { cash: 'up' });
-  assert.equal(g.knowsByHeart('supplyReceipt'), false);
+});
+
+test('older saves start at paper level 1, and Penny stops filing the papers she used to charge for', () => {
+  const g = Game.create({ player: 'N', business: 'T', color: 'pink', seed: 13 });
+  fileAllCorrectly(g);
+  const st = JSON.parse(JSON.stringify(g.state));
+  delete st.paperLevel;
+  delete st.levelNews;
+  st.known = { supplyReceipt: { streak: 5, seen: 4, delegate: true } };
+  const old = new Game(st);
+  assert.equal(old.state.paperLevel, 1);
+  assert.equal(old.state.known.supplyReceipt.delegate, undefined);
+  assert.equal(old.pennyHas('supplyReceipt'), false);
 });
 
 // ---------- map, routes, popsicles and new customers ----------
@@ -713,17 +759,15 @@ test('in a neighborhood the truck drives around, and parks at a busy place while
   assert.deepEqual(Object.keys(g.state.lastDay.bySpot), ['riverside'], 'all of it counts for Riverside');
 });
 
-test("Penny's weekly bill: a flat fee plus each paper she filed", async () => {
+test("Penny's weekly bill is a flat fee", async () => {
   const { CONFIG } = await import('../js/config.js');
   const F = CONFIG.filing;
   const g = Game.create({ player: 'N', business: 'T', color: 'pink', seed: 11 });
   fileAllCorrectly(g);
-  g.state.pennyPapers = 4;
   const owed = g.creditUsed();
   g.postPennyBill();
-  assert.equal(g.state.truth.bookkeeping, F.weeklyFee + 4 * F.perPaper);
-  assert.equal(g.creditUsed() - owed, F.weeklyFee + 4 * F.perPaper);
-  assert.equal(g.state.pennyPapers, 0);
+  assert.equal(g.state.truth.bookkeeping, F.weeklyFee);
+  assert.equal(g.creditUsed() - owed, F.weeklyFee);
   assert.equal(share(g.state.truth), profit(g.state.truth));
 });
 
