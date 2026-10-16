@@ -20,7 +20,7 @@ const STICKER_SPOTS = [[52, 112], [148, 112], [100, 140], [36, 146], [164, 146],
 // Cart units for a sticker at u, v (0–1 across and down the sticker area).
 export const stickerXY = ([u, v]) => [STICKER_AREA.x + u * STICKER_AREA.w, STICKER_AREA.y + v * STICKER_AREA.h];
 
-// opts: { decals: [{ id, at: [u, v] | null }] (or plain ids), umbrella, fan, bell, balloon: color, pick: id to highlight,
+// opts: { decals: [{ id, at: [u, v] | null }] (or plain ids), umbrella, fan, bell, balloon: color, pick: which sticker to highlight (its place in decals),
 // tight: leave off the empty space above the cart (where the umbrella goes), jar: cents in the tip jar on the lid
 // (at the park; null for no jar), name: what it says on the side, paint: the stripe color }
 const xml = (t) => String(t).replace(/[&<>"]/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[ch]);
@@ -31,7 +31,7 @@ export function cartSVG({ decals = [], umbrella = false, fan = false, bell = fal
       const it = CART_SHOPS.decals.items.find((x) => x.id === id);
       if (!it) return '';
       const [x, y] = at ? stickerXY(at) : STICKER_SPOTS[i % STICKER_SPOTS.length];
-      const ring = pick === id ? `<circle cx="${x}" cy="${y}" r="15" fill="none" stroke="#ff6f91" stroke-width="2.4" stroke-dasharray="5 4"/>` : '';
+      const ring = pick === i ? `<circle cx="${x}" cy="${y}" r="15" fill="none" stroke="#ff6f91" stroke-width="2.4" stroke-dasharray="5 4"/>` : '';
       return `${ring}${emo(x, y, it.emoji, 20)}`;
     })
     .join('');

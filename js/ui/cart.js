@@ -28,6 +28,8 @@ const counted = (ids) => [...new Set(ids)].map((id) => {
   const name = CART_ITEM[id].name.toLowerCase();
   return n === 1 ? aOr(name) : `${NUM[n] || n} ${CART_ITEM[id].plural || name + 's'}`;
 });
+// How full you are, in words.
+const tummyWord = (h) => (h < K.hunger.low ? 'Hungry!' : h < 60 ? 'A little hungry' : 'Full');
 const andList = (xs) => (xs.length < 2 ? xs.join('') : `${xs.slice(0, -1).join(', ')} and ${xs[xs.length - 1]}`);
 
 // What the player looks like today, with whatever they're wearing.
@@ -42,11 +44,12 @@ export function meSVG(look, wearing = {}) {
   });
 }
 // park: at the park the umbrella is drawn separately, up over the kid's head.
-// pick: a sticker to circle (while you're sticking it on), shown close up.
+// pick: a sticker to circle (while you're sticking it on: its place in your stickers), shown close up.
+// trying: where loose stickers are being tried out, by their place in your stickers.
 function cartArt(c, park = false, pick = null, trying = {}) {
   const s = c.state;
-  const decals = c.decalsPlaced().map((d) => (trying[d.id] ? { id: d.id, at: trying[d.id] } : d));
-  return cartSVG({ decals, umbrella: !park && c.has('umbrella'), fan: c.has('fan'), bell: c.has('bell'), balloon: pick ? null : s.balloon, pick, tight: !!pick, jar: park && !pick ? c.jarTotal : null, name: c.cartName, paint: s.cartPaint || K.paints[0] });
+  const decals = c.decalsPlaced().map((d, i) => (trying[i] ? { id: d.id, at: trying[i] } : d));
+  return cartSVG({ decals, umbrella: !park && c.has('umbrella'), fan: c.has('fan'), bell: c.has('bell'), balloon: pick != null ? null : s.balloon, pick, tight: pick != null, jar: park && !pick ? c.jarTotal : null, name: c.cartName, paint: s.cartPaint || K.paints[0] });
 }
 function cartSpot(c) {
   return `${c.has('umbrella') ? `<div class="umb">${umbrellaSVG()}</div>` : ''}<div class="me">${meSVG(c.state.look, c.state.wearing)}</div><div class="the-cart">${cartArt(c, true)}</div>`;
@@ -366,6 +369,8 @@ export class CartView {
       },
       prices: () => this.prices(() => this.renderHome()),
       sales: () => this.salesRecord(),
+      eat: () => this.eatMenu(),
+      count: (t) => this.countSupplies(t.dataset.k),
       repaint: () => this.repaint(),
       closet: () => this.closet(() => this.renderHome()),
       stickers: () => this.placeStickers(null, () => this.renderHome()),
@@ -403,6 +408,8 @@ export class CartView {
       park: async () => {
         if (!c.spaceUsed('cooler') && !(await askYes('Your cooler is empty! Go to the park anyway?', { yes: 'Go anyway', no: 'Wait' }))) return;
         if (s.counter.some((b) => b.n > 0 && CART_ITEM[b.item]?.kind !== 'drink') && c.freeSlots && !(await askYes('Some boxes are still on the counter. They will melt! Go anyway?', { yes: 'Go anyway', no: 'Wait' }))) return;
+        const hungry = c.hungerAt(Math.max(s.minute, K.parkOpen)) < K.hunger.low && !Object.keys(FOOD).some((id) => c.count('cooler', id));
+        if (hungry && !(await askYes("You're very hungry, and there's no food in your cooler! Go anyway? (The hot dog stand sells food.)", { yes: 'Go anyway', no: 'Wait' }))) return;
         if (!s.spoons && s.cooler.trays.flat().some((id) => id && c.isIce(id)) && !(await askYes(s.packs.spoons ? 'No spoons on the cart! Tap the spoon box on the shelf to bring some. Go anyway?' : 'No spoons on the cart! Go anyway?', { yes: 'Go anyway', no: 'Wait' }))) return;
         c.openPark();
         this.save();
@@ -418,6 +425,7 @@ export class CartView {
     const w = s.weather;
     const used = c.spaceUsed('cooler');
     const noStock = !c.spaceUsed('freezer') && !used;
+    const hungry = c.hungerAt(Math.max(s.minute, K.parkOpen)) < K.hunger.low; // by the time you get to the park
     this.homeEl.innerHTML = `
       <div class="home-top">
         <h2 style="margin:0">${w.rain ? '🌧️' : w.temp >= 88 ? '🥵☀️' : '☀️'} ${CART_DAY_NAMES[(s.day - 1) % 7]} · Day ${s.day} · ${w.temp}°F</h2>
@@ -449,6 +457,8 @@ export class CartView {
           ${c.lunchInvite ? `<div class="grandma-call"><span class="gma">${personSVG('adult', 7, { ...GRANDMA.look, skin: s.look.skin })}</span><div><b>Grandma called!</b><div>"Come have lunch with me today?"</div><div class="tiny muted">It's free, but it takes an hour.</div><div class="row"><button class="btn go small" data-act="lunchYes">Yes, please!</button><button class="btn small" data-act="lunchNo">Not today</button></div></div></div>` : ''}
           <h3>🚶 Before the park</h3>
           <p class="tiny muted when">${s.minute < K.parkOpen ? `It's ${fmtTime(s.minute)}. The park opens at ${fmtTime(K.parkOpen)}.` : `It's ${fmtTime(s.minute)}. The park is open. Hurry!`}</p>
+          <button class="tummy-home ${hungry ? 'low' : ''}" data-act="eat" aria-label="Hunger: tap to eat">🍎 <i class="bar"><b style="width:${Math.round(c.hunger)}%"></b></i><span>${tummyWord(c.hunger)}</span></button>
+          ${hungry ? `<p class="hint">🍎 Your tummy is rumbling! Eat something before the park, or you'll soon have to come home.</p>` : ''}
           <button class="btn ${noStock ? 'yellow pulse' : ''}" data-act="restaurant">🏬 Restaurant store <span class="tiny muted">${K.errand.restaurant} min</span></button>
           <button class="btn" data-act="corner">🏪 Corner store <span class="tiny muted">${K.errand.corner} min</span></button>
           ${s.pantry ? `<button class="btn" data-act="packLunch">${FOOD.lunch.emoji} Pack a lunch <span class="tiny muted">(${s.pantry} left)</span></button>` : ''}
@@ -500,7 +510,7 @@ export class CartView {
         <div class="kit-side">
           <div class="supplies">${packs('spoons', spoonBoxSVG())}${packs('napkins', napkinPackSVG())}</div>
           <div class="supplies drink-shelf" aria-label="Drinks shelf">${drinks}</div>
-          <div class="on-cart"><span class="tiny muted">On the cart:</span><span class="oc-cup" aria-label="Spoons on the cart">${spoonCupSVG(cupFill(s.spoons))}</span><span class="oc-stack" aria-label="Napkins on the cart">${napkinStackSVG(stackFill(s.napkins))}</span></div>
+          <div class="on-cart"><span class="tiny muted">On the cart:</span><button class="oc-cup" data-act="count" data-k="spoons" aria-label="Spoons on the cart: tap to count">${spoonCupSVG(cupFill(s.spoons))}</button><button class="oc-stack" data-act="count" data-k="napkins" aria-label="Napkins on the cart: tap to count">${napkinStackSVG(stackFill(s.napkins))}</button></div>
           <div class="kit-floor"><div class="kit-counter"><div class="kc-boxes">${counter}</div></div>${bin}</div>
         </div>
       </div>
@@ -585,7 +595,7 @@ export class CartView {
     const c = this.cart;
     const S = CART_SHOPS[id];
     let basket = {};
-    const one = (it) => ['gear', 'decal', 'hat', 'glasses', 'shirt', 'balloon'].includes(it.kind);
+    const one = (it) => ['gear', 'hat', 'glasses', 'shirt', 'balloon'].includes(it.kind);
     const m = openModal({
       title: `${S.icon} ${S.name}`,
       onClose,
@@ -639,7 +649,7 @@ export class CartView {
           this.save();
           m.refresh();
           this.refreshScene?.();
-          if (sticker) this.placeStickers(sticker.id); // stick it on right away
+          if (sticker) this.placeStickers(c.state.stickers.length - 1); // stick it on right away (the last one bought)
           else if (got.includes('paint')) {
             if (c.state.phase === 'home') this.repaint();
             else toast('🎨 The paint is at home. Repaint your cart there!');
@@ -1006,6 +1016,26 @@ export class CartView {
     });
   }
 
+  // Pick up the spoons (or napkins) on the cart and lay them all out, to count them yourself: every one is drawn,
+  // ten to a row, and there's no number.
+  countSupplies(kind) {
+    const c = this.cart;
+    const n = c.state[kind];
+    const one = kind === 'spoons' ? 'spoon' : 'napkin';
+    const rows = Array.from({ length: Math.ceil(n / 10) }, (_, r) => `<div class="cnt-row">${Array.from({ length: Math.min(10, n - r * 10) }, () => `<span>${thingSVG(one, 30)}</span>`).join('')}</div>`).join('');
+    const m = openModal({
+      title: kind === 'spoons' ? '🥄 Spoons on the cart' : '🧻 Napkins on the cart',
+      cls: 'narrow',
+      render: (body) => {
+        body.innerHTML = `${n ? `<p style="margin-top:0">You lay them all out. How many are there?</p><div class="cnt ${kind}">${rows}</div>` : `<p>There are no ${kind} on the cart!</p>`}
+          ${c.state.packs[kind] ? `<p class="tiny muted">There ${c.state.packs[kind] === 1 ? 'is a pack' : `are ${c.state.packs[kind]} packs`} of 100 on the shelf.</p>` : ''}
+          <div class="row" style="justify-content:flex-end"><button class="btn go" data-act="done">Put them back</button></div>`;
+      },
+    });
+    onActs(m.body, { done: () => m.close() });
+    return m;
+  }
+
   // The sales record: how many of each treat sold each day, and what each kind earned after what it cost.
   salesRecord() {
     const c = this.cart;
@@ -1133,16 +1163,18 @@ export class CartView {
 
   // Stick stickers on the cart: pick one, then tap the cart where it goes. Tap again to move it.
   // When you tap Done, it's stuck for good.
-  placeStickers(pickId, onClose) {
+  // pickAt: which sticker to start with (its place in your stickers).
+  placeStickers(pickAt, onClose) {
     const c = this.cart;
-    const loose = c.decalsLoose();
-    let pick = loose.includes(pickId) ? pickId : loose[0];
-    const trying = {}; // where each loose sticker is, until Done
+    const all = c.decalsPlaced();
+    const loose = all.map((d, i) => (d.at ? null : i)).filter((i) => i != null); // places of the stickers not stuck on yet
+    let pick = loose.includes(pickAt) ? pickAt : loose[0] ?? null;
+    const trying = {}; // where each loose sticker is, until Done (by its place)
     const m = openModal({
       title: '🌟 Stick it on!',
       cls: 'narrow',
       onClose: () => {
-        for (const [id, [u, v]] of Object.entries(trying)) c.placeDecal(id, u, v);
+        for (const [i, [u, v]] of Object.entries(trying)) c.placeDecal(Number(i), u, v);
         this.save();
         this.refreshScene?.();
         onClose?.();
@@ -1150,7 +1182,7 @@ export class CartView {
       render: (body) => {
         body.innerHTML = `<p style="margin-top:0">${loose.length > 1 ? 'Pick a sticker, then tap' : 'Tap'} your cart to stick it on. You can move it until you tap Done. Then it's stuck!</p>
           ${loose.length > 1 ? `<div class="sticker-pick">${loose
-            .map((id) => `<button class="btn small ${id === pick ? 'on' : ''}" data-act="pick" data-id="${id}" aria-label="${esc(ITEM[id].name)}">${ITEM[id].emoji}</button>`)
+            .map((i) => `<button class="btn small ${i === pick ? 'on' : ''}" data-act="pick" data-i="${i}" aria-label="${esc(ITEM[all[i].id].name)}">${ITEM[all[i].id].emoji}</button>`)
             .join('')}</div>` : ''}
           <div class="sticker-cart">${cartArt(c, true, pick, trying)}</div>
           <div class="row" style="justify-content:flex-end"><button class="btn big go" data-act="done">Done ✓</button></div>`;
@@ -1162,7 +1194,7 @@ export class CartView {
           const y = vb.y + ((e.clientY - r.top) / r.height) * vb.height;
           // only taps on the side of the cart count (a little slack around the edges)
           const A = STICKER_AREA;
-          if (!pick || x < A.x - 20 || x > A.x + A.w + 20 || y < A.y - 20 || y > A.y + A.h + 20) return;
+          if (pick == null || x < A.x - 20 || x > A.x + A.w + 20 || y < A.y - 20 || y > A.y + A.h + 20) return;
           const clamp = (n) => Math.min(1, Math.max(0, n));
           trying[pick] = [clamp((x - A.x) / A.w), clamp((y - A.y) / A.h)];
           m.refresh();
@@ -1171,7 +1203,7 @@ export class CartView {
     });
     onActs(m.body, {
       pick: (t) => {
-        pick = t.dataset.id;
+        pick = Number(t.dataset.i);
         m.refresh();
       },
       done: () => m.close(),
@@ -1504,17 +1536,18 @@ export class CartView {
     const m = openModal({
       title: '🍎 Lunch time?',
       cls: 'narrow',
-      onClose: () => this.renderHUD(true),
+      onClose: () => (c.state.phase === 'park' ? this.renderHUD(true) : this.renderHome()),
       render: (body) => {
         const have = Object.keys(FOOD).map((id) => [id, c.count('cooler', id)]).filter(([, n]) => n);
         const stock = CART_ITEMS.map((it) => [it.id, c.count('cooler', it.id)]).filter(([, n]) => n);
         const h = Math.round(c.hunger);
-        body.innerHTML = `<div class="tummy-big ${h < K.hunger.low ? 'low' : ''}"><span>${h < K.hunger.low ? 'Hungry!' : h < 60 ? 'A little hungry' : 'Full'}</span><i class="bar"><b style="width:${h}%"></b></i></div>
+        const busy = c.state.phase === 'park' && !c.canClose(); // in the middle of a sale
+        body.innerHTML = `<div class="tummy-big ${h < K.hunger.low ? 'low' : ''}"><span>${tummyWord(h)}</span><i class="bar"><b style="width:${h}%"></b></i></div>
           ${have.length
             ? `<div class="food-list">${have.map(([id, n]) => `<div class="food-row">${treatSVG(id, 44)}<b>${esc(FOOD[id].name)}</b><span class="tiny muted">×${n}</span><button class="btn go small" data-act="eat" data-id="${id}">Eat</button></div>`).join('')}</div>`
             : '<p>No food in the cooler.</p>'}
           ${stock.length && c.state.phase === 'park'
-            ? `<h3>From what you sell</h3><p class="tiny muted">A little bit fills you up. Too much ice cream gives you a tummy ache!</p><div class="food-list">${stock.map(([id, n]) => `<div class="food-row">${treatSVG(id, 44)}<b>${esc(CART_ITEM[id].name)}</b><span class="tiny muted">×${n} · sells for ${money(c.state.prices[id])}</span><button class="btn small" data-act="eat" data-id="${id}" ${c.state.window ? 'disabled' : ''}>Eat</button></div>`).join('')}</div>`
+            ? `<h3>From what you sell</h3><p class="tiny muted">A little bit fills you up. Too much ice cream gives you a tummy ache!</p>${busy ? '<p class="warn">Finish with this customer first!</p>' : ''}<div class="food-list">${stock.map(([id, n]) => `<div class="food-row">${treatSVG(id, 44)}<b>${esc(CART_ITEM[id].name)}</b><span class="tiny muted">×${n} · sells for ${money(c.state.prices[id])}</span><button class="btn small" data-act="eat" data-id="${id}" ${busy ? 'disabled' : ''}>Eat</button></div>`).join('')}</div>`
             : ''}
           <p class="tiny muted">The hot dog stand and the corner store sell food. Packing a lunch at home costs less.</p>
           <button class="btn" data-act="done">Done</button>`;
