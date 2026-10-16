@@ -7,6 +7,7 @@ import { DOC_TYPES } from '../documents.js';
 import { mapSVG, mapIcon, iceCreamSVG, truckSVG, ROUTE_COLORS } from '../art.js';
 import { esc, money, openModal, onActs, toast, fmtTime, stepper, askYes } from './dom.js';
 import { coinIcon } from '../icons.js';
+import { gasStation } from './popups.js';
 
 const C = CONFIG;
 
@@ -280,7 +281,7 @@ export function mapPanel(app) {
           <div class="fuel ${fuelPct < 25 ? 'low' : ''}"><span class="bar" style="width:140px"><i style="width:${fuelPct}%"></i></span> ${s.fuel.toFixed(1)} / ${C.gas.tankGal} gal</div>
           <div class="row" style="margin-top:6px">
             <button class="btn small" data-act="fill" ${s.fuel >= C.gas.tankGal - 0.05 ? 'disabled' : ''}>⛽ Fill up (${money(Math.round((C.gas.tankGal - s.fuel) * C.gas.pricePerGal))})</button>
-            <label class="row tiny"><input type="checkbox" data-chg="auto" ${s.policies.autoGas ? 'checked' : ''}> Auto fill-up</label>
+            <button class="btn small" data-act="station">🛢️ Check the oil</button>
           </div>
         </div></div>`;
       body.querySelectorAll('.map-spot').forEach((n) => {
@@ -362,6 +363,7 @@ export function mapPanel(app) {
         app.changed();
       }
     },
+    station: () => gasStation(app, { onDone: () => m.refresh() }),
     fill: () => {
       const c = g.fillGas();
       if (c) app.music.sfx('ching');
@@ -472,8 +474,7 @@ export function policyPanel(app) {
         <div class="row">${opt('outOfStock', 'ask', '🙋 Ask me')}${opt('outOfStock', 'gift', '🎁 Gift card')}${opt('outOfStock', 'discount', '🏷️ Half off something else')}${opt('outOfStock', 'nothing', '🤷 Nothing')}</div>
         <h3>💥 A kid drops their ice cream</h3>
         <div class="row">${opt('drop', 'ask', '🙋 Ask me')}${opt('drop', 'replace', '🍦 Replace free')}${opt('drop', 'refuse', '🙅 No')}</div>
-        <h3>⛽ Gas</h3>
-        <label class="row"><input type="checkbox" data-chg="auto" ${p.autoGas ? 'checked' : ''}> Fill up in the morning when the tank is low</label>`;
+`;
     },
   });
   onActs(m.body, {
@@ -583,13 +584,19 @@ export function truckPanel(app) {
           <button class="btn small ${app.music.muted ? 'on' : ''}" data-act="mute">${app.music.muted ? '🔇 Muted' : '🔊 Sound on'}</button>
           <button class="btn small ${app.ambience.on ? 'on' : ''}" data-act="street">${app.ambience.on ? '🐦 Street sounds on' : '🐦 Street sounds off'}</button></div>
         <h3>🎨 Truck</h3>
-        <div style="max-width:360px">${truckSVG(hex, name || s.business, { bling: s.bling || 0, used: !!s.truckUsed })}</div>
+        <div style="max-width:360px">${truckSVG(hex, name || s.business, { bling: s.bling || 0, used: !!s.truckUsed && !s.truckFixed })}</div>
         <div class="swatches">${TRUCK_COLORS.map((c) => `<button class="swatch ${color === c.id ? 'on' : ''}" style="background:${c.hex}" data-act="color" data-id="${c.id}" aria-label="${c.name}"></button>`).join('')}</div>
         <div style="margin-top:8px"><input class="text-in" maxlength="28" value="${esc(name)}" data-chg="name" aria-label="Business name"></div>
         <div class="row" style="margin-top:8px">
           ${paint ? `<span class="chip">🎨 Paint ${money(C.rebrand.paint)}</span>` : ''}${sign ? `<span class="chip">🏷️ New sign ${money(C.rebrand.sign)}</span>` : ''}
           <button class="btn go" data-act="apply" ${cost ? '' : 'disabled'}>Do it${cost ? ' — ' + money(cost) : ''}</button>
-        </div>`;
+        </div>
+        <h3>🔧 Garage</h3>
+        ${s.truckUsed && !s.truckFixed
+          ? `<p>Your truck is used, and it looks it. People in the nicer neighborhoods are less likely to buy from a rusty old truck. The garage can fix up the outside: new paint, bodywork, no more rust.</p>
+             <button class="btn go" data-act="fixUp">🔧 Fix it up (${money(C.truckCare.fixUp)})</button> <span class="tiny muted">The garage sends a bill. Pay it within ${C.credit.termDays} days.</span>`
+          : s.truckUsed ? '<p>✨ Fixed up and looking great!</p>' : '<p>Your truck is in good shape.</p>'}
+        <p class="tiny muted">${s.truckUsed ? 'A used truck still burns more gas, leaks oil (check it at the gas station) and breaks down more often. ' : ''}Every winter the garage gives the truck a tune-up and an oil change, and sends a bill.</p>`;
     },
   });
   onActs(m.body, {
@@ -623,6 +630,15 @@ export function truckPanel(app) {
     },
     color: (t) => {
       color = t.dataset.id;
+      m.refresh();
+    },
+    fixUp: () => {
+      const r = g.fixUp();
+      if (r.ok) {
+        app.music.sfx('ching');
+        toast('🔧 Looking good! The garage will send a bill.');
+        app.changed();
+      }
       m.refresh();
     },
     apply: () => {

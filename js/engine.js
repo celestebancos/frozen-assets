@@ -10,6 +10,7 @@ const C = CONFIG;
 const SEASON_DAYS = C.seasonWeeks * C.daysPerWeek;
 const DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
+const T = CONFIG.truckCare;
 export function newGameState({ player, business, color, tune = 'entertainer', seed, loan, truckCost, bling = 0, blingName = '', used = false, ownerCash = 0, favorite = null, partner = null }) {
   const s = {
     version: 1,
@@ -65,12 +66,16 @@ export function newGameState({ player, business, color, tune = 'entertainer', se
     nextBillId: 1,
     unpaidStreak: 0,
     sale: null, // { supply, off, until }
-    policies: { outOfStock: 'ask', drop: 'ask', autoGas: true },
+    policies: { outOfStock: 'ask', drop: 'ask', autoGas: true }, // autoGas: for bots and tests; a player's game turns it off (main.js) and gets the gas stop
     pending: null,
     today: null,
     week: null,
     history: [], // per week: { gw, profit }
     rebrandDay: { day: 0, paint: false, sign: false },
+    oil: 100, // engine oil (a used truck leaks): 100 = full
+    oilCheckedDay: 0, // the last day you looked at the dipstick
+    truckFixed: false, // a used truck the garage fixed up: it looks good as new
+    breakdownAt: null, // the minute today the truck will break down, if it will
     nextPartyId: 1,
     results: [], // past seasons: { season, share, won }
   };
@@ -111,6 +116,11 @@ export class Game {
     }
     // songs that were removed or renamed
     state.tune = { medley: 'entertainer', musicBox: 'entertainer', truckSong: 'turkey', lullaby: 'entertainer', greensleeves: 'entertainer' }[state.tune] || state.tune;
+    // older saves: a full tank of oil, nothing fixed up, no breakdown planned
+    state.oil ??= 100;
+    state.oilCheckedDay ??= 0;
+    state.truckFixed ??= false;
+    state.breakdownAt ??= null;
     // accounts added after a game was saved start at zero
     for (const t of [state.truth, state.filed]) for (const k of Object.keys(emptyTotals())) t[k] ??= 0;
     // older saves didn't track which profit has moved to the player's Share: count it all as moved,
@@ -719,6 +729,10 @@ export class Game {
     this.spoil();
     // gas
     if (s.policies.autoGas && s.fuel < C.gas.tankGal * C.gas.autoFillBelow) this.fillGas(true);
+    // will the truck break down today? (likelier for a used truck, and much likelier with low oil)
+    s.breakdownAt = this.rng.chance(this.breakdownChance()) ? this.rng.int(C.dayStartMin + 60, C.dayEndMin - 90) : null;
+    // Grandma, as a co-owner, worries about that old truck's oil
+    if (s.partner && s.truckUsed && s.oil < 45 && s.day - s.oilCheckedDay >= 5 && this.rng.chance(0.5)) this.emit({ t: 'grandmaOil' });
     // first stop
     const first = this.routeStopAt(C.dayStartMin);
     if (first && first !== s.spot) this.teleportMorning(first);
@@ -907,7 +921,7 @@ export class Game {
     const s = this.state;
     if (s.spot === spot && !s.driving) return { ok: true };
     const from = s.driving ? s.driving.from : s.spot;
-    const fuel = this.driveFuel(from, spot);
+    const fuel = this.driveFuel(from, spot) * this.gasFactor();
     if (s.fuel < fuel) {
       this.emit({ t: 'noGas' });
       return { ok: false, reason: 'gas' };
@@ -1100,7 +1114,7 @@ export class Game {
     this.countMinute(s.spot);
     const moving = cr.mode !== 'park';
     // spread-out streets mean more road for every customer
-    if (moving) s.fuel = Math.max(0, s.fuel - C.gas.cruiseGalPerHour / 60 / this.density());
+    if (moving) s.fuel = Math.max(0, s.fuel - (C.gas.cruiseGalPerHour / 60 / this.density()) * this.gasFactor());
     // families who already bought today come by (a hint that it's time to move on)
     if (CROWDS[this.crowdKind()].hint !== false && this.saturation(loc.id) <= C.alreadyHad.below) {
       const seen = (s.today.alreadyHadBy ||= {});
@@ -1151,7 +1165,7 @@ export class Game {
     const sat = fresh ? 1 : this.saturation(spotId);
     const weather = this.heat() * (s.weather.rain ? C.weather.rainDemand : 1);
     const season = C.seasonCurve[this.week - 1];
-    return (C.demandScale / 60) * this.spotProfile(spotId, hour) * season * weather * s.popularity * (1 + s.buzz) * sat * s.dayFactor * this.dealAppeal();
+    return (C.demandScale / 60) * this.spotProfile(spotId, hour) * season * weather * s.popularity * (1 + s.buzz) * sat * s.dayFactor * this.dealAppeal() * this.looksFactor(spotId);
   }
   // How cheap the menu is next to fair (average of what's on it and in stock): 1 = fair, 0.5 = half price.
   priceRatio() {
@@ -1184,7 +1198,19 @@ export class Game {
     const stop = this.routeStopAt(s.minute);
     if (s.route.some((r) => r.at === s.minute) && stop && stop !== s.spot && !(s.driving && s.driving.to === stop)) this.driveTo(stop, false);
 
-    s.fuel = Math.max(0, s.fuel - C.gas.idleGalPerHour / 60);
+    s.fuel = Math.max(0, s.fuel - (C.gas.idleGalPerHour / 60) * this.gasFactor());
+    // the gas is getting low: stop for gas? (unless the policy fills up on its own)
+    if (!s.policies.autoGas && !s.today.gasAsked && s.fuel < C.gas.tankGal * T.lowGas) {
+      s.today.gasAsked = true;
+      s.pending = { kind: 'lowGas' };
+      return false;
+    }
+    // a breakdown: towed to the garage, and that's the end of the day
+    if (s.breakdownAt != null && s.minute >= s.breakdownAt) {
+      this.breakDown();
+      this.closeDay();
+      return false;
+    }
     s.queue = Math.max(0, (s.queue || 0) - C.service.perMinute); // the window serves the line
     if (s.driving) {
       const d = s.driving;
@@ -1688,6 +1714,15 @@ export class Game {
     const p = s.pending;
     if (!p) return;
     s.pending = null;
+    if (p.kind === 'lowGas') {
+      // choice: 'fill' (stop at the gas station: 10 minutes) or 'skip'
+      if (choice === 'fill') {
+        this.fillGas();
+        s.minute = Math.min(C.dayEndMin, s.minute + 10);
+      }
+      this.logAction('lowGas', { choice });
+      return;
+    }
     const party = p.partyRef;
     const m = party.members[p.idx];
     if (p.kind === 'outOfStock') {
@@ -1911,6 +1946,9 @@ export class Game {
     const target = C.ads.find((a) => a.id === s.adTier).buzz;
     if (s.buzz < target) s.buzz += (target - s.buzz) * C.buzzRisePerDay;
     else s.buzz -= (s.buzz - target) * C.buzzFadePerDay;
+    // a used truck leaks a little oil every day
+    const leak = C.truckCare.oilLeak[s.truckUsed ? 'used' : 'new'];
+    s.oil = Math.max(0, s.oil - this.rng.range(leak[0], leak[1]));
     s.lastDay = { ...s.today, endCash: this.cash, day: s.day };
     this.logDay(popBefore);
     this.emit({ t: 'close', day: s.day });
@@ -2044,6 +2082,81 @@ export class Game {
     if (this.state.menuAutoOff) this.state.menuAutoOff = this.state.menuAutoOff.filter((x) => x !== id);
   }
 
+  // ---------- truck care ----------
+  gasFactor() {
+    return this.state.truckUsed ? T.usedGas : 1;
+  }
+  // A used truck that hasn't been fixed up: fewer people want to buy from it, most in the nicer neighborhoods.
+  looksFactor(spotId) {
+    const s = this.state;
+    if (!s.truckUsed || s.truckFixed) return 1;
+    const area = LOCS[spotId]?.area || spotId;
+    return T.shabby[area] ?? T.shabby.other;
+  }
+  breakdownChance() {
+    const s = this.state;
+    const B = T.breakdown;
+    const oil = s.oil <= T.oilEmpty ? B.emptyOil : s.oil < T.oilLow ? B.lowOil : 1;
+    return Math.min(0.9, (s.truckUsed ? B.used : B.new) * oil);
+  }
+  // Look at the dipstick. Returns how full the oil is (0–100).
+  checkOil() {
+    const s = this.state;
+    s.oilCheckedDay = s.day;
+    this.logAction('checkOil', { oil: Math.round(s.oil) });
+    return s.oil;
+  }
+  // Top off the oil from bottles bought at the gas station (paid in cash).
+  addOil() {
+    const s = this.state;
+    const B = T.oilBottle;
+    const bottles = Math.ceil((100 - s.oil - 1) / B.adds);
+    if (bottles <= 0) return { ok: false, reason: 'full' };
+    const cost = bottles * B.price;
+    if (cost > this.cash) return { ok: false, reason: 'cash' };
+    s.oil = Math.min(100, s.oil + bottles * B.adds);
+    s.oilCheckedDay = s.day;
+    this.post('upkeepReceipt', [
+      { acct: 'upkeep', amt: cost },
+      { acct: 'cash', amt: -cost },
+    ], { label: `Motor oil, ${bottles} bottle${bottles > 1 ? 's' : ''}`, amt: cost, count: bottles });
+    this.logAction('addOil', { bottles, cost });
+    return { ok: true, bottles, cost };
+  }
+  // The garage sends a bill: an expense now, paid later.
+  garageBill(amt, label) {
+    const s = this.state;
+    this.post('garageBill', [
+      { acct: 'upkeep', amt },
+      { acct: 'billsToPay', amt },
+    ], { label, amt });
+    s.bills.push({ id: s.nextBillId++, amt, due: s.day + C.credit.termDays, late: false, label: `Garage: ${label}` });
+  }
+  // Broken down: a tow to the garage, a repair bill, and the day is over. Low oil makes it a bigger repair (and the
+  // garage tops the oil off).
+  breakDown() {
+    const s = this.state;
+    const B = T.breakdown;
+    const oily = s.oil < T.oilLow;
+    const cost = Math.round(this.rng.range(...(oily ? B.oilCost : B.cost)) / 100) * 100;
+    s.breakdownAt = null;
+    this.garageBill(cost, oily ? 'Tow and engine repair (low oil)' : 'Tow and repair');
+    if (oily) s.oil = 100;
+    s.today.breakdown = { minute: s.minute, cost, oily };
+    this.emit({ t: 'breakdown', cost, oily });
+    this.logAction('breakdown', { minute: s.minute, cost, oily });
+    s.minute = C.dayEndMin; // towed away: the day ends here
+  }
+  // The garage fixes up a used truck's outside: paint, bodywork, no more rust. It looks (and sells) like new.
+  fixUp() {
+    const s = this.state;
+    if (!s.truckUsed || s.truckFixed) return { ok: false };
+    s.truckFixed = true;
+    this.garageBill(T.fixUp, 'New paint and bodywork');
+    this.logAction('fixUp', { cost: T.fixUp });
+    return { ok: true, cost: T.fixUp };
+  }
+
   rebrand({ color, business }) {
     const s = this.state;
     const paint = color && color !== s.color;
@@ -2127,6 +2240,9 @@ export class Game {
     s.season++;
     s.seasonStartShare = ownShare(s.truth);
     s.day = 1;
+    // the winter tune-up at the garage (more for a used truck), with a fresh oil change
+    this.garageBill(T.winter[s.truckUsed ? 'used' : 'new'], 'Winter tune-up and oil change');
+    s.oil = 100;
     s.phase = 'closed';
     s.popularity = C.popularity.start + (s.popularity - C.popularity.start) * 0.5;
     s.buzz = 0;

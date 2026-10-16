@@ -827,3 +827,89 @@ test("buying out Grandma between summers: pay part of her Share, her slice shrin
   s.truth.grandmaIn = g.cash + 100000;
   assert.equal(g.buyOutGrandma(4).reason, 'cash');
 });
+
+test('used truck care: oil leaks, a bottle tops it off, low oil means likelier breakdowns', async () => {
+  const { CONFIG } = await import('../js/config.js');
+  const T = CONFIG.truckCare;
+  const g = Game.create({ player: 'N', business: 'T', color: 'pink', seed: 5, truckCost: 485000, used: true });
+  fileAllCorrectly(g);
+  const s = g.state;
+  g.buy('vanilla', 0, 1);
+  g.setRoute([{ spot: 'maple', at: 600 }]);
+  g.state.policies.outOfStock = 'nothing';
+  for (let d = 0; d < 4; d++) {
+    fileAllCorrectly(g);
+    g.openDay();
+    g.runDay();
+    s.needWeekReport = null;
+  }
+  assert.ok(s.oil < 100 - 4 * T.oilLeak.used[0] + 0.01 && s.oil > 100 - 4 * T.oilLeak.used[1] - 0.01, `leaked to ${s.oil}`);
+  assert.equal(g.checkOil(), s.oil);
+  const r = g.addOil();
+  assert.ok(r.ok);
+  assert.equal(r.cost, r.bottles * T.oilBottle.price);
+  assert.ok(s.oil > 95);
+  assert.equal(g.addOil().reason, 'full');
+  assert.ok(s.docs.some((d) => d.type === 'upkeepReceipt'));
+  // breakdown odds
+  const used = g.breakdownChance();
+  s.oil = 20;
+  assert.ok(Math.abs(g.breakdownChance() - used * T.breakdown.lowOil) < 1e-9);
+  s.oil = 5;
+  assert.ok(Math.abs(g.breakdownChance() - used * T.breakdown.emptyOil) < 1e-9);
+  const fresh = Game.create({ player: 'N', business: 'T', color: 'pink', seed: 5 });
+  assert.ok(fresh.breakdownChance() < used, 'a new truck breaks down less');
+  assert.equal(fresh.gasFactor(), 1);
+  assert.equal(g.gasFactor(), T.usedGas);
+});
+
+test('a breakdown ends the day with a garage bill; shabby looks cost customers until the fix-up', async () => {
+  const { CONFIG } = await import('../js/config.js');
+  const T = CONFIG.truckCare;
+  const g = Game.create({ player: 'N', business: 'T', color: 'pink', seed: 6, truckCost: 485000, used: true });
+  fileAllCorrectly(g);
+  const s = g.state;
+  g.buy('vanilla', 0, 1);
+  g.setRoute([{ spot: 'maple', at: 600 }]);
+  g.state.policies.outOfStock = 'nothing';
+  g.openDay();
+  s.oil = 20;
+  s.breakdownAt = s.minute + 30;
+  g.runDay();
+  assert.equal(s.phase, 'closed', 'towed: the day is over');
+  const bill = s.docs.find((d) => d.type === 'garageBill');
+  assert.ok(bill);
+  const cost = s.lastDay.breakdown.cost;
+  assert.ok(cost >= T.breakdown.oilCost[0] && cost <= T.breakdown.oilCost[1], 'low oil: a bigger repair');
+  assert.equal(s.truth.billsToPay, cost);
+  assert.ok(s.oil > 90, 'the garage topped off the oil (then a night of leaking)');
+  // shabby looks: fewer customers in the nicer neighborhoods
+  assert.equal(g.looksFactor('sunset'), T.shabby.sunset);
+  assert.equal(g.looksFactor('maple'), T.shabby.other);
+  assert.ok(g.fixUp().ok);
+  assert.equal(g.looksFactor('sunset'), 1);
+  assert.equal(s.truth.billsToPay, cost + T.fixUp);
+  assert.equal(g.fixUp().ok, false, 'only once');
+});
+
+test('low gas: a player gets a gas stop pop-up (bots fill up on their own)', () => {
+  const g = Game.create({ player: 'N', business: 'T', color: 'pink', seed: 7 });
+  fileAllCorrectly(g);
+  const s = g.state;
+  s.policies.autoGas = false;
+  s.policies.outOfStock = 'nothing';
+  s.policies.drop = 'refuse';
+  g.setRoute([{ spot: 'maple', at: 600 }]);
+  g.openDay();
+  s.fuel = 3;
+  g.runDay();
+  assert.deepEqual(s.pending, { kind: 'lowGas' });
+  const cash = g.cash;
+  const minute = s.minute;
+  g.resolve('fill');
+  assert.ok(s.fuel > 19);
+  assert.ok(g.cash < cash);
+  assert.equal(s.minute, minute + 10, 'the gas station takes a few minutes');
+  g.runDay();
+  assert.notEqual(s.pending?.kind, 'lowGas', 'asked once a day');
+});

@@ -154,11 +154,13 @@ How the truck business gets its money: the bank, Grandma, or both. The trucks co
 ### Trucks on the lot
 - **New trucks** as today (about $9,700, plus bling).
 - **Used trucks** at about half price. They come with:
-  - **Breakdown days:** a lost day and a repair bill (a new expense, "Repairs").
-  - **A smaller freezer.**
-  - **Worse gas mileage.**
-  - **Shabby paint:** less popular, especially in the wealthier and more grown-up neighborhoods (Sunset Ridge, Downtown, Parkside), until you pay for a new paint job.
-  - **Bigger upkeep bills between summers.**
+  - **Oil leaks:** check the dipstick and add oil ($8 a bottle) at the gas station. A puddle under the parked truck is the hint.
+  - **Breakdown days:** the rest of the day is lost and the garage sends a repair bill (expense "Truck repairs & upkeep"). Low oil makes them much more likely and the repair bigger.
+  - **A smaller freezer** (later, once storage is modelled).
+  - **Worse gas mileage.** No truck refills gas by itself: a pop-up asks when the tank is low, with an oil check.
+  - **Shabby paint:** less popular, especially in the wealthier and more grown-up neighborhoods (Sunset Ridge, Downtown, Parkside), until the garage fixes it up ($800).
+  - **Bigger upkeep bills between summers:** the winter tune-up and oil change.
+  - Grandma, as co-owner, nags about the oil now and then.
 
 ### The bank: down payments
 The bank's interest depends on how much you put down from your own money (or Grandma's):

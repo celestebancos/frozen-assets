@@ -75,6 +75,21 @@ export const CONFIG = {
   buzzFadePerDay: 0.12,
 
   rebrand: { paint: 15000, sign: 10000, paintPull: 0.25, signPull: 0.75 },
+  // Wear and tear. A used truck leaks oil (oil: 100 = full), breaks down more often (more with low oil), burns more
+  // gas, and looks shabby (fewer customers, most in the nicer neighborhoods) until the garage fixes it up.
+  // Breakdowns, the fix-up and the winter tune-up are garage bills (pay within credit.termDays).
+  truckCare: {
+    oilLeak: { used: [5, 9], new: [0, 0.4] }, // oil lost each day
+    oilLow: 30, // below this, breakdowns are lowOil times likelier; below oilEmpty, emptyOil times
+    oilEmpty: 10,
+    oilBottle: { price: 800, adds: 60 }, // from the gas station
+    breakdown: { used: 1 / 25, new: 1 / 100, lowOil: 3, emptyOil: 6, cost: [10000, 25000], oilCost: [25000, 40000] },
+    usedGas: 1.3, // a used truck burns this much more gas
+    shabby: { sunset: 0.85, downtown: 0.85, parkside: 0.85, other: 0.95 }, // customers, until it's fixed up
+    fixUp: 80000, // paint, bodywork, no more rust
+    winter: { used: 35000, new: 15000 }, // the tune-up between summers
+    lowGas: 0.3, // the gas stop pops up when the tank is this low
+  },
 
   credit: { surcharge: 0.05, limit: 15000, termDays: 7, lateFee: 500 },
 

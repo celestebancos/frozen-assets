@@ -247,6 +247,7 @@ class App {
         const truckCost = used ? USED_TRUCK.price : TRUCK_PRICE + B.price;
         const withGrandma = partner && { put: Math.max(0, Math.min(partner.max, truckCost + partner.startCash - ownerCash)), slice: partner.slice };
         this.game = Game.create({ player, business: name.trim(), color, tune: 'entertainer', loan: L, truckCost, bling, blingName: bling ? B.name : '', used, ownerCash, partner: withGrandma, favorite: storage.loadCart(player)?.hot || storage.loadGame(player)?.favorite });
+        this.game.state.policies.autoGas = false; // players stop for gas when the tank is low (a pop-up)
         onStart?.();
         this.save();
         this.startGameView();
@@ -259,6 +260,7 @@ class App {
     if (!st) return this.newGame(player);
     st.favorite ||= storage.loadCart(player)?.hot; // the park cart's favorite treat carries over to the truck
     this.game = new Game(st);
+    this.game.state.policies.autoGas = false; // the gas stop pop-up replaced auto fill-up
     this.music.setTune(st.tune);
     this.startGameView();
   }
@@ -325,6 +327,30 @@ class App {
   }
   openBooks() {
     return booksPanel(this);
+  }
+  // The truck broke down: a tow truck takes it to the garage, and the day is over.
+  truckBrokeDown(ev) {
+    const g = this.game;
+    this.music.sfx('sad');
+    const m = openModal({
+      title: '💥 The truck broke down!',
+      cls: 'narrow',
+      closable: false,
+      render: (body) => {
+        body.innerHTML = `<div class="end-scene"><div style="font-size:50px;line-height:1">${towTruckIcon()}</div>
+          <p>A tow truck takes it to the garage. That's the end of today.</p>
+          ${ev.oily ? '<p class="warn">🛢️ The engine ran too low on oil, so it was a big repair. Check the oil when you get gas!</p>' : ''}
+          <p>The garage will send a bill for <b>${money(ev.cost)}</b>. Pay it within ${C.credit.termDays} days.</p>
+          <button class="btn big go" data-act="ok">OK</button></div>`;
+      },
+    });
+    onActs(m.body, {
+      ok: () => {
+        m.close();
+        this.afterChange();
+      },
+    });
+    return g;
   }
   openShoebox(onDone) {
     return openShoebox(this, onDone);
