@@ -415,16 +415,15 @@ class App {
       ${last && s.phase !== 'setup' ? `<p class="muted">Yesterday: 🍦 ${Object.values(last.sold).reduce((a, b) => a + b, 0)} · 💵 ${money(last.revenue)}${last.tooExpensive ? ` · 😤 ${last.tooExpensive} said “too expensive”` : ''}${last.broke ? ` · ${coinIcon()} ${last.broke} only had pocket money` : ''}${last.lineLeft ? ` · 😩 ${last.lineLeft} left a long line` : ''}</p>` : ''}
       ${s.phase !== 'setup' && s.phase !== 'seasonEnd' && g.plannedRoute() ? `<p class="tiny muted">🗺️ Today's route: <b>${esc(g.plannedRoute().name)}</b></p>` : ''}
       ${g.inShop && s.phase !== 'seasonEnd' ? `<p>🔧 The truck is at the garage. It's back on ${DAY_NAMES[(s.inShopUntil - 1) % 7]}${s.inShopUntil - s.day > 1 ? ` (${s.inShopUntil - s.day} days)` : ''}.</p>` : ''}
-      ${needFile ? `<button class="btn big yellow pulse" data-act="file">🗃️ Shoebox (${needFile})</button>` : g.inShop && s.phase !== 'seasonEnd' ? '<button class="btn big go" data-act="wait">⏭️ Next day</button>' : `<button class="btn big go pulse" data-act="open">🔔 Open for business!</button>`}
+      ${needFile ? `<button class="btn big yellow pulse" data-act="file">🗃️ Shoebox (${needFile})</button>` : g.inShop && s.phase !== 'seasonEnd' ? '<button class="btn big go" data-act="wait">⏭️ Skip to next week</button>' : `<button class="btn big go pulse" data-act="open">🔔 Open for business!</button>`}
     </div></div>`);
     this.stage.appendChild(card);
     onActs(card, {
       file: () => this.openShoebox(() => this.afterChange()),
-      // the truck is at the garage: the day goes by with no selling
+      // the truck is at the garage: the days go by with no selling until it's back
       wait: () => {
         const g = this.game;
-        g.openDay();
-        g.runDay();
+        g.waitForTruck();
         this.save();
         this.hideMorning();
         this.changed();

@@ -984,17 +984,13 @@ test('a new truck almost never breaks down; a worn engine can be fixed in the su
   assert.equal(s.truth.billsToPay - owed, cost);
   assert.equal(s.engineWear, 0);
   assert.equal(s.oil, 100);
-  // a week of days with no selling
-  for (let d = 0; d < T.engineShopDays; d++) {
-    assert.ok(g.inShop);
-    fileAllCorrectly(g);
-    s.needWeekReport = null;
-    g.openDay();
-    g.runDay();
-    assert.equal(s.phase, 'closed');
-    assert.equal(s.lastDay.customers, 0);
-    assert.equal(s.lastDay.revenue, 0);
-  }
+  // a week of days with no selling, skipped all at once
+  assert.ok(g.inShop);
+  const sold = s.truth.salesCash;
+  assert.equal(g.waitForTruck(), T.engineShopDays);
+  assert.equal(s.phase, 'closed');
+  assert.equal(s.day, 1 + T.engineShopDays);
+  assert.equal(s.truth.salesCash, sold, 'no sales at the garage');
   assert.equal(g.inShop, false, 'back from the garage');
   fileAllCorrectly(g);
   s.needWeekReport = null;
