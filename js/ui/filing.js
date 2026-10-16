@@ -58,15 +58,13 @@ export function openShoebox(app, onDone) {
   const g = app.game;
   const s = g.state;
   const player = s.player;
-  // papers above the kid's level (or all of them, once she does them all): Penny files those
-  g.autoFileKnown();
-  const autoDocs = s.docs.filter((d) => d.autoFiled && !d.autoShown);
-  for (const d of autoDocs) d.autoShown = true;
-  if (autoDocs.length) app.save();
+  // this round's papers: the kid's (the ones they're learning, and maybe a check-up) first, then Penny's, whose
+  // lines are already picked so the kid only looks and files
+  const docs = g.shoeboxPapers();
   showLevelNews(app);
-  const docs = g.docsToFile(); // this round's papers, in order
-  // when Penny does all the papers, the ones that still come to the kid are check-ups on her work
-  const checkUps = new Set(docs.filter(() => s.pennyAll).map((d) => d.id));
+  const firstPenny = docs.findIndex((d) => d.penny);
+  const rightPicks = (doc) => Object.fromEntries(docLines(doc).map((l) => [l.acct, l.dir]));
+  const picksFor = (doc) => (doc?.penny ? rightPicks(doc) : st.picks);
   const roundAccts = new Set(docs.flatMap((d) => docLines(d).map((l) => l.acct)));
   const reportWeek = s.needWeekReport && s.lastWeek ? s.needWeekReport : null;
   const prior = g.openProfitDocs();
@@ -255,8 +253,7 @@ export function openShoebox(app, onDone) {
     modalEl.classList.toggle('report', reportOn());
     const left = docs.slice(st.idx + (st.step === 'paper' ? 0 : 1));
     $('.sb-slips').innerHTML =
-      left.map((d, i) => `<div class="slip ${i === 0 && st.step === 'paper' ? 'cur' : ''}" title="${esc(DOC_TYPES[d.type].title)}">${DOC_TYPES[d.type].icon}</div>`).join('') +
-      (autoDocs.length && !reportOn() ? `<span class="sb-auto" title="${esc(autoDocs.map((d) => DOC_TYPES[d.type].title).join(', '))}">👩‍💼 Penny filed ${autoDocs.map((d) => DOC_TYPES[d.type].icon).join('')}</span>` : '');
+      left.map((d, i) => `<div class="slip ${i === 0 && st.step === 'paper' ? 'cur' : ''} ${d.penny ? 'penny' : ''}" title="${esc(DOC_TYPES[d.type].title)}${d.penny ? " (Penny's)" : ''}">${DOC_TYPES[d.type].icon}</div>`).join('');
     const back = !st.busy && hist.length > 0 && !reportOn();
     $('.sb-btns').innerHTML = `${back ? '<button class="btn" data-act="back">◀ Back</button>' : ''}
       ${st.step === 'review' ? '<span class="tiny muted b">or press any key</span><button class="btn go nudge" data-act="next">📄 Next paper ▶</button>' : ''}`;
@@ -379,8 +376,9 @@ export function openShoebox(app, onDone) {
     const doc = docs[Math.min(st.idx, docs.length - 1)];
     if (!doc) return;
     ov.querySelector('.sb-paper').innerHTML = paperHTML(g, doc, { stamp: st.stamp });
+    const picks = picksFor(doc);
     const btn = (id, dir, icon, label, aria) =>
-      `<button class="dirBtn ${st.picks[id] === dir ? 'on' : ''}" data-act="pick" data-id="${id}" data-dir="${dir}" aria-label="${aria}"><span class="i">${icon}</span><span class="l">${label}</span></button>`;
+      `<button class="dirBtn ${picks[id] === dir ? 'on' : ''}" data-act="pick" data-id="${id}" data-dir="${dir}" aria-label="${aria}" ${doc.penny ? 'disabled' : ''}><span class="i">${icon}</span><span class="l">${label}</span></button>`;
     const board = SECTIONS.map((sec) => {
       const lines = ACCOUNTS.filter((a) => a.section === sec.id && roundAccts.has(a.id));
       if (!lines.length) return '';
@@ -394,7 +392,7 @@ export function openShoebox(app, onDone) {
                 : sec.id === 'asset'
                   ? btn(a.id, 'up', '←', 'DEBIT', 'Move left (debit)') + btn(a.id, 'down', '→', 'CREDIT', 'Move right (credit)')
                   : btn(a.id, 'down', '←', 'DEBIT', 'Move left (debit)') + btn(a.id, 'up', '→', 'CREDIT', 'Move right (credit)');
-          return `<div class="bline ${st.picks[a.id] ? 'on' : ''} ${st.wrong.has(a.id) ? 'wrong' : ''}"><span class="n">${esc(a.id === 'ownerIn' ? shareName : a.name)}</span>${btns}</div>`;
+          return `<div class="bline ${picks[a.id] ? 'on' : ''} ${st.wrong.has(a.id) ? 'wrong' : ''}"><span class="n">${esc(a.id === 'ownerIn' ? shareName : a.name)}</span>${btns}</div>`;
         })
         .join('')}</div>`;
     }).join('');
@@ -404,21 +402,24 @@ export function openShoebox(app, onDone) {
       : st.wrong.size || st.missing
         ? `<div class="penny-strip soft"><span class="face">👩‍💼</span><span>${st.wrong.size ? 'Fix the red lines.' : ''} ${st.missing ? "Something's missing too." : ''}</span></div>`
         : '';
-    const any = Object.values(st.picks).some(Boolean);
+    const any = Object.values(picks).some(Boolean);
     const need = CONFIG.filing.streak;
     const shown = Math.min(need, g.known(doc.type).streak);
-    // checking Penny's work, or the stars toward the next level
-    const streak = checkUps.has(doc.id)
-      ? `<div class="sb-streak">👩‍💼 Check Penny's work</div>`
-      : `<div class="sb-streak" title="Right on the first try, in a row">${'⭐'.repeat(shown)}${'☆'.repeat(need - shown)} <span class="tiny muted">Level ${s.paperLevel}</span></div>`;
+    const starRow = `${'⭐'.repeat(shown)}${'☆'.repeat(need - shown)}`;
+    // Penny's paper (she says thanks on the first one), a check-up on one the kid knows, or the stars toward the next level
+    const streak = doc.penny
+      ? `<div class="penny-strip soft handoff"><span class="face">👩‍💼</span><span>${st.idx === firstPenny ? (firstPenny ? 'Thank you for your help! I’ll take it from here. ' : 'These are all mine this week. ') : ''}I picked the lines on this one. Look it over, then file it.</span></div>`
+      : doc.checkUp
+        ? `<div class="sb-streak" title="Right on the first try, in a row">👩‍💼 Check-up: show me you still know this one! ${starRow}</div>`
+        : `<div class="sb-streak" title="Right on the first try, in a row">${starRow} <span class="tiny muted">Level ${s.paperLevel}</span></div>`;
     ov.querySelector('.sb-side').innerHTML = `
       ${streak}
-      <div class="tiny muted">Tap each line this paper changes. Income piles ↑ up, expenses dig ↓ down, assets and liabilities move ← left or → right.</div>
+      ${doc.penny ? '' : '<div class="tiny muted">Tap each line this paper changes. Income piles ↑ up, expenses dig ↓ down, assets and liabilities move ← left or → right.</div>'}
       ${strip}
       <div class="board">${board}</div>
       <div class="row sb-foot">
         ${!st.busy && hist.length ? '<button class="btn" data-act="back" style="margin-right:auto">◀ Back</button>' : ''}
-        <button class="btn" data-act="clear" ${st.busy ? 'disabled' : ''}>↩️ Clear</button>
+        ${doc.penny ? '' : `<button class="btn" data-act="clear" ${st.busy ? 'disabled' : ''}>↩️ Clear</button>`}
         <button class="btn big go" data-act="file" ${st.busy || !any ? 'disabled' : ''}>📁 File it</button>
       </div>`;
   }
@@ -596,7 +597,7 @@ export function openShoebox(app, onDone) {
       finish();
     },
     pick: (t) => {
-      if (st.busy) return;
+      if (st.busy || docs[st.idx]?.penny) return;
       const { id, dir } = t.dataset;
       st.wrong.delete(id);
       setState((p) => ({ picks: { ...p.picks, [id]: p.picks[id] === dir ? undefined : dir } }));
@@ -612,9 +613,9 @@ export function openShoebox(app, onDone) {
       const doc = docs[st.idx];
       if (st.busy || st.step !== 'paper' || !doc) return;
       const filedBefore = { ...s.filed };
-      const res = g.fileDoc(doc.id, st.picks);
+      const res = g.fileDoc(doc.id, picksFor(doc));
       if (res.ok) {
-        return fileSuccess(doc, 'FILED ✓');
+        return fileSuccess(doc, doc.penny ? 'PENNY ✓' : 'FILED ✓');
       }
       app.music.sfx('oops');
       app.changed();
@@ -683,30 +684,21 @@ function baseShareMinusProfit(t) {
 
 export { ACCOUNT };
 
-// Penny's news: a new paper level (what it teaches and which papers come to the kid now), or, at the top, her offer
-// to file everything.
+// Penny's news: a new paper level (what it teaches and which papers come to the kid now), or, at the top, a cheer.
 export function showLevelNews(app) {
   const g = app.game;
   const F = CONFIG.filing;
   for (const n of g.takeLevelNews()) {
-    if (n === 'takeover') {
+    if (n === 'top') {
       const m = openModal({
-        title: '👩‍💼 You know every paper!',
+        title: "👩‍💼 You're a pro!",
         cls: 'narrow popup',
         render(body) {
-          body.innerHTML = `<div class="penny"><div class="face">👩‍💼</div><div class="say">You've learned every kind of paper. Wow! If you'd like, I can file all of them for you now. That's ${money(F.takeoverFee)} a week instead of ${money(F.weeklyFee)}. Every few papers I'll still ask you to check my work.</div></div>
-            <div class="row center" style="margin-top:10px"><button class="btn" data-act="no">I'll keep filing</button><button class="btn go" data-act="yes">Yes, please!</button></div>
-            <p class="tiny muted">You can change your mind in 📒 Books → 👩‍💼 Penny.</p>`;
+          body.innerHTML = `<div class="penny"><div class="face">👩‍💼</div><div class="say">You've learned every kind of paper. Wow! I'll keep doing the papers you know. Now and then I'll send one back as a check-up, so you stay sharp.</div></div>
+            <div class="row center" style="margin-top:10px"><button class="btn big go" data-act="ok">OK!</button></div>`;
         },
       });
-      onActs(m.body, {
-        yes: () => {
-          g.setTakeover(true);
-          app.save();
-          m.close();
-        },
-        no: () => m.close(),
-      });
+      onActs(m.body, { ok: () => m.close() });
       continue;
     }
     const L = F.levels[n - 1];

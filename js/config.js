@@ -126,17 +126,18 @@ export const CONFIG = {
 
   sellBackRate: 0.5,
 
-  // Penny the bookkeeper sends a bill every week: a flat fee. Papers come to the kid a level at a time; Penny files
-  // the papers of the levels above for them. A level is done when each of its main `papers` that has come up has
-  // `streak` stars (first-try rights in a row), after at least a week at that level. `also`: papers that come up
-  // now and then; they belong to the level but don't hold it up.
-  // Once every level is done she offers to file everything for `takeoverFee` a week instead of `weeklyFee`;
-  // every `checkEvery`th paper still comes back so you can check her work.
+  // Penny the bookkeeper sends a bill every week: a flat fee (the first week of the first summer is free). Papers come to the kid a level at a time: the kid
+  // files the papers at their level (or below) until each has `streak` stars (first-try rights in a row); Penny
+  // does the rest, and the kid only stamps hers (her lines are already picked). A level is done when each of its
+  // main `papers` that has come up has its stars, after at least a week at that level. `also`: papers that come up
+  // now and then; they belong to the level but don't hold it up (they still come to the kid until they have their
+  // stars). When the kid has fewer than `checkUnder` papers in a week, one paper they already know comes back as a
+  // check-up.
   filing: {
     streak: 3,
-    checkEvery: 3,
-    weeklyFee: 1000,
-    takeoverFee: 3000,
+    checkUnder: 4,
+    weeklyFee: 2000,
+    firstWeekFree: true, // no bill for the very first week, when cash is tightest
     levels: [
       { name: 'Money in, money out', says: 'Money comes in when you sell, and goes out when you buy.', papers: ['registerTape', 'supplyReceipt', 'gasReceipt'], also: ['ownerInvest', 'grandmaInvest', 'grandmaBuyout', 'loanPapers', 'truckBill', 'upkeepReceipt', 'adInvoice', 'rebrandReceipt', 'sellBack'] },
       { name: 'Things get used up', says: 'Supplies are things you own. When you use them up, or they spoil, they turn into an expense.', papers: ['countSheet'], also: ['spoilSlip'] },

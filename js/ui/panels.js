@@ -745,11 +745,6 @@ export function booksPanel(app, tab = 'pnl') {
       tab = t.dataset.t;
       m.refresh();
     },
-    takeover: () => {
-      g.setTakeover(!g.state.pennyAll);
-      app.changed();
-      m.refresh();
-    },
     paybill: (t) => {
       if (g.payBillNow(Number(t.dataset.id))) app.music.sfx('ching');
       app.changed();
@@ -824,10 +819,8 @@ function pennyList(g) {
       return `<tr class="sec"><td colspan="2">${lv === s.paperLevel ? '👉 ' : mine ? '✅ ' : '🔒 '}Level ${lv}: ${esc(L.name)}${mine ? '' : ' <span class="tiny muted">(Penny files these for now)</span>'}</td></tr>${rows}`;
     })
     .join('');
-  const top = g.allLevelsDone();
-  return `<p style="margin-top:0">👩‍💼 Penny charges <b>${money(s.pennyAll ? F.takeoverFee : F.weeklyFee)} a week</b>${s.pennyAll ? ' to file all your papers' : ' to keep the books. She files the papers you haven\'t learned yet'}.</p>
-    <p>📈 You're on <b>level ${s.paperLevel} of ${F.levels.length}</b>. Get ${F.streak} stars (right on the first try, in a row) on each paper at your level to move up.</p>
-    ${top ? `<p><button class="btn ${s.pennyAll ? 'on' : ''}" data-act="takeover">${s.pennyAll ? '✋ I want to file my papers again' : `👩‍💼 Penny, file everything for ${money(F.takeoverFee)} a week`}</button></p>` : ''}
+  return `<p style="margin-top:0">👩‍💼 Penny charges <b>${money(F.weeklyFee)} a week</b> to keep the books. You file the papers you're still learning. Once a paper has ${F.streak} stars, Penny does it: her lines come already picked, and you just look and file. When you have only a few papers, she sends one you know back as a check-up.</p>
+    <p>📈 You're on <b>level ${s.paperLevel} of ${F.levels.length}</b>${g.allLevelsDone() ? ". You've learned them all!" : `. Get ${F.streak} stars (right on the first try, in a row) on each paper at your level to move up.`}</p>
     <table class="books">${levels}</table>`;
 }
 
