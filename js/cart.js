@@ -535,12 +535,11 @@ export class Cart {
   }
 
   // ---------- errands ----------
-  // Going to a store takes time. In the morning it pushes back opening; from the park the cart is
-  // closed while you're away and the line goes home.
+  // Errands before the park take no time (the park always opens at noon). From the park, going to the corner store
+  // takes time: the cart is closed while you're away and the line goes home.
   errand(where) {
     const s = this.state;
     if (s.phase === 'home') {
-      s.minute += K.errand[where] || 0;
       s.recycling = []; // the recycling goes out while you're away
     } else if (s.phase === 'park' && where === 'corner') {
       if (s.window) return { ok: false, reason: 'busy' };
@@ -1166,6 +1165,8 @@ export class Cart {
     w.napkins = left.filter((x) => x === 'napkin').length;
     w.extras = left.filter((x) => x !== 'spoon' && x !== 'napkin');
     w.happy = !w.noSpoon && (w.napkins > 0 || w.extras.length > 0);
+    // a big family (messy eaters!) with a napkin for everyone is very happy
+    w.delighted = !!w.cust.big && !w.noSpoon && w.napkins >= w.cust.members.length;
     s.today.napkins += w.napkins;
     for (const id of w.extras) s.today.given[id] = (s.today.given[id] || 0) + 1;
     // they pay for what they asked for
@@ -1177,7 +1178,7 @@ export class Cart {
     takePile(w.cust.pocket, w.paid);
     addPile(s.money.box, w.paid);
     w.stage = 'change';
-    return { ok: true, happy: w.happy, extras: w.extras, napkins: w.napkins, noSpoon: w.noSpoon };
+    return { ok: true, happy: w.happy, delighted: w.delighted, extras: w.extras, napkins: w.napkins, noSpoon: w.noSpoon };
   }
   // The player gives change from the cash box. fast: the sale was quick (for tips).
   giveChange(given, { fast = false } = {}) {
@@ -1244,6 +1245,8 @@ export class Cart {
         s.grandma.offer = 'made';
         w.grandma.offer = true;
       }
+    } else if (w.delighted && result !== 'kept') {
+      tip = this.rng.pick(K.bigFamily.napkinTip);
     } else if (result !== 'kept' && this.rng.chance(tipChance)) {
       tip = w.happy && fast && this.rng.chance(CR.tip.big) ? this.rng.pick(CR.tip.bigAmounts) : this.rng.pick(CR.tip.amounts);
     }
@@ -1263,7 +1266,7 @@ export class Cart {
     w.result = result;
     w.tip = tip;
     this.logAction('sale', { items: w.order, extras: w.extras, napkins: w.napkins, due: w.due, paid: total(w.paid), result, tip });
-    return { ok: true, result, tip, grandma: w.grandma || null };
+    return { ok: true, result, tip, grandma: w.grandma || null, delighted: !!w.delighted };
   }
   // Not enough change in the cash box: the customer pays some other way, or gives up.
   noChange() {
@@ -1480,7 +1483,7 @@ export class Cart {
     g.answered = 'yes';
     g.declined = 0;
     g.lunches++;
-    s.minute += G.lunch.minutes;
+    s.minute = Math.max(s.minute, K.parkOpen) + G.lunch.minutes; // you get to the park later
     s.fed = { minute: s.minute, level: G.lunch.food };
     this.feel(G.feel.lunch);
     const lines = [];

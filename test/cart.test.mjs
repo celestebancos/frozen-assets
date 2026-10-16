@@ -936,7 +936,7 @@ test('Grandma: lunch invitations, advice she checks on, and a gift when she feel
   const r = c.lunchAtGrandmas();
   assert.ok(r.lines.length >= 3);
   assert.ok(r.lines.some((l) => l.includes('rocket pop')), 'she mentions the price');
-  assert.equal(c.state.minute, CART.homeStart + GRANDMA.lunch.minutes);
+  assert.equal(c.state.minute, CART.parkOpen + GRANDMA.lunch.minutes, 'to the park an hour late');
   assert.equal(c.hunger, 100);
   assert.equal(g.feel, GRANDMA.start + GRANDMA.feel.lunch);
   assert.ok(!c.lunchInvite, 'answered');
@@ -1321,7 +1321,7 @@ test('repainting the cart: a new name and color, and the stickers are painted ov
 
 test('getting to the park with an empty tummy: a few minutes to eat before you have to go home', () => {
   const c = Cart.create({ player: 'Test', seed: 3 });
-  c.state.minute = 14 * 60 + 30; // lots of errands
+  c.state.minute = 14 * 60 + 30; // (it can't happen in play any more: errands at home take no time)
   assert.equal(c.hungerAt(c.state.minute), 0);
   c.openPark();
   c.events = [];
@@ -1352,4 +1352,44 @@ test('you can eat your own treats while a customer waits, but not in the middle 
   assert.equal(c.eatTreat('iceLemon').ok, true, 'they are still deciding: a quick bite');
   c.give(c.state.window.order[0]);
   assert.equal(c.eatTreat('iceLemon').reason, 'busy', 'treats on the counter: finish the sale first');
+});
+
+test('errands before the park take no time: the park opens at noon, or at 1pm after lunch at Grandma\'s', () => {
+  const c = Cart.create({ player: 'Test', seed: 3 });
+  for (let i = 0; i < 5; i++) {
+    c.errand('restaurant');
+    c.errand('corner');
+  }
+  c.openPark();
+  assert.equal(c.state.minute, CART.parkOpen);
+  assert.equal(c.state.today.opened, CART.parkOpen);
+  // from the park, the corner store takes time
+  c.errand('corner');
+  assert.equal(c.state.minute, CART.parkOpen + CART.errand.cornerFromPark);
+});
+
+test('a big family with a napkin for everyone is very happy and leaves a big tip', () => {
+  for (const enough of [true, false]) {
+    const c = Cart.create({ player: 'Test', seed: 9 });
+    for (let i = 0; i < 30; i++) c.toCooler('rocketPop');
+    c.state.napkins = 50;
+    c.state.money.box = { 2000: 2, 500: 4, 100: 10, 25: 20 };
+    c.openPark();
+    c.state.line = [];
+    const f = c.makeCustomer('bigFamily');
+    c.state.line.push(f);
+    c.nextToWindow();
+    const w = c.state.window;
+    for (const id of w.order) c.give(id);
+    const n = enough ? f.members.length : 1;
+    for (let i = 0; i < n; i++) c.give('napkin');
+    const h = c.handOver();
+    assert.equal(h.delighted, enough);
+    const owed = total(w.paid) - w.due;
+    const r = c.giveChange(makeAmount(c.state.money.box, owed));
+    if (enough) {
+      assert.ok(r.delighted);
+      assert.ok(CART.bigFamily.napkinTip.includes(r.tip), `big tip: ${r.tip}`);
+    } else assert.ok(!r.delighted && r.tip < 300);
+  }
 });
