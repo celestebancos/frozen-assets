@@ -249,6 +249,8 @@ export class Scene {
     this.root.classList.toggle('driving', moving);
     this.root.classList.toggle('stopped', open && !moving);
 
+    // at the garage (a week-long engine repair): an empty street
+    this.truckEl.classList.toggle('in-shop', !!g.inShop);
     const shabby = !!s.truckUsed && !s.truckFixed;
     const key = `${s.color}|${s.business}|${moving}|${s.bling || 0}|${shabby}`;
     if (key !== this.truckKey) {
