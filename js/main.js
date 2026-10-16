@@ -6,7 +6,7 @@ import { Ambience, cashRegister } from './ambience.js';
 import { storage } from './storage.js';
 import { truckSVG, iceCreamSVG } from './art.js';
 import { leaderboardConfig, isConfigured, postScore, fetchScores, flushPending } from './leaderboard.js';
-import { esc, money, el, openModal, onActs, anyModalOpen, closeAllModals, toast, fmtTime, PAUSE_ICON, askYes } from './ui/dom.js';
+import { esc, money, el, openModal, onActs, anyModalOpen, closeAllModals, toast, fmtTime, PAUSE_ICON, SKIP_ICON, askYes } from './ui/dom.js';
 import { Scene } from './ui/scene.js';
 import { shopPanel, menuPanel, mapPanel, giftPanel, inventoryPanel, policyPanel, truckPanel, booksPanel } from './ui/panels.js';
 import { openShoebox } from './ui/filing.js';
@@ -427,7 +427,7 @@ class App {
       ${last && s.phase !== 'setup' ? `<p class="muted">Yesterday: 🍦 ${Object.values(last.sold).reduce((a, b) => a + b, 0)} · 💵 ${money(last.revenue)}${last.tooExpensive ? ` · 😤 ${last.tooExpensive} said “too expensive”` : ''}${last.broke ? ` · ${coinIcon()} ${last.broke} only had pocket money` : ''}${last.lineLeft ? ` · 😩 ${last.lineLeft} left a long line` : ''}</p>` : ''}
       ${s.phase !== 'setup' && s.phase !== 'seasonEnd' && g.plannedRoute() ? `<p class="tiny muted">🗺️ Today's route: <b>${esc(g.plannedRoute().name)}</b></p>` : ''}
       ${g.inShop && s.phase !== 'seasonEnd' ? `<p>🔧 ${s.inShopUntil > SEASON_DAYS ? "It's at the garage until the end of summer." : `It's at the garage until next ${DAY_FULL[(s.inShopUntil - 1) % 7]}.`}</p>` : ''}
-      ${needFile ? `<button class="btn big yellow pulse" data-act="file">🗃️ Shoebox (${needFile})</button>` : g.inShop && s.phase !== 'seasonEnd' ? `<button class="btn big go" data-act="wait">⏭️ ${s.inShopUntil > SEASON_DAYS ? 'Skip to the end of summer' : `Skip to next ${DAY_FULL[(s.inShopUntil - 1) % 7]}`}</button>` : `<button class="btn big go pulse" data-act="open">🔔 Open for business!</button>`}
+      ${needFile ? `<button class="btn big yellow pulse" data-act="file">🗃️ Shoebox (${needFile})</button>` : g.inShop && s.phase !== 'seasonEnd' ? `<button class="btn big go" data-act="wait">${SKIP_ICON} ${s.inShopUntil > SEASON_DAYS ? 'Skip to the end of summer' : `Skip to next ${DAY_FULL[(s.inShopUntil - 1) % 7]}`}</button>` : `<button class="btn big go pulse" data-act="open">🔔 Open for business!</button>`}
     </div></div>`);
     this.stage.appendChild(card);
     onActs(card, {
@@ -581,7 +581,7 @@ class App {
       </div>
       <div class="speed" role="group" aria-label="Speed">
         ${[PAUSE_ICON, '▶', '▶▶', '▶▶▶'].map((l, i) => `<button class="${sp === i ? 'on' : ''}" data-act="speed" data-s="${i}" ${open ? '' : 'disabled'} aria-label="Speed ${i}">${l}</button>`).join('')}
-        <button class="${sp === 9 ? 'on' : ''}" data-act="skip" ${open ? '' : 'disabled'} aria-label="Skip to end of day">⏭</button>
+        <button class="${sp === 9 ? 'on' : ''}" data-act="skip" ${open ? '' : 'disabled'} aria-label="Skip to end of day">${SKIP_ICON}</button>
       </div>`;
       this.hudEls = {
         clock: this.hud.querySelector('.clock'),
