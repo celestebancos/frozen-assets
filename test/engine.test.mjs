@@ -992,6 +992,10 @@ test('a new truck almost never breaks down; a worn engine can be fixed in the su
   assert.equal(s.day, 1 + T.engineShopDays);
   assert.equal(s.truth.salesCash, sold, 'no sales at the garage');
   assert.equal(g.inShop, false, 'back from the garage');
+  assert.equal(g.shopWeekPastSummer(), false);
+  s.day = CONFIG.seasonWeeks * CONFIG.daysPerWeek - 2;
+  assert.equal(g.shopWeekPastSummer(), true, 'the last week: the winter tune-up is the better deal');
+  s.day = 1 + T.engineShopDays;
   fileAllCorrectly(g);
   s.needWeekReport = null;
   g.openDay();
