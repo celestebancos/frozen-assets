@@ -827,7 +827,7 @@ test('older saves start with a normal crowd', () => {
 test('hunger: empty about 2:30 with nothing to eat, and you go home early', () => {
   const c = Cart.create({ player: 'Test', seed: 3 });
   assert.equal(c.hunger, 100);
-  c.state.weather = { temp: 85, rain: false };
+  c.state.weather = { temp: 80, rain: false };
   c.openPark();
   for (let i = 0; i < 400 && c.step(); i++) if (c.state.window) c.state.window = null;
   assert.ok(c.state.tooHungry >= 14 * 60 + 20 && c.state.tooHungry <= 14 * 60 + 40, `went home at ${c.state.tooHungry}`);
@@ -844,7 +844,7 @@ test('hunger: empty about 2:30 with nothing to eat, and you go home early', () =
 test('a snack buys about an hour; lunch lasts the day', () => {
   const day = (food) => {
     const c = Cart.create({ player: 'Test', seed: 3 });
-    c.state.weather = { temp: 85, rain: false };
+    c.state.weather = { temp: 80, rain: false };
     c.openPark();
     for (let i = 0; i < 400 && c.step(); i++) {
       if (c.state.window) c.state.window = null;
@@ -1395,4 +1395,38 @@ test('a big family with a napkin for everyone is very happy and leaves a big tip
       assert.ok(CART.bigFamily.napkinTip.includes(r.tip), `big tip: ${r.tip}`);
     } else assert.ok(!r.delighted && r.tip < 300);
   }
+});
+
+test('hot days make you hungry faster; the umbrella and the fan help, and people wait longer in their shade', () => {
+  const homeAt = (temp, gear = []) => {
+    const c = Cart.create({ player: 'Test', seed: 3 });
+    c.state.weather = { temp, rain: false };
+    c.state.owned.push(...gear);
+    c.state.fed = { minute: CART.homeStart, level: 100, rate: c.hungerRate() };
+    c.openPark();
+    for (let i = 0; i < 400 && c.step(); i++) if (c.state.window) c.state.window = null;
+    return { home: c.state.tooHungry ?? CART.parkClose, patience: c.linePatience };
+  };
+  const mild = homeAt(80);
+  const hot = homeAt(91);
+  const fan = homeAt(91, ['fan']);
+  const both = homeAt(91, ['fan', 'umbrella']);
+  assert.ok(hot.home < mild.home - 30, `hot: home at ${hot.home}, mild at ${mild.home}`);
+  assert.ok(fan.home > hot.home && both.home > fan.home && both.home <= mild.home, 'shade helps');
+  assert.equal(mild.patience, 1, 'no heat, no change in line');
+  assert.equal(hot.patience, 1, 'no shade, no change in line');
+  assert.ok(both.patience > fan.patience && fan.patience > 1.15);
+  // buying the umbrella in the middle of a hot day: no jump, and from then on you get hungry slower
+  const c = Cart.create({ player: 'Test', seed: 3 });
+  c.state.weather = { temp: 91, rain: false };
+  c.state.fed = { minute: CART.homeStart, level: 100, rate: c.hungerRate() };
+  const hotRate = c.state.fed.rate;
+  c.openPark();
+  for (let i = 0; i < 30; i++) c.step();
+  c.state.window = null;
+  const before = c.hunger;
+  c.state.money.box = { 2000: 2 };
+  buy(c, 'restaurant', { umbrella: 1 });
+  assert.equal(c.hunger, before);
+  assert.ok(c.state.fed.rate < hotRate);
 });

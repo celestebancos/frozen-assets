@@ -456,6 +456,11 @@ export const CART = {
   // grace: if you get to the park with an empty tummy, you have this many minutes to find something to eat before
   // you have to go home.
   hunger: { perMinute: 100 / 210, low: 25, grace: 20 },
+  // Hot days: for every degree over `from`, the heat makes you hungry (thirsty) `perDegree` faster, and the shade of
+  // the umbrella and the breeze of the fan take away part of that (shade: how much each takes away, up to max).
+  // The shade also makes people in line willing to wait longer on a hot day: patience × (1 + heat × shade × line).
+  // At 91°F with nothing: hungry 36% faster. With the fan: 25% faster, and people wait 22% longer.
+  heat: { from: 82, perDegree: 0.04, shade: { umbrella: 0.5, fan: 0.3 }, max: 0.8, line: 2 },
   // A packed lunch from home (made from sandwich makings bought at the corner store). Takes a cooler spot.
   lunch: { name: 'Packed lunch', food: 60, emoji: '🥪' },
   // Eating your own stock: a little food, and too much ice cream gives you a tummy ache. food: by treat (other: the

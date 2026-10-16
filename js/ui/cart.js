@@ -411,7 +411,11 @@ export class CartView {
         c.openPark();
         this.save();
         this.showPark();
-        if (s.today.melted) setTimeout(() => toast(`${emo('melting')} The boxes on the counter melted.`), 600);
+        const notes = [];
+        if (s.today.melted) notes.push(`${emo('melting')} The boxes on the counter melted.`);
+        // a hot day: you'll get hungry faster (less with shade at the cart)
+        if (c.heat() >= 0.12) notes.push(c.shade() ? "🥵 It's hot today! Good thing you have some shade." : "🥵 It's hot today! The heat will make you hungry faster.");
+        notes.forEach((n, i) => setTimeout(() => toast(n, 3500), 600 + i * 3800));
       },
       quit: () => this.quit(),
     });
