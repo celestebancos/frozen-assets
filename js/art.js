@@ -622,14 +622,32 @@ function tree(x, s = 1, kind = 'round', y = GROUND) {
   return `<g transform="translate(${x} ${y}) scale(${s})">${trunk}${top}</g>`;
 }
 
+// A bush: a few leafy bumps (taller in the middle) on a rounded base, with one outline around the whole thing, a
+// darker underside, light leaves on top, and its flat bottom on the ground.
+let bushN = 0;
 function bush(x, w = 60, flowers = false, y = GROUND + 4) {
-  const n = Math.max(2, Math.round(w / 26));
-  const r = w / n / 1.5;
-  const bumps = Array.from({ length: n }, (_, i) => `<circle cx="${(x - w / 2 + r + (i * (w - 2 * r)) / Math.max(1, n - 1)).toFixed(1)}" cy="${y - r * (i % 2 ? 0.9 : 0.7)}" r="${r.toFixed(1)}"/>`).join('');
+  const id = `bush${++bushN}`;
+  const n = Math.max(2, Math.round(w / 24));
+  const r0 = w / n / 1.45;
+  const bumps = Array.from({ length: n }, (_, i) => {
+    const r = r0 * (1 + 0.22 * Math.sin((Math.PI * (i + 0.5)) / n)); // the middle bumps are bigger
+    const cx = x - w / 2 + r0 + (i * (w - 2 * r0)) / Math.max(1, n - 1);
+    return { cx, cy: y - r * 0.85 - (i % 2 ? r0 * 0.12 : 0), r };
+  });
+  const shapes = bumps.map((b) => `<circle cx="${b.cx.toFixed(1)}" cy="${b.cy.toFixed(1)}" r="${b.r.toFixed(1)}"/>`).join('') +
+    `<ellipse cx="${x}" cy="${(y - r0 * 0.45).toFixed(1)}" rx="${(w / 2).toFixed(1)}" ry="${(r0 * 0.75).toFixed(1)}"/>`;
+  const top = Math.min(...bumps.map((b) => b.cy - b.r));
+  const leaves = bumps
+    .map((b, i) => `<path d="M${(b.cx - b.r * 0.55).toFixed(1)} ${(b.cy - b.r * 0.35).toFixed(1)} Q${b.cx.toFixed(1)} ${(b.cy - b.r * 0.95).toFixed(1)} ${(b.cx + b.r * 0.45).toFixed(1)} ${(b.cy - b.r * 0.55).toFixed(1)}" stroke="#7cc95e" stroke-width="${i % 2 ? 2.4 : 3}" fill="none" stroke-linecap="round"/>`)
+    .join('');
   const dots = flowers
-    ? Array.from({ length: n * 2 }, (_, i) => `<circle cx="${(x - w / 2 + 8 + ((i * 37) % (w - 14))).toFixed(1)}" cy="${(y - r * 0.6 - ((i * 13) % (r * 1.2))).toFixed(1)}" r="3" fill="${['#ff8fc7', '#fff', '#ffd23f'][i % 3]}"/>`).join('')
+    ? Array.from({ length: n * 2 }, (_, i) => `<circle cx="${(x - w / 2 + 8 + ((i * 37) % (w - 14))).toFixed(1)}" cy="${(y - r0 * 0.6 - ((i * 13) % (r0 * 1.2))).toFixed(1)}" r="3" fill="${['#ff8fc7', '#fff', '#ffd23f'][i % 3]}"/>`).join('')
     : '';
-  return `<g fill="#4e9a3d" ${so(2)}>${bumps}</g><path d="M${x - w / 2 + 4} ${y} H${x + w / 2 - 4}" stroke="#4e9a3d" stroke-width="6"/>${dots}`;
+  // the outline: the same shapes drawn a little bigger in the outline color, then the green on top, all cut off at the ground
+  return `<defs><clipPath id="${id}g"><rect x="${x - w}" y="${top - 10}" width="${w * 2}" height="${y - top + 10}"/></clipPath><clipPath id="${id}"><g>${shapes}</g></clipPath></defs>
+    <ellipse cx="${x}" cy="${y}" rx="${(w / 2 + 4).toFixed(1)}" ry="3.5" fill="#000" opacity=".12"/>
+    <g clip-path="url(#${id}g)"><g fill="${SOFT}" stroke="${SOFT}" stroke-width="4.5">${shapes}</g><g fill="#4e9a3d">${shapes}</g>
+      <g clip-path="url(#${id})"><ellipse cx="${x}" cy="${(y + r0 * 0.15).toFixed(1)}" rx="${(w / 2 + 6).toFixed(1)}" ry="${(r0 * 0.75).toFixed(1)}" fill="#3e8131"/></g></g>${leaves}${dots}`;
 }
 
 function picketFence(x1, x2, y = GROUND + 28, color = '#fffaf0') {
