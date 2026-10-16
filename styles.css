@@ -1019,3 +1019,11 @@ button.co-item { animation: nudge 1.4s ease-in-out infinite; }
 .gma-lunch .gma { width: 70px; }
 .gma-lines { display: flex; flex-direction: column; gap: 8px; flex: 1; }
 .gma-lines .say { background: #fff; border: 2px solid var(--ink); border-radius: 12px; padding: 6px 10px; }
+/* a used truck leaks oil: a dark puddle grows under it while it's parked */
+.oil-puddle { position: absolute; left: 60%; bottom: 1%; width: 20%; height: 5%; border-radius: 50%; background: radial-gradient(ellipse at 40% 40%, #5b5470 0 15%, #2b2633 45%, #1d1a24 100%); opacity: 0; transform: scaleX(0.2); transition: opacity 2s, transform 8s ease-out; z-index: -1; pointer-events: none; }
+.scene-root.stopped .oil-puddle { opacity: 0.85; transform: scaleX(1); }
+/* the dipstick at the gas station */
+.dipstick { display: flex; align-items: center; gap: 8px; font-weight: 800; }
+.dipstick .bar { display: inline-block; height: 12px; border: 2px solid var(--ink); border-radius: 6px; background: #fff; overflow: hidden; }
+.dipstick .bar i { display: block; height: 100%; background: #c99a2e; }
+.dipstick.low .bar i { background: #e5484d; }

@@ -1,7 +1,7 @@
 // The street: backdrop for the current spot, the truck, and customers walking up.
 import { SPOT, FEATURE, FLAVORS, CONTAINERS, TOPPINGS, POPS, POP, CONFIG, MARKET_DAYS, FREEZE_TINTS } from '../config.js';
 import { skySVG, tileSVG, truckSVG, personSVG, iceCreamSVG } from '../art.js';
-import { esc, money } from './dom.js';
+import { esc, money, toast } from './dom.js';
 import { coinIcon, emo } from '../icons.js';
 
 const NAMES = Object.fromEntries([...FLAVORS, ...CONTAINERS, ...TOPPINGS, ...POPS].map((x) => [x.id, x.name.toLowerCase()]));
@@ -249,10 +249,12 @@ export class Scene {
     this.root.classList.toggle('driving', moving);
     this.root.classList.toggle('stopped', open && !moving);
 
-    const key = `${s.color}|${s.business}|${moving}|${s.bling || 0}`;
+    const shabby = !!s.truckUsed && !s.truckFixed;
+    const key = `${s.color}|${s.business}|${moving}|${s.bling || 0}|${shabby}`;
     if (key !== this.truckKey) {
       this.truckKey = key;
-      this.truckEl.innerHTML = truckSVG(this.app.truckHex(), s.business, { wheelsSpin: moving, bling: s.bling || 0, used: !!s.truckUsed });
+      // a used truck leaks oil: a puddle grows under it while it's parked
+      this.truckEl.innerHTML = truckSVG(this.app.truckHex(), s.business, { wheelsSpin: moving, bling: s.bling || 0, used: shabby }) + (s.truckUsed ? '<div class="oil-puddle"></div>' : '');
     }
     // what's going on, in a few words
     let html = '';
@@ -271,6 +273,8 @@ export class Scene {
   handle(ev, speed) {
     if (ev.t === 'served') this.party(ev.party, speed);
     else if (ev.t === 'noGas') this.blip('⛽ Out of gas!', 50, 30, 'bad');
+    else if (ev.t === 'breakdown') this.app.truckBrokeDown?.(ev);
+    else if (ev.t === 'grandmaOil') toast('👵 Grandma called: "Did you check the oil, dear? That old truck drinks it!"', 4500);
     else if (ev.t === 'spoiled') this.blip(`🤢 ${ev.qty} mix spoiled`, 50, 30, 'bad');
   }
 
