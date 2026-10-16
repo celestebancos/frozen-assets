@@ -11,10 +11,10 @@ import { Scene } from './ui/scene.js';
 import { shopPanel, menuPanel, mapPanel, giftPanel, inventoryPanel, policyPanel, truckPanel, booksPanel } from './ui/panels.js';
 import { openShoebox } from './ui/filing.js';
 import { seasonEnd } from './ui/reports.js';
-import { showDecision } from './ui/popups.js';
+import { showDecision, gasStation } from './ui/popups.js';
 import { buildExport, exportFileName } from './export.js';
 import { startCart } from './ui/cart.js';
-import { coinIcon, towTruckIcon, cartIcon, shoeboxIcon } from './icons.js';
+import { coinIcon, towTruckIcon, cartIcon, shoeboxIcon, oilLightIcon } from './icons.js';
 
 const C = CONFIG;
 const DAY_FULL = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
@@ -314,6 +314,7 @@ class App {
     onActs(this.hud, {
       speed: (t) => this.setSpeed(Number(t.dataset.s)),
       skip: () => this.setSpeed(9),
+      oil: () => gasStation(this),
     });
     onActs(this.toolbar, {
       panel: (t) => this.openPanel(t.dataset.p),
@@ -578,6 +579,7 @@ class App {
         <span class="pill wx"></span>
         <span class="pill cash"></span>
         <span class="fuel" title="Gas">⛽<span class="bar"><i></i></span></span>
+        <button class="oil-light" data-act="oil" title="Low oil! Tap to check it." aria-label="Low oil" hidden>${oilLightIcon()}</button>
       </div>
       <div class="speed" role="group" aria-label="Speed">
         ${SPEED_ICONS.map((l, i) => `<button class="${sp === i ? 'on' : ''}" data-act="speed" data-s="${i}" ${open ? '' : 'disabled'} aria-label="Speed ${i}">${l}</button>`).join('')}
@@ -589,6 +591,7 @@ class App {
         cash: this.hud.querySelector('.cash'),
         fuel: this.hud.querySelector('.fuel'),
         bar: this.hud.querySelector('.fuel i'),
+        oil: this.hud.querySelector('.oil-light'),
       };
     }
     const e = this.hudEls;
@@ -601,6 +604,9 @@ class App {
     set(e.cash, `💵 ${money(this.shownCash())}`);
     e.fuel.classList.toggle('low', fuelPct < 25);
     e.bar.style.width = fuelPct + '%';
+    // the oil light comes on when the oil is low, like on a real dashboard
+    const oilLow = s.oil < C.truckCare.oilLow && s.phase !== 'setup';
+    if (e.oil.hidden === oilLow) e.oil.hidden = !oilLow;
   }
 
   // Customers still walking up to the window haven't paid yet, so the dashboard leaves them out.
