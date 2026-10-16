@@ -252,11 +252,11 @@ export class Scene {
     // at the garage (a week-long engine repair): an empty street
     this.truckEl.classList.toggle('in-shop', !!g.inShop);
     const shabby = !!s.truckUsed && !s.truckFixed;
-    const key = `${s.color}|${s.business}|${moving}|${s.bling || 0}|${shabby}`;
+    const leaking = s.oil < CONFIG.truckCare.oilLow; // a puddle under the parked truck, as a hint that the oil is low
+    const key = `${s.color}|${s.business}|${moving}|${s.bling || 0}|${shabby}|${leaking}`;
     if (key !== this.truckKey) {
       this.truckKey = key;
-      // a used truck leaks oil: a puddle grows under it while it's parked
-      this.truckEl.innerHTML = truckSVG(this.app.truckHex(), s.business, { wheelsSpin: moving, bling: s.bling || 0, used: shabby }) + (s.truckUsed ? '<div class="oil-puddle"></div>' : '');
+      this.truckEl.innerHTML = truckSVG(this.app.truckHex(), s.business, { wheelsSpin: moving, bling: s.bling || 0, used: shabby }) + (leaking ? '<div class="oil-puddle"></div>' : '');
     }
     // what's going on, in a few words
     let html = '';

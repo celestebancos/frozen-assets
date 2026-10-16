@@ -36,6 +36,9 @@ export const billboardIcon = () =>
 // A red tow truck facing right, with its hook out the back (it tows away a truck that ran out of money).
 export const towTruckIcon = () =>
   ico('0 0 34 20', `<path d="M8 11 L2 4 M2 4 V8.5" stroke="${INK}" stroke-width="1.6" stroke-linecap="round" fill="none"/><path d="M1 8.5 Q2 10 3 8.5" stroke="${INK}" stroke-width="1.2" fill="none"/><rect x="5" y="10" width="17" height="5" rx="1" fill="#e5484d" stroke="${INK}" stroke-width="1.3"/><path d="M21 15 V6 Q21 4.5 22.5 4.5 H27 Q28.5 4.5 29.4 6 L32 10 V15 Z" fill="#e5484d" stroke="${INK}" stroke-width="1.3" stroke-linejoin="round"/><path d="M23 6.5 H27 L29 9.8 H23 Z" fill="#cfe9ff" stroke="${INK}" stroke-width=".9"/><rect x="23" y="2.4" width="3.4" height="2" rx=".6" fill="#ffd23f" stroke="${INK}" stroke-width=".8"/><circle cx="10" cy="16" r="2.8" fill="#4a4a5a" stroke="${INK}" stroke-width="1.1"/><circle cx="27" cy="16" r="2.8" fill="#4a4a5a" stroke="${INK}" stroke-width="1.1"/><circle cx="10" cy="16" r="1" fill="#ccc"/><circle cx="27" cy="16" r="1" fill="#ccc"/>`, 'tow truck');
+// The dashboard's low-oil light: an oil can with a drip.
+export const oilLightIcon = () =>
+  ico('0 0 32 18', `<path d="M3 7 L9 9 V14 H24 L30 6 L26 7 L22 9 V7 H14 V5 H17 V3.5 H10 V5 H13 V7 H10 L4 5 Z" fill="#e5484d" stroke="${INK}" stroke-width="1.2" stroke-linejoin="round"/><path d="M30 9 Q31.5 11.5 30 12.5 Q28.5 11.5 30 9 Z" fill="#e5484d" stroke="${INK}" stroke-width=".9"/>`, 'low oil');
 
 // Pictures from Twemoji, for emojis that are too new to count on: melting (🫠), teary (🥹), slide (🛝).
 const PIC = { melting: ['1fae0', '🫠'], teary: ['1f979', '🥹'], slide: ['1f6dd', '🛝'] };

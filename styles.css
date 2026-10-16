@@ -1125,3 +1125,9 @@ button.co-item { animation: nudge 1.4s ease-in-out infinite; }
 .cnt-row { display: flex; gap: 2px; }
 .cnt-row > span { flex: 0 0 calc((100% - 18px) / 10); max-width: 34px; }
 .cnt-row svg { width: 100%; height: auto; display: block; }
+/* the dashboard's low-oil light: blinks until the oil is topped off (tap it for the gas station) */
+.oil-light { border: 0; background: none; padding: 0 2px; cursor: pointer; display: flex; align-items: center; animation: oilblink 1s steps(2, start) infinite; }
+.oil-light[hidden] { display: none; }
+.oil-light .ico { width: 34px; height: 19px; }
+@keyframes oilblink { to { opacity: 0.25; } }
+@media (prefers-reduced-motion: reduce) { .oil-light { animation: none; } }
