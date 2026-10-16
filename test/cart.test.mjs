@@ -1135,6 +1135,16 @@ test("Grandma's offer: once you have $500 she calls; at lunch, or at the cart if
   a.state.money.bank += 50000;
   const better = a.grandmaTerms();
   assert.ok(better.slice[0] / better.slice[1] < t.slice[0] / t.slice[1], 'a smaller slice');
+  // she says how much more to save for a smaller slice, and the terms follow your money
+  const c2 = Cart.create({ player: 'T2', seed: 3 });
+  c2.state.money = { box: {}, wallet: {}, jar: {}, bank: 56000 };
+  c2.state.grandma.feel = GRANDMA.start;
+  const now = c2.grandmaTerms();
+  assert.deepEqual(now.slice, [3.5, 10]);
+  assert.equal(now.next.more, 4000, '$40 more reaches $600');
+  assert.deepEqual(now.next.slice, [3, 10]);
+  c2.state.money.bank += now.next.more;
+  assert.deepEqual(c2.grandmaTerms().slice, [3, 10], 'came back with more: new terms');
   // no lunch: she comes to the cart, and makes the offer after buying her treat
   const b = setup();
   b.declineLunch();

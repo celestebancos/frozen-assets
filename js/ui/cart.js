@@ -1,6 +1,6 @@
 // The park cart screens: make your character, the morning at home, shops and errands, and the park day
 // where every sale is served and every bit of change is counted by hand.
-import { CART, GRANDMA, CART_ITEMS, CART_ITEM, CART_SHOPS, CART_CROWD, REGULARS } from '../config.js';
+import { CART, GRANDMA, sliceText, CART_ITEMS, CART_ITEM, CART_SHOPS, CART_CROWD, REGULARS } from '../config.js';
 import { Cart, total, pileCount, pileOf, capOf, bulkPrice, boxTint, FOOD, isFood, CART_DAY_NAMES } from '../cart.js';
 import { personSVG, parkSVG, CHARACTER, PARK_VIEW } from '../art.js';
 import { cartSVG, toyPlaySVG, STICKER_AREA, umbrellaSVG, moneySVG, treatSVG, thingSVG, boxFrontSVG, boxSideSVG, BOX_LOOK, spoonCupSVG, napkinStackSVG, spoonBoxSVG, napkinPackSVG, recyclingBinSVG, swingSetSVG, swingSeatSVG, balloonSVG, hotdogStandSVG, balloonSellerSVG, stickerStandSVG } from '../cartArt.js';
@@ -1303,6 +1303,7 @@ export class CartView {
     const s = this.s;
     const T = c.grandmaTerms();
     const [her, of] = T.slice;
+    const d = (x) => `$${Number.isInteger(x) ? x : x.toFixed(2)}`;
     const m = openModal({
       title: '👵 Grandma has an idea',
       cls: 'narrow',
@@ -1310,10 +1311,10 @@ export class CartView {
         body.innerHTML = `<div class="gma-lunch"><span class="gma">${personSVG('adult', 7, { ...GRANDMA.look, skin: s.look.skin })}</span>
           <div class="gma-lines">
             <div class="say">How would you like an ice cream truck? I'll put in the money for it, up to ${money(T.max).replace('.00', '')}.</div>
-            <div class="say">I won't be your bank. I'll be your partner! You do the work, so you keep most of the profit: of every $${of} the truck makes, you keep $${of - her} and I get $${her}.</div>
-            <div class="say">Your cart money comes too. It's your part of the business.</div>
+            <div class="say">I won't be your bank. I'll be your partner! You do the work, so you keep most of the profit: of every $${of} the truck makes, you keep ${d(of - her)} and I get ${d(her)}.</div>
+            <div class="say">Your cart money comes too. It's your part of the business.${T.next ? ` If you save ${money(T.next.more).replace('.00', '')} more first, I'll only take ${sliceText(T.next.slice)}.` : ''}</div>
           </div></div>
-          <div class="stats"><div class="stat"><div class="k">🛒 Your cart money</div><div class="v">${money(T.money)}</div></div><div class="stat"><div class="k">👵 Grandma's slice</div><div class="v">$${her} of every $${of}</div></div></div>
+          <div class="stats"><div class="stat"><div class="k">🛒 Your cart money</div><div class="v">${money(T.money)}</div></div><div class="stat"><div class="k">👵 Grandma's slice</div><div class="v">${sliceText(T.slice)}</div></div></div>
           <p class="tiny muted">No loan, and nothing to pay back. But Grandma gets her slice of the profit every week. The bank can lend you money instead, if you'd rather.</p>
           <div class="row" style="justify-content:space-between"><button class="btn" data-act="no">Not yet</button><button class="btn big go" data-act="yes">Yes, let's do it! ▶</button></div>`;
       },
@@ -1321,7 +1322,7 @@ export class CartView {
     onActs(m.body, {
       no: () => {
         m.close();
-        toast('👵 "Take your time, dear. Just ask me when you\'re ready."');
+        toast(T.next ? '👵 "Good idea, dear. Save up, and come see me when you\'re ready."' : '👵 "Take your time, dear. Just ask me when you\'re ready."');
         if (s.phase === 'home') this.renderHome();
       },
       yes: () => {

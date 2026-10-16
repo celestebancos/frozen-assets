@@ -1,7 +1,7 @@
 // Pieces of the weekly report (profit graph, "too expensive" list) and the end-of-summer screens.
 // The weekly report itself is the end of the shoebox (filing.js).
 import { itemName } from './scene.js';
-import { CONFIG, itemFromKey } from '../config.js';
+import { sliceText, CONFIG, itemFromKey } from '../config.js';
 import { pnlRowsFor } from '../ledger.js';
 import { iceCreamSVG, truckSVG } from '../art.js';
 import { esc, money, openModal, onActs, toast, askYes } from './dom.js';
@@ -159,7 +159,7 @@ function finalScreen(app, res) {
       const P = g.state.partner;
       const buy = res.won && P
         ? `<div class="buyout card"><h3>👵 Buy back Grandma's share?</h3>
-          <p>Grandma's Share is <b>${money(g.state.truth.grandmaIn)}</b>, and she gets <b>$${P.slice[0]} of every $${P.slice[1]}</b> of profit. You can pay her back for part of it from the business's cash (${money(g.cash)}). Then her slice gets smaller. Buy all of it, and the truck is all yours!</p>
+          <p>Grandma's Share is <b>${money(g.state.truth.grandmaIn)}</b>, and she gets <b>${sliceText(P.slice)}</b> of profit. You can pay her back for part of it from the business's cash (${money(g.cash)}). Then her slice gets smaller. Buy all of it, and the truck is all yours!</p>
           <div class="row">${[1, 2, 3, 4].map((q) => `<button class="btn ${q === 4 ? 'go' : ''}" data-act="buy" data-q="${q}" ${g.buyOutCost(q) > g.cash ? 'disabled' : ''}>${['', '¼', '½', '¾', 'All'][q]} for ${money(g.buyOutCost(q))}</button>`).join('')}</div>
           <p class="tiny muted">Leave enough cash for supplies next summer!</p></div>`
         : res.won && g.state.partnerWas ? '<p>👵 The truck is all yours now. Grandma says: "I knew you could do it!"</p>' : '';
@@ -179,7 +179,7 @@ function finalScreen(app, res) {
       const r = g.buyOutGrandma(q);
       if (!r.ok) return toast('Not enough cash!');
       app.changed();
-      toast(r.slice ? `👵 "Smart move, dear!" Now she gets $${r.slice[0]} of every $${r.slice[1]}.` : '👵 "Look at you, buying out your old Grandma! I\'m so proud."');
+      toast(r.slice ? `👵 "Smart move, dear!" Now she gets ${sliceText(r.slice)}.` : '👵 "Look at you, buying out your old Grandma! I\'m so proud."');
       m.refresh();
     },
     again: () => {

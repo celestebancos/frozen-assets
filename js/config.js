@@ -610,7 +610,9 @@ export const GRANDMA = {
   // Her offer to invest in a truck, once your money (cash box, bank and wallet) reaches `at`. She puts in what the
   // truck needs plus startCash for supplies, up to max (so the fanciest trucks are out of reach). Her slice of the
   // profit: the more you bring and the better she feels, the smaller it is. slices[i] = [her dollars, of every].
-  offer: { at: 50000, max: 950000, startCash: 30000, slices: [[2, 5], [1, 3], [1, 4], [1, 5]] },
+  // slices[i] = [her dollars, of every $]; tiers: the points you need for each slice (cart money: +1 per $100 above
+  // `at`; good feelings: +1 per point above the start, −1 per point below).
+  offer: { at: 50000, max: 950000, startCash: 30000, slices: [[4, 10], [3.5, 10], [3, 10], [2.5, 10], [2, 10]], tiers: [-Infinity, -1, 1, 3, 5] },
   // things Grandma says about the old days (she doesn't repeat one until she's said them all)
   oldDays: [
     'When I was little, I could swing so high I thought I would touch the clouds!',
@@ -636,6 +638,9 @@ export const GRANDMA = {
     'I sold lemonade on my street when I was little. I made enough for a bicycle!',
   ],
 };
+
+// Grandma's slice in words: [3.5, 10] → "$3.50 of every $10".
+export const sliceText = ([a, b]) => `$${Number.isInteger(a) ? a : a.toFixed(2)} of every $${b}`;
 
 export const LEADERBOARD = {
   // Not secret: the token (pasted per device in Settings) is what grants access.

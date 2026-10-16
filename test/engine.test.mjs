@@ -811,7 +811,7 @@ test("buying out Grandma between summers: pay part of her Share, her slice shrin
   assert.equal(half, Math.round(theirs / 2));
   const r = g.buyOutGrandma(2);
   assert.ok(r.ok);
-  assert.deepEqual(r.slice, [1, 6], 'half of 1/3');
+  assert.deepEqual(r.slice, [1.75, 10], 'half of $3.33 of every $10, to the quarter');
   assert.equal(s.truth.grandmaIn, theirs - half);
   assert.equal(ownShare(s.truth), mine, "buying her out doesn't change your Share: cash turns into ownership");
   const paper = s.docs.find((d) => d.type === 'grandmaBuyout');
