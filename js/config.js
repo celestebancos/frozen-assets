@@ -92,9 +92,9 @@ export const CONFIG = {
     // fuel economy; a used truck burns usedGas times more gas for the same miles)
     newMiles: [10, 60], // a new truck off the lot
     // Breakdowns a summer by miles ([miles, breakdowns], in between is a straight line): a new truck almost never
-    // breaks down. The chance a day is that ÷ the days in a summer, × (1 + perWear × engineWear) × last winter's
-    // repairs. A repair costs more with more miles (× 1 + miles / costMilesPer).
-    breakdown: { perSummer: [[0, 0.15], [30000, 0.6], [60000, 1.5], [100000, 2.5], [150000, 3.5]], perWear: 0.5, cost: [10000, 25000], costMilesPer: 150000 },
+    // breaks down. The chance a day is that ÷ the days in a summer, × (1 + perWear × engineWear, at most maxWear) ×
+    // last winter's repairs. A repair costs more with more miles (× 1 + miles / costMilesPer).
+    breakdown: { perSummer: [[0, 0.15], [30000, 0.6], [60000, 1.5], [100000, 2.5], [150000, 3.5]], perWear: 0.2, maxWear: 3, cost: [10000, 25000], costMilesPer: 150000 },
     engineShopDays: 7, // fixing a worn engine during the summer: the truck is at the garage this long
     usedGas: 1.3, // a used truck burns this much more gas
     shabby: { sunset: 0.85, downtown: 0.85, parkside: 0.85, other: 0.95 }, // customers, until it's fixed up
