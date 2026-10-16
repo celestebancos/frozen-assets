@@ -426,11 +426,11 @@ export const CART = {
   denoms: [2000, 1000, 500, 100, 25], // $20, $10, $5, $1, quarters (prices go up by quarters)
   // Grandma gives $40 to start the cart (in the cash box); your wallet has $10 of your own.
   start: { box: { 2000: 2 }, wallet: { 500: 1, 100: 5 } },
-  homeStart: 11 * 60, // the day starts at home at 11am
-  parkOpen: 12 * 60, // four hours at the park, noon to 4pm
+  homeStart: 11 * 60, // breakfast is at 11am (hunger runs from here). Errands at home take no time.
+  parkOpen: 12 * 60, // four hours at the park, noon to 4pm (lunch at Grandma's: from 1pm)
   parkClose: 16 * 60,
-  // Minutes each errand takes. From the park, the corner store means closing the cart for a bit.
-  errand: { restaurant: 45, corner: 15, cornerFromPark: 20 },
+  // Minutes an errand takes from the park: the cart is closed while you're away.
+  errand: { cornerFromPark: 20 },
   refillBelow: 25, // a new pack of spoons or napkins goes on the cart only once it's down to fewer than this
   // The cooler has two trays of 32 spots (8 across, 4 down), one on top of the other. Each pop or cup takes a spot.
   coolerTrays: 2,
@@ -459,7 +459,8 @@ export const CART = {
   bulk: { boxes: 3, off: 0.2 },
   vendorMistake: 0.15, // how often a seller gets your change wrong
   // Now and then a really big family comes by (2 grown-ups and 4 or 5 kids), from day `firstDay` on: `chance` a day.
-  bigFamily: { chance: 0.25, firstDay: 3, kids: [4, 5] },
+  // They're messy eaters: a napkin for everyone makes them very happy, and they always leave a big tip.
+  bigFamily: { chance: 0.25, firstDay: 3, kids: [4, 5], napkinTip: [300, 500] },
   // A can of paint from the corner store repaints the cart: a new color and name, and the stickers are painted over.
   cartName: 'ICE POPS', // what the cart says until you repaint it
   nameMax: 14,
@@ -648,7 +649,8 @@ export const GRANDMA = {
   start: 5,
   max: 10,
   // invited some mornings: lunch takes an hour and is a big one (you stay full a while, past 4pm)
-  lunch: { chance: 0.3, firstDay: 3, minutes: 60, food: 125, lines: 5 }, // lines: the most she says at one lunch
+  // lines: the most she says at one lunch. minutes: how much later you get to the park (from noon).
+  lunch: { chance: 0.3, firstDay: 3, minutes: 60, food: 125, lines: 5 },
   // she comes by the cart only after your first lunch together (that's when she tells you her favorite and that
   // she's a messy eater), and tips big with her favorite and at least 2 napkins
   visit: { chance: 0.2, napkins: 2, tip: [200, 300] },

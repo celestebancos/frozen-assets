@@ -369,7 +369,6 @@ export class CartView {
       },
       prices: () => this.prices(() => this.renderHome()),
       sales: () => this.salesRecord(),
-      eat: () => this.eatMenu(),
       count: (t) => this.countSupplies(t.dataset.k),
       repaint: () => this.repaint(),
       closet: () => this.closet(() => this.renderHome()),
@@ -408,8 +407,6 @@ export class CartView {
       park: async () => {
         if (!c.spaceUsed('cooler') && !(await askYes('Your cooler is empty! Go to the park anyway?', { yes: 'Go anyway', no: 'Wait' }))) return;
         if (s.counter.some((b) => b.n > 0 && CART_ITEM[b.item]?.kind !== 'drink') && c.freeSlots && !(await askYes('Some boxes are still on the counter. They will melt! Go anyway?', { yes: 'Go anyway', no: 'Wait' }))) return;
-        const hungry = c.hungerAt(Math.max(s.minute, K.parkOpen)) < K.hunger.low && !Object.keys(FOOD).some((id) => c.count('cooler', id));
-        if (hungry && !(await askYes("You're very hungry, and there's no food in your cooler! Go anyway? (The hot dog stand sells food.)", { yes: 'Go anyway', no: 'Wait' }))) return;
         if (!s.spoons && s.cooler.trays.flat().some((id) => id && c.isIce(id)) && !(await askYes(s.packs.spoons ? 'No spoons on the cart! Tap the spoon box on the shelf to bring some. Go anyway?' : 'No spoons on the cart! Go anyway?', { yes: 'Go anyway', no: 'Wait' }))) return;
         c.openPark();
         this.save();
@@ -425,7 +422,6 @@ export class CartView {
     const w = s.weather;
     const used = c.spaceUsed('cooler');
     const noStock = !c.spaceUsed('freezer') && !used;
-    const hungry = c.hungerAt(Math.max(s.minute, K.parkOpen)) < K.hunger.low; // by the time you get to the park
     this.homeEl.innerHTML = `
       <div class="home-top">
         <h2 style="margin:0">${w.rain ? '🌧️' : w.temp >= 88 ? '🥵☀️' : '☀️'} ${CART_DAY_NAMES[(s.day - 1) % 7]} · Day ${s.day} · ${w.temp}°F</h2>
@@ -454,13 +450,10 @@ export class CartView {
           <div class="row">${c.walletTotal ? `<button class="btn small" data-act="walletToBox">${walletIcon()} → 🧰 All in the cash box</button>` : ''}<button class="btn small" data-act="moveMoney">↔️ Move money</button></div>
         </div>
         <div class="card errands">
-          ${c.lunchInvite ? `<div class="grandma-call"><span class="gma">${personSVG('adult', 7, { ...GRANDMA.look, skin: s.look.skin })}</span><div><b>Grandma called!</b><div>"Come have lunch with me today?"</div><div class="tiny muted">It's free, but it takes an hour.</div><div class="row"><button class="btn go small" data-act="lunchYes">Yes, please!</button><button class="btn small" data-act="lunchNo">Not today</button></div></div></div>` : ''}
+          ${c.lunchInvite ? `<div class="grandma-call"><span class="gma">${personSVG('adult', 7, { ...GRANDMA.look, skin: s.look.skin })}</span><div><b>Grandma called!</b><div>"Come have lunch with me today?"</div><div class="tiny muted">It's free, but you'll open an hour late.</div><div class="row"><button class="btn go small" data-act="lunchYes">Yes, please!</button><button class="btn small" data-act="lunchNo">Not today</button></div></div></div>` : ''}
           <h3>🚶 Before the park</h3>
-          <p class="tiny muted when">${s.minute < K.parkOpen ? `It's ${fmtTime(s.minute)}. The park opens at ${fmtTime(K.parkOpen)}.` : `It's ${fmtTime(s.minute)}. The park is open. Hurry!`}</p>
-          <button class="tummy-home ${hungry ? 'low' : ''}" data-act="eat" aria-label="Hunger: tap to eat">🍎 <i class="bar"><b style="width:${Math.round(c.hunger)}%"></b></i><span>${tummyWord(c.hunger)}</span></button>
-          ${hungry ? `<p class="hint">🍎 Your tummy is rumbling! Eat something before the park, or you'll soon have to come home.</p>` : ''}
-          <button class="btn ${noStock ? 'yellow pulse' : ''}" data-act="restaurant">🏬 Restaurant store <span class="tiny muted">${K.errand.restaurant} min</span></button>
-          <button class="btn" data-act="corner">🏪 Corner store <span class="tiny muted">${K.errand.corner} min</span></button>
+          <button class="btn ${noStock ? 'yellow pulse' : ''}" data-act="restaurant">🏬 Restaurant store</button>
+          <button class="btn" data-act="corner">🏪 Corner store</button>
           ${s.pantry ? `<button class="btn" data-act="packLunch">${FOOD.lunch.emoji} Pack a lunch <span class="tiny muted">(${s.pantry} left)</span></button>` : ''}
           <button class="btn" data-act="prices">🏷️ Prices</button>
           ${s.days.length ? '<button class="btn" data-act="sales">📒 Sales record</button>' : ''}
@@ -1472,7 +1465,7 @@ export class CartView {
         body.innerHTML = `<div class="gma-lunch"><span class="gma">${personSVG('adult', 7, { ...GRANDMA.look, skin: s.look.skin })}</span>
           <div class="gma-lines">${lines.map((l) => `<div class="say">${esc(l)}</div>`).join('')}</div></div>
           ${gift ? `<p class="good">${walletIcon()} Grandma put ${money(gift)} in your wallet!</p>` : ''}
-          <p class="tiny muted">You're full! It's ${fmtTime(s.minute)}.</p>
+          <p class="tiny muted">You're full! Off to the park at ${fmtTime(s.minute)}.</p>
           <button class="btn big go" data-act="done">Thanks, Grandma! ▶</button>`;
       },
     });
@@ -1719,7 +1712,7 @@ export class CartView {
         this.passBy(ev.cust, ev.say);
       } else if (ev.t === 'join') {
         const e = el(`<div class="party walking" data-id="${ev.cust.id}" style="left:104%">${this.custHTML(ev.cust)}</div>`);
-        if (ev.cust.regular || ev.cust.grandma || ev.cust.big) e.insertAdjacentHTML('beforeend', `<div class="tag">${ev.cust.grandma ? 'Grandma' : ev.cust.big ? 'Big family' : esc(REG[ev.cust.regular].name)}</div>`);
+        if (ev.cust.regular || ev.cust.grandma) e.insertAdjacentHTML('beforeend', `<div class="tag">${ev.cust.grandma ? 'Grandma' : esc(REG[ev.cust.regular].name)}</div>`);
         this.queue.appendChild(e);
         this.custEls.set(ev.cust.id, e);
       } else if (ev.t === 'window') {
@@ -1851,7 +1844,7 @@ export class CartView {
       return w.missedFav ? `No ${fav}? Oh well. ${want}` : `Hi, sweetie! ${want}`;
     }
     const reg = c.regular ? REG[c.regular] : null;
-    let out = reg ? 'Hi again! ' : c.big && w.order.length ? 'Hi! There are lots of us! ' : '';
+    let out = reg ? 'Hi again! ' : c.big && w.order.length ? "Hi! There are lots of us, and we're messy eaters! " : '';
     if (w.missedFav) out += `No ${CART_ITEM[w.missedFav].name.toLowerCase()} today? Aww. `;
     if (w.order.length) out += w.order.length === 1 ? `Can I have ${a(w.order[0])}, please?` : `${andList(counted(w.order))}, please!`.replace(/^a/, 'A');
     else if (w.no === 'tooMuch') out += "Hmm, that's too much for me.";
@@ -1934,8 +1927,8 @@ export class CartView {
         this.serveMsg = r.reason === 'spoon' ? { text: ices > 1 ? 'Can we have spoons, please?' : 'Can I have a spoon, please?', cls: 'hint' } : { text: `Hmm, I asked for ${andList(counted(w.order))}.`, cls: 'bad' };
       } else {
         // napkins quietly make people happier; nobody remarks on them
-        const got = r.extras.length ? 'A free one? Yay, thank you! Here you go!' : r.noSpoon ? "No spoon? I'll use my fingers..." : 'Here you go!';
-        this.serveMsg = { text: got, cls: r.extras.length ? 'good' : r.noSpoon ? 'bad' : '' };
+        const got = r.delighted ? 'Napkins for everyone! Thank you so much! Here you go!' : r.extras.length ? 'A free one? Yay, thank you! Here you go!' : r.noSpoon ? "No spoon? I'll use my fingers..." : 'Here you go!';
+        this.serveMsg = { text: got, cls: r.extras.length || r.delighted ? 'good' : r.noSpoon ? 'bad' : '' };
       }
     } else if (act === 'tray') {
       this.tray = addOne(this.tray, t.dataset.d);
@@ -1995,7 +1988,7 @@ export class CartView {
     if (r.result === 'honest') this.serveMsg = { text: `${yum}You gave me too much change! Here's the extra back.`, cls: 'hint' };
     else if (r.result === 'kept') {
       this.serveMsg = { text: `${yum}Thanks! Bye!`, cls: '' };
-    } else this.serveMsg = { text: `${yum}${r.tip >= 300 ? "You're the best! This is for you." : 'Thank you!'}`, cls: 'good' };
+    } else this.serveMsg = { text: `${yum}${r.delighted ? 'Best ice cream cart ever! This is for you.' : r.tip >= 300 ? "You're the best! This is for you." : 'Thank you!'}`, cls: 'good' };
     if (r.tip) this.tipCoin(r.tip);
   }
 
