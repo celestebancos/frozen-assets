@@ -450,7 +450,7 @@ export class CartView {
           <div class="row">${c.walletTotal ? `<button class="btn small" data-act="walletToBox">${walletIcon()} → 🧰 All in the cash box</button>` : ''}<button class="btn small" data-act="moveMoney">↔️ Move money</button></div>
         </div>
         <div class="card errands">
-          ${c.lunchInvite ? `<div class="grandma-call"><span class="gma">${personSVG('adult', 7, { ...GRANDMA.look, skin: s.look.skin })}</span><div><b>Grandma called!</b><div>"Come have lunch with me today?"</div><div class="tiny muted">It's free, but you'll open an hour late.</div><div class="row"><button class="btn go small" data-act="lunchYes">Yes, please!</button><button class="btn small" data-act="lunchNo">Not today</button></div></div></div>` : ''}
+          ${c.lunchInvite ? `<div class="grandma-call"><span class="gma">${personSVG('adult', 7, { ...GRANDMA.look, skin: s.look.skin })}</span><div><b>Grandma called!</b><div>"Come have lunch with me today?"</div><div class="row"><button class="btn go small" data-act="lunchYes">Yes, please!</button><button class="btn small" data-act="lunchNo">Not today</button></div></div></div>` : ''}
           <h3>🚶 Before the park</h3>
           <button class="btn ${noStock ? 'yellow pulse' : ''}" data-act="restaurant">🏬 Restaurant store</button>
           <button class="btn" data-act="corner">🏪 Corner store</button>
@@ -1465,7 +1465,7 @@ export class CartView {
         body.innerHTML = `<div class="gma-lunch"><span class="gma">${personSVG('adult', 7, { ...GRANDMA.look, skin: s.look.skin })}</span>
           <div class="gma-lines">${lines.map((l) => `<div class="say">${esc(l)}</div>`).join('')}</div></div>
           ${gift ? `<p class="good">${walletIcon()} Grandma put ${money(gift)} in your wallet!</p>` : ''}
-          <p class="tiny muted">You're full! Off to the park at ${fmtTime(s.minute)}.</p>
+          <p class="tiny muted">You're full!</p>
           <button class="btn big go" data-act="done">Thanks, Grandma! ▶</button>`;
       },
     });
