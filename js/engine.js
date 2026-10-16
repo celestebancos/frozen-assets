@@ -2136,7 +2136,7 @@ export class Game {
     const i = pts.findIndex(([m]) => m > miles);
     const [[m0, b0], [m1, b1]] = i < 0 ? pts.slice(-2) : i === 0 ? pts.slice(0, 2) : [pts[i - 1], pts[i]];
     const perSummer = Math.max(0, b0 + ((b1 - b0) * (miles - m0)) / (m1 - m0));
-    return Math.min(0.5, (perSummer / SEASON_DAYS) * (1 + B.perWear * wear) * prevent);
+    return Math.min(0.5, (perSummer / SEASON_DAYS) * Math.min(B.maxWear, 1 + B.perWear * wear) * prevent);
   }
   get inShop() {
     return this.state.inShopUntil > this.state.day;
