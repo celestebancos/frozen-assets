@@ -10,10 +10,13 @@ export const CONFIG = {
   // Default loan and truck (used by the simulated players and old saves).
   loan: { principal: 1_000_000, truckCost: 990_000, dailyInterest: 300 },
   // Loans the bank offers. Bigger loans cost more interest per day, and more per extra dollar.
+  // The two smallest are for a used truck (same interest per dollar as the $10,000 one).
   loans: [
-    { id: 'small', principal: 1_000_000, dailyInterest: 300 },
-    { id: 'medium', principal: 1_100_000, dailyInterest: 450 },
-    { id: 'large', principal: 1_200_000, dailyInterest: 650 },
+    { id: 'l5', principal: 500_000, dailyInterest: 150 },
+    { id: 'l7', principal: 750_000, dailyInterest: 225 },
+    { id: 'l10', principal: 1_000_000, dailyInterest: 300 },
+    { id: 'l11', principal: 1_100_000, dailyInterest: 450 },
+    { id: 'l12', principal: 1_200_000, dailyInterest: 650 },
   ],
   minStartCash: 10_000, // the truck must leave at least this much for supplies
   lateFee: { unpaidDays: 3, amount: 1000 },
@@ -85,10 +88,14 @@ export const CONFIG = {
     oilLow: 30, // the dipstick says "low"
     oilEmpty: 10, // a day that starts below this wears the engine
     oilBottle: { price: 800, adds: 60 }, // from the gas station
-    mpg: 10, // miles per gallon (a used truck burns usedGas times more gas for the same miles)
+    milesPerGal: 21, // odometer miles per gallon of gas: about 70 miles a day of slow neighborhood driving (not real
+    // fuel economy; a used truck burns usedGas times more gas for the same miles)
     newMiles: [10, 60], // a new truck off the lot
-    // chance a day = perDay × (1 + miles / milesPer) × (1 + perWear × engineWear) × this summer's preventive repairs
-    breakdown: { perDay: 1 / 120, milesPer: 40000, perWear: 0.5, cost: [10000, 25000], costMilesPer: 150000 },
+    // Breakdowns a summer by miles ([miles, breakdowns], in between is a straight line): a new truck almost never
+    // breaks down. The chance a day is that ÷ the days in a summer, × (1 + perWear × engineWear) × last winter's
+    // repairs. A repair costs more with more miles (× 1 + miles / costMilesPer).
+    breakdown: { perSummer: [[0, 0.15], [30000, 0.6], [60000, 1.5], [100000, 2.5], [150000, 3.5]], perWear: 0.5, cost: [10000, 25000], costMilesPer: 150000 },
+    engineShopDays: 7, // fixing a worn engine during the summer: the truck is at the garage this long
     usedGas: 1.3, // a used truck burns this much more gas
     shabby: { sunset: 0.85, downtown: 0.85, parkside: 0.85, other: 0.95 }, // customers, until it's fixed up
     fixUp: 80000, // paint, bodywork, no more rust

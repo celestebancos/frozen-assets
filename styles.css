@@ -494,6 +494,7 @@ table.books tr.bottom td { font-weight: 800; font-size: 18px; background: #fff3b
 .loan.on, .lot-truck.on { background: #fff3b0; outline: 4px solid var(--yellow); }
 .truck-lot { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
 .lot-truck { border: 3px solid var(--ink); border-radius: 16px; background: #fff; padding: 6px; box-shadow: var(--shadow); }
+div.lot-truck { text-align: center; }
 .lot-truck svg { width: 100%; height: auto; display: block; }
 .lot-truck .price { font-size: 20px; font-weight: 800; }
 .lot-truck:disabled { opacity: 0.4; cursor: not-allowed; }

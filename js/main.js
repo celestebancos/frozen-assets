@@ -183,10 +183,23 @@ class App {
             .join('')}</div>
           ${ownerCash ? `<p>🛒 Plus your cart money: <b>${money(ownerCash)}</b>. That's yours, not borrowed.</p>` : ''}
           <p class="tiny muted">💡 A bigger loan gives you more cash to spend now, but you pay more interest every day, and you still have to pay all of it back. ${(() => {
-            const [a, b, c] = C.loans;
-            return `The extra ${money(b.principal - a.principal)} in the middle loan costs ${money((b.dailyInterest - a.dailyInterest) * days)} more interest. The next ${money(c.principal - b.principal)} costs ${money((c.dailyInterest - b.dailyInterest) * days)} more.`;
+            const [a, b, c] = C.loans.slice(-3);
+            return `The extra ${money(b.principal - a.principal)} in the ${money(b.principal)} loan costs ${money((b.dailyInterest - a.dailyInterest) * days)} more interest. The next ${money(c.principal - b.principal)} costs ${money((c.dailyInterest - b.dailyInterest) * days)} more.`;
           })()}</p>
-          <div class="row" style="justify-content:space-between;margin-top:16px"><button class="btn" data-act="back">◀ Back</button><button class="btn big go" data-act="next" ${loan ? '' : 'disabled'}>Borrow it ▶</button></div>`;
+          <div class="row" style="justify-content:space-between;margin-top:16px"><button class="btn" data-act="back">◀ Back</button><button class="btn" data-act="peek">🚚 Look at the trucks</button><button class="btn big go" data-act="next" ${loan ? '' : 'disabled'}>Borrow it ▶</button></div>`;
+        return;
+      }
+      if (step === 'peek') {
+        // just looking: the trucks and their prices, before picking a loan
+        title.textContent = '🚚 Truck lot';
+        card.innerHTML = `<p>Just looking! Pick a loan that pays for the truck you want, with money left over for ice cream and supplies.</p>
+          <div class="truck-lot">${lot.map((x) => {
+            const c = truckFor(x.color);
+            return `<div class="lot-truck">${truckSVG(c.hex, c.name, { bling: x.bling, used: x.used })}
+              <b>${x.used ? `Used ${c.name}` : c.name}</b>${x.used ? `<div class="tiny">🛣️ ${x.miles.toLocaleString()} miles</div>` : ''}
+              <div class="price">${money(priceOf(x))}</div></div>`;
+          }).join('')}</div>
+          <div class="row" style="margin-top:16px"><button class="btn big" data-act="toBank">◀ Back to the bank</button></div>`;
         return;
       }
       const L = partner ? null : C.loans.find((l) => l.id === loan);
@@ -237,6 +250,11 @@ class App {
       next: () => {
         step = step === 'bank' ? 'truck' : 'name';
         render();
+      },
+      peek: () => {
+        step = 'peek';
+        render();
+        scr.scrollTop = 0;
       },
       toBank: () => {
         step = 'bank';
@@ -396,11 +414,22 @@ class App {
       <div class="weather">${wIcon} <b style="font-size:30px">${w.temp}°F</b></div>
       ${last && s.phase !== 'setup' ? `<p class="muted">Yesterday: 🍦 ${Object.values(last.sold).reduce((a, b) => a + b, 0)} · 💵 ${money(last.revenue)}${last.tooExpensive ? ` · 😤 ${last.tooExpensive} said “too expensive”` : ''}${last.broke ? ` · ${coinIcon()} ${last.broke} only had pocket money` : ''}${last.lineLeft ? ` · 😩 ${last.lineLeft} left a long line` : ''}</p>` : ''}
       ${s.phase !== 'setup' && s.phase !== 'seasonEnd' && g.plannedRoute() ? `<p class="tiny muted">🗺️ Today's route: <b>${esc(g.plannedRoute().name)}</b></p>` : ''}
-      ${needFile ? `<button class="btn big yellow pulse" data-act="file">🗃️ Shoebox (${needFile})</button>` : `<button class="btn big go pulse" data-act="open">🔔 Open for business!</button>`}
+      ${g.inShop && s.phase !== 'seasonEnd' ? `<p>🔧 The truck is at the garage. It's back on ${DAY_NAMES[(s.inShopUntil - 1) % 7]}${s.inShopUntil - s.day > 1 ? ` (${s.inShopUntil - s.day} days)` : ''}.</p>` : ''}
+      ${needFile ? `<button class="btn big yellow pulse" data-act="file">🗃️ Shoebox (${needFile})</button>` : g.inShop && s.phase !== 'seasonEnd' ? '<button class="btn big go" data-act="wait">⏭️ Next day</button>' : `<button class="btn big go pulse" data-act="open">🔔 Open for business!</button>`}
     </div></div>`);
     this.stage.appendChild(card);
     onActs(card, {
       file: () => this.openShoebox(() => this.afterChange()),
+      // the truck is at the garage: the day goes by with no selling
+      wait: () => {
+        const g = this.game;
+        g.openDay();
+        g.runDay();
+        this.save();
+        this.hideMorning();
+        this.changed();
+        this.afterChange();
+      },
       open: () => {
         const g = this.game;
         if (!g.availableItems().length) {

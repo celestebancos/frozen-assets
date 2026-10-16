@@ -250,7 +250,7 @@ test('playground drops happen much more than downtown drops', () => {
 
 test('bigger loan and deluxe truck: cash left over and daily interest follow the choice', async () => {
   const { CONFIG, TRUCK_PRICE, BLING } = await import('../js/config.js');
-  const loan = CONFIG.loans.find((l) => l.id === 'large');
+  const loan = CONFIG.loans.find((l) => l.id === 'l12');
   const price = TRUCK_PRICE + BLING[3].price;
   const g = Game.create({ player: 'Nathan', business: 'Big', color: 'orange', seed: 2, loan, truckCost: price, bling: 3, blingName: BLING[3].name });
   assert.equal(g.state.truth.loan, loan.principal);
@@ -271,13 +271,17 @@ test('bigger loan and deluxe truck: cash left over and daily interest follow the
 });
 
 test('every bling level leaves enough cash for supplies with at least the biggest loan', async () => {
-  const { CONFIG, TRUCK_PRICE, BLING } = await import('../js/config.js');
+  const { CONFIG, TRUCK_PRICE, BLING, USED_TRUCK, usedTruckPrice } = await import('../js/config.js');
   const big = Math.max(...CONFIG.loans.map((l) => l.principal));
   for (const b of BLING) assert.ok(TRUCK_PRICE + b.price <= big - CONFIG.minStartCash, b.name);
-  // a plain truck fits the smallest loan
-  assert.ok(TRUCK_PRICE <= CONFIG.loans[0].principal - CONFIG.minStartCash);
-  // the default truck fits the smallest loan
-  assert.ok(CONFIG.loan.truckCost <= CONFIG.loans[0].principal - CONFIG.minStartCash);
+  // a plain new truck (and the default truck) fits the $10,000 loan
+  const l10 = CONFIG.loans.find((l) => l.id === 'l10').principal;
+  assert.ok(TRUCK_PRICE <= l10 - CONFIG.minStartCash);
+  assert.ok(CONFIG.loan.truckCost <= l10 - CONFIG.minStartCash);
+  // every used truck fits the $7,500 loan, and the high-miles one fits the smallest loan
+  assert.ok(usedTruckPrice(USED_TRUCK.miles[0]) <= CONFIG.loans[1].principal - CONFIG.minStartCash);
+  const band = (USED_TRUCK.miles[1] - USED_TRUCK.miles[0]) / (2 * USED_TRUCK.usedOnLot - 1);
+  assert.ok(usedTruckPrice(USED_TRUCK.miles[1] - band) <= CONFIG.loans[0].principal - CONFIG.minStartCash);
 });
 
 test('place stats: customers and minutes per spot add up to the day', () => {
@@ -947,7 +951,7 @@ test('miles, a worn engine and the winter inspection', async () => {
   s.phase = 'won';
   const insp = g.winterInspection();
   assert.equal(insp.repairs[0].id, 'engine');
-  assert.ok(g.breakdownsNextSummer(insp.repairs.map((r) => r.id)) < g.breakdownsNextSummer());
+  assert.ok(g.breakdownChance({ wear: 0, prevent: 0.8 }) < g.breakdownChance());
   const owed = s.truth.billsToPay;
   g.nextSeason(['engine', 'belts']);
   assert.equal(s.engineWear, 0);
@@ -955,4 +959,46 @@ test('miles, a worn engine and the winter inspection', async () => {
   const want = insp.tuneUp + insp.repairs.filter((r) => ['engine', 'belts'].includes(r.id)).reduce((a, r) => a + r.cost, 0);
   assert.equal(s.truth.billsToPay - owed, want);
   assert.equal(s.oil, 100);
+});
+
+test('a new truck almost never breaks down; a worn engine can be fixed in the summer (a week at the garage)', async () => {
+  const { CONFIG } = await import('../js/config.js');
+  const T = CONFIG.truckCare;
+  const fresh = Game.create({ player: 'N', business: 'T', color: 'pink', seed: 3 });
+  const days = CONFIG.seasonWeeks * CONFIG.daysPerWeek;
+  assert.ok(Math.pow(1 - fresh.breakdownChance(), days) > 0.75, 'most new trucks go all summer without a breakdown');
+  const g = Game.create({ player: 'N', business: 'T', color: 'pink', seed: 3, used: true, miles: 90000 });
+  fileAllCorrectly(g);
+  const s = g.state;
+  g.buy('vanilla', 0, 1);
+  g.setRoute([{ spot: 'maple', at: 600 }]);
+  s.policies.outOfStock = 'nothing';
+  assert.equal(g.repairEngineNow().ok, false, 'nothing to fix');
+  s.engineWear = 3;
+  s.oil = 5;
+  const cost = g.engineRepairCost();
+  assert.equal(cost, T.winter.engine.cost + 3 * T.winter.engine.perWear);
+  const owed = s.truth.billsToPay;
+  const r = g.repairEngineNow();
+  assert.ok(r.ok);
+  assert.equal(s.truth.billsToPay - owed, cost);
+  assert.equal(s.engineWear, 0);
+  assert.equal(s.oil, 100);
+  // a week of days with no selling
+  for (let d = 0; d < T.engineShopDays; d++) {
+    assert.ok(g.inShop);
+    fileAllCorrectly(g);
+    s.needWeekReport = null;
+    g.openDay();
+    g.runDay();
+    assert.equal(s.phase, 'closed');
+    assert.equal(s.lastDay.customers, 0);
+    assert.equal(s.lastDay.revenue, 0);
+  }
+  assert.equal(g.inShop, false, 'back from the garage');
+  fileAllCorrectly(g);
+  s.needWeekReport = null;
+  g.openDay();
+  g.runDay();
+  assert.ok(s.lastDay.customers > 0, 'selling again');
 });
