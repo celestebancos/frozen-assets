@@ -627,6 +627,7 @@ export function truckPanel(app) {
         </div>
         <h3>🔧 Garage</h3>
         <p>🛣️ <b>${Math.round(s.miles).toLocaleString()} miles</b> on the truck. The more miles, the more it breaks down and the more it costs to repair.</p>
+        <p>📉 On the books, the truck is worth <b>${money(s.truth.truck)}</b>. It's worth a little less after every summer.</p>
         ${g.inShop ? `<p class="warn">🔧 The truck is at the garage getting a new engine part. It's back on ${DAY_NAMES[(s.inShopUntil - 1) % 7]} of week ${Math.ceil(s.inShopUntil / 7)}.</p>` : ''}
         ${s.engineWear ? `<p class="warn">🛢️ The engine is worn from ${s.engineWear} day${s.engineWear > 1 ? 's' : ''} on almost no oil, so it breaks down more.</p>
           <p>The garage can fix it now for ${money(g.engineRepairCost())}, but it takes ${C.truckCare.engineShopDays} days, and you can't sell while it's there. Or wait for the winter tune-up.</p>

@@ -161,6 +161,7 @@ How the truck business gets its money: the bank, Grandma, or both. The trucks co
   - **Worse gas mileage.** No truck refills gas by itself: a pop-up asks when the tank is low, with an oil check.
   - **Shabby paint:** less popular, especially in the wealthier and more grown-up neighborhoods (Sunset Ridge, Downtown, Parkside), until the garage fixes it up ($800).
   - **Bigger upkeep bills between summers:** the winter inspection (a must-do tune-up and oil change, priced by miles), plus the mechanic's suggested repairs. Paying for them cuts next summer's breakdowns, and the engine repair fixes a worn engine.
+- **Every truck wears out (depreciation):** once a summer the truck is worth less on the books, an expense with no cash leaving. A new truck loses more dollars, so a careful used-truck owner comes out about even with a new truck.
   - Grandma, as co-owner, nags about the oil now and then.
 
 ### The bank: down payments

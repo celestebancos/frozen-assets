@@ -1090,3 +1090,25 @@ test('no ads on the last day of summer once open', () => {
   assert.equal(g.adWeek(), null);
   assert.equal(g.setAds('flyers').reason, 'season');
 });
+
+test('the truck wears out: at the end of each summer it is worth less, an expense with no cash leaving', async () => {
+  const { CONFIG } = await import('../js/config.js');
+  const W = CONFIG.truckCare.wear;
+  const r = playSeason('decent', 31);
+  const s = r.game.state;
+  const cost = s.truckCost;
+  const first = Math.round((cost * W.perSummer + cost * W.newExtra) / 100) * 100;
+  assert.equal(s.truth.truckWear, first, 'a new truck loses extra its first summer');
+  assert.equal(s.truth.truck, cost - first);
+  assert.ok(s.docs.some((d) => d.type === 'truckWear' && d.week === CONFIG.seasonWeeks));
+  assert.equal(share(s.truth), profit(s.truth));
+  // a used truck only loses its share of what it's worth
+  const g = Game.create({ player: 'N', business: 'T', color: 'pink', seed: 5, used: true, miles: 90000, truckCost: 450000 });
+  fileAllCorrectly(g);
+  const amt = g.wearTruck();
+  assert.equal(amt, Math.round((450000 * W.perSummer) / 100) * 100);
+  assert.equal(g.state.truth.truck, 450000 - amt);
+  // never below the floor
+  g.state.truth.truck = W.floor + 1000;
+  assert.equal(g.wearTruck(), 1000);
+});
