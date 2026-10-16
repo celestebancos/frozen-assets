@@ -8,7 +8,7 @@ import { iceCreamSVG } from '../art.js';
 import { esc, money, openModal, onActs, toast } from './dom.js';
 import { STAGE_W, buildStage, chooseScale, blocks, makeSep, LEFT, RIGHT } from './statements.js';
 import { profitChart, tooExpensiveList } from './reports.js';
-import { coinIcon } from '../icons.js';
+import { coinIcon, shoeboxIcon } from '../icons.js';
 
 const SEC_OF = (acct) => ACCOUNT[acct].section;
 const isPnl = (acct) => SEC_OF(acct) === 'income' || SEC_OF(acct) === 'expense';
@@ -137,7 +137,7 @@ export function openShoebox(app, onDone) {
 
   // ---------- skeleton ----------
   const m = openModal({
-    title: '🗃️ Shoebox',
+    title: `${shoeboxIcon()} Shoebox`,
     cls: 'shoebox',
     closable: true,
     onClose: () => {
@@ -155,7 +155,7 @@ export function openShoebox(app, onDone) {
           <span class="sb-btns"></span>
         </div>
         <div class="sb-card">
-          <div class="sb-cardhead"><h4>🧱 Profit &amp; loss this week</h4><span class="sp"></span><span class="sb-ie"></span></div>
+          <div class="sb-cardhead"><h4>📈 Profit &amp; loss this week</h4><span class="sp"></span><span class="sb-ie"></span></div>
           <div class="pl-box"><div class="pl-wrap"><div class="pl-stage">
             <div class="pl-ground"></div>
             <div class="pl-holes"></div>
@@ -248,7 +248,7 @@ export function openShoebox(app, onDone) {
 
   function renderHead() {
     const wk = reportWeek ? ((reportWeek - 1) % CONFIG.seasonWeeks) + 1 : 0;
-    $('.sb-title').textContent = reportOn() ? `📰 Week ${wk} Report` : '🗃️ Shoebox';
+    $('.sb-title').innerHTML = reportOn() ? `📰 Week ${wk} Report` : `${shoeboxIcon()} Shoebox`;
     modalEl.classList.toggle('report', reportOn());
     const left = docs.slice(st.idx + (st.step === 'paper' ? 0 : 1));
     $('.sb-slips').innerHTML =

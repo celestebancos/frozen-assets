@@ -6,7 +6,7 @@ import { ACCOUNTS, ACCOUNT, pnlRowsFor, sectionTotal, share, ownShare } from '..
 import { DOC_TYPES } from '../documents.js';
 import { mapSVG, mapIcon, iceCreamSVG, truckSVG, ROUTE_COLORS } from '../art.js';
 import { esc, money, openModal, onActs, toast, fmtTime, stepper, askYes } from './dom.js';
-import { coinIcon, billboardIcon } from '../icons.js';
+import { coinIcon, billboardIcon, sprinklesIcon } from '../icons.js';
 import { gasStation } from './popups.js';
 
 const C = CONFIG;
@@ -15,6 +15,7 @@ export function supplyIcon(sup, size = 30) {
   if (['cake', 'sugar', 'waffle', 'bowl'].includes(sup.id)) return iceCreamSVG({ flavor: null, container: sup.id }, size);
   if (sup.id === 'vanilla' || sup.id === 'chocolate') return iceCreamSVG({ flavor: sup.id, container: 'bowl' }, size);
   if (POP[sup.id]) return iceCreamSVG({ pop: sup.id }, size);
+  if (sup.id === 'chocSprinkles' || sup.id === 'rainbowSprinkles') return `<span style="font-size:${size}px;line-height:1">${sprinklesIcon(sup.id === 'rainbowSprinkles')}</span>`;
   return sup.emoji;
 }
 
@@ -179,10 +180,10 @@ export function menuPanel(app) {
         <summary><b>🍦 What goes into each ice cream?</b></summary>
         <ul style="margin:6px 0 0;padding-left:20px">
           <li>🍦 <b>1 serving of mix</b> (a swirl uses half vanilla, half chocolate)</li>
-          <li>🧇 <b>1 cone or 1 bowl</b>, whichever they order</li>
+          <li>${iceCreamSVG({ flavor: null, container: 'cake' }, 20)} <b>1 cone or 1 bowl</b>, whichever they order</li>
           <li>🥄 <b>1 spoon</b> with every bowl and Italian ice. No spoons means no bowls or ice!</li>
           <li>🧻 <b>Napkins</b>: grown-ups take 1, kids take 1 to 3. No napkins and people get sticky and grumpy.</li>
-          <li>🌈 <b>1 serving of sprinkles</b> if they want a topping</li>
+          <li>${sprinklesIcon(true)} <b>1 serving of sprinkles</b> if they want a topping</li>
           <li>🚀 <b>Popsicles</b> are sold as is: 1 pop, plus napkins</li>
           <li>💧 <b>Drinks</b>: some people add one to their order, more on a hot day</li>
         </ul>

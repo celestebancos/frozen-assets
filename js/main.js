@@ -14,7 +14,7 @@ import { seasonEnd } from './ui/reports.js';
 import { showDecision } from './ui/popups.js';
 import { buildExport, exportFileName } from './export.js';
 import { startCart } from './ui/cart.js';
-import { coinIcon, towTruckIcon, cartIcon } from './icons.js';
+import { coinIcon, towTruckIcon, cartIcon, shoeboxIcon } from './icons.js';
 
 const C = CONFIG;
 const DAY_FULL = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
@@ -427,7 +427,7 @@ class App {
       ${last && s.phase !== 'setup' ? `<p class="muted">Yesterday: 🍦 ${Object.values(last.sold).reduce((a, b) => a + b, 0)} · 💵 ${money(last.revenue)}${last.tooExpensive ? ` · 😤 ${last.tooExpensive} said “too expensive”` : ''}${last.broke ? ` · ${coinIcon()} ${last.broke} only had pocket money` : ''}${last.lineLeft ? ` · 😩 ${last.lineLeft} left a long line` : ''}</p>` : ''}
       ${s.phase !== 'setup' && s.phase !== 'seasonEnd' && g.plannedRoute() ? `<p class="tiny muted">🗺️ Today's route: <b>${esc(g.plannedRoute().name)}</b></p>` : ''}
       ${g.inShop && s.phase !== 'seasonEnd' ? `<p>🔧 ${s.inShopUntil > SEASON_DAYS ? "It's at the garage until the end of summer." : `It's at the garage until next ${DAY_FULL[(s.inShopUntil - 1) % 7]}.`}</p>` : ''}
-      ${needFile ? `<button class="btn big yellow pulse" data-act="file">🗃️ Shoebox (${needFile})</button>` : g.inShop && s.phase !== 'seasonEnd' ? `<button class="btn big go" data-act="wait">${SKIP_ICON} ${s.inShopUntil > SEASON_DAYS ? 'Skip to the end of summer' : `Skip to next ${DAY_FULL[(s.inShopUntil - 1) % 7]}`}</button>` : `<button class="btn big go pulse" data-act="open">🔔 Open for business!</button>`}
+      ${needFile ? `<button class="btn big yellow pulse" data-act="file">${shoeboxIcon()} Shoebox (${needFile})</button>` : g.inShop && s.phase !== 'seasonEnd' ? `<button class="btn big go" data-act="wait">${SKIP_ICON} ${s.inShopUntil > SEASON_DAYS ? 'Skip to the end of summer' : `Skip to next ${DAY_FULL[(s.inShopUntil - 1) % 7]}`}</button>` : `<button class="btn big go pulse" data-act="open">🔔 Open for business!</button>`}
     </div></div>`);
     this.stage.appendChild(card);
     onActs(card, {
@@ -674,7 +674,7 @@ class App {
       b('gift', '🎁', 'Gift cards') +
       b('stock', '📦', 'Stock') +
       b('books', '📒', 'Books') +
-      b('shoebox', '🗃️', `Shoebox${files ? ' (' + files + ')' : ''}`, files > 0) +
+      b('shoebox', shoeboxIcon(), `Shoebox${files ? ' (' + files + ')' : ''}`, files > 0) +
       b('policies', '📜', 'Policies') +
       b('truck', '🚚', 'Truck') +
       `<button data-act="home"><b>🏠</b>Save & quit</button>`;
