@@ -440,6 +440,9 @@ export const CART = {
   // The freezer at home has two shelves, each with room for 6 boxes standing side by side.
   freezerShelves: 2,
   shelfSlots: 6,
+  // Drinks don't need the freezer: their cases go on a shelf in the kitchen, with room for this many. They don't
+  // melt on the counter either.
+  drinkShelf: 3,
   priceStep: 25,
   // Hunger: full at the start of the day, then it runs down. With nothing to eat you're empty about 2:30pm and go
   // home. A snack (food 25) buys about an hour; lunch (food 60) lasts the day. low: when your tummy rumbles.
@@ -453,6 +456,12 @@ export const CART = {
   // Buying in bulk at the restaurant store: 3 boxes of the same kind cost 20% less. They still take 3 freezer spots.
   bulk: { boxes: 3, off: 0.2 },
   vendorMistake: 0.15, // how often a seller gets your change wrong
+  // Now and then a really big family comes by (2 grown-ups and 4 or 5 kids), from day `firstDay` on: `chance` a day.
+  bigFamily: { chance: 0.25, firstDay: 3, kids: [4, 5] },
+  // A can of paint from the corner store repaints the cart: a new color and name, and the stickers are painted over.
+  cartName: 'ICE POPS', // what the cart says until you repaint it
+  nameMax: 14,
+  paints: ['#7cc8ff', '#ff6f91', '#3cc6a0', '#ffd23f', '#9b7be0', '#ff9f1c'], // the stripe color (the first: as it comes)
   // Each game, one of these is a big seller too (as popular as rocket pops, about 1 order in 5). Lemon ice is
   // never one. It stays the favorite on the truck.
   hotChoices: ['fudgePop', 'freezePop', 'pushOrange', 'pushGrape', 'orangeCream', 'shortcake', 'sandwich', 'iceCherry', 'iceStrawberry', 'iceBlue', 'crunchBar', 'sundaeCone'],
@@ -524,6 +533,7 @@ export const CART_SHOPS = {
       { id: 'chips', name: 'Chips', kind: 'snack', price: 150, emoji: '🥔', food: 25 },
       { id: 'juice', name: 'Juice box', kind: 'snack', price: 125, emoji: '🧃', food: 15 },
       { id: 'lunchKit', name: 'Sandwich makings', note: 'makes 5 lunches', kind: 'pantry', qty: 5, price: 500, emoji: '🍞' },
+      { id: 'paint', name: 'Can of paint', note: 'repaint your cart', kind: 'paint', price: 600, emoji: '🎨' },
       // Small boxes, handy near the park but they cost more per treat than at the restaurant store. Bought at
       // the park, they go right into the cooler.
       { id: 'rocketSmall', name: 'Rocket pops', note: 'box of 6', kind: 'stock', item: 'rocketPop', qty: 6, price: 350 },

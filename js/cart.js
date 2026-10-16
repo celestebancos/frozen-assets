@@ -107,6 +107,7 @@ export const bulkPrice = (it) => Math.round((it.price * K.bulk.boxes * (1 - K.bu
 // How many treats a box holds when full: small boxes from the corner store say so.
 export const capOf = (box) => box.size || boxSize(box.item);
 const emptyShelves = () => Array.from({ length: K.freezerShelves }, () => Array(K.shelfSlots).fill(null));
+const isDrinkId = (id) => CART_ITEM[id]?.kind === 'drink';
 const emptyTrays = () => Array.from({ length: K.coolerTrays }, () => Array(K.traySpots).fill(null));
 // Freeze pops come in assorted colors, just for looks. Each spot in a box has its own color (from the box's seed),
 // and the pop keeps that color in the cooler and on the counter. A color is an index into FREEZE_TINTS.
@@ -130,6 +131,7 @@ export function newCartState({ player, look, seed }) {
     prices: Object.fromEntries(CART_ITEMS.map((i) => [i.id, i.fair])),
     // The freezer at home: shelves of box spots. A box is { item, n } (n: how many treats are left in it).
     freezer: { shelves: emptyShelves() },
+    drinkShelf: Array(K.drinkShelf).fill(null), // cases of drinks on the kitchen shelf (they don't go in the freezer)
     counter: [], // boxes from the store on the kitchen counter, not put away yet (they melt if left out)
     recycling: [], // empty boxes in the recycling bin (ids of what was in them): taken out with the trash when you leave
     // The cooler: trays of spots, each holding one treat id or null. trays[top] is the one you can see.
@@ -155,6 +157,10 @@ export function newCartState({ player, look, seed }) {
     pantry: 0, // packed lunches you can still make at home
     grandma: null, // set up in the constructor: see newGrandma
     stats: { sold: 0, revenue: 0, tips: 0, keptExtra: 0, toTruck: 0, soldItems: {} }, // soldItems: how many of each, ever
+    bought: {}, // treats bought for the cooler, ever: { id: { n, paid } } (for what each one costs, on average)
+    cartName: null, // what the cart says (null: CART.cartName)
+    cartPaint: null, // the cart's stripe color (null: as it came)
+    paint: 0, // cans of paint at home
     log: [],
   };
   s.hot = hotFor(s.seed); // this game's other big seller (besides rocket pops)
@@ -200,6 +206,19 @@ export class Cart {
     }
     state.counter ??= [];
     state.recycling ??= [];
+    // older saves: drinks were kept in the freezer. They move to the shelf (or the counter, if the shelf is full).
+    if (!state.drinkShelf) {
+      state.drinkShelf = Array(K.drinkShelf).fill(null);
+      state.freezer.shelves.forEach((shelf, r) =>
+        shelf.forEach((b, i) => {
+          if (!b || !isDrinkId(b.item)) return;
+          const spot = this.emptySlot(b.item);
+          if (spot) this.setBox(spot, b);
+          else state.counter.push(b);
+          shelf[i] = null;
+        }),
+      );
+    }
     // older saves: full, with nothing in the pantry
     state.fed ??= { minute: state.minute, level: 100 };
     state.tooHungry ??= null;
@@ -224,6 +243,10 @@ export class Cart {
     state.hot ??= hotFor(state.seed);
     state.packs ??= { spoons: 0, napkins: 0 }; // older saves: everything bought was already on the cart
     state.decalSpots ??= {}; // older saves: stickers go in their usual spots until they're moved
+    state.bought ??= {}; // older saves: treats cost what the restaurant store charges for a box
+    state.cartName ??= null;
+    state.cartPaint ??= null;
+    state.paint ??= 0;
     if (state.window && state.window.v !== 2) state.window = null; // a sale from an older version: they wander off
     // a payment that was never finished (the page closed): the money goes back where it came from
     if (state.txn) this.cancelPay();
@@ -288,6 +311,14 @@ export class Cart {
   wantOf(id) {
     return id === this.state.hot ? K.hotWant : CART_ITEM[id]?.want || 0;
   }
+  // What one treat costs you: what you've paid for them on average, or (before you've bought any) a box from the
+  // restaurant store's price. In cents, not rounded.
+  unitCost(id) {
+    const b = this.state.bought?.[id];
+    if (b?.n) return b.paid / b.n;
+    const box = CART_SHOPS.restaurant.items.find((i) => i.kind === 'stock' && i.item === id);
+    return box ? box.price / box.qty : 0;
+  }
   // How many boxes of a treat stand on the store shelf: the big sellers get two, as a hint.
   shelfRoom(it) {
     return it.shelf || (it.item && it.item === this.state.hot ? 2 : 1);
@@ -300,12 +331,14 @@ export class Cart {
   isDrink(id) {
     return CART_ITEM[id]?.kind === 'drink';
   }
-  // Every box at home: on the freezer shelves and on the kitchen counter, with where it is.
-  // Where a box is: 's0-3' (top shelf, 4th spot), 's1-0' (bottom shelf, 1st spot), 'c2' (3rd box on the counter).
+  // Every box at home: on the freezer shelves, the drinks shelf and the kitchen counter, with where it is.
+  // Where a box is: 's0-3' (top freezer shelf, 4th spot), 's1-0' (bottom shelf, 1st spot), 'd1' (2nd spot on the
+  // drinks shelf), 'c2' (3rd box on the counter).
   homeBoxes() {
     const s = this.state;
     const out = [];
     s.freezer.shelves.forEach((shelf, r) => shelf.forEach((b, i) => b && out.push({ loc: `s${r}-${i}`, box: b })));
+    s.drinkShelf.forEach((b, i) => b && out.push({ loc: `d${i}`, box: b }));
     s.counter.forEach((b, i) => out.push({ loc: `c${i}`, box: b }));
     return out;
   }
@@ -313,39 +346,60 @@ export class Cart {
     const s = this.state;
     const m = /^s(\d+)-(\d+)$/.exec(loc || '');
     if (m) return s.freezer.shelves[m[1]]?.[m[2]] ?? null;
+    const d = /^d(\d+)$/.exec(loc || '');
+    if (d) return s.drinkShelf[d[1]] ?? null;
     const c = /^c(\d+)$/.exec(loc || '');
     if (c) return s.counter[c[1]] ?? null;
     return null;
   }
-  isSlot(loc) {
+  // A spot in the freezer or on the drinks shelf. With an item: a spot where that kind of box goes (drinks on the
+  // shelf, everything else in the freezer).
+  isSlot(loc, item = null) {
     const m = /^s(\d+)-(\d+)$/.exec(loc || '');
-    return !!m && Number(m[1]) < K.freezerShelves && Number(m[2]) < K.shelfSlots;
+    if (m) return Number(m[1]) < K.freezerShelves && Number(m[2]) < K.shelfSlots && !(item && isDrinkId(item));
+    const d = /^d(\d+)$/.exec(loc || '');
+    return !!d && Number(d[1]) < K.drinkShelf && !(item && !isDrinkId(item));
+  }
+  isDrinkBox(loc) {
+    return isDrinkId(this.boxAt(loc)?.item);
   }
   // Puts a box (or null) at a spot. On the counter, null takes the box away.
   setBox(loc, box) {
     const s = this.state;
     const m = /^s(\d+)-(\d+)$/.exec(loc);
     if (m) s.freezer.shelves[m[1]][m[2]] = box;
+    else if (loc[0] === 'd') s.drinkShelf[Number(loc.slice(1))] = box;
     else {
       const i = Number(loc.slice(1));
       if (box) s.counter[i] = box;
       else s.counter.splice(i, 1);
     }
   }
-  emptySlot() {
+  // The first open spot for a box of `item`: on the drinks shelf for drinks, otherwise in the freezer.
+  emptySlot(item = null) {
+    if (isDrinkId(item)) {
+      const i = this.state.drinkShelf.indexOf(null);
+      return i < 0 ? null : `d${i}`;
+    }
     for (let r = 0; r < K.freezerShelves; r++) for (let i = 0; i < K.shelfSlots; i++) if (!this.state.freezer.shelves[r][i]) return `s${r}-${i}`;
     return null;
   }
+  // Open spots in the freezer (drinks: on the drinks shelf).
   get freeSlots() {
     return this.state.freezer.shelves.flat().filter((b) => !b).length;
   }
-  // Move a box to a spot in the freezer. If there's a box there already, they trade places.
+  get freeDrinkSlots() {
+    return this.state.drinkShelf.filter((b) => !b).length;
+  }
+  // Move a box to a spot in the freezer (or a case of drinks to a spot on the shelf). If there's a box there
+  // already, they trade places.
   moveBox(from, to) {
     const s = this.state;
-    if (s.phase !== 'home' || from === to || !this.isSlot(to)) return false;
+    if (s.phase !== 'home' || from === to) return false;
     const a = this.boxAt(from);
-    if (!a) return false;
+    if (!a || !this.isSlot(to, a.item)) return false;
     const b = this.boxAt(to);
+    if (b && !from.startsWith('c') && !this.isSlot(from, b.item)) return false;
     this.setBox(to, a);
     this.setBox(from, b);
     return true;
@@ -425,7 +479,7 @@ export class Cart {
   unrecycle(i) {
     const s = this.state;
     if (s.phase !== 'home' || !(i in s.recycling)) return { ok: false };
-    const spot = this.emptySlot();
+    const spot = this.emptySlot(s.recycling[i]);
     if (!spot) return { ok: false, reason: 'full' };
     this.setBox(spot, { item: s.recycling.splice(i, 1)[0], n: 0 });
     return { ok: true, spot };
@@ -517,10 +571,15 @@ export class Cart {
   }
   // Will these boxes fit in the freezer at home (with what's already on the counter)? If not, the cashier drops a
   // hint: 'room' for a box or two ("Do you have room in your freezer for that?"), 'lots' for more.
+  // (Drinks go on the drinks shelf, so they only count against it.)
   roomHint(shop, basket) {
-    const boxes = this.boxesIn(shop, basket);
-    if (!boxes || boxes <= this.freeSlots - this.state.counter.length) return null;
-    return boxes <= 2 ? 'room' : 'lots';
+    const drinks = Object.entries(basket).reduce((a, [id, q]) => a + (isDrinkId(this.shopItem(shop, id)?.item) ? q : 0), 0);
+    const boxes = this.boxesIn(shop, basket) - drinks;
+    const onCounter = this.state.counter.filter((b) => isDrinkId(b.item)).length;
+    const overFreezer = boxes > 0 && boxes > this.freeSlots - (this.state.counter.length - onCounter);
+    const overShelf = drinks > 0 && drinks > this.freeDrinkSlots - onCounter;
+    if (!overFreezer && !overShelf) return null;
+    return boxes + drinks <= 2 ? 'room' : 'lots';
   }
   basketCost(shop, basket) {
     return Object.entries(basket).reduce((s, [id, q]) => {
@@ -577,6 +636,12 @@ export class Cart {
     for (const [id, q] of Object.entries(t.basket)) {
       const it = this.shopItem(t.shop, id);
       if (!it || q <= 0) continue;
+      if (it.kind === 'stock') {
+        // what these treats cost, for the sales record
+        const b = (s.bought[it.item] ??= { n: 0, paid: 0 });
+        b.n += it.qty * q;
+        b.paid += this.basketCost(t.shop, { [id]: q });
+      }
       for (let i = 0; i < q; i++) {
         got.push(this.receive(it));
         // Grandma notices if you spend a lot on snacks and toys (lunch doesn't count)
@@ -627,6 +692,9 @@ export class Cart {
       case 'pantry':
         s.pantry += it.qty;
         break;
+      case 'paint':
+        s.paint++; // at home, until you repaint the cart
+        break;
       case 'toy':
         s.owned.push(it.id); // toys can be bought again
         break;
@@ -665,6 +733,28 @@ export class Cart {
   }
   has(id) {
     return this.state.owned.includes(id);
+  }
+  // What the cart says on its side.
+  get cartName() {
+    return this.state.cartName || K.cartName;
+  }
+  // Repaint the cart with a can of paint, at home: a new stripe color and a new name. The stickers get painted over
+  // (they're gone, and can be bought again).
+  repaint(name, color) {
+    const s = this.state;
+    if (s.phase !== 'home') return { ok: false, reason: 'notHome' };
+    if (s.paint <= 0) return { ok: false, reason: 'noPaint' };
+    const n = String(name || '').replace(/\s+/g, ' ').trim().slice(0, K.nameMax);
+    if (!n) return { ok: false, reason: 'name' };
+    if (!K.paints.includes(color)) return { ok: false, reason: 'color' };
+    s.paint--;
+    s.cartName = n.toUpperCase() === K.cartName ? null : n;
+    s.cartPaint = color === K.paints[0] ? null : color;
+    const gone = this.decals();
+    s.owned = s.owned.filter((id) => !gone.includes(id));
+    s.decalSpots = {};
+    this.logAction('repaint', { name: n, color, stickers: gone.length });
+    return { ok: true, stickers: gone.length };
   }
 
   // ---------- the corner store: ATM and change machine ----------
@@ -712,9 +802,9 @@ export class Cart {
     s.recycling = []; // the recycling goes out while you're away
     s.line = [];
     s.window = null;
-    // anything left out on the kitchen counter melts
-    const melted = s.counter.reduce((a, b) => a + b.n, 0);
-    s.counter = [];
+    // anything frozen left out on the kitchen counter melts (drinks just wait there)
+    const melted = s.counter.reduce((a, b) => a + (isDrinkId(b.item) ? 0 : b.n), 0);
+    s.counter = s.counter.filter((b) => isDrinkId(b.item));
     s.today = { sold: {}, revenue: 0, customers: 0, tooExpensive: 0, leftLine: 0, missedFav: 0, tips: 0, keptExtra: 0, returned: 0, noChange: 0, given: {}, napkins: 0, melted, startBox: this.boxTotal, opened: s.minute };
     // regulars who'll come by today
     s.schedule = [];
@@ -736,6 +826,12 @@ export class Cart {
     } else if (g.lunches > 0 && g.answered !== 'yes' && this.rng.chance(G.visit.chance)) {
       const m = this.rng.int(s.minute + 30, K.parkClose - 40);
       if (m > s.minute) s.schedule.push({ id: 'grandma', minute: m });
+    }
+    // now and then a really big family
+    const BF = K.bigFamily;
+    if (s.day >= BF.firstDay && this.rng.chance(BF.chance)) {
+      const m = this.rng.int(s.minute + 15, K.parkClose - 30);
+      if (m > s.minute) s.schedule.push({ id: 'bigFamily', minute: m });
     }
     this.logAction('openPark', { minute: s.minute });
     return true;
@@ -778,6 +874,7 @@ export class Cart {
     if (kind === 'parentKid') members = [{ kind: 'adult', look }, { kind: 'kid', look: rng.int(0, 9999) }];
     if (kind === 'family') members = [{ kind: 'adult', look }, ...Array.from({ length: rng.int(2, 3) }, () => ({ kind: 'kid', look: rng.int(0, 9999) }))];
     if (kind === 'friends') members = Array.from({ length: rng.int(3, 4) }, (_, i) => ({ kind: 'teen', look: i ? rng.int(0, 9999) : look }));
+    if (kind === 'bigFamily') members = [{ kind: 'adult', look }, { kind: 'adult', look: rng.int(0, 9999) }, ...Array.from({ length: rng.int(...K.bigFamily.kids) }, () => ({ kind: 'kid', look: rng.int(0, 9999) }))];
     const payer = members[0].kind;
     // what's in their pocket
     const pocket = {};
@@ -786,6 +883,12 @@ export class Cart {
       // a grown-up buying for everyone brings a bigger bill
       put(rng.chance(0.2) ? 2000 : 1000, 1);
       put(100, rng.int(0, 3));
+      put(25, rng.int(0, 4));
+    } else if (kind === 'bigFamily') {
+      // buying for lots of people
+      put(2000, 1);
+      put(1000, rng.int(0, 1));
+      put(100, rng.int(0, 4));
       put(25, rng.int(0, 4));
     } else if (kind === 'friends') {
       // friends put their money together
@@ -824,6 +927,7 @@ export class Cart {
       pocket,
       wants,
       regular: regular?.id || null,
+      big: kind === 'bigFamily' || undefined,
       patience: rng.int(CR.patience[0], CR.patience[1]),
       waited: 0,
       honest: rng.chance(CR.honest),
@@ -895,7 +999,7 @@ export class Cart {
       return false;
     }
     s.minute++;
-    if (!s.today.rumbled && this.hunger < K.hunger.low) {
+    if (!s.today.rumbled && this.hungerWarn) {
       s.today.rumbled = true;
       this.emit({ t: 'hungry' });
     }
@@ -909,6 +1013,10 @@ export class Cart {
     for (const due of s.schedule.filter((x) => x.minute === s.minute)) {
       if (due.id === 'grandma') {
         this.arrive(this.makeGrandma(), true);
+        continue;
+      }
+      if (due.id === 'bigFamily') {
+        this.arrive(this.makeCustomer('bigFamily'));
         continue;
       }
       const r = REGULARS.find((x) => x.id === due.id);
@@ -941,12 +1049,14 @@ export class Cart {
     }
     const L = s.line.length + (s.window ? 1 : 0);
     // One draw: below `want × line` they join; between that and `want` they wanted something, but the line put them off.
+    // Regulars and the big family came for ice cream: they join unless the line is really long.
+    const sure = isRegular || c.big;
     const want = CR.join * this.looksBoost() * this.priceAppeal();
-    const u = isRegular ? 0 : this.rng.next();
-    const join = isRegular ? L < 5 : u < want * CR.lineJoin[Math.min(L, CR.lineJoin.length - 1)];
+    const u = sure ? 0 : this.rng.next();
+    const join = sure ? L < 5 : u < want * CR.lineJoin[Math.min(L, CR.lineJoin.length - 1)];
     if (!join) {
-      if (!isRegular && u < want) s.today.sawLine = (s.today.sawLine || 0) + 1;
-      this.emit({ t: 'pass', cust: c, say: isRegular ? 'tooLong' : null });
+      if (!sure && u < want) s.today.sawLine = (s.today.sawLine || 0) + 1;
+      this.emit({ t: 'pass', cust: c, say: sure ? 'tooLong' : null });
       return;
     }
     s.line.push(c);
@@ -1094,9 +1204,15 @@ export class Cart {
     const s = this.state;
     const w = s.window;
     const c = w.cust;
+    const T = s.today;
+    T.earned ??= {};
+    T.cost ??= {};
     for (const id of w.order) {
-      s.today.sold[id] = (s.today.sold[id] || 0) + 1;
+      T.sold[id] = (T.sold[id] || 0) + 1;
       s.stats.soldItems[id] = (s.stats.soldItems[id] || 0) + 1;
+      // for the sales record: what it sold for and what it cost
+      T.earned[id] = (T.earned[id] || 0) + s.prices[id];
+      T.cost[id] = (T.cost[id] || 0) + this.unitCost(id);
     }
     s.today.revenue += w.due;
     s.stats.sold += w.order.length;
@@ -1199,6 +1315,8 @@ export class Cart {
     target = Math.max(W.min, Math.min(W.max, target - W.leftLine * (t.leftLine || 0) - W.tooMuch * (t.tooExpensive || 0)));
     s.buzz = buzzBefore + (target - buzzBefore) * W.pull;
     const soldOut = Object.keys(t.sold).filter((id) => t.sold[id] > 0 && !this.count('cooler', id));
+    t.earned ??= {};
+    t.cost = Object.fromEntries(Object.entries(t.cost || {}).map(([id, v]) => [id, Math.round(v)])); // whole cents
     const summary = { day: s.day, weather: s.weather, soldOut, ...t, endBox: this.boxTotal, tipsToWallet: tips, closed: Math.min(s.minute, K.parkClose, s.tooHungry ?? K.parkClose), tooHungry: s.tooHungry, buzz: s.buzz, buzzChange: s.buzz - buzzBefore };
     s.days.push(summary);
     if (s.days.length > 400) s.days.shift();
@@ -1239,6 +1357,15 @@ export class Cart {
   }
   fill(food) {
     this.state.fed = { minute: this.state.minute, level: Math.min(100, this.hunger + food) };
+    if (this.state.today && !this.hungerWarn) this.state.today.rumbled = false; // it can rumble again later
+  }
+  // Your tummy is rumbling: you're hungry, and at this rate you'll have to go home before closing time. (Late in
+  // the day you can make it to closing time, so there's nothing to worry about.)
+  get hungerWarn() {
+    const s = this.state;
+    if (s.phase !== 'park' || this.closedNow) return false;
+    const h = this.hunger;
+    return h < K.hunger.low && h / K.hunger.perMinute < K.parkClose - s.minute;
   }
   // Eat something right away (hot dog stand food, or a snack you didn't save).
   eatNow(id) {

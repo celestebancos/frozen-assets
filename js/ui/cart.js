@@ -46,7 +46,7 @@ export function meSVG(look, wearing = {}) {
 function cartArt(c, park = false, pick = null, trying = {}) {
   const s = c.state;
   const decals = c.decalsPlaced().map((d) => (trying[d.id] ? { id: d.id, at: trying[d.id] } : d));
-  return cartSVG({ decals, umbrella: !park && c.has('umbrella'), fan: c.has('fan'), bell: c.has('bell'), balloon: pick ? null : s.balloon, pick, tight: !!pick, jar: park && !pick ? c.jarTotal : null });
+  return cartSVG({ decals, umbrella: !park && c.has('umbrella'), fan: c.has('fan'), bell: c.has('bell'), balloon: pick ? null : s.balloon, pick, tight: !!pick, jar: park && !pick ? c.jarTotal : null, name: c.cartName, paint: s.cartPaint || K.paints[0] });
 }
 function cartSpot(c) {
   return `${c.has('umbrella') ? `<div class="umb">${umbrellaSVG()}</div>` : ''}<div class="me">${meSVG(c.state.look, c.state.wearing)}</div><div class="the-cart">${cartArt(c, true)}</div>`;
@@ -250,9 +250,11 @@ export class CartView {
       // Tap a box on the counter and it goes in the first open spot in the freezer. Tap a box in the freezer to
       // open it next to the cooler; then tap an empty spot to move it there, another box to open that one instead
       // (this one goes back in the freezer), or it again to close it.
+      // Cases of drinks go on the shelf instead of the freezer.
       slot: (t) => {
         const loc = t.dataset.loc;
-        const spot = loc.startsWith('c') && c.emptySlot();
+        const drink = c.isDrinkBox(loc);
+        const spot = loc.startsWith('c') && c.emptySlot(c.boxAt(loc)?.item);
         this.coolSel = null;
         if (spot) {
           c.moveBox(loc, spot);
@@ -260,12 +262,13 @@ export class CartView {
           this.save();
         } else if (this.sel === loc) this.sel = null;
         else if (this.sel && c.isSlot(loc) && !c.boxAt(loc)) {
-          c.moveBox(this.sel, loc);
-          this.sel = null;
-          this.save();
+          if (c.moveBox(this.sel, loc)) {
+            this.sel = null;
+            this.save();
+          } else oops(c.isDrinkBox(this.sel) ? 'Drinks go on the shelf, not in the freezer.' : 'That goes in the freezer.');
         } else if (c.boxAt(loc)) {
           this.sel = loc;
-          if (loc.startsWith('c')) toast('The freezer is full! Pack the cooler from this box.');
+          if (loc.startsWith('c')) toast(drink ? 'The drinks shelf is full! Pack the cooler from this case.' : 'The freezer is full! Pack the cooler from this box.');
         }
         this.renderHome();
       },
@@ -362,6 +365,8 @@ export class CartView {
         this.renderHome();
       },
       prices: () => this.prices(() => this.renderHome()),
+      sales: () => this.salesRecord(),
+      repaint: () => this.repaint(),
       closet: () => this.closet(() => this.renderHome()),
       stickers: () => this.placeStickers(null, () => this.renderHome()),
       moveMoney: () => this.moveMoney(() => this.renderHome()),
@@ -397,7 +402,7 @@ export class CartView {
       },
       park: async () => {
         if (!c.spaceUsed('cooler') && !(await askYes('Your cooler is empty! Go to the park anyway?', { yes: 'Go anyway', no: 'Wait' }))) return;
-        if (s.counter.some((b) => b.n > 0) && c.freeSlots && !(await askYes('Some boxes are still on the counter. They will melt! Go anyway?', { yes: 'Go anyway', no: 'Wait' }))) return;
+        if (s.counter.some((b) => b.n > 0 && CART_ITEM[b.item]?.kind !== 'drink') && c.freeSlots && !(await askYes('Some boxes are still on the counter. They will melt! Go anyway?', { yes: 'Go anyway', no: 'Wait' }))) return;
         if (!s.spoons && s.cooler.trays.flat().some((id) => id && c.isIce(id)) && !(await askYes(s.packs.spoons ? 'No spoons on the cart! Tap the spoon box on the shelf to bring some. Go anyway?' : 'No spoons on the cart! Go anyway?', { yes: 'Go anyway', no: 'Wait' }))) return;
         c.openPark();
         this.save();
@@ -424,6 +429,7 @@ export class CartView {
           <div class="cart-pic">${cartArt(c)}</div>
           <button class="btn small" data-act="closet">👕 Closet</button>
           ${c.decalsLoose().length ? '<button class="btn small" data-act="stickers">🌟 Stickers</button>' : ''}
+          ${s.paint ? '<button class="btn small yellow" data-act="repaint">🎨 Repaint</button>' : ''}
           <div class="toys"><h3>🧸 My toys</h3><div class="toy-shelf">${s.owned
             .filter((id) => ITEM[id]?.kind === 'toy')
             .map((id) => `<button class="toy" data-act="toy" aria-label="${esc(ITEM[id].name)}">${ITEM[id].emoji}</button>`)
@@ -442,10 +448,12 @@ export class CartView {
         <div class="card errands">
           ${c.lunchInvite ? `<div class="grandma-call"><span class="gma">${personSVG('adult', 7, { ...GRANDMA.look, skin: s.look.skin })}</span><div><b>Grandma called!</b><div>"Come have lunch with me today?"</div><div class="tiny muted">It's free, but it takes an hour.</div><div class="row"><button class="btn go small" data-act="lunchYes">Yes, please!</button><button class="btn small" data-act="lunchNo">Not today</button></div></div></div>` : ''}
           <h3>🚶 Before the park</h3>
-          <button class="btn ${noStock ? 'yellow pulse' : ''}" data-act="restaurant">🏬 Restaurant store</button>
-          <button class="btn" data-act="corner">🏪 Corner store</button>
+          <p class="tiny muted when">${s.minute < K.parkOpen ? `It's ${fmtTime(s.minute)}. The park opens at ${fmtTime(K.parkOpen)}.` : `It's ${fmtTime(s.minute)}. The park is open. Hurry!`}</p>
+          <button class="btn ${noStock ? 'yellow pulse' : ''}" data-act="restaurant">🏬 Restaurant store <span class="tiny muted">${K.errand.restaurant} min</span></button>
+          <button class="btn" data-act="corner">🏪 Corner store <span class="tiny muted">${K.errand.corner} min</span></button>
           ${s.pantry ? `<button class="btn" data-act="packLunch">${FOOD.lunch.emoji} Pack a lunch <span class="tiny muted">(${s.pantry} left)</span></button>` : ''}
           <button class="btn" data-act="prices">🏷️ Prices</button>
+          ${s.days.length ? '<button class="btn" data-act="sales">📒 Sales record</button>' : ''}
           ${s.grandma.offer === 'made' ? `<button class="btn yellow" data-act="grandmaOffer">👵 Grandma's offer</button>` : ''}
           <button class="btn" data-act="truck">🏦 Get a truck loan</button>
           ${used && total({ 100: s.money.box[100] || 0, 25: s.money.box[25] || 0 }) < 300 ? `<p class="hint">${coinIcon()} Your cash box has hardly any small money. How will you give change? The corner store has a change machine.</p>` : ''}
@@ -461,10 +469,19 @@ export class CartView {
     const sel = this.sel;
     const name = (b) => esc(BOX_ITEM[b.item]?.name || b.item);
     const slot = (loc, b) => {
-      if (!b) return `<button class="slot empty ${sel ? 'target' : ''}" data-act="slot" data-loc="${loc}" aria-label="Empty spot"></button>`;
+      if (!b) return `<button class="slot empty ${sel && !c.isDrinkBox(sel) ? 'target' : ''}" data-act="slot" data-loc="${loc}" aria-label="Empty spot"></button>`;
       return `<button class="slot ${sel === loc ? 'sel' : ''} ${b.n ? '' : 'spent'}" data-act="slot" data-loc="${loc}" aria-label="${name(b)}">${boxSideSVG(b.item, b.n < capOf(b))}</button>`;
     };
     const shelves = s.freezer.shelves.map((shelf, r) => `<div class="fz-shelf">${shelf.map((b, i) => slot(`s${r}-${i}`, b)).join('')}</div>`).join('<div class="fz-rail"></div>');
+    // the drinks shelf: cases of water and fruit punch (they don't need the freezer)
+    const selDrink = sel && c.isDrinkBox(sel);
+    const drinks = s.drinkShelf
+      .map((b, i) =>
+        b
+          ? `<button class="dslot ${sel === `d${i}` ? 'sel' : ''} ${b.n ? '' : 'spent'}" data-act="slot" data-loc="d${i}" aria-label="${name(b)}">${boxFrontSVG(b.item, capOf(b))}</button>`
+          : `<button class="dslot empty ${selDrink ? 'target' : ''}" data-act="slot" data-loc="d${i}" aria-label="Empty spot for drinks"></button>`,
+      )
+      .join('');
     const counter = s.counter
       .map((b, i) => `<button class="cbox ${sel === `c${i}` ? 'sel' : ''} ${!sel && i === 0 && c.freeSlots ? 'nudge' : ''}" data-act="slot" data-loc="c${i}" aria-label="${name(b)}">${boxFrontSVG(b.item, capOf(b))}</button>`)
       .join('');
@@ -472,7 +489,7 @@ export class CartView {
     const packs = (k, svg) => Array.from({ length: Math.min(3, s.packs[k]) }, () => `<button class="pk" data-act="openPack" data-k="${k}" aria-label="Put ${k} on the cart">${svg}</button>`).join('') + (s.packs[k] > 3 ? `<span class="pk-more">×${s.packs[k]}</span>` : '');
     const box = sel ? c.boxAt(sel) : null;
     const open = box
-      ? `${openBoxHTML(box)}<div class="row box-btns"><button class="btn" data-act="shut">📦 ${sel.startsWith('s') ? 'Back in freezer' : 'Close box'}</button>${box.n ? '' : '<button class="btn" data-act="recycle">♻️ Recycle</button>'}</div>`
+      ? `${openBoxHTML(box)}<div class="row box-btns"><button class="btn" data-act="shut">📦 ${sel.startsWith('s') ? 'Back in freezer' : sel.startsWith('d') ? 'Back on shelf' : 'Close box'}</button>${box.n ? '' : '<button class="btn" data-act="recycle">♻️ Recycle</button>'}</div>`
       : '';
     // the recycling bin: tap an empty box, then the bin. Boxes in it can come back out until you leave home.
     const binned = s.recycling.map((id, i) => `<button class="binned" data-act="unrecycle" data-i="${i}" aria-label="Take out ${esc(BOX_ITEM[id]?.name || id)} box" style="--r:${((i * 37) % 30) - 15}deg">${boxFrontSVG(id, 0)}</button>`).join('');
@@ -482,6 +499,7 @@ export class CartView {
         <div class="fridge"><div class="fz-door"><i class="hinge"></i><i class="hinge low"></i></div><div class="fz-box"><div class="fz-in">${shelves}</div></div></div>
         <div class="kit-side">
           <div class="supplies">${packs('spoons', spoonBoxSVG())}${packs('napkins', napkinPackSVG())}</div>
+          <div class="supplies drink-shelf" aria-label="Drinks shelf">${drinks}</div>
           <div class="on-cart"><span class="tiny muted">On the cart:</span><span class="oc-cup" aria-label="Spoons on the cart">${spoonCupSVG(cupFill(s.spoons))}</span><span class="oc-stack" aria-label="Napkins on the cart">${napkinStackSVG(stackFill(s.napkins))}</span></div>
           <div class="kit-floor"><div class="kit-counter"><div class="kc-boxes">${counter}</div></div>${bin}</div>
         </div>
@@ -510,7 +528,7 @@ export class CartView {
       },
       render: (body) => {
         const box = at ? c.boxAt(at) : null;
-        const left = box ? `<div class="pk-left">${openBoxHTML(box)}<button class="btn" data-act="done">📦 ${at.startsWith('s') ? 'Back in freezer' : 'Close box'}</button></div>` : '';
+        const left = box ? `<div class="pk-left">${openBoxHTML(box)}<button class="btn" data-act="done">📦 ${at.startsWith('s') ? 'Back in freezer' : at.startsWith('d') ? 'Back on shelf' : 'Close box'}</button></div>` : '';
         body.innerHTML = `<div class="packing ${box ? '' : 'solo'}">${left}<div class="pk-right">${coolerHTML(c.topTray, { sel, fresh, tints: c.state.cooler.tints[c.state.cooler.top] })}${box ? '' : '<button class="btn go" data-act="done">Done ✓</button>'}</div></div>`;
         fresh = null;
       },
@@ -609,7 +627,7 @@ export class CartView {
         m.refresh();
       },
       pay: () => {
-        const forCart = Object.keys(basket).some((k) => ['stock', 'spoons', 'napkins', 'gear', 'decal', 'balloon'].includes(ITEM[k].kind));
+        const forCart = Object.keys(basket).some((k) => ['stock', 'spoons', 'napkins', 'gear', 'decal', 'balloon', 'paint'].includes(ITEM[k].kind));
         this.payFlow(id, basket, forCart ? 'box' : 'wallet', (res) => {
           if (!res) return;
           const got = res.got.map((g) => g.kind);
@@ -622,6 +640,10 @@ export class CartView {
           m.refresh();
           this.refreshScene?.();
           if (sticker) this.placeStickers(sticker.id); // stick it on right away
+          else if (got.includes('paint')) {
+            if (c.state.phase === 'home') this.repaint();
+            else toast('🎨 The paint is at home. Repaint your cart there!');
+          }
         });
       },
     });
@@ -953,19 +975,26 @@ export class CartView {
     });
   }
 
+  // Prices for what's in the cooler. Everything else is folded away underneath.
   prices(onClose) {
     const c = this.cart;
+    // what's in the cooler when the prices open (so a row doesn't jump away while you change it)
+    const inCooler = new Set(CART_ITEMS.filter((it) => c.canSell(it.id)).map((it) => it.id));
+    let more = !inCooler.size;
     const m = openModal({
       title: '🏷️ Prices',
       cls: 'narrow',
       onClose,
       render: (body) => {
         const last = c.state.days[c.state.days.length - 1];
-        body.innerHTML = `<div class="price-list">${CART_ITEMS.map(
-          (it) => `<div class="price-row"><span class="ic">${treatSVG(it.id, 34)}</span><span class="nm">${esc(it.name)}</span>
-            <span class="stepper"><button data-act="p" data-id="${it.id}" data-d="-25" aria-label="Lower">−</button><span class="v">${money(c.state.prices[it.id])}</span><button data-act="p" data-id="${it.id}" data-d="25" aria-label="Raise">+</button></span></div>`,
-        ).join('')}</div>
+        const row = (it) => `<div class="price-row"><span class="ic">${treatSVG(it.id, 34)}</span><span class="nm">${esc(it.name)}</span>
+            <span class="stepper"><button data-act="p" data-id="${it.id}" data-d="-25" aria-label="Lower">−</button><span class="v">${money(c.state.prices[it.id])}</span><button data-act="p" data-id="${it.id}" data-d="25" aria-label="Raise">+</button></span></div>`;
+        const mine = CART_ITEMS.filter((it) => inCooler.has(it.id));
+        const rest = CART_ITEMS.filter((it) => !inCooler.has(it.id));
+        body.innerHTML = `${mine.length ? `<div class="price-list">${mine.map(row).join('')}</div>` : '<p class="tiny muted">Nothing in the cooler yet.</p>'}
+        ${rest.length ? `<details class="more-prices" ${more ? 'open' : ''}><summary>Not in the cooler (${rest.length})</summary><div class="price-list">${rest.map(row).join('')}</div></details>` : ''}
         ${last?.tooExpensive ? `<p class="tiny muted">Last time, ${last.tooExpensive} ${last.tooExpensive === 1 ? 'person' : 'people'} said "too much".</p>` : ''}`;
+        body.querySelector('details')?.addEventListener('toggle', (e) => (more = e.target.open));
       },
     });
     onActs(m.body, {
@@ -975,6 +1004,131 @@ export class CartView {
         m.refresh();
       },
     });
+  }
+
+  // The sales record: how many of each treat sold each day, and what each kind earned after what it cost.
+  salesRecord() {
+    const c = this.cart;
+    const days = c.state.days;
+    let tab = 'sold';
+    let end = days.length; // the sold grid shows the 7 days before this
+    let pick = days.length - 1; // the day for profit (-1: all days)
+    const order = new Map(CART_ITEMS.map((it, i) => [it.id, i]));
+    const byKind = (ids) => [...ids].sort((x, y) => order.get(x) - order.get(y));
+    const dayName = (d) => CART_DAY_NAMES[(d.day - 1) % 7];
+    const m = openModal({
+      title: '📒 Sales record',
+      cls: 'narrow',
+      render: (body) => {
+        const tabs = `<div class="tabs"><button class="btn small ${tab === 'sold' ? 'on' : ''}" data-act="tab" data-t="sold">🍦 Sold each day</button><button class="btn small ${tab === 'profit' ? 'on' : ''}" data-act="tab" data-t="profit">💰 Profit</button></div>`;
+        if (tab === 'sold') {
+          const shown = days.slice(Math.max(0, end - 7), end);
+          const ids = byKind(new Set(shown.flatMap((d) => Object.keys(d.sold || {}))));
+          const head = `<tr><th></th>${shown.map((d) => `<th>${dayName(d)}<small>${d.day}</small></th>`).join('')}<th>All</th></tr>`;
+          const rows = ids
+            .map((id) => {
+              const n = shown.map((d) => d.sold?.[id] || 0);
+              return `<tr><th>${treatSVG(id, 26)}</th>${n.map((v) => `<td class="${v ? '' : 'none'}">${v || '·'}</td>`).join('')}<td class="sum">${n.reduce((a, b) => a + b, 0)}</td></tr>`;
+            })
+            .join('');
+          const tot = shown.map((d) => Object.values(d.sold || {}).reduce((a, b) => a + b, 0));
+          body.innerHTML = `${tabs}
+            <div class="rec-nav"><button class="btn small" data-act="back7" ${end - 7 > 0 ? '' : 'disabled'} aria-label="Earlier days">◀</button><span>${shown.length ? `Day ${shown[0].day} to ${shown.at(-1).day}` : ''}</span><button class="btn small" data-act="next7" ${end < days.length ? '' : 'disabled'} aria-label="Later days">▶</button></div>
+            ${ids.length ? `<table class="rec sold">${head}${rows}<tr class="total"><th>All</th>${tot.map((v) => `<td>${v}</td>`).join('')}<td class="sum">${tot.reduce((a, b) => a + b, 0)}</td></tr></table>` : '<p>Nothing sold these days.</p>'}`;
+        } else {
+          const list = pick < 0 ? days : [days[pick]];
+          const known = list.filter((d) => d.earned);
+          const ids = byKind(new Set(list.flatMap((d) => Object.keys(d.sold || {}))));
+          const sum = (ds, f) => ds.reduce((a, d) => a + (f(d) || 0), 0);
+          const cell = (v) => (known.length ? money(v) : '—');
+          let T = { n: 0, earned: 0, cost: 0 };
+          const rows = ids
+            .map((id) => {
+              const n = sum(list, (d) => d.sold?.[id]);
+              const earned = sum(known, (d) => d.earned[id]);
+              const cost = sum(known, (d) => d.cost?.[id]);
+              T = { n: T.n + n, earned: T.earned + earned, cost: T.cost + cost };
+              const p = earned - cost;
+              return `<tr><th>${treatSVG(id, 26)}</th><td>${n}</td><td>${cell(earned)}</td><td>${cell(cost)}</td><td class="${known.length ? (p < 0 ? 'bad' : 'good') : ''}">${cell(p)}</td></tr>`;
+            })
+            .join('');
+          const P = T.earned - T.cost;
+          const firstKnown = days.find((d) => d.earned);
+          body.innerHTML = `${tabs}
+            <div class="rec-nav"><button class="btn small" data-act="prev" ${pick !== 0 ? '' : 'disabled'} aria-label="Day before">◀</button><span>${pick < 0 ? 'All days' : `${dayName(days[pick])} · Day ${days[pick].day}`}</span><button class="btn small" data-act="next" ${pick >= 0 && pick < days.length - 1 ? '' : 'disabled'} aria-label="Next day">▶</button><button class="btn small ${pick < 0 ? 'on' : ''}" data-act="all">All days</button></div>
+            ${ids.length ? `<table class="rec profit"><tr><th></th><th>Sold</th><th>Sales</th><th>Cost</th><th>Profit</th></tr>${rows}
+              <tr class="total"><th>All</th><td>${T.n}</td><td>${cell(T.earned)}</td><td>${cell(T.cost)}</td><td class="${known.length ? (P < 0 ? 'bad' : 'good') : ''}">${cell(P)}</td></tr></table>` : '<p>Nothing sold that day.</p>'}
+            <p class="tiny muted">Cost: what you paid the store for those treats.${known.length < list.length && firstKnown ? ` Money for each treat starts on day ${firstKnown.day}.` : ''}</p>`;
+        }
+      },
+    });
+    onActs(m.body, {
+      tab: (t) => {
+        tab = t.dataset.t;
+        m.refresh();
+      },
+      back7: () => {
+        end = Math.max(Math.min(7, days.length), end - 7);
+        m.refresh();
+      },
+      next7: () => {
+        end = Math.min(days.length, end + 7);
+        m.refresh();
+      },
+      prev: () => {
+        pick = pick < 0 ? days.length - 1 : Math.max(0, pick - 1);
+        m.refresh();
+      },
+      next: () => {
+        pick = Math.min(days.length - 1, pick + 1);
+        m.refresh();
+      },
+      all: () => {
+        pick = pick < 0 ? days.length - 1 : -1;
+        m.refresh();
+      },
+    });
+    return m;
+  }
+
+  // Repaint the cart with a can of paint: pick a color and a name. The stickers get painted over.
+  repaint() {
+    const c = this.cart;
+    const s = this.s;
+    let name = c.cartName;
+    let color = s.cartPaint || K.paints[0];
+    const preview = () => cartSVG({ umbrella: c.has('umbrella'), fan: c.has('fan'), bell: c.has('bell'), name: name.trim() || ' ', paint: color });
+    const m = openModal({
+      title: '🎨 Repaint the cart',
+      cls: 'narrow',
+      onClose: () => s.phase === 'home' && this.renderHome(),
+      render: (body) => {
+        body.innerHTML = `<div class="repaint-cart">${preview()}</div>
+          <div class="opt"><span>Color</span>${K.paints.map((p) => `<button class="sw ${p === color ? 'on' : ''}" data-act="color" data-v="${p}" style="background:${p}" aria-label="Color"></button>`).join('')}</div>
+          <label class="opt"><span>Name</span><input class="text-in" maxlength="${K.nameMax}" value="${esc(name)}" aria-label="The cart's name"></label>
+          ${c.decals().length ? '<p class="warn">The paint covers your stickers. They will be gone!</p>' : ''}
+          <div class="row" style="justify-content:space-between"><button class="btn" data-act="no">Not now</button><button class="btn big go" data-act="paint">🎨 Paint it!</button></div>`;
+        body.querySelector('input').addEventListener('input', (e) => {
+          name = e.target.value;
+          body.querySelector('.repaint-cart').innerHTML = preview();
+        });
+      },
+    });
+    onActs(m.body, {
+      color: (t) => {
+        color = t.dataset.v;
+        m.refresh();
+      },
+      no: () => m.close(),
+      paint: () => {
+        const r = c.repaint(name, color);
+        if (!r.ok) return toast(r.reason === 'name' ? 'Give your cart a name!' : "Hmm, that didn't work");
+        this.save();
+        m.close();
+        toast(r.stickers ? '🎨 All painted! The stickers are gone.' : '🎨 All painted!');
+      },
+    });
+    return m;
   }
 
   // Stick stickers on the cart: pick one, then tap the cart where it goes. Tap again to move it.
@@ -1208,7 +1362,7 @@ export class CartView {
     this.dismissAt = 0;
     this.closing = false;
     this.refreshScene = () => {
-      this.stage.querySelector('.cart-spot').innerHTML = cartSpot(c);
+      this.stage.querySelector('.cart-spot').innerHTML = cartSpot(c); // (renderHUD puts the hungry bubble back)
       this.renderHUD(true);
     };
     onActs(this.hud, {
@@ -1219,6 +1373,7 @@ export class CartView {
     });
     onActs(this.stage, {
       vendor: (t) => this.shop(t.dataset.v, () => this.refreshScene()),
+      eat: () => this.eatMenu(),
     });
     onActs(document.querySelector('.toolbar'), {
       prices: () => this.prices(),
@@ -1434,6 +1589,14 @@ export class CartView {
       const h = Math.round(c.hunger);
       bar.querySelector('b').style.width = `${h}%`;
       bar.classList.toggle('low', h < K.hunger.low);
+      bar.classList.toggle('warn', c.hungerWarn);
+    }
+    // a thought bubble over your head while your tummy is rumbling (tap it to eat)
+    const spot = this.stage?.querySelector('.cart-spot');
+    const rumble = spot?.querySelector('.rumble');
+    if (spot && c.hungerWarn !== !!rumble) {
+      if (rumble) rumble.remove();
+      else spot.insertAdjacentHTML('beforeend', '<button class="rumble" data-act="eat" aria-label="Hungry: tap to eat">🍎 Grrrumble!<small>Tap to eat</small></button>');
     }
   }
 
@@ -1523,7 +1686,7 @@ export class CartView {
         this.passBy(ev.cust, ev.say);
       } else if (ev.t === 'join') {
         const e = el(`<div class="party walking" data-id="${ev.cust.id}" style="left:104%">${this.custHTML(ev.cust)}</div>`);
-        if (ev.cust.regular || ev.cust.grandma) e.insertAdjacentHTML('beforeend', `<div class="tag">${ev.cust.grandma ? 'Grandma' : esc(REG[ev.cust.regular].name)}</div>`);
+        if (ev.cust.regular || ev.cust.grandma || ev.cust.big) e.insertAdjacentHTML('beforeend', `<div class="tag">${ev.cust.grandma ? 'Grandma' : ev.cust.big ? 'Big family' : esc(REG[ev.cust.regular].name)}</div>`);
         this.queue.appendChild(e);
         this.custEls.set(ev.cust.id, e);
       } else if (ev.t === 'window') {
@@ -1549,7 +1712,8 @@ export class CartView {
         e.style.left = '110%';
         this.clock.after(2600, () => e.remove());
       } else if (ev.t === 'hungry') {
-        toast('🍎 Your tummy is rumbling! Time for something to eat.');
+        this.app.music.sfx('rumble');
+        toast("🍎 Your tummy is rumbling! Eat something, or you'll have to go home early.", 6000);
       } else if (ev.t === 'tummyAche') {
         this.app.music.sfx('oops');
         toast('🤢 Too much ice cream! Your tummy hurts. You sit on the bench for a while.');
@@ -1654,7 +1818,7 @@ export class CartView {
       return w.missedFav ? `No ${fav}? Oh well. ${want}` : `Hi, sweetie! ${want}`;
     }
     const reg = c.regular ? REG[c.regular] : null;
-    let out = reg ? 'Hi again! ' : '';
+    let out = reg ? 'Hi again! ' : c.big && w.order.length ? 'Hi! There are lots of us! ' : '';
     if (w.missedFav) out += `No ${CART_ITEM[w.missedFav].name.toLowerCase()} today? Aww. `;
     if (w.order.length) out += w.order.length === 1 ? `Can I have ${a(w.order[0])}, please?` : `${andList(counted(w.order))}, please!`.replace(/^a/, 'A');
     else if (w.no === 'tooMuch') out += "Hmm, that's too much for me.";
@@ -1808,6 +1972,7 @@ export class CartView {
     const sum = c.closePark();
     if (!sum) return;
     this.stop();
+    this.stage?.querySelector('.rumble')?.remove(); // home time: no more rumbling
     this.save();
     const sold = Object.entries(sum.sold).sort((x, y) => y[1] - x[1]);
     const n = sold.reduce((x, [, v]) => x + v, 0);
@@ -1841,7 +2006,8 @@ export class CartView {
             ${regs.map((r) => `<li>💔 ${esc(r.name)} hasn't been coming around.</li>`).join('')}
           </ul>
           ${sum.melted ? `<p class="tiny muted">${emo('melting')} ${sum.melted} treats melted on the kitchen counter.</p>` : ''}
-          <div class="row" style="justify-content:center"><button class="btn big go" data-act="sleep">😴 Sleep</button></div>`;
+          <div class="row" style="justify-content:center"><button class="btn" data-act="record">📒 Sales record</button><button class="btn big go" data-act="sleep">😴 Sleep</button></div>`;
+        body.querySelector('[data-act=record]').onclick = () => this.salesRecord();
         body.querySelector('[data-act=sleep]').onclick = () => {
           m.close();
           c.nextDay();

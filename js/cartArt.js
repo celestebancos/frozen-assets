@@ -22,8 +22,9 @@ export const stickerXY = ([u, v]) => [STICKER_AREA.x + u * STICKER_AREA.w, STICK
 
 // opts: { decals: [{ id, at: [u, v] | null }] (or plain ids), umbrella, fan, bell, balloon: color, pick: id to highlight,
 // tight: leave off the empty space above the cart (where the umbrella goes), jar: cents in the tip jar on the lid
-// (at the park; null for no jar) }
-export function cartSVG({ decals = [], umbrella = false, fan = false, bell = false, balloon = null, pick = null, tight = false, jar = null } = {}) {
+// (at the park; null for no jar), name: what it says on the side, paint: the stripe color }
+const xml = (t) => String(t).replace(/[&<>"]/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[ch]);
+export function cartSVG({ decals = [], umbrella = false, fan = false, bell = false, balloon = null, pick = null, tight = false, jar = null, name = CART.cartName, paint = CART.paints[0] } = {}) {
   const dec = decals
     .map((d, i) => {
       const { id, at } = typeof d === 'string' ? { id: d, at: null } : d;
@@ -43,9 +44,14 @@ export function cartSVG({ decals = [], umbrella = false, fan = false, bell = fal
   const fanArt = fan
     ? `<g transform="translate(36 84)"><path d="M0 8 V0" stroke="${INK}" stroke-width="3"/><circle r="11" fill="#e8f7ff" ${thin}/><g class="spin"><path d="M0 0 L-3 -9 Q0 -11 3 -9 Z M0 0 L9 -3 Q11 0 9 3 Z M0 0 L3 9 Q0 11 -3 9 Z M0 0 L-9 3 Q-11 0 -9 -3 Z" fill="#7cc8ff" ${thin}/></g><circle r="2" fill="${INK}"/></g>`
     : '';
-  // the glass tip jar on the lid, filling up with coins (full at $3)
+  // the glass tip jar on the lid, filling up with little coins, three side by side (a coin a quarter: full at $9.75)
   const glass = 'M150 69 Q146 72 146 77 V89 Q146 92 149 92 H167 Q170 92 170 89 V77 Q170 72 166 69 Z';
-  const coins = jar == null ? '' : Array.from({ length: Math.min(12, Math.ceil(jar / 25)) }, (_, i) => `<ellipse cx="${158 + ((i * 5) % 7) - 3}" cy="${89 - i * 1.6}" rx="6.2" ry="2.2" fill="${i % 3 === 1 ? '#ffd23f' : '#d9dee5'}" stroke="#8a93a0" stroke-width=".8"/>`).join('');
+  const coin = (i) => {
+    const row = Math.floor(i / 3);
+    const x = 152.2 + (i % 3) * 5.8 + (row % 2 ? 1.2 : -0.6) + (((i * 7) % 5) - 2) * 0.25;
+    return `<ellipse cx="${x.toFixed(2)}" cy="${(90 - row * 1.3).toFixed(2)}" rx="2.9" ry="1.15" fill="${i % 4 === 1 ? '#ffd23f' : i % 4 === 3 ? '#c4cbd4' : '#d9dee5'}" stroke="#8a93a0" stroke-width=".5"/>`;
+  };
+  const coins = jar == null ? '' : Array.from({ length: Math.min(39, Math.ceil(jar / 25)) }, (_, i) => coin(i)).join('');
   const jarArt = jar == null ? '' : `<g class="tip-jar"><path d="${glass}" fill="#e6f4fb" fill-opacity=".8"/>${coins}<path d="${glass}" fill="none" ${thin}/><path d="M149.6 76 V86" stroke="#fff" stroke-width="2" stroke-linecap="round" opacity=".85"/><rect x="148.5" y="66.5" width="19" height="3.4" rx="1.4" fill="#e6f4fb" ${thin}/>${label(158, 101, 'TIPS', 9, '#fff')}</g>`;
   const bellArt = bell ? `<g transform="translate(196 92)"><path d="M-6 6 Q-6 -6 0 -6 Q6 -6 6 6 Z" fill="#ffd23f" ${thin}/><circle cy="7.5" r="1.8" fill="#c98f3e"/></g>` : '';
   // overflow: the balloon bobs up past the top of the picture
@@ -53,9 +59,9 @@ export function cartSVG({ decals = [], umbrella = false, fan = false, bell = fal
     ${shade}${bal}
     <path d="M190 100 L214 84" stroke="${INK}" stroke-width="7" stroke-linecap="round"/><path d="M190 100 L214 84" stroke="#9aa4b2" stroke-width="4" stroke-linecap="round"/>
     <rect x="12" y="92" width="184" height="80" rx="12" fill="#fffaf0" ${OUT}/>
-    <rect x="12" y="92" width="184" height="18" rx="8" fill="#7cc8ff" ${OUT}/>
-    <path d="M22 160 H186" stroke="#7cc8ff" stroke-width="6"/>
-    <text x="104" y="129" font-family="Baloo 2, sans-serif" font-weight="800" font-size="19" text-anchor="middle" fill="${INK}">ICE POPS</text>
+    <rect x="12" y="92" width="184" height="18" rx="8" fill="${paint}" ${OUT}/>
+    <path d="M22 160 H186" stroke="${paint}" stroke-width="6"/>
+    <text x="104" y="129" font-family="Baloo 2, sans-serif" font-weight="800" font-size="${Math.min(19, Math.round(190 / Math.max(1, String(name).length)))}" text-anchor="middle" fill="${INK}">${xml(String(name).toUpperCase())}</text>
     ${dec}${fanArt}${bellArt}${jarArt}
     <circle cx="48" cy="178" r="16" fill="#4a4a5a" ${OUT}/><circle cx="48" cy="178" r="6" fill="#cfd6df"/>
     <circle cx="160" cy="178" r="16" fill="#4a4a5a" ${OUT}/><circle cx="160" cy="178" r="6" fill="#cfd6df"/>
