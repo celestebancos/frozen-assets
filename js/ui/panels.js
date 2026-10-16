@@ -285,7 +285,6 @@ export function mapPanel(app) {
       const days = pastDays(g);
       const agg = busyStats(days);
       const max = Math.max(0, ...SPOTS.map((sp) => rateAll(agg[sp.id]) || 0));
-      const badges = days.length ? Object.fromEntries(SPOTS.map((sp) => { const r = rateAll(agg[sp.id]); return [sp.id, r == null ? { text: '🆕 New', fill: '#ffffff' } : { text: `👥 ${fmtRate(r)}`, fill: heat(r, max) }]; })) : {};
       const pa = picked && agg[picked];
       const pickedBusy = !days.length ? '' : pa
         ? `<div class="busy-line">👥 <b>${fmtRate(rateAll(pa))}</b> people an hour · 💵 <b>${money(Math.round((pa.revenue * 60) / Math.max(1, pa.minutes)))}</b> an hour <span class="tiny muted">(${pa.days} ${pa.days === 1 ? 'day' : 'days'}, ${(pa.minutes / 60).toFixed(1)} hours)</span></div>
@@ -299,7 +298,7 @@ export function mapPanel(app) {
            ${picked !== from ? `<div>🕒 ${g.driveMinutes(from, picked)} min drive · ⛽ ${g.driveFuel(from, picked).toFixed(1)} gal</div>` : '<div class="tiny muted">🚚 You are here</div>'}
            ${open && picked !== from ? `<div style="margin-top:6px"><button class="btn small go" data-act="driveNow">🚚 Drive here now</button></div>` : ''}
            <div style="margin-top:6px"><button class="btn small" data-act="addPicked">➕ Add to my route</button></div></div>`
-        : `<p class="tiny muted">${days.length ? '👥 is how many people came each hour this summer. Green is busiest. ' : ''}Tap a neighborhood to see what's there.</p>`;
+        : `<p class="tiny muted">Tap a neighborhood to see what's there.</p>`;
       // how busy a stop has been at the hours it covers
       const stopHint = (r, i) => {
         if (!days.length) return '';
@@ -333,7 +332,7 @@ export function mapPanel(app) {
       const routeOpts = (sel) => `<option value="">↩️ No change</option>${s.routes.map((r) => `<option value="${r.id}" ${r.id === sel ? 'selected' : ''}>${esc(r.name)}</option>`).join('')}`;
       const allSame = plan.every((x) => x === plan[0]) ? plan[0] : undefined;
       body.innerHTML = `<div class="map-wrap">
-        <div class="mw-map"><div class="map-scroll">${mapSVG(SPOTS, FEATURES, s.driving ? null : s.spot, route, picked, badges)}</div>${pickedInfo}</div>
+        <div class="mw-map"><div class="map-scroll">${mapSVG(SPOTS, FEATURES, s.driving ? null : s.spot, route, picked)}</div>${pickedInfo}</div>
         <div class="mw-route">
           <h3 style="margin-top:0">Today's route</h3>
           ${route.map((r, i) => `${i > 0 && route[i - 1].spot !== r.spot ? `<div class="tiny muted drive-gap">🚚 ${g.driveMinutes(route[i - 1].spot, r.spot)} min</div>` : ''} <div class="route-stop"><span class="pin-dot" style="background:${ROUTE_COLORS[i % ROUTE_COLORS.length]}">${i + 1}</span>
