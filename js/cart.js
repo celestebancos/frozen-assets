@@ -706,9 +706,12 @@ export class Cart {
       case 'decal':
         s.stickers.push({ id: it.id, at: null }); // stickers too: until it's stuck on, it shows in a usual spot
         break;
-      default:
+      default: {
+        const h = this.hunger;
         if (!s.owned.includes(it.id)) s.owned.push(it.id);
+        if (it.id in K.heat.shade) s.fed = { minute: s.minute, level: h, rate: this.hungerRate() }; // shade from now on
         if (it.kind === 'hat' || it.kind === 'glasses' || it.kind === 'shirt') s.wearing[it.kind] = it.id;
+      }
     }
     return it;
   }
@@ -938,7 +941,7 @@ export class Cart {
       wants,
       regular: regular?.id || null,
       big: kind === 'bigFamily' || undefined,
-      patience: rng.int(CR.patience[0], CR.patience[1]),
+      patience: Math.round(rng.int(CR.patience[0], CR.patience[1]) * this.linePatience),
       waited: 0,
       honest: rng.chance(CR.honest),
     };
@@ -1348,7 +1351,6 @@ export class Cart {
     s.phase = 'home';
     s.minute = K.homeStart;
     s.today = null;
-    s.fed = { minute: K.homeStart, level: 100 }; // breakfast
     s.tooHungry = null;
     // some mornings Grandma calls to ask you to lunch
     const g = s.grandma;
@@ -1357,13 +1359,13 @@ export class Cart {
     g.invited = s.day === G.lunch.firstDay || (s.day > G.lunch.firstDay && this.rng.chance(G.lunch.chance)) ? s.day : null;
     if (g.offer === 'due') g.invited = g.offerDay = s.day; // she has something to talk about
     this.rollWeather();
+    s.fed = { minute: K.homeStart, level: 100, rate: this.hungerRate() }; // breakfast (and how hot it is today)
   }
 
   // ---------- hunger ----------
   // How full you are now, 0–100.
   get hunger() {
-    const f = this.state.fed;
-    return Math.max(0, Math.min(100, f.level - (this.state.minute - f.minute) * K.hunger.perMinute));
+    return this.hungerAt(this.state.minute);
   }
   // The park is closed for the day: it's past closing time, or you got too hungry.
   get closedNow() {
@@ -1371,21 +1373,39 @@ export class Cart {
     return s.minute >= K.parkClose || s.tooHungry != null;
   }
   fill(food) {
-    this.state.fed = { minute: this.state.minute, level: Math.min(100, this.hunger + food) };
+    this.state.fed = { minute: this.state.minute, level: Math.min(100, this.hunger + food), rate: this.hungerRate() };
     if (this.state.today && !this.hungerWarn) this.state.today.rumbled = false; // it can rumble again later
   }
   // Your tummy is rumbling: you're hungry, and at this rate you'll have to go home before closing time. (Late in
   // the day you can make it to closing time, so there's nothing to worry about.)
+  // How hot it is today, for hunger and the line: 0 on a mild day, about 0.36 at 91°F.
+  heat() {
+    const H = K.heat;
+    return Math.max(0, (this.state.weather?.temp ?? 0) - H.from) * H.perDegree;
+  }
+  // How much of the heat the umbrella and the fan keep off (0–max).
+  shade() {
+    const H = K.heat;
+    return Math.min(H.max, Object.entries(H.shade).reduce((a, [id, v]) => a + (this.has(id) ? v : 0), 0));
+  }
+  // How fast you get hungry today (per minute): faster in the heat, unless you're in the shade.
+  hungerRate() {
+    return K.hunger.perMinute * (1 + this.heat() * (1 - this.shade()));
+  }
+  // On a hot day, shade at the cart makes people willing to wait longer in line.
+  get linePatience() {
+    return 1 + this.heat() * this.shade() * K.heat.line;
+  }
   // How full you'll be at a minute later today, if you don't eat.
   hungerAt(minute) {
     const f = this.state.fed;
-    return Math.max(0, Math.min(100, f.level - (minute - f.minute) * K.hunger.perMinute));
+    return Math.max(0, Math.min(100, f.level - (minute - f.minute) * (f.rate ?? this.hungerRate())));
   }
   get hungerWarn() {
     const s = this.state;
     if (s.phase !== 'park' || this.closedNow) return false;
     const h = this.hunger;
-    return h < K.hunger.low && h / K.hunger.perMinute < K.parkClose - s.minute;
+    return h < K.hunger.low && h / (s.fed.rate ?? this.hungerRate()) < K.parkClose - s.minute;
   }
   // Eat something right away (hot dog stand food, or a snack you didn't save).
   eatNow(id) {
@@ -1484,7 +1504,7 @@ export class Cart {
     g.declined = 0;
     g.lunches++;
     s.minute += G.lunch.minutes; // lunch is over by the time the park opens
-    s.fed = { minute: s.minute, level: G.lunch.food };
+    s.fed = { minute: s.minute, level: G.lunch.food, rate: this.hungerRate() };
     this.feel(G.feel.lunch);
     const lines = [];
     lines.push(g.feel >= 8 ? "There's my favorite business owner! Come in, come in." : g.feel <= 3 ? "Oh, you came! I wasn't sure you would." : 'Come in, sweetie! I made sandwiches.');
