@@ -6,7 +6,7 @@ import { personSVG, parkSVG, CHARACTER, PARK_VIEW } from '../art.js';
 import { cartSVG, toyPlaySVG, STICKER_AREA, umbrellaSVG, moneySVG, treatSVG, thingSVG, boxFrontSVG, boxSideSVG, BOX_LOOK, spoonCupSVG, napkinStackSVG, spoonBoxSVG, napkinPackSVG, recyclingBinSVG, swingSetSVG, balloonSVG, hotdogStandSVG, balloonSellerSVG, stickerStandSVG } from '../cartArt.js';
 import { ParkStories } from './parkStories.js';
 import { PauseClock } from './clock.js';
-import { coinIcon, jarIcon, walletIcon, fanIcon, gumIcon, emo } from '../icons.js';
+import { coinIcon, jarIcon, walletIcon, fanIcon, gumIcon, cartIcon, emo } from '../icons.js';
 import { Ambience, cashRegister, gameSound } from '../ambience.js';
 import { storage } from '../storage.js';
 import { esc, money, el, openModal, onActs, anyModalOpen, closeAllModals, toast, fmtTime, PAUSE_ICON, askYes } from './dom.js';
@@ -460,7 +460,7 @@ export class CartView {
           ${s.grandma.offer === 'made' ? `<button class="btn yellow" data-act="grandmaOffer">👵 Grandma's offer</button>` : ''}
           <button class="btn" data-act="truck">🏦 Get a truck loan</button>
           ${used && total({ 100: s.money.box[100] || 0, 25: s.money.box[25] || 0 }) < 300 ? `<p class="hint">${coinIcon()} Your cash box has hardly any small money. How will you give change? The corner store has a change machine.</p>` : ''}
-          <button class="btn big go" data-act="park">🛒 Go to the park!</button>
+          <button class="btn big go" data-act="park">${cartIcon()} Go to the park!</button>
         </div>
       </div>`;
   }
@@ -1494,7 +1494,7 @@ export class CartView {
             <div class="say">I won't be your bank. I'll be your partner! You do the work, so you keep most of the profit: of every $${of} the truck makes, you keep ${d(of - her)} and I get ${d(her)}.</div>
             <div class="say">Your cart money comes too. It's your part of the business.${T.next ? ` If you save ${money(T.next.more).replace('.00', '')} more first, I'll only take ${sliceText(T.next.slice)}.` : ''}</div>
           </div></div>
-          <div class="stats"><div class="stat"><div class="k">🛒 Your cart money</div><div class="v">${money(T.money)}</div></div><div class="stat"><div class="k">👵 Grandma's slice</div><div class="v">${sliceText(T.slice)}</div></div></div>
+          <div class="stats"><div class="stat"><div class="k">${cartIcon()} Your cart money</div><div class="v">${money(T.money)}</div></div><div class="stat"><div class="k">👵 Grandma's slice</div><div class="v">${sliceText(T.slice)}</div></div></div>
           <p class="tiny muted">No loan, and nothing to pay back. But Grandma gets her slice of the profit every week. The bank can lend you money instead, if you'd rather.</p>
           <div class="row" style="justify-content:space-between"><button class="btn" data-act="no">Not yet</button><button class="btn big go" data-act="yes">Yes, let's do it! ▶</button></div>`;
       },
@@ -1599,7 +1599,7 @@ export class CartView {
     const key = `${this.speed}|${serving}`;
     if (force || key !== this.hudKey) {
       this.hudKey = key;
-      this.hud.innerHTML = `<div class="biz"><span class="n">🛒 ${esc(s.player)}'s cart</span></div>
+      this.hud.innerHTML = `<div class="biz"><span class="n">${cartIcon()} ${esc(s.player)}'s cart</span></div>
         <div class="row" style="gap:6px"><span class="clock"></span><span class="pill wx">${s.weather.rain ? '🌧️' : '☀️'} ${s.weather.temp}°</span><span class="pill cash"></span><span class="pill jar">${jarIcon()} <span class="v"></span></span><button class="pill tummy" data-act="eat" aria-label="Hunger: tap to eat">🍎<i class="bar"><b></b></i></button></div>
         <div class="speed" role="group" aria-label="Speed">${[PAUSE_ICON, '▶', '▶▶', '⏩'].map((l, i) => `<button class="${this.speed === i ? 'on' : ''}" data-act="speed" data-s="${i}" aria-label="Speed ${i}">${l}</button>`).join('')}</div>`;
     }

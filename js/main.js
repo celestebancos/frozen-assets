@@ -14,7 +14,7 @@ import { seasonEnd } from './ui/reports.js';
 import { showDecision } from './ui/popups.js';
 import { buildExport, exportFileName } from './export.js';
 import { startCart } from './ui/cart.js';
-import { coinIcon, towTruckIcon } from './icons.js';
+import { coinIcon, towTruckIcon, cartIcon } from './icons.js';
 
 const C = CONFIG;
 const DAY_FULL = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
@@ -97,15 +97,15 @@ class App {
           const truckOn = st && st.phase !== 'lost';
           const info = st ? (st.phase === 'lost' ? '🚚 Truck was taken 😢' : `🚚 Summer ${st.season} · Week ${Math.min(12, Math.ceil(st.day / 7))} · ${DAY_NAMES[(st.day - 1) % 7]}`) : '';
           return `<div class="player-card"><div class="name">${esc(n)}</div>
-            ${ct ? `<div class="sub">🛒 Cooler · Day ${ct.day}</div>` : ''}${info ? `<div class="sub">${info}</div>` : ''}${!ct && !st ? '<div class="sub">No game yet</div>' : ''}
+            ${ct ? `<div class="sub">${cartIcon()} Cooler · Day ${ct.day}</div>` : ''}${info ? `<div class="sub">${info}</div>` : ''}${!ct && !st ? '<div class="sub">No game yet</div>' : ''}
             <div class="stack">${truckOn ? `<button class="btn go" data-act="cont" data-n="${esc(n)}">🚚 Truck</button>` : ''}
-            <button class="btn ${truckOn ? '' : ct ? 'go' : 'pink'}" data-act="cart" data-n="${esc(n)}">🛒 ${ct ? 'Cooler' : 'Start at the park'}</button>
+            <button class="btn ${truckOn ? '' : ct ? 'go' : 'pink'}" data-act="cart" data-n="${esc(n)}">${cartIcon()} ${ct ? 'Cooler' : 'Start at the park'}</button>
             ${!truckOn ? `<button class="link tiny" data-act="new" data-n="${esc(n)}">Buy a Truck</button>` : ''}</div></div>`;
         })
         .join('')}
         <div class="player-card"><div class="name">➕</div><div class="sub">${names.length ? 'Someone new' : 'Add a player'}</div>
           <input class="text-in" style="font-size:16px" maxlength="16" placeholder="Name" aria-label="New player name">
-          <button class="btn pink" style="margin-top:6px" data-act="newName">🛒 Start</button></div>
+          <button class="btn pink" style="margin-top:6px" data-act="newName">${cartIcon()} Start</button></div>
       </div>
       <div class="row center"><button class="btn yellow" data-act="lb">🏆 Leaderboard</button><button class="btn" data-act="settings">⚙️ Settings</button></div>
     </div>`);
@@ -182,7 +182,7 @@ class App {
               </button>`;
             })
             .join('')}</div>
-          ${ownerCash ? `<p>🛒 Plus your cart money: <b>${money(ownerCash)}</b>. That's yours, not borrowed.</p>` : ''}
+          ${ownerCash ? `<p>${cartIcon()} Plus your cart money: <b>${money(ownerCash)}</b>. That's yours, not borrowed.</p>` : ''}
           <p class="tiny muted">💡 A bigger loan gives you more cash to spend now, but you pay more interest every day, and you still have to pay all of it back. ${(() => {
             const [a, b, c] = C.loans.slice(-3);
             return `The extra ${money(b.principal - a.principal)} in the ${money(b.principal)} loan costs ${money((b.dailyInterest - a.dailyInterest) * days)} more interest. The next ${money(c.principal - b.principal)} costs ${money((c.dailyInterest - b.dailyInterest) * days)} more.`;
@@ -229,7 +229,7 @@ class App {
       }
       title.textContent = '🏷️ Your sign';
       card.innerHTML = `<div style="max-width:420px;margin:0 auto">${truckSVG(t.hex, name, { bling, used })}</div>
-        <div class="row center" style="margin:6px 0">${ownerCash ? `<span class="chip">🛒 Cart money ${money(ownerCash)}</span>` : ''}${partner ? `<span class="chip">👵 Grandma ${money(gPut(price))}</span>` : `<span class="chip">🏦 Loan ${money(L.principal)}</span>`}<span class="chip">🚚 Truck −${money(price)}</span><span class="chip">💵 Cash left ${money(partner ? ownerCash + gPut(price) - price : have - price)}</span></div>
+        <div class="row center" style="margin:6px 0">${ownerCash ? `<span class="chip">${cartIcon()} Cart money ${money(ownerCash)}</span>` : ''}${partner ? `<span class="chip">👵 Grandma ${money(gPut(price))}</span>` : `<span class="chip">🏦 Loan ${money(L.principal)}</span>`}<span class="chip">🚚 Truck −${money(price)}</span><span class="chip">💵 Cash left ${money(partner ? ownerCash + gPut(price) - price : have - price)}</span></div>
         <h3>🏷️ Business name</h3><input class="text-in" maxlength="28" value="${esc(name)}" aria-label="Business name">
         <div class="row" style="justify-content:space-between;margin-top:16px"><button class="btn" data-act="toTruck">◀ Back</button><button class="btn big go" data-act="go">Let's go! ▶</button></div>`;
       card.querySelector('input').addEventListener('input', (e) => {

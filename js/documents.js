@@ -2,10 +2,11 @@
 // A document collects all transactions of one type in one week.
 
 import { ACCOUNT, applyEntries, emptyTotals, sectionTotal, share } from './ledger.js';
+import { cartIcon } from './icons.js';
 
 // look: paper style for the UI. penny: what Penny says when it's filed wrong. caption: a note on the balance sheet after filing.
 export const DOC_TYPES = {
-  ownerInvest: { title: 'Money you put in', look: 'receipt', icon: '🛒',
+  ownerInvest: { title: 'Money you put in', look: 'receipt', icon: cartIcon(),
     penny: "You put your own cart money into the business, so Cash went up. The business doesn't owe it to a bank. It's yours, so your Share went up too.",
     caption: 'Your cart money is in the cash box, and it counts as your Share.' },
   grandmaInvest: { title: "Grandma's investment", look: 'receipt', icon: '👵',
