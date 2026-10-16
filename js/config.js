@@ -446,7 +446,9 @@ export const CART = {
   priceStep: 25,
   // Hunger: full at the start of the day, then it runs down. With nothing to eat you're empty about 2:30pm and go
   // home. A snack (food 25) buys about an hour; lunch (food 60) lasts the day. low: when your tummy rumbles.
-  hunger: { perMinute: 100 / 210, low: 25 },
+  // grace: if you get to the park with an empty tummy, you have this many minutes to find something to eat before
+  // you have to go home.
+  hunger: { perMinute: 100 / 210, low: 25, grace: 20 },
   // A packed lunch from home (made from sandwich makings bought at the corner store). Takes a cooler spot.
   lunch: { name: 'Packed lunch', food: 60, emoji: '🥪' },
   // Eating your own stock: a little food, and too much ice cream gives you a tummy ache. food: by treat (other: the

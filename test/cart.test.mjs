@@ -560,22 +560,42 @@ test('a slow but steady server (about 30 real seconds a customer) keeps the line
 test('stickers can be stuck anywhere on the cart, then stay put; older saves keep their usual spots', () => {
   const c = Cart.create({ player: 'Sticky', look: { girl: true, skin: 0, hair: 0, style: 'long', shirt: '#ff6f91', pants: '#355070' }, seed: 3 });
   assert.equal(c.placeDecal('decalStar', 0.5, 0.5), false, "can't stick a sticker you don't have");
-  c.state.owned.push('decalStar', 'decalHeart');
+  c.state.stickers.push({ id: 'decalStar', at: null }, { id: 'decalHeart', at: null });
   assert.equal(c.placeDecal('decalStar', 0.25, 0.75), true);
   assert.deepEqual(c.decalsPlaced(), [{ id: 'decalStar', at: [0.25, 0.75] }, { id: 'decalHeart', at: null }]);
   assert.deepEqual(c.decalsLoose(), ['decalHeart']);
   assert.equal(c.placeDecal('decalStar', 0.9, 0.1), false, 'a stuck sticker stays put');
-  assert.deepEqual(c.state.decalSpots.decalStar, [0.25, 0.75]);
+  assert.deepEqual(c.state.stickers[0].at, [0.25, 0.75]);
   assert.equal(c.placeDecal('decalHeart', NaN, 0.5), false);
   c.placeDecal('decalHeart', 1.7, -2); // off the edge: stays on the cart
-  assert.deepEqual(c.state.decalSpots.decalHeart, [1, 0]);
+  assert.deepEqual(c.state.stickers[1].at, [1, 0]);
   assert.deepEqual(c.decalsLoose(), []);
-  // a save from before stickers could be moved
+  // a save from before stickers could be moved: they were kept with the things you own
   const old = JSON.parse(JSON.stringify(c.state));
-  delete old.decalSpots;
+  delete old.stickers;
+  old.owned = ['decalStar', 'umbrella', 'decalHeart'];
+  const older = JSON.parse(JSON.stringify(old));
   const back = new Cart(old);
   assert.deepEqual(back.decalsPlaced().map((d) => d.at), [null, null]);
   assert.deepEqual(back.decalsLoose(), ['decalStar', 'decalHeart'], 'old stickers can be stuck on once');
+  assert.deepEqual(back.state.owned, ['umbrella']);
+  // a save from before you could have two of a kind: each kind stuck where it was
+  older.decalSpots = { decalHeart: [0.5, 0.5] };
+  assert.deepEqual(new Cart(older).decalsPlaced(), [{ id: 'decalStar', at: null }, { id: 'decalHeart', at: [0.5, 0.5] }]);
+});
+
+test('you can buy more than one of the same sticker, and stick each one somewhere', () => {
+  const c = Cart.create({ player: 'Test', seed: 3 });
+  c.openPark();
+  buy(c, 'decals', { decalStar: 2 });
+  assert.equal(c.checkBasket('decals', { decalStar: 1 }).ok, true, 'and another one later');
+  buy(c, 'decals', { decalStar: 1 });
+  assert.deepEqual(c.decals(), ['decalStar', 'decalStar', 'decalStar']);
+  assert.ok(c.placeDecal(1, 0.1, 0.1));
+  assert.ok(c.placeDecal('decalStar', 0.9, 0.9), 'by kind: the first one not stuck on');
+  assert.deepEqual(c.decalsPlaced().map((d) => d.at), [[0.9, 0.9], [0.1, 0.1], null]);
+  assert.equal(c.placeDecal(1, 0.5, 0.5), false, 'a stuck sticker stays put');
+  assert.ok(c.has('decalStar'));
 });
 
 test('serving from a spot in the cooler, and taking it back puts it back there', () => {
@@ -1040,7 +1060,7 @@ test('Grandma over lunch: gear, spending, sticker likes and dislikes, running ou
     c.state.phase = 'home';
     return c.lunchAtGrandmas().lines.join(' | ');
   };
-  c.state.owned.push('decalStar'); // so the "plain cart" advice is done
+  c.state.stickers.push({ id: 'decalStar', at: null }); // so the "plain cart" advice is done
   // no umbrella yet: she suggests one; buy it and she notices
   let l = lunch();
   assert.ok(l.includes('umbrella'), l);
@@ -1071,7 +1091,7 @@ test('Grandma over lunch: gear, spending, sticker likes and dislikes, running ou
   assert.ok(l.includes("You know just what I like"), l);
   assert.ok(g.feel > before);
   // a sticker she doesn't like: tut tut, once
-  c.state.owned.push('decalRocket');
+  c.state.stickers.push({ id: 'decalRocket', at: null });
   let tuts = 0;
   for (let i = 0; i < 12; i++) if (lunch().includes('Tut tut')) tuts++;
   assert.equal(tuts, 1);
@@ -1286,7 +1306,7 @@ test('repainting the cart: a new name and color, and the stickers are painted ov
   assert.equal(c.cartName, "Luke's Pops");
   assert.equal(c.state.cartPaint, CART.paints[2]);
   assert.deepEqual(c.decals(), []);
-  assert.deepEqual(c.state.decalSpots, {});
+  assert.deepEqual(c.state.stickers, []);
   assert.equal(c.state.paint, 0);
   assert.equal(c.checkBasket('decals', { decalStar: 1 }).ok, true, 'the sticker can be bought again');
   // older saves: no name, no paint
@@ -1297,4 +1317,39 @@ test('repainting the cart: a new name and color, and the stickers are painted ov
   const d = new Cart(st);
   assert.equal(d.cartName, CART.cartName);
   assert.equal(d.state.paint, 0);
+});
+
+test('getting to the park with an empty tummy: a few minutes to eat before you have to go home', () => {
+  const c = Cart.create({ player: 'Test', seed: 3 });
+  c.state.minute = 14 * 60 + 30; // lots of errands
+  assert.equal(c.hungerAt(c.state.minute), 0);
+  c.openPark();
+  c.events = [];
+  c.step();
+  assert.equal(c.state.tooHungry, null, 'not right away');
+  assert.ok(c.hungerWarn);
+  assert.ok(c.events.some((e) => e.t === 'hungry'), 'the tummy rumbles');
+  for (let i = 0; i < CART.hunger.grace; i++) c.step();
+  assert.ok(c.state.tooHungry != null, 'nothing to eat: home');
+  // with a hot dog in time, you keep selling
+  const d = Cart.create({ player: 'Test', seed: 3 });
+  d.state.minute = 14 * 60 + 30;
+  d.openPark();
+  d.step();
+  buy(d, 'hotdog', { hotdog: 1 }, 'wallet');
+  for (let i = 0; i < CART.hunger.grace + 5; i++) d.step();
+  assert.equal(d.state.tooHungry, null);
+});
+
+test('you can eat your own treats while a customer waits, but not in the middle of a sale', () => {
+  const c = Cart.create({ player: 'Test', seed: 5 });
+  for (let i = 0; i < 20; i++) c.toCooler(i % 2 ? 'iceLemon' : 'rocketPop');
+  c.state.spoons = 20;
+  c.openPark();
+  let guard = 0;
+  while (!c.state.window && guard++ < 500) c.step();
+  assert.equal(c.state.window.stage, 'order');
+  assert.equal(c.eatTreat('iceLemon').ok, true, 'they are still deciding: a quick bite');
+  c.give(c.state.window.order[0]);
+  assert.equal(c.eatTreat('iceLemon').reason, 'busy', 'treats on the counter: finish the sale first');
 });

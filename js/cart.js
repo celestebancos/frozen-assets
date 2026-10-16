@@ -141,7 +141,7 @@ export function newCartState({ player, look, seed }) {
     napkins: 0, // on the cart: to hand out if you like
     packs: { spoons: 0, napkins: 0 }, // packs from the store, still on the shelf at home
     owned: [], // ids of things bought to keep (gear, decals, hats, glasses, shirts, toys)
-    decalSpots: {}, // where each sticker is stuck on the cart: { id: [u, v] }, 0–1 across and down the cart's side
+    stickers: [], // your stickers, each { id, at }: where it's stuck on the cart ([u, v], 0–1 across and down the cart's side) or null (not stuck on yet). You can have more than one of a kind.
     wearing: { hat: null, glasses: null, shirt: null },
     balloon: null, // a balloon tied to the cart, today only
     regulars: Object.fromEntries(REGULARS.map((r) => [r.id, { happy: 2, missed: 0, awayUntil: 0 }])),
@@ -242,7 +242,13 @@ export class Cart {
     // older saves: pick this game's other big seller
     state.hot ??= hotFor(state.seed);
     state.packs ??= { spoons: 0, napkins: 0 }; // older saves: everything bought was already on the cart
-    state.decalSpots ??= {}; // older saves: stickers go in their usual spots until they're moved
+    // older saves: one of each sticker at most, kept with the things you own, and where each kind is stuck
+    if (!state.stickers) {
+      const ids = new Set(CART_SHOPS.decals.items.map((d) => d.id));
+      state.stickers = state.owned.filter((id) => ids.has(id)).map((id) => ({ id, at: state.decalSpots?.[id] || null }));
+      state.owned = state.owned.filter((id) => !ids.has(id));
+      delete state.decalSpots;
+    }
     state.bought ??= {}; // older saves: treats cost what the restaurant store charges for a box
     state.cartName ??= null;
     state.cartPaint ??= null;
@@ -561,7 +567,7 @@ export class Cart {
     for (const [id, q] of Object.entries(basket)) {
       const it = this.shopItem(shop, id);
       if (!it || q <= 0) continue;
-      if (['gear', 'decal', 'hat', 'glasses', 'shirt'].includes(it.kind) && this.state.owned.includes(it.id)) return { ok: false, reason: 'owned', item: it };
+      if (['gear', 'hat', 'glasses', 'shirt'].includes(it.kind) && this.state.owned.includes(it.id)) return { ok: false, reason: 'owned', item: it };
       if (it.kind === 'balloon' && this.state.phase !== 'park') return { ok: false, reason: 'park', item: it };
     }
     return { ok: true };
@@ -698,6 +704,9 @@ export class Cart {
       case 'toy':
         s.owned.push(it.id); // toys can be bought again
         break;
+      case 'decal':
+        s.stickers.push({ id: it.id, at: null }); // stickers too: until it's stuck on, it shows in a usual spot
+        break;
       default:
         if (!s.owned.includes(it.id)) s.owned.push(it.id);
         if (it.kind === 'hat' || it.kind === 'glasses' || it.kind === 'shirt') s.wearing[it.kind] = it.id;
@@ -711,28 +720,31 @@ export class Cart {
     s.wearing[slot] = id || null;
     return true;
   }
+  // The kind of each sticker you have (a kind can be there more than once).
   decals() {
-    return this.state.owned.filter((id) => CART_SHOPS.decals.items.some((d) => d.id === id));
+    return this.state.stickers.map((x) => x.id);
   }
-  // Stick a sticker you own on the cart. u, v: 0–1 across and down the side of the cart.
-  // Once it's stuck, it stays put.
-  placeDecal(id, u, v) {
-    if (!this.decals().includes(id) || this.state.decalSpots[id] || !Number.isFinite(u) || !Number.isFinite(v)) return false;
+  // Stick a sticker on the cart. which: its place in your stickers (a number), or a kind (the first of that kind
+  // that isn't stuck on yet). u, v: 0–1 across and down the side of the cart. Once it's stuck, it stays put.
+  placeDecal(which, u, v) {
+    const all = this.state.stickers;
+    const st = typeof which === 'number' ? all[which] : all.find((x) => x.id === which && !x.at);
+    if (!st || st.at || !Number.isFinite(u) || !Number.isFinite(v)) return false;
     const clamp = (n) => Math.round(Math.min(1, Math.max(0, n)) * 1000) / 1000;
-    this.state.decalSpots[id] = [clamp(u), clamp(v)];
-    this.logAction('placeDecal', { id, at: this.state.decalSpots[id] });
+    st.at = [clamp(u), clamp(v)];
+    this.logAction('placeDecal', { id: st.id, at: st.at });
     return true;
   }
   // Each sticker with where it's stuck (null: not stuck yet, so it shows in its usual spot).
   decalsPlaced() {
-    return this.decals().map((id) => ({ id, at: this.state.decalSpots[id] || null }));
+    return this.state.stickers.map(({ id, at }) => ({ id, at: at || null }));
   }
-  // Stickers you have that aren't stuck on yet.
+  // The kinds of the stickers you have that aren't stuck on yet.
   decalsLoose() {
-    return this.decals().filter((id) => !this.state.decalSpots[id]);
+    return this.state.stickers.filter((x) => !x.at).map((x) => x.id);
   }
   has(id) {
-    return this.state.owned.includes(id);
+    return this.state.owned.includes(id) || this.state.stickers.some((x) => x.id === id);
   }
   // What the cart says on its side.
   get cartName() {
@@ -751,8 +763,7 @@ export class Cart {
     s.cartName = n.toUpperCase() === K.cartName ? null : n;
     s.cartPaint = color === K.paints[0] ? null : color;
     const gone = this.decals();
-    s.owned = s.owned.filter((id) => !gone.includes(id));
-    s.decalSpots = {};
+    s.stickers = [];
     this.logAction('repaint', { name: n, color, stickers: gone.length });
     return { ok: true, stickers: gone.length };
   }
@@ -984,7 +995,8 @@ export class Cart {
   step() {
     const s = this.state;
     if (s.phase !== 'park') return false;
-    if (s.minute < K.parkClose && s.tooHungry == null && this.hunger <= 0) {
+    // too hungry to go on (but if you got here hungry, you get a few minutes to find something to eat)
+    if (s.minute < K.parkClose && s.tooHungry == null && this.hunger <= 0 && s.minute >= (s.today.opened ?? 0) + K.hunger.grace) {
       s.tooHungry = s.minute;
       this.logAction('tooHungry', { minute: s.minute });
       this.emit({ t: 'tooHungry' });
@@ -1361,6 +1373,11 @@ export class Cart {
   }
   // Your tummy is rumbling: you're hungry, and at this rate you'll have to go home before closing time. (Late in
   // the day you can make it to closing time, so there's nothing to worry about.)
+  // How full you'll be at a minute later today, if you don't eat.
+  hungerAt(minute) {
+    const f = this.state.fed;
+    return Math.max(0, Math.min(100, f.level - (minute - f.minute) * K.hunger.perMinute));
+  }
   get hungerWarn() {
     const s = this.state;
     if (s.phase !== 'park' || this.closedNow) return false;
@@ -1390,7 +1407,7 @@ export class Cart {
     const s = this.state;
     const O = K.ownTreats;
     if (s.phase !== 'park' || s.tooHungry != null) return { ok: false, reason: 'notPark' };
-    if (s.window) return { ok: false, reason: 'busy' };
+    if (!this.canClose()) return { ok: false, reason: 'busy' }; // not in the middle of a sale
     const c = s.cooler;
     const t = [c.top, ...c.trays.keys()].find((k) => c.trays[k].includes(id));
     if (t == null) return { ok: false, reason: 'none' };
@@ -1411,6 +1428,11 @@ export class Cart {
       T.tummyAches = (T.tummyAches || 0) + 1;
       for (const p of s.line) this.emit({ t: 'leave', id: p.id, say: 'gone' });
       s.line = [];
+      if (s.window?.stage === 'order') {
+        // the customer at the window hadn't got anything yet: they leave too
+        this.emit({ t: 'leave', id: s.window.cust.id, say: 'gone' });
+        s.window = null;
+      }
       s.minute = Math.min(K.parkClose, s.minute + O.benchMinutes);
       this.emit({ t: 'tummyAche', minutes: O.benchMinutes });
       return { ok: true, ache: true, hunger: this.hunger };
