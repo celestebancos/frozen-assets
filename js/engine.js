@@ -135,7 +135,7 @@ export class Game {
       for (const k of Object.values(state.known || {})) delete k.delegate;
     }
     state.levelNews ??= [];
-    state.pennyAll ??= false;
+    delete state.pennyAll; // an offer that's gone
     state.inShopUntil ??= 0;
     // accounts added after a game was saved start at zero
     for (const t of [state.truth, state.filed]) for (const k of Object.keys(emptyTotals())) t[k] ??= 0;
@@ -522,7 +522,7 @@ export class Game {
     const missing = res.correct.filter((c) => !picks[c.acct]).length;
     this.logAction('file', { docId, doc: doc.type, week: doc.week, attempt, ok: res.ok, picks: { ...picks }, answer: res.correct.map((c) => `${c.acct}:${c.dir}`) });
     let learned = false;
-    if (attempt === 1) {
+    if (attempt === 1 && !doc.penny) {
       doc.firstTry = res.ok;
       // a first-try right adds to this kind of paper's streak; a miss starts it over
       const k = this.known(doc.type);
@@ -541,9 +541,9 @@ export class Game {
     const i = C.filing.levels.findIndex((L) => L.papers.includes(type) || L.also.includes(type));
     return i < 0 ? 1 : i + 1;
   }
-  // Penny files this kind of paper (it's above the kid's level, or she does all the papers now).
+  // Penny does this kind of paper: it's above the kid's level, or the kid already has its stars.
   pennyHas(type) {
-    return this.state.pennyAll || this.levelOf(type) > this.state.paperLevel;
+    return this.levelOf(type) > this.state.paperLevel || this.knowsByHeart(type);
   }
   // How many papers of this kind have come up so far (filed or still in the shoebox).
   timesSeen(type) {
@@ -556,13 +556,13 @@ export class Game {
   }
   levelDone(level = this.state.paperLevel) {
     const s = this.state;
-    const aWeekIn = s.docs.some((d) => d.filed && !d.autoFiled && d.week > s.levelStartWeek); // the kid filed a week at this level
+    const aWeekIn = s.docs.some((d) => d.filed && !d.penny && !d.autoFiled && d.week > s.levelStartWeek); // the kid filed a week at this level
     return aWeekIn && this.levelToDo(level).length === 0;
   }
   allLevelsDone() {
     return this.state.paperLevel >= C.filing.levels.length && this.levelDone();
   }
-  // Move up while the current level is done. New levels (and Penny's offer at the top) go in levelNews for the UI.
+  // Move up while the current level is done. New levels (and 'top', once every level is done) go in levelNews for the UI.
   checkLevelUp() {
     const s = this.state;
     while (s.paperLevel < C.filing.levels.length && this.levelDone()) {
@@ -571,9 +571,9 @@ export class Game {
       s.levelNews.push(s.paperLevel);
       this.logAction('levelUp', { level: s.paperLevel });
     }
-    if (this.allLevelsDone() && !s.takeoverOffered) {
-      s.takeoverOffered = true;
-      s.levelNews.push('takeover');
+    if (this.allLevelsDone() && !s.topDone) {
+      s.topDone = true;
+      s.levelNews.push('top');
     }
   }
   takeLevelNews() {
@@ -581,13 +581,7 @@ export class Game {
     this.state.levelNews = [];
     return n;
   }
-  // Penny does all the papers (for her bigger fee), or hands them back.
-  setTakeover(on) {
-    if (on && !this.allLevelsDone()) return false;
-    this.state.pennyAll = !!on;
-    this.logAction('takeover', { on: !!on });
-    return true;
-  }
+
 
   // How well the kid knows a kind of paper: { streak, seen }. seen counts the papers Penny files once she does them all.
   known(type) {
@@ -598,37 +592,50 @@ export class Game {
     return this.known(type).streak >= C.filing.streak;
   }
 
-  // Penny files the papers above the kid's level. Once she does all of them, every few still come back to the kid
-  // to check her work. Returns what she filed.
-  autoFileKnown() {
+  // Sort the papers in the shoebox: the kid's (papers at their level they're still learning), and Penny's (the rest;
+  // her lines come already picked, the kid just files them). A week with fewer than checkUnder papers for the kid gets
+  // one paper they already know back as a check-up (a miss sends that kind back to the kid until it has its stars).
+  sortPapers() {
     const s = this.state;
-    this.checkLevelUp();
-    const done = [];
+    const weeks = new Map();
     for (const doc of this.docsToFile()) {
-      if (!this.pennyHas(doc.type)) continue;
-      if (s.pennyAll && this.levelOf(doc.type) <= s.paperLevel) {
-        const k = this.known(doc.type);
-        k.seen++;
-        if (k.seen % C.filing.checkEvery === 0) continue;
-      }
-      doc.autoFiled = true;
-      this.logAction('file', { docId: doc.id, doc: doc.type, week: doc.week, attempt: 0, ok: true, auto: true });
-      this.commitDoc(doc);
-      done.push(doc);
+      if (doc.sorted) continue;
+      doc.sorted = true;
+      doc.penny = this.pennyHas(doc.type);
+      if (!weeks.has(doc.week)) weeks.set(doc.week, []);
+      weeks.get(doc.week).push(doc);
     }
-    if (done.length) this.sync();
-    return done;
+    for (const [week, docs] of weeks) {
+      if (week === 0 || docs.filter((d) => !d.penny).length >= C.filing.checkUnder) continue;
+      // the known paper checked longest ago
+      const known = docs.filter((d) => d.penny && this.levelOf(d.type) <= s.paperLevel);
+      known.sort((a, b) => (this.known(a.type).checked || 0) - (this.known(b.type).checked || 0));
+      const pick = known[0];
+      if (pick) {
+        pick.penny = false;
+        pick.checkUp = true;
+        this.known(pick.type).checked = week;
+      }
+    }
+  }
+  // Papers to file this round, the kid's first and then Penny's.
+  shoeboxPapers() {
+    this.checkLevelUp();
+    this.sortPapers();
+    const docs = this.docsToFile();
+    return [...docs.filter((d) => !d.penny), ...docs.filter((d) => d.penny)];
   }
 
-  // Penny's weekly bill, paid like a supplier invoice: a flat fee (more when she does all the papers).
+  // Penny's weekly bill, paid like a supplier invoice: a flat fee (none for the very first week).
   postPennyBill() {
     const s = this.state;
-    const fee = s.pennyAll ? C.filing.takeoverFee : C.filing.weeklyFee;
+    if (C.filing.firstWeekFree && s.season === 1 && s.day <= 7) return;
+    const fee = C.filing.weeklyFee;
     s.bills.push({ id: s.nextBillId++, amt: fee, due: s.day + C.credit.termDays, late: false, label: "Penny's bill" });
     this.post('pennyBill', [
       { acct: 'bookkeeping', amt: fee },
       { acct: 'billsToPay', amt: fee },
-    ], { key: 'week', label: s.pennyAll ? 'Keeping the books and filing all the papers' : 'Keeping the books this week', amt: fee });
+    ], { key: 'week', label: 'Keeping the books this week', amt: fee });
   }
 
   // Penny files it for you after you've tried.
@@ -2051,8 +2058,8 @@ export class Game {
       this.rollSale();
       this.applyWeekPlan();
     }
-    // Penny files the finished week's papers that are above the kid's level
-    if (endOfWeek || s.phase === 'seasonEnd') this.autoFileKnown();
+    // sort the finished week's papers into the kid's and Penny's
+    if (endOfWeek || s.phase === 'seasonEnd') this.sortPapers();
     this.sync();
   }
 
