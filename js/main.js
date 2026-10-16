@@ -370,7 +370,7 @@ class App {
           ${ev.oily && !ev.worn ? '<p class="warn">🛢️ The oil was low! Check it when you get gas.</p>' : ''}
           <p>The garage will send a bill for <b>${money(ev.cost)}</b>. Pay it within ${C.credit.termDays} days.</p>
           ${fixable ? `<div class="card" style="text-align:left"><p class="warn">🛢️ The engine is worn out from running on almost no oil, so it breaks down more.</p>
-            <p>🔧 The mechanic says: “I can fix the engine for ${money(g.engineRepairCost())}. I'd need the truck for ${C.truckCare.engineShopDays} days, so no selling.${g.shopWeekPastSummer() ? ' But summer is almost over. The winter tune-up can fix it for the same price, and you won\'t lose any days.' : ''}”</p></div>
+            <p>🔧 The mechanic says: “I can fix the engine for ${money(g.engineRepairCost())} more. It'll take ${C.truckCare.engineShopDays} days to do the repair, so you'll have to come back next week for your truck.${g.shopWeekPastSummer() ? ' But summer is almost over. The winter tune-up can fix it for the same price, and you won\'t lose any days.' : ''}”</p></div>
             <div class="row center"><button class="btn" data-act="fix">🔧 Fix the engine (${money(g.engineRepairCost())})</button><button class="btn big go" data-act="ok">Not now</button></div>`
           : `${ev.worn ? '<p class="warn">🛢️ The engine is worn out from running on almost no oil, so it breaks down more.</p>' : ''}<button class="btn big go" data-act="ok">OK</button>`}</div>`;
       },
@@ -427,7 +427,7 @@ class App {
       <div class="weather">${wIcon} <b style="font-size:30px">${w.temp}°F</b></div>
       ${last && s.phase !== 'setup' ? `<p class="muted">Yesterday: 🍦 ${Object.values(last.sold).reduce((a, b) => a + b, 0)} · 💵 ${money(last.revenue)}${last.tooExpensive ? ` · 😤 ${last.tooExpensive} said “too expensive”` : ''}${last.broke ? ` · ${coinIcon()} ${last.broke} only had pocket money` : ''}${last.lineLeft ? ` · 😩 ${last.lineLeft} left a long line` : ''}</p>` : ''}
       ${s.phase !== 'setup' && s.phase !== 'seasonEnd' && g.plannedRoute() ? `<p class="tiny muted">🗺️ Today's route: <b>${esc(g.plannedRoute().name)}</b></p>` : ''}
-      ${g.inShop && s.phase !== 'seasonEnd' ? `<p>🔧 The truck is at the garage. ${s.inShopUntil > SEASON_DAYS ? "It won't be back before summer ends." : `It's back next ${DAY_FULL[(s.inShopUntil - 1) % 7]}.`}</p>` : ''}
+      ${g.inShop && s.phase !== 'seasonEnd' ? `<p>🔧 ${s.inShopUntil > SEASON_DAYS ? "It's at the garage until the end of summer." : `It's at the garage until next ${DAY_FULL[(s.inShopUntil - 1) % 7]}.`}</p>` : ''}
       ${needFile ? `<button class="btn big yellow pulse" data-act="file">🗃️ Shoebox (${needFile})</button>` : g.inShop && s.phase !== 'seasonEnd' ? `<button class="btn big go" data-act="wait">⏭️ ${s.inShopUntil > SEASON_DAYS ? 'Skip to the end of summer' : `Skip to next ${DAY_FULL[(s.inShopUntil - 1) % 7]}`}</button>` : `<button class="btn big go pulse" data-act="open">🔔 Open for business!</button>`}
     </div></div>`);
     this.stage.appendChild(card);
