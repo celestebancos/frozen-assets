@@ -270,12 +270,47 @@ export function treatSVG(id, size = 34, tint = null) {
 
 // ---------- park life ----------
 // The swing set stands on a patch of wood chips.
-export function swingSetSVG() {
+// The swing set, seen from the front: an A-frame at each end holding up the top bar, and two swings hanging from
+// hooks on it. The swings go back and forth (away from you and toward you), so CSS scales each one about its
+// hooks: smaller and with shorter-looking chains at the back, bigger at the front. riderLook: a kid sitting on the
+// first swing (null for nobody). The rider is scaled back the other way, so they don't get squashed.
+const SWING_TOP = 17; // where the chains hang from
+const RIDER_W = 42; // a kid on the swing, about half as tall as the swing set when standing
+const CHAIN = RIDER_W * 0.26; // each chain this far from the middle of its seat: where a sitting kid's hands are
+export function swingSetSVG(riderLook = null) {
   const chips = Array.from({ length: 22 }, (_, i) => `<circle cx="${18 + ((i * 47) % 184)}" cy="${162 + ((i * 13) % 9)}" r="1.6" fill="#a8743f"/>`).join('');
-  return `<svg viewBox="0 0 220 176" class="swingset" xmlns="http://www.w3.org/2000/svg"><ellipse cx="110" cy="165" rx="108" ry="10" fill="#d6a86c" ${thin}/>${chips}<g fill="none" stroke-linecap="round"><path d="M14 168 L40 14 H180 L206 168" stroke="${INK}" stroke-width="9"/><path d="M14 168 L40 14 H180 L206 168" stroke="#e5484d" stroke-width="5.5"/></g><circle cx="40" cy="14" r="5" fill="#ffd23f" ${thin}/><circle cx="180" cy="14" r="5" fill="#ffd23f" ${thin}/></svg>`;
-}
-export function swingSeatSVG(color = '#ffd23f') {
-  return `<svg viewBox="0 0 40 120" class="seat" xmlns="http://www.w3.org/2000/svg"><path d="M6 0 V108 M34 0 V108" stroke="${INK}" stroke-width="1.6"/><rect x="2" y="106" width="36" height="8" rx="3" fill="${color}" ${thin}/></svg>`;
+  const post = (d, back) => `<path d="${d}" stroke="${INK}" stroke-width="${back ? 7.5 : 9}"/><path d="${d}" stroke="${back ? '#c3423f' : '#e5484d'}" stroke-width="${back ? 4.5 : 5.5}"/>`;
+  const chain = (x0, x1, len) => `<path d="M${x0} ${SWING_TOP} L${x1} ${SWING_TOP + len}" stroke="#7b8494" stroke-width="2.2" stroke-dasharray="3 1.6"/>`;
+  const swing = (cx, color, cls, rider) => {
+    const len = 108; // from the hooks down to the seat
+    const seatY = SWING_TOP + len;
+    let kid = '';
+    if (rider != null) {
+      // sitting: the lap (the hips, 55 of the kid's 84 units down) on the seat, hands by the chains
+      const art = personSVG('kid', rider, null, { sit: true });
+      const vh = Number(art.match(/viewBox="0 0 40 ([\d.]+)"/)[1]);
+      const w = RIDER_W;
+      const k = w / 40;
+      kid = `<g class="sw-rider" style="transform-origin:${cx}px ${seatY}px">${art.replace('<svg ', `<svg x="${cx - w / 2}" y="${(seatY - 57 * k).toFixed(1)}" width="${w}" height="${(vh * k).toFixed(1)}" `)}</g>`;
+    }
+    // the chains go in front of the rider, through their hands, so they're holding on
+    return `<g class="sw ${cls}" style="transform-origin:${cx}px ${SWING_TOP}px">
+      <path d="M${cx - 15} ${seatY - 1} Q${cx} ${seatY + 6} ${cx + 15} ${seatY - 1} L${cx + 15} ${seatY + 3} Q${cx} ${seatY + 10} ${cx - 15} ${seatY + 3} Z" fill="${color}" ${thin}/>
+      ${kid}${chain(cx - CHAIN, cx - CHAIN, len)}${chain(cx + CHAIN, cx + CHAIN, len)}</g>`;
+  };
+  const hook = (x) => `<path d="M${x} 13 v3 a2 2 0 1 0 0.01 0" stroke="${INK}" stroke-width="1.4" fill="none"/>`;
+  return `<svg viewBox="0 0 220 176" class="swingset" xmlns="http://www.w3.org/2000/svg"><ellipse cx="110" cy="165" rx="108" ry="10" fill="#d6a86c" ${thin}/>${chips}
+    <g fill="none" stroke-linecap="round">
+      ${post('M36 14 L50 158', true)}${post('M184 14 L170 158', true)}
+      ${post('M24 100 L44 100', true)}${post('M196 100 L176 100', true)}
+    </g>
+    ${swing(80, '#ffd23f', 'sw1', riderLook)}${swing(140, '#3a8ee6', 'sw2', null)}
+    <g fill="none" stroke-linecap="round">
+      ${post('M36 14 L14 168', false)}${post('M184 14 L206 168', false)}
+      <path d="M34 13 H186" stroke="${INK}" stroke-width="10"/><path d="M34 13 H186" stroke="#e5484d" stroke-width="6.5"/>
+    </g>
+    ${hook(80 - CHAIN)}${hook(80 + CHAIN)}${hook(140 - CHAIN)}${hook(140 + CHAIN)}
+    <circle cx="35" cy="13" r="5" fill="#ffd23f" ${thin}/><circle cx="185" cy="13" r="5" fill="#ffd23f" ${thin}/></svg>`;
 }
 // A squirrel facing right. sandwich: it's holding one in its paws.
 export function squirrelSVG(sandwich = true) {
