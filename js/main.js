@@ -1,6 +1,6 @@
 // Frozen Assets — app controller: title screen, setup, the game loop, HUD, and wiring of panels.
 import { CONFIG, TRUCK_COLORS, TRUCK_PRICE, USED_TRUCK, usedTruckPrice, BLING, SPOT, FLAVORS, itemKey, itemFromKey } from './config.js';
-import { Game, DAY_NAMES } from './engine.js';
+import { Game, DAY_NAMES, SEASON_DAYS } from './engine.js';
 import { Music } from './music.js';
 import { Ambience, cashRegister } from './ambience.js';
 import { storage } from './storage.js';
@@ -17,6 +17,7 @@ import { startCart } from './ui/cart.js';
 import { coinIcon, towTruckIcon } from './icons.js';
 
 const C = CONFIG;
+const DAY_FULL = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 // Real milliseconds per game minute at each speed: ▶ half a second, ▶▶ a bit faster, ▶▶▶ fast.
 const MS_PER_MIN = [0, 500, 150, 12];
 
@@ -357,6 +358,8 @@ class App {
   truckBrokeDown(ev) {
     const g = this.game;
     this.music.sfx('sad');
+    // a worn engine: the mechanic offers to fix it now (a week at the garage, starting tomorrow)
+    const fixable = ev.worn && g.state.engineWear > 0 && g.state.phase === 'closed' && !g.inShop;
     const m = openModal({
       title: '💥 The truck broke down!',
       cls: 'narrow',
@@ -364,14 +367,24 @@ class App {
       render: (body) => {
         body.innerHTML = `<div class="end-scene"><div style="font-size:50px;line-height:1">${towTruckIcon()}</div>
           <p>A tow truck takes it to the garage. That's the end of today.</p>
-          ${ev.worn ? '<p class="warn">🛢️ The engine is worn out from running on almost no oil, so it breaks down more. The garage can fix it in the winter.</p>' : ev.oily ? '<p class="warn">🛢️ The oil was low! Check it when you get gas.</p>' : ''}
+          ${ev.oily && !ev.worn ? '<p class="warn">🛢️ The oil was low! Check it when you get gas.</p>' : ''}
           <p>The garage will send a bill for <b>${money(ev.cost)}</b>. Pay it within ${C.credit.termDays} days.</p>
-          <button class="btn big go" data-act="ok">OK</button></div>`;
+          ${fixable ? `<div class="card" style="text-align:left"><p class="warn">🛢️ The engine is worn out from running on almost no oil, so it breaks down more.</p>
+            <p>🔧 The mechanic says: “I can fix the engine for ${money(g.engineRepairCost())}. I'd need the truck for ${C.truckCare.engineShopDays} days, so no selling.${g.shopWeekPastSummer() ? ' But summer is almost over. The winter tune-up can fix it for the same price, and you won\'t lose any days.' : ''}”</p></div>
+            <div class="row center"><button class="btn" data-act="fix">🔧 Fix the engine (${money(g.engineRepairCost())})</button><button class="btn big go" data-act="ok">Not now</button></div>`
+          : `${ev.worn ? '<p class="warn">🛢️ The engine is worn out from running on almost no oil, so it breaks down more.</p>' : ''}<button class="btn big go" data-act="ok">OK</button>`}</div>`;
       },
     });
     onActs(m.body, {
       ok: () => {
         m.close();
+        this.afterChange();
+      },
+      fix: () => {
+        const r = g.repairEngineNow();
+        if (r.ok) toast('🔧 The garage is fixing the engine. It will send a bill.');
+        m.close();
+        this.changed();
         this.afterChange();
       },
     });
@@ -414,17 +427,16 @@ class App {
       <div class="weather">${wIcon} <b style="font-size:30px">${w.temp}°F</b></div>
       ${last && s.phase !== 'setup' ? `<p class="muted">Yesterday: 🍦 ${Object.values(last.sold).reduce((a, b) => a + b, 0)} · 💵 ${money(last.revenue)}${last.tooExpensive ? ` · 😤 ${last.tooExpensive} said “too expensive”` : ''}${last.broke ? ` · ${coinIcon()} ${last.broke} only had pocket money` : ''}${last.lineLeft ? ` · 😩 ${last.lineLeft} left a long line` : ''}</p>` : ''}
       ${s.phase !== 'setup' && s.phase !== 'seasonEnd' && g.plannedRoute() ? `<p class="tiny muted">🗺️ Today's route: <b>${esc(g.plannedRoute().name)}</b></p>` : ''}
-      ${g.inShop && s.phase !== 'seasonEnd' ? `<p>🔧 The truck is at the garage. It's back on ${DAY_NAMES[(s.inShopUntil - 1) % 7]}${s.inShopUntil - s.day > 1 ? ` (${s.inShopUntil - s.day} days)` : ''}.</p>` : ''}
-      ${needFile ? `<button class="btn big yellow pulse" data-act="file">🗃️ Shoebox (${needFile})</button>` : g.inShop && s.phase !== 'seasonEnd' ? '<button class="btn big go" data-act="wait">⏭️ Next day</button>' : `<button class="btn big go pulse" data-act="open">🔔 Open for business!</button>`}
+      ${g.inShop && s.phase !== 'seasonEnd' ? `<p>🔧 The truck is at the garage. ${s.inShopUntil > SEASON_DAYS ? "It won't be back before summer ends." : `It's back next ${DAY_FULL[(s.inShopUntil - 1) % 7]}.`}</p>` : ''}
+      ${needFile ? `<button class="btn big yellow pulse" data-act="file">🗃️ Shoebox (${needFile})</button>` : g.inShop && s.phase !== 'seasonEnd' ? `<button class="btn big go" data-act="wait">⏭️ ${s.inShopUntil > SEASON_DAYS ? 'Skip to the end of summer' : `Skip to next ${DAY_FULL[(s.inShopUntil - 1) % 7]}`}</button>` : `<button class="btn big go pulse" data-act="open">🔔 Open for business!</button>`}
     </div></div>`);
     this.stage.appendChild(card);
     onActs(card, {
       file: () => this.openShoebox(() => this.afterChange()),
-      // the truck is at the garage: the day goes by with no selling
+      // the truck is at the garage: the days go by with no selling until it's back
       wait: () => {
         const g = this.game;
-        g.openDay();
-        g.runDay();
+        g.waitForTruck();
         this.save();
         this.hideMorning();
         this.changed();

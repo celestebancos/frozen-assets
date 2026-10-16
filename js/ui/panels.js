@@ -597,6 +597,7 @@ export function truckPanel(app) {
         ${g.inShop ? `<p class="warn">🔧 The truck is at the garage getting a new engine part. It's back on ${DAY_NAMES[(s.inShopUntil - 1) % 7]} of week ${Math.ceil(s.inShopUntil / 7)}.</p>` : ''}
         ${s.engineWear ? `<p class="warn">🛢️ The engine is worn from ${s.engineWear} day${s.engineWear > 1 ? 's' : ''} on almost no oil, so it breaks down more.</p>
           <p>The garage can fix it now for ${money(g.engineRepairCost())}, but it takes ${C.truckCare.engineShopDays} days, and you can't sell while it's there. Or wait for the winter tune-up.</p>
+          ${g.shopWeekPastSummer() ? '<p>🔧 The mechanic says: “Summer is almost over. The winter tune-up can fix it for the same price, and you won\'t lose any days.”</p>' : ''}
           <button class="btn" data-act="engine" ${canFix ? '' : 'disabled'}>🔧 Fix the engine now (${money(g.engineRepairCost())})</button>${canFix || s.phase !== 'open' ? '' : ' <span class="tiny muted">Only before you open for the day.</span>'}` : ''}
         ${s.truckUsed && !s.truckFixed
           ? `<p>Your truck is used, and it looks it. People in the nicer neighborhoods are less likely to buy from a rusty old truck. The garage can fix up the outside: new paint, bodywork, no more rust.</p>
@@ -639,7 +640,8 @@ export function truckPanel(app) {
       m.refresh();
     },
     engine: async () => {
-      if (!(await askYes(`Fix the engine for ${money(g.engineRepairCost())}? The truck stays at the garage for ${C.truckCare.engineShopDays} days, so no selling.`, { yes: 'Fix it', no: 'Not now' }))) return;
+      const late = g.shopWeekPastSummer() ? ' Summer is almost over, so waiting for the winter tune-up costs the same and loses no days.' : '';
+      if (!(await askYes(`Fix the engine for ${money(g.engineRepairCost())}? The truck stays at the garage for ${C.truckCare.engineShopDays} days, so no selling.${late}`, { yes: 'Fix it', no: 'Not now' }))) return;
       const r = g.repairEngineNow();
       if (!r.ok) return;
       app.music.sfx('ching');

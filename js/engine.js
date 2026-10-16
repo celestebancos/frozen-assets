@@ -2129,6 +2129,22 @@ export class Game {
   get inShop() {
     return this.state.inShopUntil > this.state.day;
   }
+  // Let the days at the garage go by (no selling) until the truck is back, or the summer ends. Returns how many days.
+  waitForTruck() {
+    const s = this.state;
+    let days = 0;
+    while (this.inShop && (s.phase === 'closed' || s.phase === 'setup')) {
+      this.openDay();
+      this.runDay();
+      days++;
+    }
+    return days;
+  }
+  // A week at the garage starting today would run past the end of the summer (the winter tune-up fixes the engine
+  // for the same price, without losing selling days).
+  shopWeekPastSummer() {
+    return SEASON_DAYS - this.state.day + 1 < T.engineShopDays;
+  }
   // What the garage charges to fix a worn engine (the same in the summer or the winter).
   engineRepairCost() {
     const E = T.winter.engine;
