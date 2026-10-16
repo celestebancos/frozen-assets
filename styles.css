@@ -613,13 +613,23 @@ div.lot-truck { text-align: center; }
 .stand-btn:hover { filter: brightness(1.06); }
 .park .swings { position: absolute; z-index: 1; }
 .park .swings > svg { width: 100%; height: auto; display: block; }
-.park .seat-wrap { position: absolute; top: 9%; width: 20%; }
-.park .seat-wrap.s1 { left: 28%; } .park .seat-wrap.s2 { left: 55%; }
-.park .sw-kid { position: relative; transform-origin: 50% 0; animation: swing 2.6s ease-in-out infinite alternate; }
-.park .seat-wrap.s2 .sw-kid { animation-duration: 3.1s; animation-delay: -1s; }
-.park .sw-kid > svg { width: 100%; height: auto; display: block; }
-.park .rider { position: absolute; left: -10%; bottom: 0; width: 120%; } .park .rider svg { width: 100%; height: auto; }
-@keyframes swing { from { transform: rotate(-24deg); } to { transform: rotate(24deg); } }
+/* The swings go away from you and back toward you: at the back they're smaller and their chains look shorter,
+   at the front they're bigger. Each one is scaled about its hooks (set in swingSetSVG), and the rider is scaled back
+   up and down so they stay the right shape. */
+.swingset .sw1 { animation: swingAway 2.6s infinite alternate; }
+.swingset .sw-rider { animation: swingRider 2.6s infinite alternate; }
+.swingset .sw2 { animation: swingEmpty 3.1s ease-in-out -1s infinite alternate; }
+@keyframes swingAway {
+  0% { transform: scale(0.92, 0.76); animation-timing-function: cubic-bezier(0.45, 0, 0.75, 0.6); }
+  50% { transform: scale(1, 1); animation-timing-function: cubic-bezier(0.25, 0.4, 0.55, 1); }
+  100% { transform: scale(1.1, 0.9); }
+}
+@keyframes swingRider {
+  0% { transform: scaleY(1.21); animation-timing-function: cubic-bezier(0.45, 0, 0.75, 0.6); }
+  50% { transform: scaleY(1); animation-timing-function: cubic-bezier(0.25, 0.4, 0.55, 1); }
+  100% { transform: scaleY(1.222); }
+}
+@keyframes swingEmpty { from { transform: scale(0.98, 0.95); } to { transform: scale(1.02, 0.97); } }
 .stage.park { container-type: size; }
 .park .cart-spot { position: absolute; left: 6%; bottom: 3%; width: min(calc(var(--u, 1.3px) * 220), 62cqh); z-index: 3; }
 .park.tall .cart-spot { left: 3%; width: min(calc(var(--u, 1.1px) * 140), 62cqh); }
@@ -669,7 +679,7 @@ div.lot-truck { text-align: center; }
 @keyframes storyShake { from { transform: translateX(-1.5px); } to { transform: translateX(1.5px); } }
 .story-layer .say .pop { transform-box: fill-box; transform-origin: 50% 100%; animation: sayPop 0.25s ease-out; }
 @keyframes sayPop { from { transform: scale(0.2); opacity: 0; } }
-@media (prefers-reduced-motion: reduce) { .park .sw-kid, .prop, .spin, .bob { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .swingset .sw, .swingset .sw-rider, .prop, .spin, .bob { animation: none; } }
 
 .park .serve { position: absolute; right: 10px; bottom: 10px; width: min(560px, calc(100% - 20px)); max-height: calc(100% - 20px); overflow: auto; z-index: 7; background: var(--paper); border: 3px solid var(--ink); border-radius: 18px; box-shadow: 0 6px 0 rgba(46, 42, 69, 0.25); padding: 10px 12px; }
 .serve-top { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }

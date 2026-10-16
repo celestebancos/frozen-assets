@@ -3,7 +3,7 @@
 import { CART, GRANDMA, sliceText, CART_ITEMS, CART_ITEM, CART_SHOPS, CART_CROWD, REGULARS } from '../config.js';
 import { Cart, total, pileCount, pileOf, capOf, bulkPrice, boxTint, FOOD, isFood, CART_DAY_NAMES } from '../cart.js';
 import { personSVG, parkSVG, CHARACTER, PARK_VIEW } from '../art.js';
-import { cartSVG, toyPlaySVG, STICKER_AREA, umbrellaSVG, moneySVG, treatSVG, thingSVG, boxFrontSVG, boxSideSVG, BOX_LOOK, spoonCupSVG, napkinStackSVG, spoonBoxSVG, napkinPackSVG, recyclingBinSVG, swingSetSVG, swingSeatSVG, balloonSVG, hotdogStandSVG, balloonSellerSVG, stickerStandSVG } from '../cartArt.js';
+import { cartSVG, toyPlaySVG, STICKER_AREA, umbrellaSVG, moneySVG, treatSVG, thingSVG, boxFrontSVG, boxSideSVG, BOX_LOOK, spoonCupSVG, napkinStackSVG, spoonBoxSVG, napkinPackSVG, recyclingBinSVG, swingSetSVG, balloonSVG, hotdogStandSVG, balloonSellerSVG, stickerStandSVG } from '../cartArt.js';
 import { ParkStories } from './parkStories.js';
 import { PauseClock } from './clock.js';
 import { coinIcon, jarIcon, walletIcon, fanIcon, gumIcon, emo } from '../icons.js';
@@ -1359,7 +1359,7 @@ export class CartView {
         </div>
         <div class="vig"></div>
         <div class="scene-front"></div>${c.state.weather.rain ? '<div class="rain"></div>' : ''}
-        <div class="swings">${swingSetSVG()}<div class="seat-wrap s1"><div class="sw-kid">${swingSeatSVG('#ffd23f')}<div class="rider">${personSVG('kid', 13)}</div></div></div><div class="seat-wrap s2"><div class="sw-kid">${swingSeatSVG('#3a8ee6')}</div></div></div>
+        <div class="swings">${swingSetSVG(13)}</div>
         <div class="cart-spot">${cartSpot(c)}</div>
         <div class="queue"></div>
         <div class="passers"></div>
