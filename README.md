@@ -118,6 +118,7 @@ All the balance numbers are in **`js/config.js`**: prices, demand, popularity, g
 node tools/simulate.mjs 150            # every bot, 150 summers each
 node tools/simulate.mjs 50 decent smart  # just some bots
 TRACE=1 node tools/simulate.mjs 1 decent # week-by-week trace
+node tools/trucks.mjs 30 3               # new vs used trucks, careful vs careless, 3 summers
 ```
 
 Tuning targets: a **decent** player (fair prices, keeps stocked, a simple 2-stop route from Maple Street to Riverside after lunch and back, flyers, gift card for upset customers) wins every time. A **smart** player (route follows the crowds) earns clearly more. **Poor** choices carry a real risk of losing: overpricing, overbuying mix that spoils, handing out piles of free gift cards, or parking all day in a quiet neighborhood. Staying all day in a dense one (Downtown) can work, but a good route still earns more. A **bargain** player (the decent one with every price at 70%) shows what low prices do on the truck.
