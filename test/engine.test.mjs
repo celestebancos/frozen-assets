@@ -1148,3 +1148,25 @@ test('Grandma and a bank loan together: both papers, daily interest, and the loa
   assert.equal(s.truth.loan, 0, 'paid back');
   assert.ok(s.truth.grandmaIn > 950000, 'Grandma still gets her slice');
 });
+
+test('bling at the garage is an upgrade: the truck is worth more and a bill comes, not an expense', async () => {
+  const { BLING } = await import('../js/config.js');
+  const g = Game.create({ player: 'N', business: 'T', color: 'pink', seed: 3 });
+  fileAllCorrectly(g);
+  const s = g.state;
+  const truck = s.truth.truck;
+  const r = g.addBling(2);
+  assert.ok(r.ok);
+  assert.equal(s.bling, 2);
+  assert.equal(s.truth.truck, truck + BLING[2].price);
+  assert.equal(s.truth.billsToPay, BLING[2].price);
+  assert.equal(sectionTotal(s.truth, 'expense'), 0, 'no expense');
+  assert.equal(g.addBling(1).ok, false, 'only more bling');
+  assert.ok(s.docs.some((d) => d.type === 'truckUpgrade'));
+  assert.equal(share(s.truth), profit(s.truth));
+  // a used truck gets fixed up first
+  const u = Game.create({ player: 'N', business: 'T', color: 'pink', seed: 3, used: true, miles: 90000, truckCost: 450000 });
+  assert.equal(u.addBling(1).ok, false);
+  u.fixUp();
+  assert.equal(u.addBling(1).ok, true);
+});

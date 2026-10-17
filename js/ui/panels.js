@@ -1,5 +1,5 @@
 // The toolbar panels: shop, menu & prices, map, gift cards, inventory, policies, truck & music, books.
-import { CONFIG, SUPPLIES, SUPPLY, CONTAINERS, FLAVORS, TOPPINGS, POPS, POP, SPOTS, SPOT, FEATURES, TRUCK_COLORS, MARKET_DAYS, destOf } from '../config.js';
+import { CONFIG, BLING, SUPPLIES, SUPPLY, CONTAINERS, FLAVORS, TOPPINGS, POPS, POP, SPOTS, SPOT, FEATURES, TRUCK_COLORS, MARKET_DAYS, destOf } from '../config.js';
 import { DAY_NAMES } from '../engine.js';
 import { TUNES, VOICES } from '../music.js';
 import { ACCOUNTS, ACCOUNT, pnlRowsFor, sectionTotal, share, ownShare } from '../ledger.js';
@@ -637,6 +637,13 @@ export function truckPanel(app) {
           ? `<p>Your truck is used, and it looks it. People in the nicer neighborhoods are less likely to buy from a rusty old truck. The garage can fix up the outside: new paint, bodywork, no more rust.</p>
              <button class="btn go" data-act="fixUp">🔧 Fix it up (${money(C.truckCare.fixUp)})</button> <span class="tiny muted">The garage sends a bill. Pay it within ${C.credit.termDays} days.</span>`
           : s.truckUsed ? '<p>✨ Fixed up and looking great!</p>' : '<p>Your truck is in good shape.</p>'}
+        <h3>✨ Bling</h3>
+        ${(s.bling || 0) >= BLING.length - 1
+          ? `<p>${BLING[s.bling].emoji} Your truck has the most bling there is: ${esc(BLING[s.bling].name)}!</p>`
+          : s.truckUsed && !s.truckFixed
+            ? '<p class="tiny muted">Fix up the outside first, then the garage can add bling.</p>'
+            : `<p class="tiny muted">${s.bling ? `Now: ${BLING[s.bling].emoji} ${esc(BLING[s.bling].name)}. ` : ''}Bling is just for looks. It becomes part of the truck, so the truck is worth more on the books.</p>
+              <div class="row">${BLING.filter((b) => b.level > (s.bling || 0)).map((b) => `<button class="btn" data-act="bling" data-level="${b.level}">${b.emoji} ${esc(b.name)} (${money(b.price)})</button>`).join('')}</div>`}
         <p class="tiny muted">${s.truckUsed ? 'A used truck still burns more gas, leaks oil (check it at the gas station) and breaks down more often. ' : ''}Every winter the garage checks the truck, changes the oil and sends a bill. It also suggests repairs that make breakdowns less likely next summer.</p>`;
     },
   });
@@ -683,6 +690,15 @@ export function truckPanel(app) {
       app.changed();
       m.close();
       app.afterChange();
+    },
+    bling: async (t) => {
+      const b = BLING[Number(t.dataset.level)];
+      if (!(await askYes(`Add ${b.name.toLowerCase()} for ${money(b.price)}? The garage sends a bill. Pay it within ${C.credit.termDays} days.`, { yes: 'Add it', no: 'Not now' }))) return;
+      if (!g.addBling(b.level).ok) return;
+      app.music.sfx('ching');
+      toast(`${b.emoji} Ooh, shiny! The garage will send a bill.`);
+      app.changed();
+      m.refresh();
     },
     fixUp: () => {
       const r = g.fixUp();
