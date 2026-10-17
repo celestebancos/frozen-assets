@@ -144,7 +144,7 @@ export const CONFIG = {
       { name: 'Money in, money out', says: 'Money comes in when you sell, and goes out when you buy.', papers: ['registerTape', 'supplyReceipt', 'gasReceipt'], also: ['ownerInvest', 'grandmaInvest', 'grandmaBuyout', 'loanPapers', 'truckBill', 'upkeepReceipt', 'adInvoice', 'rebrandReceipt', 'sellBack'] },
       { name: 'Things get used up', says: 'Supplies are things you own. When you use them up, or they spoil, they turn into an expense.', papers: ['countSheet'], also: ['spoilSlip'] },
       { name: 'The cost of borrowing', says: 'Interest is what the bank charges to lend you money. It is an expense.', papers: ['interestPaid'], also: ['interestUnpaid', 'bankLateFee', 'interestPayoff', 'loanRepay'] },
-      { name: 'Pay later', says: "Some bills you pay later. Until you pay, it's a bill to pay: money you owe.", papers: ['pennyBill', 'billPayment'], also: ['supplyInvoice', 'garageBill', 'supplierLateFee'] },
+      { name: 'Pay later', says: "Some bills you pay later. Until you pay, it's a bill to pay: money you owe.", papers: ['pennyBill', 'billPayment'], also: ['supplyInvoice', 'garageBill', 'truckUpgrade', 'supplierLateFee'] },
       { name: 'Money you hold for others', says: "When someone buys a gift card, the money isn't all yours yet. You owe them ice cream.", papers: ['giftSales', 'redemptions'], also: ['freeCards'] },
       { name: "Costs that don't feel like costs", says: 'Some costs happen even when no cash leaves.', papers: [], also: ['truckWear'] },
     ],

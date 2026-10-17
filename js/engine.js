@@ -1,7 +1,7 @@
 // Frozen Assets game engine. Pure logic, no DOM, so it runs in the browser and in Node.
 // All state lives in `game.state` (plain JSON, saved as-is). `game.events` is a transient feed for the UI.
 
-import { CONFIG, sliceText, SUPPLIES, SUPPLY, SPOTS, SPOT, FEATURES, FEATURE, LOCS, destOf, CONTAINERS, FLAVORS, TOPPINGS, POPS, POP, CROWDS, DROP_BY_PERSON, START_PRICES, MARKET_DAYS, OFFICE_ADULT_PAY, CART, STREET_CROWD, itemKey } from './config.js';
+import { CONFIG, BLING, sliceText, SUPPLIES, SUPPLY, SPOTS, SPOT, FEATURES, FEATURE, LOCS, destOf, CONTAINERS, FLAVORS, TOPPINGS, POPS, POP, CROWDS, DROP_BY_PERSON, START_PRICES, MARKET_DAYS, OFFICE_ADULT_PAY, CART, STREET_CROWD, itemKey } from './config.js';
 import { makeRng } from './rng.js';
 import { ACCOUNT, balanceCheck, applyEntries, emptyTotals, share, ownShare, sectionTotal } from './ledger.js';
 import { addToDoc, docLines, docEntryList, checkFiling, DOC_TYPES } from './documents.js';
@@ -2305,6 +2305,23 @@ export class Game {
     this.garageBill(T.fixUp, 'New paint and bodywork');
     this.logAction('fixUp', { cost: T.fixUp });
     return { ok: true, cost: T.fixUp };
+  }
+
+  // The garage adds bling (stickers, chrome and lights, deluxe). It's part of the truck now: an upgrade, so the Truck
+  // (an asset) goes up instead of an expense, and the garage sends a bill. A used truck gets fixed up first.
+  addBling(level) {
+    const s = this.state;
+    const B = BLING[level];
+    if (!B || level <= (s.bling || 0) || (s.truckUsed && !s.truckFixed)) return { ok: false };
+    s.bling = level;
+    s.blingName = B.name;
+    this.post('truckUpgrade', [
+      { acct: 'truck', amt: B.price },
+      { acct: 'billsToPay', amt: B.price },
+    ], { label: `Truck upgrade: ${B.name.toLowerCase()}`, amt: B.price });
+    s.bills.push({ id: s.nextBillId++, amt: B.price, due: s.day + C.credit.termDays, late: false, label: `Garage: ${B.name}` });
+    this.logAction('addBling', { level, cost: B.price });
+    return { ok: true, cost: B.price };
   }
 
   rebrand({ color, business }) {
