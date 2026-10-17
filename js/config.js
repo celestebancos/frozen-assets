@@ -703,6 +703,7 @@ export const GRANDMA = {
   feel: { lunch: 1, followed: 1, ignored: -0.5, fav: 1, noFav: -1, fewNapkins: -0.5, decline2: -1 },
   tip: { far: 0.25 }, // she mentions a price this far off the fair price
   spend: 800, // she notices if you spent this much on snacks and toys since your last lunch (not counting lunch)
+  bankTip: 8000, // she tells you to put money in the bank when the cash box has this much and more than the bank does
   gift: { feel: 8, chance: 0.3, cash: 500 },
   // Her offer to invest in a truck, once your money (cash box, bank and wallet) reaches `at`. She puts in what the
   // truck needs plus startCash for supplies, up to max (so the fanciest trucks are out of reach). Her slice of the

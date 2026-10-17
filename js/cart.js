@@ -1612,6 +1612,13 @@ export class Cart {
       this.feel(G.feel.followed);
       return { umbrella: 'I saw your new umbrella. I bet it keeps you nice and cool!', fan: 'A little fan! Smart thinking on a hot day.', bell: 'I heard your bell all the way across the park! Ding ding!' }[a.id];
     }
+    if (a.kind === 'bank') {
+      if (this.bank > a.had) {
+        this.feel(G.feel.followed);
+        return "I hear you're saving at the bank. Good! Now watch it grow a little every night.";
+      }
+      return 'Still carrying all that cash around? The bank pays you to keep it there, you know!';
+    }
     if (a.kind === 'spend') {
       if ((g.spent || 0) < G.spend / 2) {
         this.feel(G.feel.followed);
@@ -1646,6 +1653,10 @@ export class Cart {
       const to = g.spentToys || 0;
       const what = to < g.spent * 0.2 ? 'snacks' : sn < g.spent * 0.2 ? 'toys' : 'snacks and toys';
       return { line: `You've been buying a lot of ${what}, haven't you? Remember to save some money for your business!`, advice: { kind: 'spend', what } };
+    }
+    // lots of cash in the cash box: put some in the savings account
+    if (this.boxTotal >= G.bankTip && this.boxTotal > this.bank && not('bank')) {
+      return { line: "That's a lot of cash in your cash box, dear! Put some in the bank. It's safer there, and the bank pays you interest: a little more money every night.", advice: { kind: 'bank', had: this.bank } };
     }
     if (!this.decals().length && not('sticker')) return { line: 'Your cart looks a little plain, dear. The sticker lady at the park has nice ones.', advice: { kind: 'sticker', had: 0 } };
     if (!this.has('umbrella') && not('gear')) return { line: 'That sun is so hot, dear! A big umbrella would keep you and your treats cool.', advice: { kind: 'gear', id: 'umbrella' } };

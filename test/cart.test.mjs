@@ -1454,3 +1454,20 @@ test('the cart bank account is a savings account: interest every night, parts of
   const old = new Cart(st);
   assert.equal(old.state.stats.interest, 0);
 });
+
+test('Grandma says to put cash in the bank when the cash box is full, and notices if you did', async () => {
+  const { GRANDMA } = await import('../js/config.js');
+  const c = Cart.create({ player: 'S', seed: 3 });
+  const s = c.state;
+  s.money.box = { 2000: Math.ceil(GRANDMA.bankTip / 2000) + 1 };
+  s.money.bank = 0;
+  for (const it of CART_ITEMS) s.prices[it.id] = it.fair; // no price advice first
+  const tip = c.grandmaAdvice(null);
+  assert.equal(tip.advice.kind, 'bank');
+  assert.match(tip.line, /bank/);
+  // she notices the deposit next time
+  assert.ok(c.deposit('box', { 2000: 3 }));
+  assert.match(c.grandmaFollowUp(tip.advice), /saving at the bank/);
+  // and nags if you didn't
+  assert.match(c.grandmaFollowUp({ kind: 'bank', had: c.bank }), /cash around/);
+});
