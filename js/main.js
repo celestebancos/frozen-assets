@@ -96,11 +96,17 @@ class App {
           const ct = storage.loadCart(n);
           const truckOn = st && st.phase !== 'lost';
           const info = st ? (st.phase === 'lost' ? '🚚 Truck was taken 😢' : `🚚 Summer ${st.season} · Week ${Math.min(12, Math.ceil(st.day / 7))} · ${DAY_NAMES[(st.day - 1) % 7]}`) : '';
+          // one level at a time: the cart, or (once you buy one) the truck. Older players with both pick one.
+          const btns =
+            truckOn && ct
+              ? `<button class="btn go" data-act="pick" data-n="${esc(n)}">🔀 Pick one</button>`
+              : truckOn
+                ? `<button class="btn go" data-act="cont" data-n="${esc(n)}">🚚 Truck</button>`
+                : `<button class="btn ${ct ? 'go' : 'pink'}" data-act="cart" data-n="${esc(n)}">${cartIcon()} ${ct ? 'Cooler' : st ? 'Start over at the park' : 'Start at the park'}</button>
+                  ${ct ? '' : `<button class="link tiny" data-act="new" data-n="${esc(n)}">Buy a Truck</button>`}`;
           return `<div class="player-card"><div class="name">${esc(n)}</div>
             ${ct ? `<div class="sub">${cartIcon()} Cooler · Day ${ct.day}</div>` : ''}${info ? `<div class="sub">${info}</div>` : ''}${!ct && !st ? '<div class="sub">No game yet</div>' : ''}
-            <div class="stack">${truckOn ? `<button class="btn go" data-act="cont" data-n="${esc(n)}">🚚 Truck</button>` : ''}
-            <button class="btn ${truckOn ? '' : ct ? 'go' : 'pink'}" data-act="cart" data-n="${esc(n)}">${cartIcon()} ${ct ? 'Cooler' : 'Start at the park'}</button>
-            ${!truckOn ? `<button class="link tiny" data-act="new" data-n="${esc(n)}">Buy a Truck</button>` : ''}</div></div>`;
+            <div class="stack">${btns}</div></div>`;
         })
         .join('')}
         <div class="player-card"><div class="name">➕</div><div class="sub">${names.length ? 'Someone new' : 'Add a player'}</div>
@@ -112,7 +118,12 @@ class App {
     document.body.appendChild(scr);
     onActs(scr, {
       cont: (t) => this.loadGame(t.dataset.n),
-      cart: (t) => startCart(this, t.dataset.n),
+      cart: (t) => {
+        const n = t.dataset.n;
+        if (storage.loadGame(n)?.phase === 'lost') storage.retireGame(n); // the taken truck: start over at the park
+        startCart(this, n);
+      },
+      pick: (t) => this.pickOne(t.dataset.n),
       new: async (t) => {
         const n = t.dataset.n;
         if (storage.loadGame(n) && storage.loadGame(n).phase !== 'lost' && !(await askYes(`Start over for ${esc(n)}? The saved game will be replaced.`, { yes: 'Start over', no: 'Keep it' }))) return;
@@ -126,6 +137,33 @@ class App {
       },
       lb: () => this.showLeaderboard(),
       settings: () => this.showSettings(),
+    });
+  }
+
+  // A player from before "one level at a time" with a cart and a truck both going: keep one, put the other away.
+  pickOne(n) {
+    const m = openModal({
+      title: `🔀 ${esc(n)}, pick one`,
+      cls: 'narrow popup',
+      render(body) {
+        body.innerHTML = `<p>You have a ${cartIcon()} cart and a 🚚 truck going. From now on it's one at a time: the cart comes first, and buying a truck retires it. Which one do you want to keep?</p>
+          <div class="choice-grid"><button data-act="cart"><span class="e">${cartIcon()}</span>Keep the cart</button><button data-act="truck"><span class="e">🚚</span>Keep the truck</button></div>
+          <p class="tiny muted">The other one is put away. To play the cart again later, start a new player.</p>`;
+      },
+    });
+    onActs(m.body, {
+      cart: async () => {
+        if (!(await askYes(`Keep the cart, and put the truck away?`, { yes: 'Keep the cart', no: 'Wait' }))) return;
+        storage.retireGame(n);
+        m.close();
+        this.showTitle();
+      },
+      truck: async () => {
+        if (!(await askYes(`Keep the truck, and put the cart away?`, { yes: 'Keep the truck', no: 'Wait' }))) return;
+        storage.retireCart(n);
+        m.close();
+        this.showTitle();
+      },
     });
   }
 

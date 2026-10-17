@@ -55,6 +55,20 @@ export const storage = {
   deleteCart(player) {
     del('cart:' + player.trim().toLowerCase());
   },
+  // A player plays one level at a time: buying a truck retires the cart, and a player with both picks one to keep.
+  // The one put away is kept under a 'retired:' key (not shown anywhere), just in case.
+  retireCart(player) {
+    const k = 'cart:' + player.trim().toLowerCase();
+    const v = get(k);
+    if (v) set('retired:' + k, v);
+    del(k);
+  },
+  retireGame(player) {
+    const k = slot(player);
+    const v = get(k);
+    if (v) set('retired:' + k, v);
+    del(k);
+  },
   players() {
     return get('players', []);
   },

@@ -1255,15 +1255,13 @@ export class CartView {
   truckLoan() {
     const c = this.cart;
     const s = this.s;
-    const truck = storage.loadGame(s.player);
     const m = openModal({
       title: '🏦 The bank',
       cls: 'narrow',
       render: (body) => {
         body.innerHTML = `<div class="penny"><div class="face">🧑‍💼</div><div class="say">Want an ice cream truck? The bank can lend you the money. Your cart money comes with you: it's <b>your share</b> of the new business.</div></div>
           <div class="stats"><div class="stat"><div class="k">${cashBoxIcon()} Cash box</div><div class="v">${money(c.boxTotal)}</div></div><div class="stat"><div class="k">🏦 Bank</div><div class="v">${money(c.bank)}</div></div><div class="stat"><div class="k">🚚 Comes with you</div><div class="v">${money(c.businessMoney)}</div></div></div>
-          <p class="tiny muted">Your wallet stays yours. Your cart stays home, so you can come back to the park any time.</p>
-          ${truck && truck.phase !== 'lost' ? '<p class="warn">⚠️ You already have a truck. This starts a new truck business instead.</p>' : ''}
+          <p class="tiny muted">Your wallet stays yours. Once you buy the truck, the cart retires: the truck is your business now.</p>
           <div class="row" style="justify-content:space-between"><button class="btn" data-act="no">Not yet</button><button class="btn big go" data-act="go">To the bank ▶</button></div>`;
       },
     });
@@ -1280,6 +1278,7 @@ export class CartView {
           onStart: () => {
             c.fundTruck();
             this.save();
+            storage.retireCart(s.player); // one level at a time: the truck is the business now
           },
         });
       },
@@ -1518,6 +1517,7 @@ export class CartView {
           onStart: () => {
             c.fundTruck();
             this.save();
+            storage.retireCart(s.player); // one level at a time: the truck is the business now
           },
         });
       },
