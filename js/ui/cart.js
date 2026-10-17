@@ -451,7 +451,8 @@ export class CartView {
           <h3>💵 Money</h3>
           <div class="money-row"><span>${cashBoxIcon()} Cash box <span class="tiny muted">(the cart's)</span></span><b>${money(c.boxTotal)}</b></div>
           <div class="chips">${stacks(s.money.box, 34)}</div>
-          <div class="money-row"><span>🏦 Bank <span class="tiny muted">(the cart's)</span></span><b>${money(c.bank)}</b></div>
+          <div class="money-row"><span>🏦 Savings <span class="tiny muted">(the cart's)</span></span><b>${money(c.bank)}</b></div>
+          ${s.lastInterest ? `<div class="tiny muted">📈 The bank paid ${money(s.lastInterest)} interest last night.</div>` : ''}
           <div class="money-row"><span>${walletIcon()} Wallet <span class="tiny muted">(yours)</span></span><b>${money(c.walletTotal)}</b></div>
           ${c.walletTotal ? `<div class="tiny muted">Tap one to put it in ${cashBoxIcon()}</div><div class="chips">${chips(s.money.wallet, 'toBox', 'wallet', { size: 34 })}</div>` : '<div class="tiny muted">Empty</div>'}
           <div class="row">${c.walletTotal ? `<button class="btn small" data-act="walletToBox">${walletIcon()} → ${cashBoxIcon()} All in the cash box</button>` : ''}<button class="btn small" data-act="moveMoney">↔️ Move money</button></div>
@@ -857,6 +858,7 @@ export class CartView {
   // The corner store: snacks, toys and clothes, the ATM and the change machine.
   cornerStore(onClose) {
     const c = this.cart;
+    const s = c.state;
     let tab = 'change'; // the change machine is the main reason to come here
     let from = 'box';
     let tray = {};
@@ -869,7 +871,8 @@ export class CartView {
         const fromTabs = `<div class="tabs"><button class="btn small ${from === 'box' ? 'on' : ''}" data-act="from" data-w="box">${cashBoxIcon()} Cash box ${money(c.boxTotal)}</button><button class="btn small ${from === 'wallet' ? 'on' : ''}" data-act="from" data-w="wallet">${walletIcon()} Wallet ${money(c.walletTotal)}</button></div>`;
         if (tab === 'atm') {
           const bills = Object.fromEntries(Object.entries(c.pile(from)).filter(([d]) => Number(d) >= 100));
-          body.innerHTML = `${tabs}<div class="atm"><div class="atm-screen">🏦 The cart's bank account<br><b style="font-size:28px">${money(c.bank)}</b></div>
+          body.innerHTML = `${tabs}<div class="atm"><div class="atm-screen">🏦 The cart's savings account<br><b style="font-size:28px">${money(c.bank)}</b></div>
+            <p class="tiny">📈 It's a <b>savings account</b>: every night the bank pays you <b>interest</b>, ${Math.round(K.savings.perDay * 1000)}¢ for every $10 in it. The more you save, the more it grows!${s.stats.interest ? ` So far it has paid you ${money(s.stats.interest)}.` : ''}</p>
             <h3>Put money in</h3>${fromTabs}
             <div class="chips">${chips(bills, 'give', from, { except: tray, denoms: K.denoms.filter((d) => d >= 100) })}</div>
             <div class="tray"><div class="pieces">${pieces(tray, 'untray')}</div></div>
@@ -1078,11 +1081,11 @@ export class CartView {
             const earned = sum(known, (d) => d.earned[id]);
             const cost = sum(known, (d) => d.cost?.[id]);
             T = { n: T.n + n, earned: T.earned + earned, cost: T.cost + cost };
-            return { id, n, earned, cost, p: earned - cost };
+            return { id, n, earned, cost, p: earned - cost, each: n ? (earned - cost) / n : 0 };
           });
           if (sortBy) lines.sort((a, b) => b[sortBy] - a[sortBy]);
           const rows = lines
-            .map(({ id, n, earned, cost, p }) => `<tr><th>${treatSVG(id, 26)}</th><td>${n}</td><td>${cell(earned)}</td><td>${cell(cost)}</td><td class="${known.length ? (p < 0 ? 'bad' : 'good') : ''}">${cell(p)}</td></tr>`)
+            .map(({ id, n, earned, cost, p, each }) => `<tr><th>${treatSVG(id, 26)}</th><td>${n}</td><td>${cell(earned)}</td><td>${cell(cost)}</td><td class="${known.length ? (p < 0 ? 'bad' : 'good') : ''}">${cell(p)}</td><td class="${known.length ? (each < 0 ? 'bad' : 'good') : ''}">${cell(Math.round(each))}</td></tr>`)
             .join('');
           // tap a heading to sort biggest to smallest; tap it again for the usual order
           const col = (k, label) => `<th><button class="sort ${sortBy === k ? 'on' : ''}" data-act="sort" data-k="${k}" aria-label="Sort by ${label}">${label}${sortBy === k ? ' ▼' : ''}</button></th>`;
@@ -1090,9 +1093,9 @@ export class CartView {
           const firstKnown = days.find((d) => d.earned);
           body.innerHTML = `${tabs}
             <div class="rec-nav"><button class="btn small" data-act="prev" ${pick !== 0 ? '' : 'disabled'} aria-label="Day before">◀</button><span>${pick < 0 ? 'All days' : `${dayName(days[pick])} · Day ${days[pick].day}`}</span><button class="btn small" data-act="next" ${pick >= 0 && pick < days.length - 1 ? '' : 'disabled'} aria-label="Next day">▶</button><button class="btn small ${pick < 0 ? 'on' : ''}" data-act="all">All days</button></div>
-            ${ids.length ? `<table class="rec profit"><tr><th></th>${col('n', 'Sold')}${col('earned', 'Sales')}${col('cost', 'Cost')}${col('p', 'Profit')}</tr>${rows}
-              <tr class="total"><th>All</th><td>${T.n}</td><td>${cell(T.earned)}</td><td>${cell(T.cost)}</td><td class="${known.length ? (P < 0 ? 'bad' : 'good') : ''}">${cell(P)}</td></tr></table>` : '<p>Nothing sold that day.</p>'}
-            <p class="tiny muted">Cost: what you paid the store for those treats.${known.length < list.length && firstKnown ? ` Money for each treat starts on day ${firstKnown.day}.` : ''}</p>`;
+            ${ids.length ? `<table class="rec profit"><tr><th></th>${col('n', 'Sold')}${col('earned', 'Sales')}${col('cost', 'Cost')}${col('p', 'Profit')}${col('each', 'Each')}</tr>${rows}
+              <tr class="total"><th>All</th><td>${T.n}</td><td>${cell(T.earned)}</td><td>${cell(T.cost)}</td><td class="${known.length ? (P < 0 ? 'bad' : 'good') : ''}">${cell(P)}</td><td class="${known.length ? (P < 0 ? 'bad' : 'good') : ''}">${cell(T.n ? Math.round(P / T.n) : 0)}</td></tr></table>` : '<p>Nothing sold that day.</p>'}
+            <p class="tiny muted">Cost: what you paid the store for those treats. Each: the profit on one treat.${known.length < list.length && firstKnown ? ` Money for each treat starts on day ${firstKnown.day}.` : ''}</p>`;
         }
       },
     });

@@ -1471,3 +1471,44 @@ test('treats can go back in the wrong box, and come out first', () => {
   c.openPark();
   assert.equal(c.state.today.melted, 3);
 });
+
+test('the cart bank account is a savings account: interest every night, parts of a cent carry over', async () => {
+  const { CART } = await import('../js/config.js');
+  const c = Cart.create({ player: 'S', seed: 3 });
+  const s = c.state;
+  s.money.bank = 25000; // $250
+  s.phase = 'night';
+  c.nextDay();
+  const first = Math.floor(25000 * CART.savings.perDay);
+  assert.equal(s.money.bank, 25000 + first);
+  assert.equal(s.stats.interest, first);
+  // tiny balances still add up over a few nights
+  s.money.bank = 300;
+  s.money.bankFrac = 0;
+  let paid = 0;
+  for (let i = 0; i < 4; i++) paid += c.payInterest();
+  assert.equal(paid, 1, '0.3¢ a night is a penny after 4 nights');
+  // older saves without the new fields still load
+  const st = JSON.parse(JSON.stringify(s));
+  delete st.stats.interest;
+  delete st.money.bankFrac;
+  const old = new Cart(st);
+  assert.equal(old.state.stats.interest, 0);
+});
+
+test('Grandma says to put cash in the bank when the cash box is full, and notices if you did', async () => {
+  const { GRANDMA } = await import('../js/config.js');
+  const c = Cart.create({ player: 'S', seed: 3 });
+  const s = c.state;
+  s.money.box = { 2000: Math.ceil(GRANDMA.bankTip / 2000) + 1 };
+  s.money.bank = 0;
+  for (const it of CART_ITEMS) s.prices[it.id] = it.fair; // no price advice first
+  const tip = c.grandmaAdvice(null);
+  assert.equal(tip.advice.kind, 'bank');
+  assert.match(tip.line, /bank/);
+  // she notices the deposit next time
+  assert.ok(c.deposit('box', { 2000: 3 }));
+  assert.match(c.grandmaFollowUp(tip.advice), /saving at the bank/);
+  // and nags if you didn't
+  assert.match(c.grandmaFollowUp({ kind: 'bank', had: c.bank }), /cash around/);
+});

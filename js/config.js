@@ -464,6 +464,9 @@ export const CART = {
   denoms: [2000, 1000, 500, 100, 25], // $20, $10, $5, $1, quarters (prices go up by quarters)
   // Grandma gives $40 to start the cart (in the cash box); your wallet has $10 of your own.
   start: { box: { 2000: 2 }, wallet: { 500: 1, 100: 5 } },
+  // The cart's bank account is a savings account: every night the bank pays this much of what's in it (0.001: 1¢ a
+  // day for every $10). Much more than a real bank pays, so kids can see it grow. Parts of a cent carry over.
+  savings: { perDay: 0.001 },
   homeStart: 11 * 60, // breakfast is at 11am (hunger runs from here). Errands at home take no time.
   parkOpen: 12 * 60, // four hours at the park, noon to 4pm
   parkClose: 16 * 60,
@@ -700,6 +703,7 @@ export const GRANDMA = {
   feel: { lunch: 1, followed: 1, ignored: -0.5, fav: 1, noFav: -1, fewNapkins: -0.5, decline2: -1 },
   tip: { far: 0.25 }, // she mentions a price this far off the fair price
   spend: 800, // she notices if you spent this much on snacks and toys since your last lunch (not counting lunch)
+  bankTip: 8000, // she tells you to put money in the bank when the cash box has this much and more than the bank does
   gift: { feel: 8, chance: 0.3, cash: 500 },
   // Her offer to invest in a truck, once your money (cash box, bank and wallet) reaches `at`. She puts in what the
   // truck needs plus startCash for supplies, up to max (so the fanciest trucks are out of reach). Her slice of the
