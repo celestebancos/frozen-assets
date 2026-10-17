@@ -1,5 +1,5 @@
 // Frozen Assets — app controller: title screen, setup, the game loop, HUD, and wiring of panels.
-import { CONFIG, TRUCK_COLORS, TRUCK_PRICE, USED_TRUCK, usedTruckPrice, BLING, SPOT, FLAVORS, itemKey, itemFromKey } from './config.js';
+import { CONFIG, TRUCK_COLORS, TRUCK_PRICE, USED_TRUCK, usedTruckPrice, loanWithDown, BLING, SPOT, FLAVORS, itemKey, itemFromKey } from './config.js';
 import { Game, DAY_NAMES, SEASON_DAYS } from './engine.js';
 import { Music } from './music.js';
 import { Ambience, cashRegister } from './ambience.js';
@@ -145,6 +145,13 @@ class App {
     let used = false;
     let miles = null;
     let name = `${player}'s Ice Cream`;
+    // a bank loan's interest depends on the down payment: the cart money (and Grandma's, when she's in)
+    const loanFor = (l) => loanWithDown(l.principal, ownerCash);
+    const D = C.downPayment;
+    const TIER = { none: ownerCash ? `Under ${Math.round(D.small * 100)}% yours: more interest` : 'No down payment: more interest', small: `${Math.round(D.small * 100)}% or more yours: regular interest`, big: `${Math.round(D.big * 100)}% or more yours: less interest` };
+    // with Grandma: a truck that costs more than she can put in gets a bank loan for the rest (to the $100)
+    const gLoan = (price) => (partner ? Math.max(0, Math.ceil((price + partner.startCash - ownerCash - partner.max) / 10000) * 10000) : 0);
+    const gLoanTerms = (price) => loanWithDown(gLoan(price), ownerCash + partner.max);
     // The lot: one truck in each color with random bling, and at least one truck at every price.
     const levels = [...BLING.map((b) => b.level), ...TRUCK_COLORS.slice(BLING.length).map(() => Math.floor(Math.random() * BLING.length))];
     for (let i = levels.length - 1; i > 0; i--) {
@@ -171,20 +178,22 @@ class App {
       if (step === 'bank') {
         title.textContent = '🏦 The bank';
         card.innerHTML = `<div class="penny"><div class="face">🧑‍💼</div><div class="say">Hi ${esc(player)}! To start an ice cream business you need a truck, and trucks cost a lot. The bank can lend you the money. <b>At the end of the summer (${C.seasonWeeks} weeks) you must pay it all back.</b> Until then, you pay the bank a little <b>interest</b> every day. That's the price of borrowing.</div></div>
+          <p>${ownerCash ? `${cartIcon()} Your <b>down payment</b> is your cart money, ${money(ownerCash)}: money of your own going in with the loan.` : "🙅 You don't have a <b>down payment</b> (money of your own to put in), so the bank charges more."} Banks charge less when you put in more of your own money: at least ${Math.round(D.small * 100)}% of all the money going in for regular interest, ${Math.round(D.big * 100)}% or more for less.</p>
           <div class="loan-choices">${C.loans
-            .map((l) => {
+            .map(loanFor)
+            .map((l, i) => {
               const total = l.dailyInterest * days;
-              return `<button class="loan ${loan === l.id ? 'on' : ''}" data-act="loan" data-id="${l.id}">
+              return `<button class="loan ${loan === C.loans[i].id ? 'on' : ''}" data-act="loan" data-id="${C.loans[i].id}">
                 <div class="amt">${money(l.principal)}</div>
+                <div class="tiny">${l.tier === 'big' ? '📉' : l.tier === 'none' ? '📈' : '➖'} ${TIER[l.tier]}${ownerCash ? ` (${Math.floor(l.share * 100)}%)` : ''}</div>
                 <div>Interest: <b>${money(l.dailyInterest)} a day</b></div>
                 <div class="tiny muted">That's ${money(total)} for the whole summer.</div>
                 <div class="tiny">At the end you pay back <b>${money(l.principal)}</b>.</div>
               </button>`;
             })
             .join('')}</div>
-          ${ownerCash ? `<p>${cartIcon()} Plus your cart money: <b>${money(ownerCash)}</b>. That's yours, not borrowed.</p>` : ''}
           <p class="tiny muted">💡 A bigger loan gives you more cash to spend now, but you pay more interest every day, and you still have to pay all of it back. ${(() => {
-            const [a, b, c] = C.loans.slice(-3);
+            const [a, b, c] = C.loans.slice(-3).map(loanFor);
             return `The extra ${money(b.principal - a.principal)} in the ${money(b.principal)} loan costs ${money((b.dailyInterest - a.dailyInterest) * days)} more interest. The next ${money(c.principal - b.principal)} costs ${money((c.dailyInterest - b.dailyInterest) * days)} more.`;
           })()}</p>
           <div class="row" style="justify-content:space-between;margin-top:16px"><button class="btn" data-act="back">◀ Back</button><button class="btn" data-act="peek">🚚 Look at the trucks</button><button class="btn big go" data-act="next" ${loan ? '' : 'disabled'}>Borrow it ▶</button></div>`;
@@ -203,8 +212,8 @@ class App {
           <div class="row" style="margin-top:16px"><button class="btn big" data-act="toBank">◀ Back to the bank</button></div>`;
         return;
       }
-      const L = partner ? null : C.loans.find((l) => l.id === loan);
-      const have = partner ? ownerCash + partner.max : L.principal + ownerCash;
+      const L = partner ? null : loanFor(C.loans.find((l) => l.id === loan));
+      const have = partner ? Infinity : L.principal + ownerCash; // with Grandma, the bank lends whatever's missing
       const maxTruck = have - C.minStartCash;
       // Grandma puts in what the truck needs plus a little for supplies, up to her limit
       const gPut = (price) => Math.max(0, Math.min(partner.max, price + partner.startCash - ownerCash));
@@ -220,16 +229,17 @@ class App {
             return `<button class="lot-truck ${pick === i ? 'on' : ''}" data-act="pickTruck" data-i="${i}" ${can ? '' : 'disabled'}>
               ${truckSVG(c.hex, c.name, { bling: x.bling, used: x.used })}
               <b>${x.used ? `Used ${c.name}` : c.name}</b>${x.used ? `<div class="tiny">🛣️ ${x.miles.toLocaleString()} miles</div>` : ''}
-              <div class="price">${money(total)}</div><div class="tiny">${can ? `${money(partner ? ownerCash + gPut(total) - total : have - total)} left over` : partner ? 'More than Grandma can put in' : 'Too much for this loan'}</div></button>`;
+              <div class="price">${money(total)}</div><div class="tiny">${partner && gLoan(total) ? `👵 + 🏦 loan ${money(gLoan(total))}<br>` : ''}${can ? `${money(partner ? ownerCash + gPut(total) + gLoan(total) - total : have - total)} left over` : 'Too much for this loan'}</div></button>`;
           }).join('')}</div>
-          ${partner ? `<p class="tiny muted">👵 Grandma will put in up to ${money(partner.max)}. Your cart money comes too: ${money(ownerCash)}.</p>` : ''}
+          ${partner ? `<p class="tiny muted">👵 Grandma will put in up to ${money(partner.max)}. Your cart money comes too: ${money(ownerCash)}. For a truck that costs more, the bank lends you the rest${t && gLoan(price) ? `: ${money(gLoan(price))} at ${money(gLoanTerms(price).dailyInterest)} a day, paid back at the end of the summer` : ''}.</p>` : ''}
+          ${partner && t && gLoan(price) ? `<div class="penny"><div class="face">👵</div><div class="say">That one's more than I can do, dear. But with my money and yours as a down payment, the bank will lend you the rest cheaply. Just remember, you have to pay the bank back by the end of the summer!</div></div>` : ''}
           <div class="row" style="justify-content:space-between;margin-top:16px"><button class="btn" data-act="${partner ? 'back' : 'toBank'}">◀ ${partner ? 'Back' : 'Back to the bank'}</button>
             <button class="btn big go" data-act="next" ${t ? '' : 'disabled'}>${t ? `Buy it for ${money(price)} ▶` : 'Pick a truck'}</button></div>`;
         return;
       }
       title.textContent = '🏷️ Your sign';
       card.innerHTML = `<div style="max-width:420px;margin:0 auto">${truckSVG(t.hex, name, { bling, used })}</div>
-        <div class="row center" style="margin:6px 0">${ownerCash ? `<span class="chip">${cartIcon()} Cart money ${money(ownerCash)}</span>` : ''}${partner ? `<span class="chip">👵 Grandma ${money(gPut(price))}</span>` : `<span class="chip">🏦 Loan ${money(L.principal)}</span>`}<span class="chip">🚚 Truck −${money(price)}</span><span class="chip">💵 Cash left ${money(partner ? ownerCash + gPut(price) - price : have - price)}</span></div>
+        <div class="row center" style="margin:6px 0">${ownerCash ? `<span class="chip">${cartIcon()} Cart money ${money(ownerCash)}</span>` : ''}${partner ? `<span class="chip">👵 Grandma ${money(gPut(price))}</span>` : ''}${!partner || gLoan(price) ? `<span class="chip">🏦 Loan ${money(partner ? gLoan(price) : L.principal)}</span>` : ''}<span class="chip">🚚 Truck −${money(price)}</span><span class="chip">💵 Cash left ${money(partner ? ownerCash + gPut(price) + gLoan(price) - price : have - price)}</span></div>
         <h3>🏷️ Business name</h3><input class="text-in" maxlength="28" value="${esc(name)}" aria-label="Business name">
         <div class="row" style="justify-content:space-between;margin-top:16px"><button class="btn" data-act="toTruck">◀ Back</button><button class="btn big go" data-act="go">Let's go! ▶</button></div>`;
       card.querySelector('input').addEventListener('input', (e) => {
@@ -268,9 +278,10 @@ class App {
       back: () => (onBack ? onBack() : this.showTitle()),
       go: () => {
         if (!name.trim()) return toast('Your truck needs a name!');
-        const L = partner ? null : C.loans.find((l) => l.id === loan);
         const B = BLING[bling];
         const truckCost = priceOf(lot[pick]);
+        // the loan's interest is set by the down payment (with Grandma, only if the truck needs a loan at all)
+        const L = partner ? (gLoan(truckCost) ? gLoanTerms(truckCost) : null) : loanFor(C.loans.find((l) => l.id === loan));
         const withGrandma = partner && { put: Math.max(0, Math.min(partner.max, truckCost + partner.startCash - ownerCash)), slice: partner.slice };
         this.game = Game.create({ player, business: name.trim(), color, tune: 'entertainer', loan: L, truckCost, bling, blingName: bling ? B.name : '', used, miles, ownerCash, partner: withGrandma, favorite: storage.loadCart(player)?.hot || storage.loadGame(player)?.favorite });
         this.game.state.policies.autoGas = false; // players stop for gas when the tank is low (a pop-up)

@@ -1117,3 +1117,34 @@ test('the truck wears out: at the end of each summer it is worth less, an expens
   g.state.truth.truck = W.floor + 1000;
   assert.equal(g.wearTruck(), 1000);
 });
+
+test('down payments: the more of your own money goes in, the less interest the bank charges', async () => {
+  const { CONFIG, loanWithDown } = await import('../js/config.js');
+  const base = CONFIG.loans.find((l) => l.id === 'l10');
+  assert.equal(loanWithDown(base.principal, 0).tier, 'none');
+  assert.ok(loanWithDown(base.principal, 0).dailyInterest > base.dailyInterest);
+  assert.equal(loanWithDown(base.principal, 100000).tier, 'small');
+  assert.equal(loanWithDown(base.principal, 100000).dailyInterest, base.dailyInterest);
+  assert.equal(loanWithDown(base.principal, 400000).tier, 'big');
+  assert.ok(loanWithDown(base.principal, 400000).dailyInterest < base.dailyInterest);
+  // any amount works, at the same interest per dollar
+  assert.equal(loanWithDown(200000, 50000).dailyInterest, Math.round((200000 * base.dailyInterest) / base.principal));
+});
+
+test('Grandma and a bank loan together: both papers, daily interest, and the loan comes due at the end of the summer', async () => {
+  const { loanWithDown } = await import('../js/config.js');
+  const orig = Game.create;
+  let g;
+  const loan = loanWithDown(130000, 50000 + 950000);
+  Game.create = (o) => (g = orig.call(Game, { ...o, ownerCash: 50000, truckCost: 1050000, loan, partner: { put: 950000, slice: [1, 4] } }));
+  const r = playSeason('decent', 7919);
+  Game.create = orig;
+  const s = g.state;
+  assert.equal(loan.tier, 'big');
+  assert.ok(s.docs.some((d) => d.type === 'grandmaInvest'));
+  assert.ok(s.docs.some((d) => d.type === 'loanPapers'));
+  assert.equal(s.truth.interest, loan.dailyInterest * 84);
+  assert.ok(r.won);
+  assert.equal(s.truth.loan, 0, 'paid back');
+  assert.ok(s.truth.grandmaIn > 950000, 'Grandma still gets her slice');
+});
