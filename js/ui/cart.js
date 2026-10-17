@@ -1037,6 +1037,7 @@ export class CartView {
     let tab = 'sold';
     let end = days.length; // the sold grid shows the 7 days before this
     let pick = days.length - 1; // the day for profit (-1: all days)
+    let sortBy = null; // a profit column to sort by, biggest first (null: the usual treat order)
     const order = new Map(CART_ITEMS.map((it, i) => [it.id, i]));
     const byKind = (ids) => [...ids].sort((x, y) => order.get(x) - order.get(y));
     const dayName = (d) => CART_DAY_NAMES[(d.day - 1) % 7];
@@ -1066,21 +1067,24 @@ export class CartView {
           const sum = (ds, f) => ds.reduce((a, d) => a + (f(d) || 0), 0);
           const cell = (v) => (known.length ? money(v) : '—');
           let T = { n: 0, earned: 0, cost: 0 };
-          const rows = ids
-            .map((id) => {
-              const n = sum(list, (d) => d.sold?.[id]);
-              const earned = sum(known, (d) => d.earned[id]);
-              const cost = sum(known, (d) => d.cost?.[id]);
-              T = { n: T.n + n, earned: T.earned + earned, cost: T.cost + cost };
-              const p = earned - cost;
-              return `<tr><th>${treatSVG(id, 26)}</th><td>${n}</td><td>${cell(earned)}</td><td>${cell(cost)}</td><td class="${known.length ? (p < 0 ? 'bad' : 'good') : ''}">${cell(p)}</td></tr>`;
-            })
+          const lines = ids.map((id) => {
+            const n = sum(list, (d) => d.sold?.[id]);
+            const earned = sum(known, (d) => d.earned[id]);
+            const cost = sum(known, (d) => d.cost?.[id]);
+            T = { n: T.n + n, earned: T.earned + earned, cost: T.cost + cost };
+            return { id, n, earned, cost, p: earned - cost };
+          });
+          if (sortBy) lines.sort((a, b) => b[sortBy] - a[sortBy]);
+          const rows = lines
+            .map(({ id, n, earned, cost, p }) => `<tr><th>${treatSVG(id, 26)}</th><td>${n}</td><td>${cell(earned)}</td><td>${cell(cost)}</td><td class="${known.length ? (p < 0 ? 'bad' : 'good') : ''}">${cell(p)}</td></tr>`)
             .join('');
+          // tap a heading to sort biggest to smallest; tap it again for the usual order
+          const col = (k, label) => `<th><button class="sort ${sortBy === k ? 'on' : ''}" data-act="sort" data-k="${k}" aria-label="Sort by ${label}">${label}${sortBy === k ? ' ▼' : ''}</button></th>`;
           const P = T.earned - T.cost;
           const firstKnown = days.find((d) => d.earned);
           body.innerHTML = `${tabs}
             <div class="rec-nav"><button class="btn small" data-act="prev" ${pick !== 0 ? '' : 'disabled'} aria-label="Day before">◀</button><span>${pick < 0 ? 'All days' : `${dayName(days[pick])} · Day ${days[pick].day}`}</span><button class="btn small" data-act="next" ${pick >= 0 && pick < days.length - 1 ? '' : 'disabled'} aria-label="Next day">▶</button><button class="btn small ${pick < 0 ? 'on' : ''}" data-act="all">All days</button></div>
-            ${ids.length ? `<table class="rec profit"><tr><th></th><th>Sold</th><th>Sales</th><th>Cost</th><th>Profit</th></tr>${rows}
+            ${ids.length ? `<table class="rec profit"><tr><th></th>${col('n', 'Sold')}${col('earned', 'Sales')}${col('cost', 'Cost')}${col('p', 'Profit')}</tr>${rows}
               <tr class="total"><th>All</th><td>${T.n}</td><td>${cell(T.earned)}</td><td>${cell(T.cost)}</td><td class="${known.length ? (P < 0 ? 'bad' : 'good') : ''}">${cell(P)}</td></tr></table>` : '<p>Nothing sold that day.</p>'}
             <p class="tiny muted">Cost: what you paid the store for those treats.${known.length < list.length && firstKnown ? ` Money for each treat starts on day ${firstKnown.day}.` : ''}</p>`;
         }
@@ -1089,6 +1093,10 @@ export class CartView {
     onActs(m.body, {
       tab: (t) => {
         tab = t.dataset.t;
+        m.refresh();
+      },
+      sort: (t) => {
+        sortBy = sortBy === t.dataset.k ? null : t.dataset.k;
         m.refresh();
       },
       back7: () => {
