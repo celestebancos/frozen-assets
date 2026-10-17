@@ -1696,7 +1696,7 @@ export class Cart {
       return { line: `You've been buying a lot of ${what}, haven't you? Remember to save some money for your business!`, advice: { kind: 'spend', what } };
     }
     // lots of cash in the cash box: put some in the savings account
-    if (this.boxTotal >= G.bankTip && this.boxTotal > this.bank && not('bank')) {
+    if (this.boxTotal > G.bankTip && not('bank')) {
       return { line: "That's a lot of cash in your cash box, dear! Put some in the bank. It's safer there, and the bank pays you interest: a little more money every night.", advice: { kind: 'bank', had: this.bank } };
     }
     if (!this.decals().length && not('sticker')) return { line: 'Your cart looks a little plain, dear. The sticker lady at the park has nice ones.', advice: { kind: 'sticker', had: 0 } };
