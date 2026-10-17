@@ -106,6 +106,10 @@ export const boxSize = (id) => BOX_SIZE[id] || 24;
 export const bulkPrice = (it) => Math.round((it.price * K.bulk.boxes * (1 - K.bulk.off)) / 25) * 25;
 // How many treats a box holds when full: small boxes from the corner store say so.
 export const capOf = (box) => box.size || boxSize(box.item);
+// What's in a box: n of its own treat, plus strays: other treats put back in the wrong box ({ id, tint }), on top,
+// so the last one put in comes out first. Older saves and most boxes have no strays.
+export const boxLeft = (box) => box.n + (box.strays?.length || 0);
+const strayCount = (box, id) => (box.strays || []).filter((x) => x.id === id).length;
 const emptyShelves = () => Array.from({ length: K.freezerShelves }, () => Array(K.shelfSlots).fill(null));
 const isDrinkId = (id) => CART_ITEM[id]?.kind === 'drink';
 const emptyTrays = () => Array.from({ length: K.coolerTrays }, () => Array(K.traySpots).fill(null));
@@ -451,7 +455,7 @@ export class Cart {
   }
   count(where, id) {
     if (where === 'cooler') return this.state.cooler.trays.flat().filter((x) => x === id).length;
-    return this.homeBoxes().reduce((a, { box }) => a + (box.item === id ? box.n : 0), 0);
+    return this.homeBoxes().reduce((a, { box }) => a + (box.item === id ? box.n : 0) + strayCount(box, id), 0);
   }
   // Treats in the cooler (where === 'cooler'), or boxes at home.
   spaceUsed(where) {
@@ -467,19 +471,28 @@ export class Cart {
     const s = this.state;
     if (s.phase !== 'home') return { ok: false, reason: 'notHome' };
     const box = this.boxAt(loc);
-    if (!box || box.n <= 0) return { ok: false, reason: 'none' };
+    if (!box || boxLeft(box) <= 0) return { ok: false, reason: 'none' };
     const i = this.topTray.indexOf(null);
     if (i < 0) return { ok: false, reason: this.coolerFree ? 'trayFull' : 'full' };
-    this.topTray[i] = box.item;
-    this.state.cooler.tints[this.state.cooler.top][i] = boxTint(box, capOf(box) - box.n);
-    box.n--;
-    return { ok: true, i, emptied: box.n <= 0 };
+    const tints = this.state.cooler.tints[this.state.cooler.top];
+    if (box.strays?.length) {
+      // a treat that went back in the wrong box comes out first
+      const x = box.strays.pop();
+      if (!box.strays.length) delete box.strays;
+      this.topTray[i] = x.id;
+      tints[i] = x.tint;
+    } else {
+      this.topTray[i] = box.item;
+      tints[i] = boxTint(box, capOf(box) - box.n);
+      box.n--;
+    }
+    return { ok: true, i, emptied: boxLeft(box) <= 0 };
   }
   // An empty box goes in the recycling bin.
   recycle(loc) {
     const s = this.state;
     const box = this.boxAt(loc);
-    if (s.phase !== 'home' || !box || box.n > 0) return false;
+    if (s.phase !== 'home' || !box || boxLeft(box) > 0) return false;
     this.setBox(loc, null);
     s.recycling.push(box.item);
     return true;
@@ -493,18 +506,20 @@ export class Cart {
     this.setBox(spot, { item: s.recycling.splice(i, 1)[0], n: 0 });
     return { ok: true, spot };
   }
-  // Put a treat from the top tray back in its box (if it's the same kind and there's room).
+  // Put a treat from the top tray back in a box, if there's room. It can go in a box of a different treat (a
+  // stray), as long as frozen treats stay in freezer boxes and drinks in drink cases.
   unpackOne(i, loc) {
     const s = this.state;
     if (s.phase !== 'home') return { ok: false, reason: 'notHome' };
     const id = this.topTray[i];
     const box = this.boxAt(loc);
     if (!id || !box) return { ok: false };
-    if (box.item !== id) return { ok: false, reason: 'kind' };
-    if (box.n >= capOf(box)) return { ok: false, reason: 'boxFull' };
-    box.n++;
+    if (isDrinkId(id) !== isDrinkId(box.item)) return { ok: false, reason: isDrinkId(id) ? 'drink' : 'frozen' };
+    if (boxLeft(box) >= capOf(box)) return { ok: false, reason: 'boxFull' };
+    if (box.item === id) box.n++;
+    else (box.strays ||= []).push({ id, tint: this.tintAt(i) });
     this.topTray[i] = null;
-    return { ok: true };
+    return { ok: true, stray: box.item !== id };
   }
   // Pack n of a treat from whatever boxes have it (open boxes first), on whichever tray has room.
   pack(id, n = 1) {
@@ -512,11 +527,21 @@ export class Cart {
     if (s.phase !== 'home') return { ok: false, reason: 'notHome' };
     let done = 0;
     while (done < n && this.coolerFree > 0) {
-      const from = this.homeBoxes().filter((x) => x.box.item === id && x.box.n > 0).sort((a, b) => a.box.n - b.box.n)[0];
+      // strays in the wrong box first, then the open boxes
+      const from =
+        this.homeBoxes().find((x) => strayCount(x.box, id)) ||
+        this.homeBoxes().filter((x) => x.box.item === id && x.box.n > 0).sort((a, b) => a.box.n - b.box.n)[0];
       if (!from) break;
-      this.toCooler(id, null, boxTint(from.box, capOf(from.box) - from.box.n));
-      from.box.n--;
-      if (from.box.n <= 0) this.setBox(from.loc, null);
+      const b = from.box;
+      if (strayCount(b, id)) {
+        const k = b.strays.map((x) => x.id).lastIndexOf(id);
+        this.toCooler(id, null, b.strays.splice(k, 1)[0].tint);
+        if (!b.strays.length) delete b.strays;
+      } else {
+        this.toCooler(id, null, boxTint(b, capOf(b) - b.n));
+        b.n--;
+      }
+      if (boxLeft(b) <= 0) this.setBox(from.loc, null);
       done++;
     }
     if (!done) return { ok: false, reason: this.count('freezer', id) ? 'full' : 'none' };
@@ -831,7 +856,7 @@ export class Cart {
     s.line = [];
     s.window = null;
     // anything frozen left out on the kitchen counter melts (drinks just wait there)
-    const melted = s.counter.reduce((a, b) => a + (isDrinkId(b.item) ? 0 : b.n), 0);
+    const melted = s.counter.reduce((a, b) => a + (isDrinkId(b.item) ? 0 : boxLeft(b)), 0);
     s.counter = s.counter.filter((b) => isDrinkId(b.item));
     s.today = { sold: {}, revenue: 0, customers: 0, tooExpensive: 0, leftLine: 0, missedFav: 0, tips: 0, keptExtra: 0, returned: 0, noChange: 0, given: {}, napkins: 0, melted, startBox: this.boxTotal, opened: s.minute };
     // regulars who'll come by today
