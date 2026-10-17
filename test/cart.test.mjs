@@ -1513,20 +1513,24 @@ test('Grandma says to put cash in the bank when the cash box is full, and notice
   assert.match(c.grandmaFollowUp({ kind: 'bank', had: c.bank }), /cash around/);
 });
 
-test('tapping an empty spot in a box puts back all of its kind from the top tray', () => {
+test('tapping an empty spot in a box puts back one of its kind from the top tray', () => {
   const c = Cart.create({ player: 'Test', seed: 7 });
-  c.state.freezer.shelves[0][0] = { item: 'rocketPop', n: 20 };
-  c.state.freezer.shelves[0][1] = { item: 'fudgePop', n: 24 };
+  c.state.freezer.shelves[0][0] = { item: 'rocketPop', n: 22 };
   const top = c.state.cooler.top;
-  c.state.cooler.trays[top] = c.topTray.map((_, i) => (i < 6 ? 'rocketPop' : i === 6 ? 'fudgePop' : null));
+  c.state.cooler.trays[top] = c.topTray.map((_, i) => (i < 3 ? 'rocketPop' : i === 3 ? 'fudgePop' : null));
   c.state.cooler.trays[1 - top][0] = 'rocketPop'; // on the other tray: stays
-  // room for 4 of the 6 rocket pops: the last ones go back first
-  assert.deepEqual(c.refillBox('s0-0'), { ok: true, n: 4 });
-  assert.equal(c.boxAt('s0-0').n, 24);
-  assert.deepEqual(c.topTray.slice(0, 7), ['rocketPop', 'rocketPop', null, null, null, null, 'fudgePop']);
+  // one at a time, the last one on the tray first
+  assert.deepEqual(c.refillOne('s0-0'), { ok: true, i: 2 });
+  assert.equal(c.boxAt('s0-0').n, 23);
+  assert.deepEqual(c.topTray.slice(0, 4), ['rocketPop', 'rocketPop', null, 'fudgePop']);
+  assert.deepEqual(c.refillOne('s0-0'), { ok: true, i: 1 });
+  // the box is full
+  assert.equal(c.refillOne('s0-0').reason, 'boxFull');
+  assert.equal(c.topTray[0], 'rocketPop');
+  // none of its kind left on the tray
+  c.boxAt('s0-0').n = 10;
+  assert.ok(c.refillOne('s0-0').ok);
+  assert.equal(c.refillOne('s0-0').reason, 'none');
+  assert.equal(c.topTray[3], 'fudgePop');
   assert.equal(c.state.cooler.trays[1 - top][0], 'rocketPop');
-  assert.equal(c.refillBox('s0-0').reason, 'boxFull');
-  // nothing of its kind on the tray
-  c.state.freezer.shelves[0][2] = { item: 'iceBlue', n: 3 };
-  assert.equal(c.refillBox('s0-2').reason, 'none');
 });

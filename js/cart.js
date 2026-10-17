@@ -506,21 +506,18 @@ export class Cart {
     this.setBox(spot, { item: s.recycling.splice(i, 1)[0], n: 0 });
     return { ok: true, spot };
   }
-  // Put every treat of the box's own kind on the top tray back in it, until the box is full (last spots first).
-  refillBox(loc) {
+  // Put one treat of the box's own kind from the top tray back in it (the last one on the tray first), if there's room.
+  refillOne(loc) {
     const s = this.state;
     if (s.phase !== 'home') return { ok: false, reason: 'notHome' };
     const box = this.boxAt(loc);
     if (!box) return { ok: false };
-    let n = 0;
-    for (let i = this.topTray.length - 1; i >= 0 && boxLeft(box) < capOf(box); i--) {
-      if (this.topTray[i] !== box.item) continue;
-      this.topTray[i] = null;
-      box.n++;
-      n++;
-    }
-    if (!n) return { ok: false, reason: boxLeft(box) >= capOf(box) ? 'boxFull' : 'none' };
-    return { ok: true, n };
+    if (boxLeft(box) >= capOf(box)) return { ok: false, reason: 'boxFull' };
+    const i = this.topTray.lastIndexOf(box.item);
+    if (i < 0) return { ok: false, reason: 'none' };
+    this.topTray[i] = null;
+    box.n++;
+    return { ok: true, i };
   }
   // Put a treat from the top tray back in a box, if there's room. It can go in a box of a different treat (a
   // stray), as long as frozen treats stay in freezer boxes and drinks in drink cases.
