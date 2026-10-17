@@ -19,7 +19,7 @@ Keep files short (one-shots under ~4 s, loops 20–60 s), mono, MP3 at about 96 
 How the files here were made (ffmpeg):
 
 - One-shots: cut from the original, silence trimmed, short fades, and evened out so the louder half of each file sits at about −20 dBFS (peaks under −1 dBFS).
-- Loops (`traffic`, `murmur`, `park`, `rain`): 30–36 s, with the last 3 s blended over the start so they loop without a seam, at about −24 dBFS. The rain is compressed so single big drops don't stick out.
+- Loops (`traffic`, `murmur`, `park`, `rain`): 30–36 s, with the last 3 s blended over the start so they loop without a seam, at about −24 dBFS. The rain is a quiet, steady stretch between thunderclaps (19:09–19:45 of the original), with no close-up drops, so it's a soft hiss with no pops.
 - Far-away sounds (`voices`, `murmur`, `traffic`) are low-passed so you hear people and cars, not words.
 - `bell.mp3` is one bicycle-bell ring played twice: ding ding.
 - `bat-2` is the same hit as `bat-1`, made to sound farther away (muffled, with a little echo off the stands).
@@ -80,4 +80,4 @@ Every file here, where it came from, who made it, and its license. Everything is
 | traffic.mp3 | [Street and Roads](https://bigsoundbank.com/sound-s0608.html) | Joseph Sardin (BigSoundBank) | CC0 |
 | murmur.mp3 | [Outside Talks #2](https://bigsoundbank.com/sound-s2969.html) | Joseph Sardin (BigSoundBank) | CC0 |
 | park.mp3 | [Parisian park, children's games](https://bigsoundbank.com/sound-s1082.html) | Joseph Sardin (BigSoundBank) | CC0 |
-| rain.mp3 | [Rain on concrete](https://bigsoundbank.com/sound-s1289.html) | Joseph Sardin (BigSoundBank) | CC0 |
+| rain.mp3 | [Rain and Thunder #4](https://bigsoundbank.com/sound-s2719.html) | Joseph Sardin (BigSoundBank) | CC0 |
