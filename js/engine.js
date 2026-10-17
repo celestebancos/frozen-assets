@@ -626,10 +626,9 @@ export class Game {
     return [...docs.filter((d) => !d.penny), ...docs.filter((d) => d.penny)];
   }
 
-  // Penny's weekly bill, paid like a supplier invoice: a flat fee (none for the very first week).
+  // Penny's weekly bill, paid like a supplier invoice: a flat fee.
   postPennyBill() {
     const s = this.state;
-    if (C.filing.firstWeekFree && s.season === 1 && s.day <= 7) return;
     const fee = C.filing.weeklyFee;
     s.bills.push({ id: s.nextBillId++, amt: fee, due: s.day + C.credit.termDays, late: false, label: "Penny's bill" });
     this.post('pennyBill', [

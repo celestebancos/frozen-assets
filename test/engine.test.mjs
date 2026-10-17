@@ -427,8 +427,7 @@ test('papers come a level at a time: the kid files what they are learning, Penny
   const penny = papers.filter((d) => d.penny).map((d) => d.type);
   assert.ok(kid.includes('registerTape'));
   assert.ok(kid.every((t) => g.levelOf(t) === 1), kid.join());
-  for (const t of ['countSheet', 'interestPaid']) assert.ok(penny.includes(t), t);
-  assert.ok(!papers.some((d) => d.type === 'pennyBill'), "Penny's first week is free");
+  for (const t of ['countSheet', 'interestPaid', 'pennyBill']) assert.ok(penny.includes(t), t);
   assert.ok(papers.findIndex((d) => d.penny) >= kid.length, 'the kid goes first');
   // filing Penny's paper doesn't count toward stars
   const cs = papers.find((d) => d.type === 'countSheet');
@@ -770,9 +769,6 @@ test("Penny's weekly bill is a flat fee", async () => {
   const F = CONFIG.filing;
   const g = Game.create({ player: 'N', business: 'T', color: 'pink', seed: 11 });
   fileAllCorrectly(g);
-  g.postPennyBill();
-  assert.equal(g.state.truth.bookkeeping, 0, 'the first week is free');
-  g.state.day = 14;
   const owed = g.creditUsed();
   g.postPennyBill();
   assert.equal(g.state.truth.bookkeeping, F.weeklyFee);
