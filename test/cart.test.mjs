@@ -1430,3 +1430,27 @@ test('hot days make you hungry faster; the umbrella and the fan help, and people
   assert.equal(c.hunger, before);
   assert.ok(c.state.fed.rate < hotRate);
 });
+
+test('the cart bank account is a savings account: interest every night, parts of a cent carry over', async () => {
+  const { CART } = await import('../js/config.js');
+  const c = Cart.create({ player: 'S', seed: 3 });
+  const s = c.state;
+  s.money.bank = 25000; // $250
+  s.phase = 'night';
+  c.nextDay();
+  const first = Math.floor(25000 * CART.savings.perDay);
+  assert.equal(s.money.bank, 25000 + first);
+  assert.equal(s.stats.interest, first);
+  // tiny balances still add up over a few nights
+  s.money.bank = 300;
+  s.money.bankFrac = 0;
+  let paid = 0;
+  for (let i = 0; i < 4; i++) paid += c.payInterest();
+  assert.equal(paid, 1, '0.3¢ a night is a penny after 4 nights');
+  // older saves without the new fields still load
+  const st = JSON.parse(JSON.stringify(s));
+  delete st.stats.interest;
+  delete st.money.bankFrac;
+  const old = new Cart(st);
+  assert.equal(old.state.stats.interest, 0);
+});

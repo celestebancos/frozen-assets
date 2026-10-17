@@ -464,6 +464,9 @@ export const CART = {
   denoms: [2000, 1000, 500, 100, 25], // $20, $10, $5, $1, quarters (prices go up by quarters)
   // Grandma gives $40 to start the cart (in the cash box); your wallet has $10 of your own.
   start: { box: { 2000: 2 }, wallet: { 500: 1, 100: 5 } },
+  // The cart's bank account is a savings account: every night the bank pays this much of what's in it (0.001: 1¢ a
+  // day for every $10). Much more than a real bank pays, so kids can see it grow. Parts of a cent carry over.
+  savings: { perDay: 0.001 },
   homeStart: 11 * 60, // breakfast is at 11am (hunger runs from here). Errands at home take no time.
   parkOpen: 12 * 60, // four hours at the park, noon to 4pm
   parkClose: 16 * 60,
