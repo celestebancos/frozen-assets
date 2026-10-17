@@ -126,7 +126,7 @@ export const CONFIG = {
 
   sellBackRate: 0.5,
 
-  // Penny the bookkeeper sends a bill every week: a flat fee (the first week of the first summer is free). Papers come to the kid a level at a time: the kid
+  // Penny the bookkeeper sends a bill every week: a flat fee. Papers come to the kid a level at a time: the kid
   // files the papers at their level (or below) until each has `streak` stars (first-try rights in a row); Penny
   // does the rest, and the kid only stamps hers (her lines are already picked). A level is done when each of its
   // main `papers` that has come up has its stars, after at least a week at that level. `also`: papers that come up
@@ -137,7 +137,6 @@ export const CONFIG = {
     streak: 3,
     checkUnder: 4,
     weeklyFee: 2000,
-    firstWeekFree: true, // no bill for the very first week, when cash is tightest
     levels: [
       { name: 'Money in, money out', says: 'Money comes in when you sell, and goes out when you buy.', papers: ['registerTape', 'supplyReceipt', 'gasReceipt'], also: ['ownerInvest', 'grandmaInvest', 'grandmaBuyout', 'loanPapers', 'truckBill', 'upkeepReceipt', 'adInvoice', 'rebrandReceipt', 'sellBack'] },
       { name: 'Things get used up', says: 'Supplies are things you own. When you use them up, or they spoil, they turn into an expense.', papers: ['countSheet'], also: ['spoilSlip'] },
