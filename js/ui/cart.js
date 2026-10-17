@@ -90,7 +90,7 @@ function openBoxHTML(box) {
   const cells = Array.from({ length: size }, (_, i) => (i < first ? '<button class="gone" data-act="fillBox" aria-label="Empty spot"></button>' : i < first + strays.length ? bt(strays[i - first].id, strays[i - first].tint) : bt(box.item, boxTint(box, i)))).join('');
   return `<div class="open-box ${size > 24 ? 'big' : ''}" data-act="boxIn" style="--c:${BOX_LOOK[box.item].color}">${cells}</div>`;
 }
-// Tapping an empty spot in the open box puts back all of the box's treats from the cooler tray.
+// Tapping an empty spot in the open box puts back one of the box's treats from the cooler tray.
 const fillMsg = (reason) => (reason === 'boxFull' ? 'This box is full.' : 'None of these on this tray.');
 // Why a treat couldn't go back in the open box.
 const putBackMsg = (reason) => (reason === 'boxFull' ? 'This box is full.' : reason === 'drink' ? 'Drinks go in a drink case.' : reason === 'frozen' ? 'That would melt! It goes in a freezer box.' : "That can't go in there.");
@@ -305,11 +305,11 @@ export class CartView {
         this.save();
         this.renderHome();
       },
-      // an empty spot in the box: the treat you picked up goes back, or else all of this kind on the tray do
+      // an empty spot in the box: the treat you picked up goes back, or else one of this kind from the tray
       fillBox: () => {
         if (this.coolSel != null) putBack();
         else {
-          const r = c.refillBox(this.sel);
+          const r = c.refillOne(this.sel);
           if (!r.ok) oops(fillMsg(r.reason));
         }
         this.save();
@@ -586,7 +586,7 @@ export class CartView {
       fillBox: () => {
         if (sel != null) putBack();
         else {
-          const r = c.refillBox(at);
+          const r = c.refillOne(at);
           if (!r.ok) fail(fillMsg(r.reason));
         }
         m.refresh();
