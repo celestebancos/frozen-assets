@@ -1075,11 +1075,11 @@ export class CartView {
             const earned = sum(known, (d) => d.earned[id]);
             const cost = sum(known, (d) => d.cost?.[id]);
             T = { n: T.n + n, earned: T.earned + earned, cost: T.cost + cost };
-            return { id, n, earned, cost, p: earned - cost };
+            return { id, n, earned, cost, p: earned - cost, each: n ? (earned - cost) / n : 0 };
           });
           if (sortBy) lines.sort((a, b) => b[sortBy] - a[sortBy]);
           const rows = lines
-            .map(({ id, n, earned, cost, p }) => `<tr><th>${treatSVG(id, 26)}</th><td>${n}</td><td>${cell(earned)}</td><td>${cell(cost)}</td><td class="${known.length ? (p < 0 ? 'bad' : 'good') : ''}">${cell(p)}</td></tr>`)
+            .map(({ id, n, earned, cost, p, each }) => `<tr><th>${treatSVG(id, 26)}</th><td>${n}</td><td>${cell(earned)}</td><td>${cell(cost)}</td><td class="${known.length ? (p < 0 ? 'bad' : 'good') : ''}">${cell(p)}</td><td class="${known.length ? (each < 0 ? 'bad' : 'good') : ''}">${cell(Math.round(each))}</td></tr>`)
             .join('');
           // tap a heading to sort biggest to smallest; tap it again for the usual order
           const col = (k, label) => `<th><button class="sort ${sortBy === k ? 'on' : ''}" data-act="sort" data-k="${k}" aria-label="Sort by ${label}">${label}${sortBy === k ? ' ▼' : ''}</button></th>`;
@@ -1087,9 +1087,9 @@ export class CartView {
           const firstKnown = days.find((d) => d.earned);
           body.innerHTML = `${tabs}
             <div class="rec-nav"><button class="btn small" data-act="prev" ${pick !== 0 ? '' : 'disabled'} aria-label="Day before">◀</button><span>${pick < 0 ? 'All days' : `${dayName(days[pick])} · Day ${days[pick].day}`}</span><button class="btn small" data-act="next" ${pick >= 0 && pick < days.length - 1 ? '' : 'disabled'} aria-label="Next day">▶</button><button class="btn small ${pick < 0 ? 'on' : ''}" data-act="all">All days</button></div>
-            ${ids.length ? `<table class="rec profit"><tr><th></th>${col('n', 'Sold')}${col('earned', 'Sales')}${col('cost', 'Cost')}${col('p', 'Profit')}</tr>${rows}
-              <tr class="total"><th>All</th><td>${T.n}</td><td>${cell(T.earned)}</td><td>${cell(T.cost)}</td><td class="${known.length ? (P < 0 ? 'bad' : 'good') : ''}">${cell(P)}</td></tr></table>` : '<p>Nothing sold that day.</p>'}
-            <p class="tiny muted">Cost: what you paid the store for those treats.${known.length < list.length && firstKnown ? ` Money for each treat starts on day ${firstKnown.day}.` : ''}</p>`;
+            ${ids.length ? `<table class="rec profit"><tr><th></th>${col('n', 'Sold')}${col('earned', 'Sales')}${col('cost', 'Cost')}${col('p', 'Profit')}${col('each', 'Each')}</tr>${rows}
+              <tr class="total"><th>All</th><td>${T.n}</td><td>${cell(T.earned)}</td><td>${cell(T.cost)}</td><td class="${known.length ? (P < 0 ? 'bad' : 'good') : ''}">${cell(P)}</td><td class="${known.length ? (P < 0 ? 'bad' : 'good') : ''}">${cell(T.n ? Math.round(P / T.n) : 0)}</td></tr></table>` : '<p>Nothing sold that day.</p>'}
+            <p class="tiny muted">Cost: what you paid the store for those treats. Each: the profit on one treat.${known.length < list.length && firstKnown ? ` Money for each treat starts on day ${firstKnown.day}.` : ''}</p>`;
         }
       },
     });
