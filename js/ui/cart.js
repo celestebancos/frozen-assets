@@ -7,6 +7,7 @@ import { cartSVG, toyPlaySVG, STICKER_AREA, umbrellaSVG, moneySVG, treatSVG, thi
 import { ParkStories } from './parkStories.js';
 import { PauseClock } from './clock.js';
 import { coinIcon, jarIcon, walletIcon, fanIcon, gumIcon, cartIcon, cashBoxIcon, propellerHatIcon, emo } from '../icons.js';
+import { stickerSVG } from '../stickerArt.js';
 import { Ambience, cashRegister, gameSound } from '../ambience.js';
 import { storage } from '../storage.js';
 import { esc, money, el, openModal, onActs, anyModalOpen, closeAllModals, toast, fmtTime, SPEED_ICONS, askYes } from './dom.js';
@@ -63,6 +64,7 @@ function itemIcon(it, size = 40) {
   if (it.id === 'gum') return `<span style="font-size:${size * 0.7}px">${gumIcon()}</span>`;
   if (it.kind === 'balloon') return balloonSVG(it.color).replace('<svg ', `<svg width="${size * 0.5}" height="${size}" `);
   if (it.kind === 'shirt') return `<span class="swatch" style="background:${it.color}">${it.stars ? '⭐' : ''}</span>`;
+  if (it.kind === 'decal') return stickerSVG(it, size * 0.85);
   if (it.id === 'beanie') return `<span style="font-size:${size * 0.7}px">${propellerHatIcon()}</span>`; // the 🌀 emoji is just a swirl
   return `<span style="font-size:${size * 0.7}px">${it.emoji || '🛍️'}</span>`;
 }
@@ -617,13 +619,21 @@ export class CartView {
     const S = CART_SHOPS[id];
     let basket = {};
     const one = (it) => ['gear', 'hat', 'glasses', 'shirt', 'balloon'].includes(it.kind);
+    // a shop with lots of things (the sticker stand) has tabs; things with no group are in the first
+    const tabs = S.groups ? Object.keys(S.groups) : null;
+    let tab = tabs?.[0];
+    const inTab = (it) => !tabs || (it.group || tabs[0]) === tab;
     const m = openModal({
       title: `${S.icon} ${S.name}`,
       onClose,
       render: (body) => {
         const cost = c.basketCost(id, basket);
         const chk = c.checkBasket(id, basket);
-        body.innerHTML = `<div class="shop-grid">${S.items
+        const tabRow = tabs
+          ? `<div class="tabs shop-tabs">${tabs.map((g) => `<button class="btn small ${g === tab ? 'on' : ''}" data-act="tab" data-g="${g}">${stickerSVG(S.items.find((it) => (it.group || tabs[0]) === g), 22)} ${esc(S.groups[g])}</button>`).join('')}</div>`
+          : '';
+        body.innerHTML = `${tabRow}<div class="shop-grid">${S.items
+          .filter(inTab)
           .map((it) => {
             const q = basket[it.id] || 0;
             const owned = one(it) && it.kind !== 'balloon' && c.has(it.id);
@@ -642,6 +652,10 @@ export class CartView {
       },
     });
     onActs(m.body, {
+      tab: (t) => {
+        tab = t.dataset.g;
+        m.refresh();
+      },
       qty: (t) => {
         const it = t.dataset.id;
         basket[it] = Math.max(0, (basket[it] || 0) + Number(t.dataset.d));
@@ -1213,7 +1227,7 @@ export class CartView {
       render: (body) => {
         body.innerHTML = `<p style="margin-top:0">${loose.length > 1 ? 'Pick a sticker, then tap' : 'Tap'} your cart to stick it on. You can move it until you tap Done. Then it's stuck!</p>
           ${loose.length > 1 ? `<div class="sticker-pick">${loose
-            .map((i) => `<button class="btn small ${i === pick ? 'on' : ''}" data-act="pick" data-i="${i}" aria-label="${esc(ITEM[all[i].id].name)}">${ITEM[all[i].id].emoji}</button>`)
+            .map((i) => `<button class="btn small ${i === pick ? 'on' : ''}" data-act="pick" data-i="${i}" aria-label="${esc(ITEM[all[i].id].name)}">${stickerSVG(ITEM[all[i].id], 28)}</button>`)
             .join('')}</div>` : ''}
           <div class="sticker-cart">${cartArt(c, true, pick, trying)}</div>
           <div class="row" style="justify-content:flex-end"><button class="btn big go" data-act="done">Done ✓</button></div>`;

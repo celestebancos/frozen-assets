@@ -1136,3 +1136,7 @@ button.co-item { animation: nudge 1.4s ease-in-out infinite; }
 .oil-light .ico { width: 34px; height: 19px; }
 @keyframes oilblink { to { opacity: 0.25; } }
 @media (prefers-reduced-motion: reduce) { .oil-light { animation: none; } }
+
+/* Drawn stickers (js/stickerArt.js): the white edge is the sticker drawn again underneath, fat and all one color. */
+.stk-edge, .stk-edge * { fill: var(--edge-c, #fff); stroke: var(--edge-c, #fff); stroke-width: var(--edge); stroke-linejoin: round; stroke-linecap: round; stroke-dasharray: none; opacity: 1; }
+.shop-tabs .btn .sticker, .sticker-pick .btn .sticker { vertical-align: middle; }
