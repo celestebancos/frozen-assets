@@ -87,9 +87,11 @@ function openBoxHTML(box) {
   const strays = [...(box.strays || [])].reverse();
   const first = size - boxLeft(box);
   const bt = (id, tint) => `<button class="bt" data-act="takeOne" aria-label="${esc(CART_ITEM[id]?.name || id)}">${treatSVG(id, 40, tint)}</button>`;
-  const cells = Array.from({ length: size }, (_, i) => (i < first ? '<i class="gone"></i>' : i < first + strays.length ? bt(strays[i - first].id, strays[i - first].tint) : bt(box.item, boxTint(box, i)))).join('');
+  const cells = Array.from({ length: size }, (_, i) => (i < first ? '<button class="gone" data-act="fillBox" aria-label="Empty spot"></button>' : i < first + strays.length ? bt(strays[i - first].id, strays[i - first].tint) : bt(box.item, boxTint(box, i)))).join('');
   return `<div class="open-box ${size > 24 ? 'big' : ''}" data-act="boxIn" style="--c:${BOX_LOOK[box.item].color}">${cells}</div>`;
 }
+// Tapping an empty spot in the open box puts back all of the box's treats from the cooler tray.
+const fillMsg = (reason) => (reason === 'boxFull' ? 'This box is full.' : 'None of these on this tray.');
 // Why a treat couldn't go back in the open box.
 const putBackMsg = (reason) => (reason === 'boxFull' ? 'This box is full.' : reason === 'drink' ? 'Drinks go in a drink case.' : reason === 'frozen' ? 'That would melt! It goes in a freezer box.' : "That can't go in there.");
 // How full the cup of spoons and the stack of napkins look.
@@ -300,6 +302,16 @@ export class CartView {
       boxIn: () => {
         if (this.coolSel == null) return;
         putBack();
+        this.save();
+        this.renderHome();
+      },
+      // an empty spot in the box: the treat you picked up goes back, or else all of this kind on the tray do
+      fillBox: () => {
+        if (this.coolSel != null) putBack();
+        else {
+          const r = c.refillBox(this.sel);
+          if (!r.ok) oops(fillMsg(r.reason));
+        }
         this.save();
         this.renderHome();
       },
@@ -569,6 +581,14 @@ export class CartView {
       boxIn: () => {
         if (sel == null) return;
         putBack();
+        m.refresh();
+      },
+      fillBox: () => {
+        if (sel != null) putBack();
+        else {
+          const r = c.refillBox(at);
+          if (!r.ok) fail(fillMsg(r.reason));
+        }
         m.refresh();
       },
       spot: (t) => {
