@@ -156,7 +156,7 @@ export function newCartState({ player, look, seed }) {
     tooHungry: null, // the minute you got too hungry and went home, today
     pantry: 0, // packed lunches you can still make at home
     grandma: null, // set up in the constructor: see newGrandma
-    stats: { sold: 0, revenue: 0, tips: 0, keptExtra: 0, toTruck: 0, soldItems: {} }, // soldItems: how many of each, ever
+    stats: { sold: 0, revenue: 0, tips: 0, keptExtra: 0, toTruck: 0, soldItems: {}, interest: 0 }, // soldItems: how many of each, ever; interest: from the bank, ever
     bought: {}, // treats bought for the cooler, ever: { id: { n, paid } } (for what each one costs, on average)
     cartName: null, // what the cart says (null: CART.cartName)
     cartPaint: null, // the cart's stripe color (null: as it came)
@@ -175,6 +175,9 @@ export class Cart {
     this.events = [];
     this.rng = makeRng(state.rngState);
     if (!state.weather) this.rollWeather();
+    // older saves: the bank account didn't pay interest yet
+    state.stats.interest ??= 0;
+    state.money.bankFrac ??= 0;
     // older saves: Italian ice came in tubs of scoops, with cups & spoons as one supply
     for (const where of ['freezer', 'cooler']) {
       const p = state[where];
@@ -780,6 +783,18 @@ export class Cart {
     this.logAction('deposit', { from, amt: total(what) });
     return true;
   }
+  // Overnight the bank pays interest on the savings account (parts of a cent carry over to the next night).
+  payInterest() {
+    const m = this.state.money;
+    const exact = m.bank * K.savings.perDay + (m.bankFrac || 0);
+    const pay = Math.floor(exact);
+    m.bankFrac = exact - pay;
+    m.bank += pay;
+    this.state.stats.interest += pay;
+    this.state.lastInterest = pay;
+    if (pay) this.logAction('interest', { amt: pay });
+    return pay;
+  }
   // The ATM gives out $20 bills.
   withdraw(amount, to) {
     if (!['box', 'wallet'].includes(to) || amount <= 0 || amount % 2000) return false;
@@ -1347,6 +1362,7 @@ export class Cart {
   nextDay() {
     const s = this.state;
     if (s.phase !== 'night') return;
+    this.payInterest();
     s.day++;
     s.phase = 'home';
     s.minute = K.homeStart;

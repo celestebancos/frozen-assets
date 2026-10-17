@@ -445,7 +445,8 @@ export class CartView {
           <h3>💵 Money</h3>
           <div class="money-row"><span>${cashBoxIcon()} Cash box <span class="tiny muted">(the cart's)</span></span><b>${money(c.boxTotal)}</b></div>
           <div class="chips">${stacks(s.money.box, 34)}</div>
-          <div class="money-row"><span>🏦 Bank <span class="tiny muted">(the cart's)</span></span><b>${money(c.bank)}</b></div>
+          <div class="money-row"><span>🏦 Savings <span class="tiny muted">(the cart's)</span></span><b>${money(c.bank)}</b></div>
+          ${s.lastInterest ? `<div class="tiny muted">📈 The bank paid ${money(s.lastInterest)} interest last night.</div>` : ''}
           <div class="money-row"><span>${walletIcon()} Wallet <span class="tiny muted">(yours)</span></span><b>${money(c.walletTotal)}</b></div>
           ${c.walletTotal ? `<div class="tiny muted">Tap one to put it in ${cashBoxIcon()}</div><div class="chips">${chips(s.money.wallet, 'toBox', 'wallet', { size: 34 })}</div>` : '<div class="tiny muted">Empty</div>'}
           <div class="row">${c.walletTotal ? `<button class="btn small" data-act="walletToBox">${walletIcon()} → ${cashBoxIcon()} All in the cash box</button>` : ''}<button class="btn small" data-act="moveMoney">↔️ Move money</button></div>
@@ -851,6 +852,7 @@ export class CartView {
   // The corner store: snacks, toys and clothes, the ATM and the change machine.
   cornerStore(onClose) {
     const c = this.cart;
+    const s = c.state;
     let tab = 'change'; // the change machine is the main reason to come here
     let from = 'box';
     let tray = {};
@@ -863,7 +865,8 @@ export class CartView {
         const fromTabs = `<div class="tabs"><button class="btn small ${from === 'box' ? 'on' : ''}" data-act="from" data-w="box">${cashBoxIcon()} Cash box ${money(c.boxTotal)}</button><button class="btn small ${from === 'wallet' ? 'on' : ''}" data-act="from" data-w="wallet">${walletIcon()} Wallet ${money(c.walletTotal)}</button></div>`;
         if (tab === 'atm') {
           const bills = Object.fromEntries(Object.entries(c.pile(from)).filter(([d]) => Number(d) >= 100));
-          body.innerHTML = `${tabs}<div class="atm"><div class="atm-screen">🏦 The cart's bank account<br><b style="font-size:28px">${money(c.bank)}</b></div>
+          body.innerHTML = `${tabs}<div class="atm"><div class="atm-screen">🏦 The cart's savings account<br><b style="font-size:28px">${money(c.bank)}</b></div>
+            <p class="tiny">📈 It's a <b>savings account</b>: every night the bank pays you <b>interest</b>, ${Math.round(K.savings.perDay * 1000)}¢ for every $10 in it. The more you save, the more it grows!${s.stats.interest ? ` So far it has paid you ${money(s.stats.interest)}.` : ''}</p>
             <h3>Put money in</h3>${fromTabs}
             <div class="chips">${chips(bills, 'give', from, { except: tray, denoms: K.denoms.filter((d) => d >= 100) })}</div>
             <div class="tray"><div class="pieces">${pieces(tray, 'untray')}</div></div>
