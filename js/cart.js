@@ -91,7 +91,11 @@ export const isFood = (id) => !!FOOD[id];
 const G = GRANDMA;
 const money = (c) => '$' + (c / 100).toFixed(2);
 const aOr = (name) => (/^[aeiou]/.test(name) ? 'an ' : 'a ') + name;
-const decalName = (id) => CART_SHOPS.decals.items.find((d) => d.id === id).name.toLowerCase();
+// a sticker's name in the middle of a sentence (a Pokémon's name keeps its capital)
+const decalName = (id) => {
+  const d = CART_SHOPS.decals.items.find((x) => x.id === id);
+  return d.group === 'pokemon' ? d.name : d.name.toLowerCase();
+};
 // Grandma's state: her favorite (something not many people pick, never this game's big seller), how she feels about
 // you (0–10, hidden), today's lunch invitation, and the advice she gave last time (to see if you took it).
 function newGrandma(state) {

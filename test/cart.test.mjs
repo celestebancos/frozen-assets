@@ -1534,3 +1534,15 @@ test('tapping an empty spot in a box puts back one of its kind from the top tray
   assert.equal(c.topTray[3], 'fudgePop');
   assert.equal(c.state.cooler.trays[1 - top][0], 'rocketPop');
 });
+
+test('every sticker has a picture: a drawing, a treat, a cone or an emoji', async () => {
+  const { stickerSVG } = await import('../js/stickerArt.js');
+  const ids = new Set();
+  for (const d of CART_SHOPS.decals.items) {
+    assert.ok(!ids.has(d.id), `${d.id} is listed twice`);
+    ids.add(d.id);
+    const svg = stickerSVG(d);
+    assert.ok(d.emoji ? svg.includes(d.emoji) : svg.includes('stk-edge'), `${d.id} has no picture`);
+    assert.ok(!d.group || CART_SHOPS.decals.groups[d.group], `${d.id} is in a group with no tab`);
+  }
+});

@@ -633,8 +633,24 @@ export const CART_SHOPS = {
       { id: 'decalFlower', name: 'Flower sticker', kind: 'decal', price: 250, emoji: '🌼', grandma: 'likes', grandmaHint: "I've always loved flowers." },
       { id: 'decalRainbow', name: 'Rainbow sticker', kind: 'decal', price: 300, emoji: '🌈' },
       { id: 'decalRocket', name: 'Rocket sticker', kind: 'decal', price: 300, emoji: '🚀', grandma: 'dislikes' },
-      { id: 'decalCone', name: 'Ice cream sticker', kind: 'decal', price: 300, emoji: '🍦' },
+      { id: 'decalCone', name: 'Ice cream sticker', kind: 'decal', price: 300, group: 'treats', cone: { flavor: 'swirl', container: 'waffle', topping: 'rainbowSprinkles' } },
+      // drawn treats (cone: a truck ice cream; treat: a cart treat), and Pokémon (drawn in js/stickerArt.js)
+      { id: 'decalVanillaCone', name: 'Vanilla cone sticker', kind: 'decal', price: 250, group: 'treats', cone: { flavor: 'vanilla', container: 'cake' } },
+      { id: 'decalChocCone', name: 'Chocolate cone sticker', kind: 'decal', price: 250, group: 'treats', cone: { flavor: 'chocolate', container: 'sugar', topping: 'chocSprinkles' } },
+      { id: 'decalBowl', name: 'Ice cream bowl sticker', kind: 'decal', price: 250, group: 'treats', cone: { flavor: 'vanilla', container: 'bowl', topping: 'rainbowSprinkles' } },
+      ...CART_ITEMS.filter((t) => t.kind !== 'drink').map((t) => ({ id: `decal${t.id[0].toUpperCase()}${t.id.slice(1)}`, name: `${t.name} sticker`, kind: 'decal', price: 250, group: 'treats', treat: t.id })),
+      { id: 'decalPokeball', name: 'Poké Ball sticker', kind: 'decal', price: 250, group: 'pokemon' },
+      { id: 'decalPikachu', name: 'Pikachu sticker', kind: 'decal', price: 350, group: 'pokemon' },
+      { id: 'decalPichu', name: 'Pichu sticker', kind: 'decal', price: 350, group: 'pokemon' },
+      { id: 'decalTogepi', name: 'Togepi sticker', kind: 'decal', price: 350, group: 'pokemon' },
+      { id: 'decalChikorita', name: 'Chikorita sticker', kind: 'decal', price: 350, group: 'pokemon' },
+      { id: 'decalBulbasaur', name: 'Bulbasaur sticker', kind: 'decal', price: 350, group: 'pokemon' },
+      { id: 'decalSquirtle', name: 'Squirtle sticker', kind: 'decal', price: 350, group: 'pokemon' },
+      { id: 'decalMudkip', name: 'Mudkip sticker', kind: 'decal', price: 350, group: 'pokemon' },
+      { id: 'decalBeautifly', name: 'Beautifly sticker', kind: 'decal', price: 350, group: 'pokemon' },
     ],
+    // the stand's tabs (items with no group are in the first)
+    groups: { fun: 'Fun', treats: 'Treats', pokemon: 'Pokémon' },
   },
 };
 // Things that make the cart look nicer bring a few more people over.

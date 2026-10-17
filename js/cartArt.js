@@ -2,6 +2,7 @@
 import { iceCreamSVG, iceCupArt, personSVG } from './art.js';
 import { CART, CART_ITEM, CART_SHOPS, FREEZE_TINTS } from './config.js';
 import { gumIcon } from './icons.js';
+import { stickerSVG } from './stickerArt.js';
 
 const INK = '#2e2a45';
 const OUT = `stroke="${INK}" stroke-width="2" stroke-linejoin="round"`;
@@ -32,7 +33,7 @@ export function cartSVG({ decals = [], umbrella = false, fan = false, bell = fal
       if (!it) return '';
       const [x, y] = at ? stickerXY(at) : STICKER_SPOTS[i % STICKER_SPOTS.length];
       const ring = pick === i ? `<circle cx="${x}" cy="${y}" r="15" fill="none" stroke="#ff6f91" stroke-width="2.4" stroke-dasharray="5 4"/>` : '';
-      return `${ring}${emo(x, y, it.emoji, 20)}`;
+      return `${ring}${stickerSVG(it, 24, [x, y])}`;
     })
     .join('');
   const shade = umbrella
@@ -420,6 +421,6 @@ export function stickerStandSVG() {
     ${sheet(22, '#fff3b0', -8)}${sheet(42, '#ffd6e7', 6)}${sheet(94, '#d6f1fb', -5)}${sheet(112, '#d8f3dc', 8)}
     <rect x="8" y="80" width="134" height="9" rx="3" fill="#3cc6a0" ${OUT}/>
     <path d="M10 89 H140 V126 Q132 132 124 126 Q115 132 107 126 Q98 132 90 126 Q81 132 73 126 Q64 132 56 126 Q47 132 39 126 Q30 132 22 126 Q16 131 10 126 Z" fill="#fffaf0" ${OUT}/>
-    ${emo(28, 108, '⭐', 15)}${emo(56, 108, '💖', 15)}${emo(84, 108, '🌈', 15)}${emo(112, 108, '🚀', 15)}
+    ${emo(28, 108, '⭐', 15)}${[['decalPikachu', 56], ['decalHeart', 84], ['decalPokeball', 112]].map(([id, x]) => stickerSVG(CART_SHOPS.decals.items.find((d) => d.id === id), 18, [x, 107])).join('')}
     <path d="M20 128 V144 M130 128 V144" stroke="${INK}" stroke-width="4" stroke-linecap="round"/></svg>`;
 }
