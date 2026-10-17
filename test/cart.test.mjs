@@ -167,8 +167,7 @@ test('packing one at a time: first empty spot, two trays, swaps, and back in the
   assert.ok(c.moveSpot(0, 7));
   assert.equal(c.topTray[7], 'rocketPop');
   assert.equal(c.packOne('s0-0').i, 0);
-  // back in the box: only the same kind, and only if there's room
-  assert.equal(c.unpackOne(1, 's0-0').reason, 'kind');
+  // back in the box, if there's room
   assert.ok(c.unpackOne(7, 's0-0').ok);
   assert.equal(c.boxAt('s0-0').n, 23);
   // a full top tray: swap trays to fill the other one (a second box, since a tray holds more than one box)
@@ -1429,4 +1428,46 @@ test('hot days make you hungry faster; the umbrella and the fan help, and people
   buy(c, 'restaurant', { umbrella: 1 });
   assert.equal(c.hunger, before);
   assert.ok(c.state.fed.rate < hotRate);
+});
+
+test('treats can go back in the wrong box, and come out first', () => {
+  const c = Cart.create({ player: 'Test', seed: 7 });
+  c.state.freezer.shelves[0][0] = { item: 'rocketPop', n: 22 };
+  c.state.freezer.shelves[0][1] = { item: 'freezePop', n: 3 };
+  c.state.drinkShelf[0] = { item: 'water', n: 23 };
+  c.state.cooler.trays[c.state.cooler.top] = c.topTray.map((_, i) => (i === 0 ? 'freezePop' : i === 1 ? 'fudgePop' : i === 2 ? 'water' : null));
+  c.state.cooler.tints[c.state.cooler.top][0] = 3;
+  // a freeze pop in the rocket pop box: it keeps its color
+  assert.deepEqual(c.unpackOne(0, 's0-0'), { ok: true, stray: true });
+  assert.deepEqual(c.boxAt('s0-0'), { item: 'rocketPop', n: 22, strays: [{ id: 'freezePop', tint: 3 }] });
+  assert.equal(c.count('freezer', 'freezePop'), 4);
+  // frozen treats stay in freezer boxes, drinks in drink cases
+  assert.equal(c.unpackOne(2, 's0-0').reason, 'drink');
+  assert.equal(c.unpackOne(1, 'd0').reason, 'frozen');
+  // a full box takes no more (22 + 1 stray + 1 = 24)
+  assert.ok(c.unpackOne(1, 's0-0').ok);
+  assert.equal(c.unpackOne(2, 'd0').ok, true);
+  c.state.cooler.trays[c.state.cooler.top][5] = 'iceBlue';
+  assert.equal(c.unpackOne(5, 's0-0').reason, 'boxFull');
+  c.state.cooler.trays[c.state.cooler.top][5] = null;
+  // the last one in comes out first, then the freeze pop, then the box's own
+  assert.equal(c.packOne('s0-0').i, 0);
+  assert.equal(c.topTray[0], 'fudgePop');
+  assert.equal(c.packOne('s0-0').i, 1);
+  assert.equal(c.topTray[1], 'freezePop');
+  assert.equal(c.tintAt(1), 3);
+  assert.deepEqual(c.boxAt('s0-0'), { item: 'rocketPop', n: 22 });
+  assert.equal(c.packOne('s0-0').i, 2);
+  assert.equal(c.topTray[2], 'rocketPop');
+  // packing by kind finds strays first, and a box with only strays left is not empty
+  c.state.cooler.trays[c.state.cooler.top] = c.topTray.map(() => null);
+  c.state.freezer.shelves[0][2] = { item: 'iceBlue', n: 0, strays: [{ id: 'freezePop', tint: 1 }] };
+  assert.ok(!c.recycle('s0-2'));
+  assert.equal(c.pack('freezePop', 1).n, 1);
+  assert.equal(c.boxAt('s0-2'), null, 'the box is used up');
+  assert.equal(c.boxAt('s0-1').n, 3, 'the freeze pop box is untouched');
+  // a stray left on the counter melts with the rest
+  c.state.counter.push({ item: 'rocketPop', n: 2, strays: [{ id: 'fudgePop', tint: null }] });
+  c.openPark();
+  assert.equal(c.state.today.melted, 3);
 });

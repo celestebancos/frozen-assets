@@ -1,7 +1,7 @@
 // The park cart screens: make your character, the morning at home, shops and errands, and the park day
 // where every sale is served and every bit of change is counted by hand.
 import { CART, GRANDMA, sliceText, CART_ITEMS, CART_ITEM, CART_SHOPS, CART_CROWD, REGULARS } from '../config.js';
-import { Cart, total, pileCount, pileOf, capOf, bulkPrice, boxTint, FOOD, isFood, CART_DAY_NAMES } from '../cart.js';
+import { Cart, total, pileCount, pileOf, capOf, boxLeft, bulkPrice, boxTint, FOOD, isFood, CART_DAY_NAMES } from '../cart.js';
 import { personSVG, parkSVG, CHARACTER, PARK_VIEW } from '../art.js';
 import { cartSVG, toyPlaySVG, STICKER_AREA, umbrellaSVG, moneySVG, treatSVG, thingSVG, boxFrontSVG, boxSideSVG, BOX_LOOK, spoonCupSVG, napkinStackSVG, spoonBoxSVG, napkinPackSVG, recyclingBinSVG, swingSetSVG, balloonSVG, hotdogStandSVG, balloonSellerSVG, stickerStandSVG } from '../cartArt.js';
 import { ParkStories } from './parkStories.js';
@@ -80,12 +80,18 @@ function coolerHTML(tray, { act = 'spot', sel = null, fresh = null, tints = [] }
     .join('');
   return `<div class="cooler"><div class="cl-lid"><i></i><i></i></div><div class="cl-body"><div class="cl-tray" style="--cols:${K.trayCols}">${spots}</div></div><button class="btn small cl-swap" data-act="swapTrays">🔄 Swap trays</button></div>`;
 }
-// Looking down into an open box: the treats that are left, and the gaps where some are gone.
+// Looking down into an open box: the treats that are left, and the gaps where some are gone. Treats put back in
+// the wrong box sit in front of the box's own (the last one put in first: it's the next one out).
 function openBoxHTML(box) {
   const size = capOf(box);
-  const cells = Array.from({ length: size }, (_, i) => (i < size - box.n ? '<i class="gone"></i>' : `<button class="bt" data-act="takeOne" aria-label="${esc(CART_ITEM[box.item].name)}">${treatSVG(box.item, 40, boxTint(box, i))}</button>`)).join('');
+  const strays = [...(box.strays || [])].reverse();
+  const first = size - boxLeft(box);
+  const bt = (id, tint) => `<button class="bt" data-act="takeOne" aria-label="${esc(CART_ITEM[id]?.name || id)}">${treatSVG(id, 40, tint)}</button>`;
+  const cells = Array.from({ length: size }, (_, i) => (i < first ? '<i class="gone"></i>' : i < first + strays.length ? bt(strays[i - first].id, strays[i - first].tint) : bt(box.item, boxTint(box, i)))).join('');
   return `<div class="open-box ${size > 24 ? 'big' : ''}" data-act="boxIn" style="--c:${BOX_LOOK[box.item].color}">${cells}</div>`;
 }
+// Why a treat couldn't go back in the open box.
+const putBackMsg = (reason) => (reason === 'boxFull' ? 'This box is full.' : reason === 'drink' ? 'Drinks go in a drink case.' : reason === 'frozen' ? 'That would melt! It goes in a freezer box.' : "That can't go in there.");
 // How full the cup of spoons and the stack of napkins look.
 const cupFill = (n) => (n > 0 ? Math.min(7, Math.ceil(n / 15)) : 0);
 const stackFill = (n) => (n > 0 ? Math.min(10, Math.ceil(n / 10)) : 0);
@@ -247,7 +253,7 @@ export class CartView {
     // a treat picked up in the cooler goes back in the open box
     const putBack = () => {
       const r = c.unpackOne(this.coolSel, this.sel);
-      if (!r.ok) return oops(r.reason === 'boxFull' ? 'This box is full.' : 'That goes in a different box.');
+      if (!r.ok) return oops(putBackMsg(r.reason));
       this.coolSel = null;
     };
     onActs(scr, {
@@ -321,7 +327,7 @@ export class CartView {
       recycle: () => {
         const box = this.sel && c.boxAt(this.sel);
         if (!box) return toast('♻️ Open an empty box, then tap here.');
-        if (box.n) return oops('This box still has treats in it!');
+        if (boxLeft(box)) return oops('This box still has treats in it!');
         c.recycle(this.sel);
         this.sel = null;
         this.coolSel = null;
@@ -407,7 +413,7 @@ export class CartView {
       },
       park: async () => {
         if (!c.spaceUsed('cooler') && !(await askYes('Your cooler is empty! Go to the park anyway?', { yes: 'Go anyway', no: 'Wait' }))) return;
-        if (s.counter.some((b) => b.n > 0 && CART_ITEM[b.item]?.kind !== 'drink') && c.freeSlots && !(await askYes('Some boxes are still on the counter. They will melt! Go anyway?', { yes: 'Go anyway', no: 'Wait' }))) return;
+        if (s.counter.some((b) => boxLeft(b) > 0 && CART_ITEM[b.item]?.kind !== 'drink') && c.freeSlots && !(await askYes('Some boxes are still on the counter. They will melt! Go anyway?', { yes: 'Go anyway', no: 'Wait' }))) return;
         if (!s.spoons && s.cooler.trays.flat().some((id) => id && c.isIce(id)) && !(await askYes(s.packs.spoons ? 'No spoons on the cart! Tap the spoon box on the shelf to bring some. Go anyway?' : 'No spoons on the cart! Go anyway?', { yes: 'Go anyway', no: 'Wait' }))) return;
         c.openPark();
         this.save();
@@ -474,7 +480,7 @@ export class CartView {
     const name = (b) => esc(BOX_ITEM[b.item]?.name || b.item);
     const slot = (loc, b) => {
       if (!b) return `<button class="slot empty ${sel && !c.isDrinkBox(sel) ? 'target' : ''}" data-act="slot" data-loc="${loc}" aria-label="Empty spot"></button>`;
-      return `<button class="slot ${sel === loc ? 'sel' : ''} ${b.n ? '' : 'spent'}" data-act="slot" data-loc="${loc}" aria-label="${name(b)}">${boxSideSVG(b.item, b.n < capOf(b))}</button>`;
+      return `<button class="slot ${sel === loc ? 'sel' : ''} ${boxLeft(b) ? '' : 'spent'}" data-act="slot" data-loc="${loc}" aria-label="${name(b)}">${boxSideSVG(b.item, boxLeft(b) < capOf(b))}</button>`;
     };
     const shelves = s.freezer.shelves.map((shelf, r) => `<div class="fz-shelf">${shelf.map((b, i) => slot(`s${r}-${i}`, b)).join('')}</div>`).join('<div class="fz-rail"></div>');
     // the drinks shelf: cases of water and fruit punch (they don't need the freezer)
@@ -482,7 +488,7 @@ export class CartView {
     const drinks = s.drinkShelf
       .map((b, i) =>
         b
-          ? `<button class="dslot ${sel === `d${i}` ? 'sel' : ''} ${b.n ? '' : 'spent'}" data-act="slot" data-loc="d${i}" aria-label="${name(b)}">${boxFrontSVG(b.item, capOf(b))}</button>`
+          ? `<button class="dslot ${sel === `d${i}` ? 'sel' : ''} ${boxLeft(b) ? '' : 'spent'}" data-act="slot" data-loc="d${i}" aria-label="${name(b)}">${boxFrontSVG(b.item, capOf(b))}</button>`
           : `<button class="dslot empty ${selDrink ? 'target' : ''}" data-act="slot" data-loc="d${i}" aria-label="Empty spot for drinks"></button>`,
       )
       .join('');
@@ -493,11 +499,11 @@ export class CartView {
     const packs = (k, svg) => Array.from({ length: Math.min(3, s.packs[k]) }, () => `<button class="pk" data-act="openPack" data-k="${k}" aria-label="Put ${k} on the cart">${svg}</button>`).join('') + (s.packs[k] > 3 ? `<span class="pk-more">×${s.packs[k]}</span>` : '');
     const box = sel ? c.boxAt(sel) : null;
     const open = box
-      ? `${openBoxHTML(box)}<div class="row box-btns"><button class="btn" data-act="shut">📦 ${sel.startsWith('s') ? 'Back in freezer' : sel.startsWith('d') ? 'Back on shelf' : 'Close box'}</button>${box.n ? '' : '<button class="btn" data-act="recycle">♻️ Recycle</button>'}</div>`
+      ? `${openBoxHTML(box)}<div class="row box-btns"><button class="btn" data-act="shut">📦 ${sel.startsWith('s') ? 'Back in freezer' : sel.startsWith('d') ? 'Back on shelf' : 'Close box'}</button>${boxLeft(box) ? '' : '<button class="btn" data-act="recycle">♻️ Recycle</button>'}</div>`
       : '';
     // the recycling bin: tap an empty box, then the bin. Boxes in it can come back out until you leave home.
     const binned = s.recycling.map((id, i) => `<button class="binned" data-act="unrecycle" data-i="${i}" aria-label="Take out ${esc(BOX_ITEM[id]?.name || id)} box" style="--r:${((i * 37) % 30) - 15}deg">${boxFrontSVG(id, 0)}</button>`).join('');
-    const bin = `<div class="bin-spot"><div class="binned-row">${binned}</div><button class="bin ${box && !box.n ? 'target' : ''}" data-act="recycle" aria-label="Recycling bin">${recyclingBinSVG()}</button></div>`;
+    const bin = `<div class="bin-spot"><div class="binned-row">${binned}</div><button class="bin ${box && !boxLeft(box) ? 'target' : ''}" data-act="recycle" aria-label="Recycling bin">${recyclingBinSVG()}</button></div>`;
     const html = `<div class="card kitchen">
       <div class="kit-top">
         <div class="fridge"><div class="fz-door"><i class="hinge"></i><i class="hinge low"></i></div><div class="fz-box"><div class="fz-in">${shelves}</div></div></div>
@@ -543,7 +549,7 @@ export class CartView {
     };
     const putBack = () => {
       const r = c.unpackOne(sel, at);
-      if (!r.ok) return fail(r.reason === 'boxFull' ? 'This box is full.' : 'That goes in a different box.');
+      if (!r.ok) return fail(putBackMsg(r.reason));
       sel = null;
     };
     onActs(m.body, {
