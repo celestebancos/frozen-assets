@@ -24,7 +24,7 @@ export function newGameState({ player, business, color, tune = 'entertainer', se
     day: 1,
     minute: C.dayStartMin,
     phase: 'setup', // setup | open | closed | seasonEnd | won | lost
-    loanActive: !partner, // with Grandma as a co-owner there's no bank loan
+    loanActive: !partner || !!loan, // with Grandma as a co-owner there's no bank loan, unless the truck needs one too
     // Grandma as a co-owner: what she put in, and her slice of the profit ([1, 4]: $1 of every $4)
     partner: partner ? { name: 'Grandma', put: partner.put, slice: partner.slice, splitUpTo: 0 } : null, // splitUpTo: profit already split
     seasonStartShare: ownerCash, // your own Share when this summer started (a summer with Grandma is won by growing it)
@@ -471,7 +471,8 @@ export class Game {
         { acct: 'cash', amt: s.partner.put },
         { acct: 'grandmaIn', amt: s.partner.put },
       ], { label: `Grandma's money for the truck. She gets ${sliceText(s.partner.slice)} of profit.`, amt: s.partner.put });
-    } else {
+    }
+    if (s.loanActive) {
       this.post('loanPapers', [
         { acct: 'cash', amt: principal },
         { acct: 'loan', amt: principal },

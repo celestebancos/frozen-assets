@@ -10,7 +10,6 @@ Not built yet. Most of these teach that **profit isn't cash**, and most add a ne
 - **Bills sent to customers.** The library or the town fair pays 30 days later, and some pay late. A big sale can still leave you short of cash.
 
 ## Costs that don't feel like costs
-- **The truck wears out** (depreciation): an expense with no cash leaving.
 - **Repair or upgrade?** A flat tire is an expense; a new freezer is something you own.
 - **Insurance and permits** paid up front: an asset that turns into an expense week by week.
 - **Sales tax.** Collected for the town; it sits in the cash box but isn't yours.
@@ -22,10 +21,6 @@ Not built yet. Most of these teach that **profit isn't cash**, and most add a ne
 - **Will I have enough cash on Tuesday?** A simple forecast before a big order or event.
 - **A competitor truck** parks at your best spot.
 - **Suppliers raise prices** mid-summer, unless you signed a contract earlier.
-
-## Trucks and starting out
-- **Cheap used trucks** on the lot: shabby looks mean fewer sales in the fancy neighborhoods until it's repainted, plus worse gas mileage and breakdowns (a lost day and a repair bill).
-- **A push cart** selling popsicles: no truck, no gas, a small area and no bank loan. Borrow from a relative instead: maybe no interest, but a promise to pay back. Could be an easier first summer before graduating to a truck.
 
 ## Growing (summer 2 and later)
 - **Paying for a second truck:** another loan (interest), selling part of the business to a grandparent (a share of the profit forever), or leasing.

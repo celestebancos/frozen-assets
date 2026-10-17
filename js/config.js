@@ -19,6 +19,9 @@ export const CONFIG = {
     { id: 'l12', principal: 1_200_000, dailyInterest: 650 },
   ],
   minStartCash: 10_000, // the truck must leave at least this much for supplies
+  // The bank charges less interest when you bring money of your own (cart money, and Grandma's): the down payment's
+  // share of all the money going in. Below `small` is no down payment (more interest); from `big` on, less.
+  downPayment: { small: 0.05, big: 0.25, rates: { none: 1.25, small: 1, big: 0.75 } },
   lateFee: { unpaidDays: 3, amount: 1000 },
 
   gas: { pricePerGal: 350, tankGal: 20, idleGalPerHour: 0.1, cruiseGalPerHour: 0.25, startGal: 20, autoFillBelow: 0.3 },
@@ -426,6 +429,15 @@ export const TRUCK_PRICE = 970_000;
 // Used trucks on the lot: miles between the two numbers; fewer miles cost more (price = new × (top − miles × perMile),
 // to the $50).
 export const USED_TRUCK = { usedOnLot: 2, miles: [50000, 150000], top: 0.72, perMile: 1 / 400000 };
+// What a loan costs with a down payment (cents of your own money going in alongside it): the tier, and the interest a
+// day. principal can be any amount; the interest per dollar is the same as the $10,000 loan's, times the tier's rate.
+export function loanWithDown(principal, down) {
+  const D = CONFIG.downPayment;
+  const share = down / (down + principal);
+  const tier = share >= D.big ? 'big' : share >= D.small ? 'small' : 'none';
+  const base = CONFIG.loans.find((l) => l.principal === principal) || { principal, dailyInterest: (principal * CONFIG.loan.dailyInterest) / CONFIG.loan.principal };
+  return { principal, dailyInterest: Math.round(base.dailyInterest * D.rates[tier]), tier, share };
+}
 export const usedTruckPrice = (miles) => Math.round((TRUCK_PRICE * (USED_TRUCK.top - miles * USED_TRUCK.perMile)) / 5000) * 5000;
 export const TRUCK_COLORS = [
   { id: 'white', name: 'Vanilla', hex: '#fff7ea' },
